@@ -2690,6 +2690,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   </div>
                 </div>
 
+                <ApprovalTimeline
+                  submittedAt={historyDetail.submittedForApprovalAt}
+                  submittedBy={historyDetail.submittedBy}
+                  decidedAt={historyDetail.approvedAt}
+                  decidedBy={historyDetail.approvedBy}
+                  decision={
+                    (historyDetail.approvalStatus === 'approved'
+                      ? 'approved'
+                      : historyDetail.approvalStatus === 'not_approved'
+                      ? 'not_approved'
+                      : 'pending') as any
+                  }
+                />
+
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <SummaryStat label="Planned amount" value={ZAR(historyDetail.totals.plannedAmount)} />
                   <SummaryStat label="Approved amount" value={ZAR(historyDetail.totals.approvedAmount)} tone="success" />
