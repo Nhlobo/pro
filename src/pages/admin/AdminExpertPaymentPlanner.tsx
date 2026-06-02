@@ -483,6 +483,55 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     }
   };
 
+  // Email the saved/submitted payment plan PDF to the submitter and all admins.
+  // Used by saveSnapshot so every "Plan saved & sent for approval" action also
+  // delivers an email copy to the user and approvers.
+  const emailSubmissionToUserAndAdmins = async (snap: HistorySnapshot) => {
+    try {
+      const { doc, filename } = buildSnapshotPdf(snap);
+      const dataUri = doc.output('datauristring');
+      const pdfBase64 = dataUri.split(',')[1] || '';
+
+      // Collect admin emails (always include the dedicated approver).
+      const adminEmails = new Set<string>();
+      adminEmails.add(APPROVER_EMAIL);
+      try {
+        const { data: roles } = await supabase
+          .from('user_roles').select('user_id').eq('role', 'admin');
+        const ids = (roles || []).map((r: any) => r.user_id).filter(Boolean);
+        if (ids.length) {
+          const { data: profs } = await supabase
+            .from('profiles').select('email').in('id', ids);
+          (profs || []).forEach((p: any) => {
+            if (p?.email) adminEmails.add(String(p.email).trim().toLowerCase());
+          });
+        }
+      } catch (e) { console.warn('Could not resolve admin emails:', e); }
+
+      const submitter = (user?.email || '').trim().toLowerCase();
+      const toList = Array.from(new Set([...(submitter ? [submitter] : []), ...adminEmails])).filter(Boolean);
+      if (!toList.length) return;
+
+      const subject = `Payment Plan Submitted — ${snap.label}`;
+      const message =
+        `A new Expert Payment Plan has been submitted for approval.\n\n` +
+        `Plan: ${snap.label}\n` +
+        `Submitted by: ${snap.submittedBy || currentUserName}\n` +
+        `Submitted at: ${fmtStamp(snap.created_at)}\n` +
+        `Items: ${snap.entries.length}  ·  To be paid: ${ZAR(snap.totals.plannedAmount)}  ·  Urgent: ${ZAR(snap.totals.urgentAmount)}\n\n` +
+        `The full plan is attached as a PDF for your reference.`;
+
+      const { error } = await supabase.functions.invoke('send-payment-planner-email', {
+        body: { to: toList.join(','), subject, message, filename, pdfBase64 },
+      });
+      if (error) throw error;
+      toast.success('Email copy sent to you and admins');
+    } catch (e: any) {
+      console.error('emailSubmissionToUserAndAdmins failed:', e);
+      toast.error('Plan saved, but email copy failed', { description: e?.message || String(e) });
+    }
+  };
+
   // Initial load from DB + realtime subscription
   useEffect(() => {
     let active = true;
