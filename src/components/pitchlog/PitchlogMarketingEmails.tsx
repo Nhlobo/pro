@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Mail, Plus, Download, Trash2, RefreshCw, Merge } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from 'date-fns';
 
-type PracticeCategory = 'raf_medneg' | 'other' | 'unknown';
+type PracticeCategory = 'raf_medneg' | 'other' | 'not_applicable' | 'unknown';
 
 interface MarketingEmail {
   id: string;
@@ -29,12 +29,14 @@ interface MarketingEmail {
 }
 
 const RAF_MEDNEG_PITCHLOG = new Set(['RAF', 'Medical Negligence', 'Both RAF & Med Neg']);
-const OTHER_PITCHLOG = new Set(['Other Service', 'Not Applicable']);
+const OTHER_PITCHLOG = new Set(['Other Service']);
+const NOT_APPLICABLE_PITCHLOG = new Set(['Not Applicable']);
 const RAF_MEDNEG_MATTER = new Set(['mva', 'med_neg', 'both']);
 
 const categorizeFromPitchlog = (pa?: string | null): { cat: PracticeCategory; label: string } => {
   if (!pa) return { cat: 'unknown', label: 'Unknown' };
   if (RAF_MEDNEG_PITCHLOG.has(pa)) return { cat: 'raf_medneg', label: pa };
+  if (NOT_APPLICABLE_PITCHLOG.has(pa)) return { cat: 'not_applicable', label: pa };
   if (OTHER_PITCHLOG.has(pa)) return { cat: 'other', label: pa };
   return { cat: 'unknown', label: pa };
 };
@@ -43,6 +45,7 @@ const categorizeFromMatterType = (mt?: string | null): { cat: PracticeCategory; 
   if (!mt) return { cat: 'unknown', label: 'Unknown' };
   const lbl = mt === 'mva' ? 'RAF' : mt === 'med_neg' ? 'Medical Negligence' : mt === 'both' ? 'Both RAF & Med Neg' : mt;
   if (RAF_MEDNEG_MATTER.has(mt)) return { cat: 'raf_medneg', label: lbl };
+  if (mt === 'not_applicable') return { cat: 'not_applicable', label: 'Not Applicable' };
   return { cat: 'other', label: lbl };
 };
 
@@ -66,7 +69,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
   const [selectedQuarter, setSelectedQuarter] = useState(Math.ceil((new Date().getMonth() + 1) / 3).toString());
   const [search, setSearch] = useState('');
 
-  const [practiceFilter, setPracticeFilter] = useState<'raf_medneg' | 'other' | 'all'>('raf_medneg');
+  const [practiceFilter, setPracticeFilter] = useState<'raf_medneg' | 'other' | 'not_applicable' | 'all'>('raf_medneg');
 
   const { data: emails = [], isLoading } = useQuery({
     queryKey: ['attorney-marketing-emails'],
@@ -288,6 +291,8 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
       result = result.filter(e => e.practice_category === 'raf_medneg' || e.practice_category === 'unknown');
     } else if (practiceFilter === 'other') {
       result = result.filter(e => e.practice_category === 'other');
+    } else if (practiceFilter === 'not_applicable') {
+      result = result.filter(e => e.practice_category === 'not_applicable');
     }
 
     // Search filter
@@ -435,7 +440,8 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
               <SelectTrigger className="w-[220px] h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="raf_medneg">Does RAF / Med Neg / Both</SelectItem>
-                <SelectItem value="other">Does NOT do RAF / Med Neg</SelectItem>
+                <SelectItem value="other">Does NOT do RAF / Med Neg (Other)</SelectItem>
+                <SelectItem value="not_applicable">Not Applicable</SelectItem>
                 <SelectItem value="all">All Practice Areas</SelectItem>
               </SelectContent>
             </Select>
@@ -488,6 +494,8 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
                           ? 'bg-success/10 text-success border-success/30'
                           : entry.practice_category === 'other'
                           ? 'bg-destructive/10 text-destructive border-destructive/30'
+                          : entry.practice_category === 'not_applicable'
+                          ? 'bg-warning/10 text-warning border-warning/30'
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
