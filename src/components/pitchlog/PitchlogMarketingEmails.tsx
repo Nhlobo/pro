@@ -456,6 +456,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
                 <TableHead className="w-[40px]">#</TableHead>
                 <TableHead>Referring Attorney Name</TableHead>
                 <TableHead>Email Address</TableHead>
+                <TableHead>Practice</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Collected Date</TableHead>
                 <TableHead className="w-[80px]">Actions</TableHead>
