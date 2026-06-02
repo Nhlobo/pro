@@ -76,6 +76,56 @@ const handler = async (req: Request): Promise<Response> => {
     // Extract attachments from metadata if present
     const metadataAttachments = email.metadata?.attachments || [];
 
+    // Sanitize CC list ONCE so we can both send and audit-log the exact recipients used
+    const sanitizedCc: string[] = (() => {
+      const raw = email.metadata?.cc_addresses;
+      if (!raw) return [];
+      const emailRegex = /^[^\s<>@]+@[^\s<>@.]+\.[^\s<>@]+$/;
+      const list = (Array.isArray(raw) ? raw : [raw])
+        .flatMap((v: any) => String(v ?? '').split(/[,;:\s\n\r]+/))
+        .map((s: string) => s.trim().replace(/^<|>$/g, ''))
+        .filter((s: string) => s.length > 0 && emailRegex.test(s))
+        .filter((s: string) => !/@kutlwanoassociate\.com$/i.test(s));
+      return Array.from(new Set(list));
+    })();
+
+    const rawCcInput = email.metadata?.cc_addresses ?? null;
+    const droppedCc = (() => {
+      if (!rawCcInput) return [];
+      const rawTokens = (Array.isArray(rawCcInput) ? rawCcInput : [rawCcInput])
+        .flatMap((v: any) => String(v ?? '').split(/[,;:\s\n\r]+/))
+        .map((s: string) => s.trim().replace(/^<|>$/g, ''))
+        .filter((s: string) => s.length > 0);
+      const keepSet = new Set(sanitizedCc.map(e => e.toLowerCase()));
+      return Array.from(new Set(rawTokens.filter(t => !keepSet.has(t.toLowerCase()))));
+    })();
+
+    // Pre-send audit log: capture the EXACT sanitized recipients used for this send
+    try {
+      await supabase.from('audit_logs').insert({
+        action_type: 'EMAIL_RECIPIENTS_SANITIZED',
+        table_name: email.related_table || 'email_queue',
+        record_id: email.related_record_id || emailId,
+        function_area: 'Email History',
+        description: `Sanitized recipients for queued email ${emailId} (${email.email_type})`,
+        new_values: {
+          email_id: emailId,
+          email_type: email.email_type,
+          subject: email.subject,
+          to: email.recipient_email,
+          cc: sanitizedCc,
+          cc_count: sanitizedCc.length,
+          attachments_count: metadataAttachments.length,
+          cc_raw_input: rawCcInput,
+          cc_dropped: droppedCc,
+        },
+      });
+    } catch (auditErr) {
+      console.error('Failed to write recipient audit log (non-fatal):', auditErr);
+    }
+
+    console.log(`Sanitized recipients for ${emailId} — to=${email.recipient_email} cc=[${sanitizedCc.join(', ')}] dropped=[${droppedCc.join(', ')}]`);
+
     // Send the email immediately via Resend
     const emailResult = await sendEmail({
       to: email.recipient_email,
@@ -83,20 +133,10 @@ const handler = async (req: Request): Promise<Response> => {
       html: email.html_content,
       replyTo: 'info@kamedico-legal.co.za',
       ...(fromAddress && { from: fromAddress }),
-      ...((() => {
-        const raw = email.metadata?.cc_addresses;
-        if (!raw) return {};
-        const emailRegex = /^[^\s<>@]+@[^\s<>@.]+\.[^\s<>@]+$/;
-        const list = (Array.isArray(raw) ? raw : [raw])
-          .flatMap((v: any) => String(v ?? '').split(/[,;:\s\n\r]+/))
-          .map((s: string) => s.trim().replace(/^<|>$/g, ''))
-          .filter((s: string) => s.length > 0 && emailRegex.test(s))
-          .filter((s: string) => !/@kutlwanoassociate\.com$/i.test(s));
-        const unique = Array.from(new Set(list));
-        return unique.length > 0 ? { cc: unique } : {};
-      })()),
+      ...(sanitizedCc.length > 0 && { cc: sanitizedCc }),
       ...(metadataAttachments.length > 0 && { attachments: metadataAttachments }),
     });
+
 
     console.log(`Email send result for ${emailId}:`, JSON.stringify(emailResult));
 
