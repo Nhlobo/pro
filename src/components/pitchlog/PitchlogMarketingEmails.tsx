@@ -15,7 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Mail, Plus, Download, Trash2, RefreshCw, Merge } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from 'date-fns';
 
-type PracticeCategory = 'raf_medneg' | 'other' | 'not_applicable' | 'unknown';
+type PracticeCategory = 'raf' | 'med_neg' | 'both' | 'other' | 'not_applicable' | 'unknown';
+const RAF_MEDNEG_CATS: PracticeCategory[] = ['raf', 'med_neg', 'both'];
 
 interface MarketingEmail {
   id: string;
@@ -28,25 +29,23 @@ interface MarketingEmail {
   practice_label: string;
 }
 
-const RAF_MEDNEG_PITCHLOG = new Set(['RAF', 'Medical Negligence', 'Both RAF & Med Neg']);
-const OTHER_PITCHLOG = new Set(['Other Service']);
-const NOT_APPLICABLE_PITCHLOG = new Set(['Not Applicable']);
-const RAF_MEDNEG_MATTER = new Set(['mva', 'med_neg', 'both']);
-
 const categorizeFromPitchlog = (pa?: string | null): { cat: PracticeCategory; label: string } => {
   if (!pa) return { cat: 'unknown', label: 'Unknown' };
-  if (RAF_MEDNEG_PITCHLOG.has(pa)) return { cat: 'raf_medneg', label: pa };
-  if (NOT_APPLICABLE_PITCHLOG.has(pa)) return { cat: 'not_applicable', label: pa };
-  if (OTHER_PITCHLOG.has(pa)) return { cat: 'other', label: pa };
+  if (pa === 'RAF') return { cat: 'raf', label: 'RAF' };
+  if (pa === 'Medical Negligence') return { cat: 'med_neg', label: 'Medical Negligence' };
+  if (pa === 'Both RAF & Med Neg') return { cat: 'both', label: 'Both RAF & Med Neg' };
+  if (pa === 'Not Applicable') return { cat: 'not_applicable', label: pa };
+  if (pa === 'Other Service') return { cat: 'other', label: pa };
   return { cat: 'unknown', label: pa };
 };
 
 const categorizeFromMatterType = (mt?: string | null): { cat: PracticeCategory; label: string } => {
   if (!mt) return { cat: 'unknown', label: 'Unknown' };
-  const lbl = mt === 'mva' ? 'RAF' : mt === 'med_neg' ? 'Medical Negligence' : mt === 'both' ? 'Both RAF & Med Neg' : mt;
-  if (RAF_MEDNEG_MATTER.has(mt)) return { cat: 'raf_medneg', label: lbl };
+  if (mt === 'mva') return { cat: 'raf', label: 'RAF' };
+  if (mt === 'med_neg') return { cat: 'med_neg', label: 'Medical Negligence' };
+  if (mt === 'both') return { cat: 'both', label: 'Both RAF & Med Neg' };
   if (mt === 'not_applicable') return { cat: 'not_applicable', label: 'Not Applicable' };
-  return { cat: 'other', label: lbl };
+  return { cat: 'other', label: mt };
 };
 
 interface PitchlogMarketingEmailsProps {
