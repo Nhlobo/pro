@@ -15,6 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Mail, Plus, Download, Trash2, RefreshCw, Merge } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from 'date-fns';
 
+type PracticeCategory = 'raf_medneg' | 'other' | 'unknown';
+
 interface MarketingEmail {
   id: string;
   attorney_name: string;
@@ -22,7 +24,27 @@ interface MarketingEmail {
   source: string;
   collected_at: string;
   updated_at: string;
+  practice_category: PracticeCategory;
+  practice_label: string;
 }
+
+const RAF_MEDNEG_PITCHLOG = new Set(['RAF', 'Medical Negligence', 'Both RAF & Med Neg']);
+const OTHER_PITCHLOG = new Set(['Other Service', 'Not Applicable']);
+const RAF_MEDNEG_MATTER = new Set(['mva', 'med_neg', 'both']);
+
+const categorizeFromPitchlog = (pa?: string | null): { cat: PracticeCategory; label: string } => {
+  if (!pa) return { cat: 'unknown', label: 'Unknown' };
+  if (RAF_MEDNEG_PITCHLOG.has(pa)) return { cat: 'raf_medneg', label: pa };
+  if (OTHER_PITCHLOG.has(pa)) return { cat: 'other', label: pa };
+  return { cat: 'unknown', label: pa };
+};
+
+const categorizeFromMatterType = (mt?: string | null): { cat: PracticeCategory; label: string } => {
+  if (!mt) return { cat: 'unknown', label: 'Unknown' };
+  const lbl = mt === 'mva' ? 'RAF' : mt === 'med_neg' ? 'Medical Negligence' : mt === 'both' ? 'Both RAF & Med Neg' : mt;
+  if (RAF_MEDNEG_MATTER.has(mt)) return { cat: 'raf_medneg', label: lbl };
+  return { cat: 'other', label: lbl };
+};
 
 interface PitchlogMarketingEmailsProps {
   periodStart?: Date;
@@ -44,6 +66,8 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
   const [selectedQuarter, setSelectedQuarter] = useState(Math.ceil((new Date().getMonth() + 1) / 3).toString());
   const [search, setSearch] = useState('');
 
+  const [practiceFilter, setPracticeFilter] = useState<'raf_medneg' | 'other' | 'all'>('raf_medneg');
+
   const { data: emails = [], isLoading } = useQuery({
     queryKey: ['attorney-marketing-emails'],
     queryFn: async () => {
@@ -54,13 +78,44 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
         .order('attorney_name', { ascending: true });
       if (error) throw error;
 
-      // Auto-fetch from pitchlog
+      // Auto-fetch from pitchlog (with practice_area)
       const { data: pitchlogData } = await supabase
         .from('attorney_pitchlog')
-        .select('law_firm_name, email, month_year')
+        .select('law_firm_name, email, month_year, practice_area')
         .not('email', 'is', null);
 
-      const storedList = (storedEmails || []) as MarketingEmail[];
+      // Fetch referring attorneys with matter_type for categorization
+      const { data: referringData } = await supabase
+        .from('referring_attorneys')
+        .select('name, email, matter_type')
+        .not('email', 'is', null);
+
+      // Build a category map keyed by lowercased email — RAF/MedNeg wins over other
+      const categoryMap = new Map<string, { cat: PracticeCategory; label: string }>();
+      const upsertCat = (em: string, info: { cat: PracticeCategory; label: string }) => {
+        const existing = categoryMap.get(em);
+        if (!existing || (existing.cat !== 'raf_medneg' && info.cat === 'raf_medneg')) {
+          categoryMap.set(em, info);
+        }
+      };
+      pitchlogData?.forEach((p: any) => {
+        const em = (p.email || '').trim().toLowerCase();
+        if (em && em.includes('@')) upsertCat(em, categorizeFromPitchlog(p.practice_area));
+      });
+      referringData?.forEach((r: any) => {
+        const em = (r.email || '').trim().toLowerCase();
+        if (em && em.includes('@')) upsertCat(em, categorizeFromMatterType(r.matter_type));
+      });
+
+      const enrich = (em: string): { practice_category: PracticeCategory; practice_label: string } => {
+        const info = categoryMap.get(em.toLowerCase()) || { cat: 'unknown' as PracticeCategory, label: 'Unknown' };
+        return { practice_category: info.cat, practice_label: info.label };
+      };
+
+      const storedList: MarketingEmail[] = (storedEmails || []).map((s: any) => ({
+        ...s,
+        ...enrich(s.email),
+      }));
       const existingEmails = new Set(storedList.map(e => e.email.toLowerCase()));
 
       // Build pitchlog entries not already in the stored list
@@ -78,6 +133,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
               source: `pitchlog-${p.month_year || 'unknown'}`,
               collected_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
+              ...enrich(em),
             });
           }
         }
@@ -227,6 +283,13 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
       });
     }
 
+    // Practice area filter
+    if (practiceFilter === 'raf_medneg') {
+      result = result.filter(e => e.practice_category === 'raf_medneg' || e.practice_category === 'unknown');
+    } else if (practiceFilter === 'other') {
+      result = result.filter(e => e.practice_category === 'other');
+    }
+
     // Search filter
     if (search) {
       const s = search.toLowerCase();
@@ -236,7 +299,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
     }
 
     return result;
-  }, [emails, period, selectedYear, selectedMonth, selectedQuarter, search, periodStart, periodEnd]);
+  }, [emails, period, selectedYear, selectedMonth, selectedQuarter, search, periodStart, periodEnd, practiceFilter]);
 
   const exportCSV = () => {
     const plainEmails = filteredEmails.map(e => e.email).join('\n');
@@ -366,7 +429,16 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
             </>
           )}
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto flex-wrap">
+            <Label className="text-sm font-medium whitespace-nowrap">Practice:</Label>
+            <Select value={practiceFilter} onValueChange={(v: any) => setPracticeFilter(v)}>
+              <SelectTrigger className="w-[220px] h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="raf_medneg">Does RAF / Med Neg / Both</SelectItem>
+                <SelectItem value="other">Does NOT do RAF / Med Neg</SelectItem>
+                <SelectItem value="all">All Practice Areas</SelectItem>
+              </SelectContent>
+            </Select>
             <Input
               placeholder="Search name or email..."
               value={search}
@@ -384,6 +456,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
                 <TableHead className="w-[40px]">#</TableHead>
                 <TableHead>Referring Attorney Name</TableHead>
                 <TableHead>Email Address</TableHead>
+                <TableHead>Practice</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Collected Date</TableHead>
                 <TableHead className="w-[80px]">Actions</TableHead>
@@ -392,11 +465,11 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
                 </TableRow>
               ) : filteredEmails.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No marketing emails found. Add manually or use "Merge Data" to pull from pitchlog and referring attorneys.
                   </TableCell>
                 </TableRow>
@@ -406,6 +479,20 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
                   <TableCell className="text-sm font-medium">{entry.attorney_name}</TableCell>
                   <TableCell className="text-sm">
                     <a href={`mailto:${entry.email}`} className="text-primary hover:underline">{entry.email}</a>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${
+                        entry.practice_category === 'raf_medneg'
+                          ? 'bg-success/10 text-success border-success/30'
+                          : entry.practice_category === 'other'
+                          ? 'bg-destructive/10 text-destructive border-destructive/30'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {entry.practice_label}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant={entry.source === 'manual' ? 'outline' : 'secondary'} className="text-xs">
