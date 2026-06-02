@@ -2622,7 +2622,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                           return (
                             <TableRow key={h.id}>
                               <TableCell>
-                                <div className="font-medium">{h.label}</div>
+                                <div className="font-medium flex items-center gap-2 flex-wrap">
+                                  {h.label}
+                                  {h.submittedBy && (
+                                    <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 text-[10px]">
+                                      by {h.submittedBy}
+                                    </Badge>
+                                  )}
+                                </div>
                                 <div className="text-xs text-muted-foreground tabular-nums">
                                   {format(new Date(h.created_at), 'dd MMM yyyy HH:mm')} · {h.totals.rows} files · {h.totals.attorneys} attorneys
                                 </div>
