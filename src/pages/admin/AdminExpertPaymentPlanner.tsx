@@ -998,8 +998,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       snap.id,
     );
     toast.success('Plan saved & sent for approval', {
-      description: 'Snapshot stored in History and selected rows queued in Approval Requests.',
+      description: 'Snapshot stored in History, queued in Approval Requests, and emailed to you and admins.',
     });
+    void emailSubmissionToUserAndAdmins(snap);
   };
 
   const sendSnapshotForApproval = (id: string) => {
