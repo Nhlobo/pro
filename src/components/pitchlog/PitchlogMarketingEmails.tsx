@@ -509,7 +509,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
                     <Badge
                       variant="outline"
                       className={`text-xs ${
-                        entry.practice_category === 'raf_medneg'
+                        RAF_MEDNEG_CATS.includes(entry.practice_category)
                           ? 'bg-success/10 text-success border-success/30'
                           : entry.practice_category === 'other'
                           ? 'bg-destructive/10 text-destructive border-destructive/30'
