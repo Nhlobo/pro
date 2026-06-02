@@ -15,7 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Mail, Plus, Download, Trash2, RefreshCw, Merge } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from 'date-fns';
 
-type PracticeCategory = 'raf_medneg' | 'other' | 'unknown';
+type PracticeCategory = 'raf_medneg' | 'other' | 'not_applicable' | 'unknown';
 
 interface MarketingEmail {
   id: string;
@@ -29,12 +29,14 @@ interface MarketingEmail {
 }
 
 const RAF_MEDNEG_PITCHLOG = new Set(['RAF', 'Medical Negligence', 'Both RAF & Med Neg']);
-const OTHER_PITCHLOG = new Set(['Other Service', 'Not Applicable']);
+const OTHER_PITCHLOG = new Set(['Other Service']);
+const NOT_APPLICABLE_PITCHLOG = new Set(['Not Applicable']);
 const RAF_MEDNEG_MATTER = new Set(['mva', 'med_neg', 'both']);
 
 const categorizeFromPitchlog = (pa?: string | null): { cat: PracticeCategory; label: string } => {
   if (!pa) return { cat: 'unknown', label: 'Unknown' };
   if (RAF_MEDNEG_PITCHLOG.has(pa)) return { cat: 'raf_medneg', label: pa };
+  if (NOT_APPLICABLE_PITCHLOG.has(pa)) return { cat: 'not_applicable', label: pa };
   if (OTHER_PITCHLOG.has(pa)) return { cat: 'other', label: pa };
   return { cat: 'unknown', label: pa };
 };
@@ -43,6 +45,7 @@ const categorizeFromMatterType = (mt?: string | null): { cat: PracticeCategory; 
   if (!mt) return { cat: 'unknown', label: 'Unknown' };
   const lbl = mt === 'mva' ? 'RAF' : mt === 'med_neg' ? 'Medical Negligence' : mt === 'both' ? 'Both RAF & Med Neg' : mt;
   if (RAF_MEDNEG_MATTER.has(mt)) return { cat: 'raf_medneg', label: lbl };
+  if (mt === 'not_applicable') return { cat: 'not_applicable', label: 'Not Applicable' };
   return { cat: 'other', label: lbl };
 };
 
