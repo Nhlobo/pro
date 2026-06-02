@@ -96,7 +96,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
       const categoryMap = new Map<string, { cat: PracticeCategory; label: string }>();
       const upsertCat = (em: string, info: { cat: PracticeCategory; label: string }) => {
         const existing = categoryMap.get(em);
-        if (!existing || (existing.cat !== 'raf_medneg' && info.cat === 'raf_medneg')) {
+        if (!existing || (!RAF_MEDNEG_CATS.includes(existing.cat) && RAF_MEDNEG_CATS.includes(info.cat))) {
           categoryMap.set(em, info);
         }
       };
