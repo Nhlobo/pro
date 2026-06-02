@@ -442,15 +442,28 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
 
           <div className="flex items-center gap-2 ml-auto flex-wrap">
             <Label className="text-sm font-medium whitespace-nowrap">Practice:</Label>
-            <Select value={practiceFilter} onValueChange={(v: any) => setPracticeFilter(v)}>
-              <SelectTrigger className="w-[220px] h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="raf_medneg">Does RAF / Med Neg / Both</SelectItem>
-                <SelectItem value="other">Does NOT do RAF / Med Neg (Other)</SelectItem>
-                <SelectItem value="not_applicable">Not Applicable</SelectItem>
-                <SelectItem value="all">All Practice Areas</SelectItem>
-              </SelectContent>
-            </Select>
+            {([
+              { value: 'raf', label: 'RAF' },
+              { value: 'med_neg', label: 'Medical Negligence' },
+              { value: 'both', label: 'Both RAF & Med Neg' },
+              { value: 'not_applicable', label: 'Not Applicable' },
+              { value: 'other', label: 'Other' },
+              { value: 'unknown', label: 'Unknown' },
+            ] as { value: PracticeCategory; label: string }[]).map(opt => {
+              const active = practiceFilters.has(opt.value);
+              return (
+                <Button
+                  key={opt.value}
+                  type="button"
+                  size="sm"
+                  variant={active ? 'default' : 'outline'}
+                  className="h-8 text-xs"
+                  onClick={() => togglePracticeFilter(opt.value)}
+                >
+                  {opt.label}
+                </Button>
+              );
+            })}
             <Input
               placeholder="Search name or email..."
               value={search}
