@@ -283,6 +283,13 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
       });
     }
 
+    // Practice area filter
+    if (practiceFilter === 'raf_medneg') {
+      result = result.filter(e => e.practice_category === 'raf_medneg' || e.practice_category === 'unknown');
+    } else if (practiceFilter === 'other') {
+      result = result.filter(e => e.practice_category === 'other');
+    }
+
     // Search filter
     if (search) {
       const s = search.toLowerCase();
@@ -292,7 +299,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
     }
 
     return result;
-  }, [emails, period, selectedYear, selectedMonth, selectedQuarter, search, periodStart, periodEnd]);
+  }, [emails, period, selectedYear, selectedMonth, selectedQuarter, search, periodStart, periodEnd, practiceFilter]);
 
   const exportCSV = () => {
     const plainEmails = filteredEmails.map(e => e.email).join('\n');
