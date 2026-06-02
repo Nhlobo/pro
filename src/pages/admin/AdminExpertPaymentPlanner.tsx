@@ -209,7 +209,15 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   // payment plan requests. Other admins (e.g. itebogengm@, virginia@) can
   // submit and view, but never decide or delete.
   const APPROVER_EMAIL = 'boshomane@kutlwanoassociate.com';
+  // Submitters whose requests MUST always be shared with the approver and
+  // appear in Approval Requests + History (DB-backed), regardless of which
+  // browser they were submitted from.
+  const MONITORED_SUBMITTERS = new Set<string>([
+    'itebengm@kutlwanoassociate.com',
+    'virginia@kutlwanoassociate.com',
+  ]);
   const canApprove = admin && (user?.email || '').toLowerCase() === APPROVER_EMAIL;
+  const isMonitoredSubmitter = MONITORED_SUBMITTERS.has((user?.email || '').toLowerCase());
   const currentUserName =
     (user?.user_metadata?.full_name as string) ||
     (user?.user_metadata?.name as string) ||
