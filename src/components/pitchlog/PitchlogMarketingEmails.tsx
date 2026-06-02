@@ -68,7 +68,16 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
   const [selectedQuarter, setSelectedQuarter] = useState(Math.ceil((new Date().getMonth() + 1) / 3).toString());
   const [search, setSearch] = useState('');
 
-  const [practiceFilter, setPracticeFilter] = useState<'raf_medneg' | 'other' | 'not_applicable' | 'all'>('raf_medneg');
+  const [practiceFilters, setPracticeFilters] = useState<Set<PracticeCategory>>(
+    new Set(['raf', 'med_neg', 'both'])
+  );
+  const togglePracticeFilter = (cat: PracticeCategory) => {
+    setPracticeFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  };
 
   const { data: emails = [], isLoading } = useQuery({
     queryKey: ['attorney-marketing-emails'],
