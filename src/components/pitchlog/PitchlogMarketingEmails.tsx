@@ -291,6 +291,8 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
       result = result.filter(e => e.practice_category === 'raf_medneg' || e.practice_category === 'unknown');
     } else if (practiceFilter === 'other') {
       result = result.filter(e => e.practice_category === 'other');
+    } else if (practiceFilter === 'not_applicable') {
+      result = result.filter(e => e.practice_category === 'not_applicable');
     }
 
     // Search filter
