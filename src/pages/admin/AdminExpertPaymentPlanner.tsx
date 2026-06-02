@@ -2440,20 +2440,6 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               {' · '}To pay <span className="font-semibold text-emerald-700">{ZAR(toPay)}</span>
                             </div>
                           </div>
-                        </div>
-                        <div className="mt-3">
-                          <ApprovalTimeline
-                            submittedAt={p.requestedAt}
-                            submittedBy={p.requestedBy}
-                            decidedAt={p.decidedAt}
-                            decidedBy={p.decidedBy}
-                            decision={decision}
-                            compact
-                          />
-                        </div>
-                        <div className="hidden">
-                          {/* spacer preserved so following block remains valid */}
-                          </div>
                           {canApprove && (
                             <div className="flex flex-wrap gap-1">
                               <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
@@ -2470,6 +2456,16 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               </Button>
                             </div>
                           )}
+                        </div>
+                        <div className="mt-3">
+                          <ApprovalTimeline
+                            submittedAt={p.requestedAt}
+                            submittedBy={p.requestedBy}
+                            decidedAt={p.decidedAt}
+                            decidedBy={p.decidedBy}
+                            decision={decision}
+                            compact
+                          />
                         </div>
                         <div className="mt-3">
                           <CommentThread
