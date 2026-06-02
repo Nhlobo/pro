@@ -340,12 +340,13 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
   const submitForApproval = (id: string) => {
     const row = rows.find(r => r.appointment_id === id);
+    const nowIso = new Date().toISOString();
     setPlan(prev => ({
       ...prev,
       [id]: {
         ...(prev[id] ?? EMPTY_PLAN),
         requestStatus: 'submitted',
-        requestedAt: new Date().toISOString(),
+        requestedAt: nowIso,
         requestedBy: currentUserName,
         requestedById: user?.id ?? null,
         decision: 'pending',
@@ -353,12 +354,64 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         decidedBy: null,
       },
     }));
+
+    // Persist this single-row request as a snapshot in the shared DB so the
+    // approver and all admins can see and act on it from Approval Requests
+    // and History — even though the per-row plan state lives in localStorage.
+    if (row) {
+      const cur = (plan as any)[id] ?? EMPTY_PLAN;
+      const partial = Number(cur.partial) || 0;
+      const toPay = Math.max(0, row.fee_due_to_expert - partial);
+      const snap: HistorySnapshot = {
+        id: `req_${id}_${Date.now()}`,
+        label: `Single request — ${row.patient_name} (${row.expert_name})`,
+        created_at: nowIso,
+        approvalStatus: 'pending',
+        submittedForApprovalAt: nowIso,
+        submittedBy: currentUserName,
+        submittedById: user?.id ?? null,
+        approvedAt: null,
+        approvedBy: null,
+        approvalNote: null,
+        filters: {
+          dateFrom, dateTo, search,
+          attorneyPay: attorneyPayFilter, expertPay: expertPayFilter, profession: professionFilter,
+          report: reportFilter, paidStatus: paidStatusFilter, decision: decisionFilter,
+        },
+        totals: {
+          rows: 1, attorneys: 1,
+          plannedAmount: toPay, urgentAmount: cur.urgent ? toPay : 0,
+          approvedAmount: 0, approvedCount: 0,
+          notApprovedCount: 0, movedNextCount: 0, pendingCount: 1,
+        },
+        entries: [{
+          appointment_id: row.appointment_id,
+          attorney_name: row.attorney_name,
+          expert_name: row.expert_name,
+          patient_name: row.patient_name,
+          assessment_date: row.assessment_date,
+          fee_due: row.fee_due_to_expert,
+          partial,
+          to_pay: toPay,
+          urgent: !!cur.urgent,
+          planned: !!cur.planned,
+          decision: 'pending',
+          comment: cur.comment || '',
+        }],
+      };
+      setHistory(prev => [snap, ...prev].slice(0, 100));
+      void persistSnapshot(snap);
+      void emailSubmissionToUserAndAdmins(snap);
+    }
+
     void notifyAdminsOfApprovalRequest(
       'Payment plan approval request',
       `${currentUserName} submitted a payment item${row ? ` for ${row.patient_name} (${row.expert_name})` : ''} for approval.`,
       id,
     );
-    toast.success('Request submitted to admin for approval');
+    toast.success('Request submitted to admin for approval', {
+      description: 'Visible to the approver in Approval Requests and History, and emailed to admins.',
+    });
   };
 
   // ===== Admin decision prompt (requires a timestamped explanation) =====
