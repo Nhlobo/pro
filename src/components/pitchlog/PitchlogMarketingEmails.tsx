@@ -440,7 +440,8 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
               <SelectTrigger className="w-[220px] h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="raf_medneg">Does RAF / Med Neg / Both</SelectItem>
-                <SelectItem value="other">Does NOT do RAF / Med Neg</SelectItem>
+                <SelectItem value="other">Does NOT do RAF / Med Neg (Other)</SelectItem>
+                <SelectItem value="not_applicable">Not Applicable</SelectItem>
                 <SelectItem value="all">All Practice Areas</SelectItem>
               </SelectContent>
             </Select>
