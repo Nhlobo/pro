@@ -26,6 +26,7 @@ import { useConfirm } from '@/hooks/useConfirm';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { Inbox, Send, Lock } from 'lucide-react';
+import { ApprovalTimeline } from '@/components/ApprovalTimeline';
 
 type ExpertPayStatus = 'Urgent' | 'Planned to pay' | 'Partially paid' | 'Fully paid' | 'Unpaid';
 type ApprovalStatus = 'pending' | 'approved' | 'not_approved' | 'moved_next';
