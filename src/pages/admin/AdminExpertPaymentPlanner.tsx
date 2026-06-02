@@ -2438,13 +2438,21 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               Assessment {format(new Date(r.assessment_date), 'dd MMM yyyy')}
                               {' · '}Fee due <span className="font-semibold text-foreground">{ZAR(r.fee_due_to_expert)}</span>
                               {' · '}To pay <span className="font-semibold text-emerald-700">{ZAR(toPay)}</span>
-                              {p.requestedAt && (
-                                <> {' · '}Submitted {fmtStamp(p.requestedAt)} by {p.requestedBy || '—'}</>
-                              )}
-                              {p.decidedAt && (
-                                <> {' · '}{DECISION_LABEL[decision]} {fmtStamp(p.decidedAt)} by {p.decidedBy || '—'}</>
-                              )}
                             </div>
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <ApprovalTimeline
+                            submittedAt={p.requestedAt}
+                            submittedBy={p.requestedBy}
+                            decidedAt={p.decidedAt}
+                            decidedBy={p.decidedBy}
+                            decision={decision}
+                            compact
+                          />
+                        </div>
+                        <div className="hidden">
+                          {/* spacer preserved so following block remains valid */}
                           </div>
                           {canApprove && (
                             <div className="flex flex-wrap gap-1">
