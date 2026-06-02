@@ -239,12 +239,8 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
   }, [emails, period, selectedYear, selectedMonth, selectedQuarter, search, periodStart, periodEnd]);
 
   const exportCSV = () => {
-    const headers = ['Attorney Name', 'Email', 'Source', 'Collected Date'];
-    const rows = filteredEmails.map(e => [
-      e.attorney_name, e.email, e.source, format(new Date(e.collected_at), 'dd/MM/yyyy')
-    ]);
-    const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const plainEmails = filteredEmails.map(e => e.email).join('\n');
+    const blob = new Blob([plainEmails], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
