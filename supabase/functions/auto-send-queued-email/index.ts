@@ -83,7 +83,18 @@ const handler = async (req: Request): Promise<Response> => {
       html: email.html_content,
       replyTo: 'info@kamedico-legal.co.za',
       ...(fromAddress && { from: fromAddress }),
-      ...(email.metadata?.cc_addresses?.length > 0 && { cc: email.metadata.cc_addresses }),
+      ...((() => {
+        const raw = email.metadata?.cc_addresses;
+        if (!raw) return {};
+        const emailRegex = /^[^\s<>@]+@[^\s<>@.]+\.[^\s<>@]+$/;
+        const list = (Array.isArray(raw) ? raw : [raw])
+          .flatMap((v: any) => String(v ?? '').split(/[,;:\s\n\r]+/))
+          .map((s: string) => s.trim().replace(/^<|>$/g, ''))
+          .filter((s: string) => s.length > 0 && emailRegex.test(s))
+          .filter((s: string) => !/@kutlwanoassociate\.com$/i.test(s));
+        const unique = Array.from(new Set(list));
+        return unique.length > 0 ? { cc: unique } : {};
+      })()),
       ...(metadataAttachments.length > 0 && { attachments: metadataAttachments }),
     });
 
