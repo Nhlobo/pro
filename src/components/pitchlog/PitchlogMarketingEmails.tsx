@@ -429,7 +429,16 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
             </>
           )}
 
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto flex-wrap">
+            <Label className="text-sm font-medium whitespace-nowrap">Practice:</Label>
+            <Select value={practiceFilter} onValueChange={(v: any) => setPracticeFilter(v)}>
+              <SelectTrigger className="w-[220px] h-9"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="raf_medneg">Does RAF / Med Neg / Both</SelectItem>
+                <SelectItem value="other">Does NOT do RAF / Med Neg</SelectItem>
+                <SelectItem value="all">All Practice Areas</SelectItem>
+              </SelectContent>
+            </Select>
             <Input
               placeholder="Search name or email..."
               value={search}
