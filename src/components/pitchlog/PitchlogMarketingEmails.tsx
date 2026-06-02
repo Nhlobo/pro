@@ -15,7 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Mail, Plus, Download, Trash2, RefreshCw, Merge } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from 'date-fns';
 
-type PracticeCategory = 'raf_medneg' | 'other' | 'not_applicable' | 'unknown';
+type PracticeCategory = 'raf' | 'med_neg' | 'both' | 'other' | 'not_applicable' | 'unknown';
+const RAF_MEDNEG_CATS: PracticeCategory[] = ['raf', 'med_neg', 'both'];
 
 interface MarketingEmail {
   id: string;
@@ -28,25 +29,23 @@ interface MarketingEmail {
   practice_label: string;
 }
 
-const RAF_MEDNEG_PITCHLOG = new Set(['RAF', 'Medical Negligence', 'Both RAF & Med Neg']);
-const OTHER_PITCHLOG = new Set(['Other Service']);
-const NOT_APPLICABLE_PITCHLOG = new Set(['Not Applicable']);
-const RAF_MEDNEG_MATTER = new Set(['mva', 'med_neg', 'both']);
-
 const categorizeFromPitchlog = (pa?: string | null): { cat: PracticeCategory; label: string } => {
   if (!pa) return { cat: 'unknown', label: 'Unknown' };
-  if (RAF_MEDNEG_PITCHLOG.has(pa)) return { cat: 'raf_medneg', label: pa };
-  if (NOT_APPLICABLE_PITCHLOG.has(pa)) return { cat: 'not_applicable', label: pa };
-  if (OTHER_PITCHLOG.has(pa)) return { cat: 'other', label: pa };
+  if (pa === 'RAF') return { cat: 'raf', label: 'RAF' };
+  if (pa === 'Medical Negligence') return { cat: 'med_neg', label: 'Medical Negligence' };
+  if (pa === 'Both RAF & Med Neg') return { cat: 'both', label: 'Both RAF & Med Neg' };
+  if (pa === 'Not Applicable') return { cat: 'not_applicable', label: pa };
+  if (pa === 'Other Service') return { cat: 'other', label: pa };
   return { cat: 'unknown', label: pa };
 };
 
 const categorizeFromMatterType = (mt?: string | null): { cat: PracticeCategory; label: string } => {
   if (!mt) return { cat: 'unknown', label: 'Unknown' };
-  const lbl = mt === 'mva' ? 'RAF' : mt === 'med_neg' ? 'Medical Negligence' : mt === 'both' ? 'Both RAF & Med Neg' : mt;
-  if (RAF_MEDNEG_MATTER.has(mt)) return { cat: 'raf_medneg', label: lbl };
+  if (mt === 'mva') return { cat: 'raf', label: 'RAF' };
+  if (mt === 'med_neg') return { cat: 'med_neg', label: 'Medical Negligence' };
+  if (mt === 'both') return { cat: 'both', label: 'Both RAF & Med Neg' };
   if (mt === 'not_applicable') return { cat: 'not_applicable', label: 'Not Applicable' };
-  return { cat: 'other', label: lbl };
+  return { cat: 'other', label: mt };
 };
 
 interface PitchlogMarketingEmailsProps {
@@ -69,7 +68,16 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
   const [selectedQuarter, setSelectedQuarter] = useState(Math.ceil((new Date().getMonth() + 1) / 3).toString());
   const [search, setSearch] = useState('');
 
-  const [practiceFilter, setPracticeFilter] = useState<'raf_medneg' | 'other' | 'not_applicable' | 'all'>('raf_medneg');
+  const [practiceFilters, setPracticeFilters] = useState<Set<PracticeCategory>>(
+    new Set(['raf', 'med_neg', 'both'])
+  );
+  const togglePracticeFilter = (cat: PracticeCategory) => {
+    setPracticeFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  };
 
   const { data: emails = [], isLoading } = useQuery({
     queryKey: ['attorney-marketing-emails'],
@@ -97,7 +105,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
       const categoryMap = new Map<string, { cat: PracticeCategory; label: string }>();
       const upsertCat = (em: string, info: { cat: PracticeCategory; label: string }) => {
         const existing = categoryMap.get(em);
-        if (!existing || (existing.cat !== 'raf_medneg' && info.cat === 'raf_medneg')) {
+        if (!existing || (!RAF_MEDNEG_CATS.includes(existing.cat) && RAF_MEDNEG_CATS.includes(info.cat))) {
           categoryMap.set(em, info);
         }
       };
@@ -286,13 +294,11 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
       });
     }
 
-    // Practice area filter
-    if (practiceFilter === 'raf_medneg') {
-      result = result.filter(e => e.practice_category === 'raf_medneg' || e.practice_category === 'unknown');
-    } else if (practiceFilter === 'other') {
-      result = result.filter(e => e.practice_category === 'other');
-    } else if (practiceFilter === 'not_applicable') {
-      result = result.filter(e => e.practice_category === 'not_applicable');
+    // Practice area filter (multi-select)
+    if (practiceFilters.size > 0) {
+      result = result.filter(e => practiceFilters.has(e.practice_category));
+    } else {
+      result = [];
     }
 
     // Search filter
@@ -304,7 +310,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
     }
 
     return result;
-  }, [emails, period, selectedYear, selectedMonth, selectedQuarter, search, periodStart, periodEnd, practiceFilter]);
+  }, [emails, period, selectedYear, selectedMonth, selectedQuarter, search, periodStart, periodEnd, practiceFilters]);
 
   const exportCSV = () => {
     const plainEmails = filteredEmails.map(e => e.email).join('\n');
@@ -436,15 +442,28 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
 
           <div className="flex items-center gap-2 ml-auto flex-wrap">
             <Label className="text-sm font-medium whitespace-nowrap">Practice:</Label>
-            <Select value={practiceFilter} onValueChange={(v: any) => setPracticeFilter(v)}>
-              <SelectTrigger className="w-[220px] h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="raf_medneg">Does RAF / Med Neg / Both</SelectItem>
-                <SelectItem value="other">Does NOT do RAF / Med Neg (Other)</SelectItem>
-                <SelectItem value="not_applicable">Not Applicable</SelectItem>
-                <SelectItem value="all">All Practice Areas</SelectItem>
-              </SelectContent>
-            </Select>
+            {([
+              { value: 'raf', label: 'RAF' },
+              { value: 'med_neg', label: 'Medical Negligence' },
+              { value: 'both', label: 'Both RAF & Med Neg' },
+              { value: 'not_applicable', label: 'Not Applicable' },
+              { value: 'other', label: 'Other' },
+              { value: 'unknown', label: 'Unknown' },
+            ] as { value: PracticeCategory; label: string }[]).map(opt => {
+              const active = practiceFilters.has(opt.value);
+              return (
+                <Button
+                  key={opt.value}
+                  type="button"
+                  size="sm"
+                  variant={active ? 'default' : 'outline'}
+                  className="h-8 text-xs"
+                  onClick={() => togglePracticeFilter(opt.value)}
+                >
+                  {opt.label}
+                </Button>
+              );
+            })}
             <Input
               placeholder="Search name or email..."
               value={search}
@@ -490,7 +509,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
                     <Badge
                       variant="outline"
                       className={`text-xs ${
-                        entry.practice_category === 'raf_medneg'
+                        RAF_MEDNEG_CATS.includes(entry.practice_category)
                           ? 'bg-success/10 text-success border-success/30'
                           : entry.practice_category === 'other'
                           ? 'bg-destructive/10 text-destructive border-destructive/30'
