@@ -66,6 +66,8 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
   const [selectedQuarter, setSelectedQuarter] = useState(Math.ceil((new Date().getMonth() + 1) / 3).toString());
   const [search, setSearch] = useState('');
 
+  const [practiceFilter, setPracticeFilter] = useState<'raf_medneg' | 'other' | 'all'>('raf_medneg');
+
   const { data: emails = [], isLoading } = useQuery({
     queryKey: ['attorney-marketing-emails'],
     queryFn: async () => {
@@ -76,13 +78,44 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
         .order('attorney_name', { ascending: true });
       if (error) throw error;
 
-      // Auto-fetch from pitchlog
+      // Auto-fetch from pitchlog (with practice_area)
       const { data: pitchlogData } = await supabase
         .from('attorney_pitchlog')
-        .select('law_firm_name, email, month_year')
+        .select('law_firm_name, email, month_year, practice_area')
         .not('email', 'is', null);
 
-      const storedList = (storedEmails || []) as MarketingEmail[];
+      // Fetch referring attorneys with matter_type for categorization
+      const { data: referringData } = await supabase
+        .from('referring_attorneys')
+        .select('name, email, matter_type')
+        .not('email', 'is', null);
+
+      // Build a category map keyed by lowercased email — RAF/MedNeg wins over other
+      const categoryMap = new Map<string, { cat: PracticeCategory; label: string }>();
+      const upsertCat = (em: string, info: { cat: PracticeCategory; label: string }) => {
+        const existing = categoryMap.get(em);
+        if (!existing || (existing.cat !== 'raf_medneg' && info.cat === 'raf_medneg')) {
+          categoryMap.set(em, info);
+        }
+      };
+      pitchlogData?.forEach((p: any) => {
+        const em = (p.email || '').trim().toLowerCase();
+        if (em && em.includes('@')) upsertCat(em, categorizeFromPitchlog(p.practice_area));
+      });
+      referringData?.forEach((r: any) => {
+        const em = (r.email || '').trim().toLowerCase();
+        if (em && em.includes('@')) upsertCat(em, categorizeFromMatterType(r.matter_type));
+      });
+
+      const enrich = (em: string): { practice_category: PracticeCategory; practice_label: string } => {
+        const info = categoryMap.get(em.toLowerCase()) || { cat: 'unknown' as PracticeCategory, label: 'Unknown' };
+        return { practice_category: info.cat, practice_label: info.label };
+      };
+
+      const storedList: MarketingEmail[] = (storedEmails || []).map((s: any) => ({
+        ...s,
+        ...enrich(s.email),
+      }));
       const existingEmails = new Set(storedList.map(e => e.email.toLowerCase()));
 
       // Build pitchlog entries not already in the stored list
@@ -100,6 +133,7 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
               source: `pitchlog-${p.month_year || 'unknown'}`,
               collected_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
+              ...enrich(em),
             });
           }
         }
