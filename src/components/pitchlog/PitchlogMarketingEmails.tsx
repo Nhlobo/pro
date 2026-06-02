@@ -465,11 +465,11 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Loading...</TableCell>
                 </TableRow>
               ) : filteredEmails.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No marketing emails found. Add manually or use "Merge Data" to pull from pitchlog and referring attorneys.
                   </TableCell>
                 </TableRow>
@@ -479,6 +479,20 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
                   <TableCell className="text-sm font-medium">{entry.attorney_name}</TableCell>
                   <TableCell className="text-sm">
                     <a href={`mailto:${entry.email}`} className="text-primary hover:underline">{entry.email}</a>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${
+                        entry.practice_category === 'raf_medneg'
+                          ? 'bg-success/10 text-success border-success/30'
+                          : entry.practice_category === 'other'
+                          ? 'bg-destructive/10 text-destructive border-destructive/30'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {entry.practice_label}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant={entry.source === 'manual' ? 'outline' : 'secondary'} className="text-xs">
