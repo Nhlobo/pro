@@ -15,6 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Mail, Plus, Download, Trash2, RefreshCw, Merge } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear } from 'date-fns';
 
+type PracticeCategory = 'raf_medneg' | 'other' | 'unknown';
+
 interface MarketingEmail {
   id: string;
   attorney_name: string;
@@ -22,7 +24,27 @@ interface MarketingEmail {
   source: string;
   collected_at: string;
   updated_at: string;
+  practice_category: PracticeCategory;
+  practice_label: string;
 }
+
+const RAF_MEDNEG_PITCHLOG = new Set(['RAF', 'Medical Negligence', 'Both RAF & Med Neg']);
+const OTHER_PITCHLOG = new Set(['Other Service', 'Not Applicable']);
+const RAF_MEDNEG_MATTER = new Set(['mva', 'med_neg', 'both']);
+
+const categorizeFromPitchlog = (pa?: string | null): { cat: PracticeCategory; label: string } => {
+  if (!pa) return { cat: 'unknown', label: 'Unknown' };
+  if (RAF_MEDNEG_PITCHLOG.has(pa)) return { cat: 'raf_medneg', label: pa };
+  if (OTHER_PITCHLOG.has(pa)) return { cat: 'other', label: pa };
+  return { cat: 'unknown', label: pa };
+};
+
+const categorizeFromMatterType = (mt?: string | null): { cat: PracticeCategory; label: string } => {
+  if (!mt) return { cat: 'unknown', label: 'Unknown' };
+  const lbl = mt === 'mva' ? 'RAF' : mt === 'med_neg' ? 'Medical Negligence' : mt === 'both' ? 'Both RAF & Med Neg' : mt;
+  if (RAF_MEDNEG_MATTER.has(mt)) return { cat: 'raf_medneg', label: lbl };
+  return { cat: 'other', label: lbl };
+};
 
 interface PitchlogMarketingEmailsProps {
   periodStart?: Date;
