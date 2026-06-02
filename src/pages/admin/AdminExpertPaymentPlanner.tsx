@@ -26,6 +26,7 @@ import { useConfirm } from '@/hooks/useConfirm';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/hooks/useAuth';
 import { Inbox, Send, Lock } from 'lucide-react';
+import { ApprovalTimeline } from '@/components/ApprovalTimeline';
 
 type ExpertPayStatus = 'Urgent' | 'Planned to pay' | 'Partially paid' | 'Fully paid' | 'Unpaid';
 type ApprovalStatus = 'pending' | 'approved' | 'not_approved' | 'moved_next';
@@ -2437,12 +2438,6 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               Assessment {format(new Date(r.assessment_date), 'dd MMM yyyy')}
                               {' · '}Fee due <span className="font-semibold text-foreground">{ZAR(r.fee_due_to_expert)}</span>
                               {' · '}To pay <span className="font-semibold text-emerald-700">{ZAR(toPay)}</span>
-                              {p.requestedAt && (
-                                <> {' · '}Submitted {fmtStamp(p.requestedAt)} by {p.requestedBy || '—'}</>
-                              )}
-                              {p.decidedAt && (
-                                <> {' · '}{DECISION_LABEL[decision]} {fmtStamp(p.decidedAt)} by {p.decidedBy || '—'}</>
-                              )}
                             </div>
                           </div>
                           {canApprove && (
@@ -2461,6 +2456,16 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                               </Button>
                             </div>
                           )}
+                        </div>
+                        <div className="mt-3">
+                          <ApprovalTimeline
+                            submittedAt={p.requestedAt}
+                            submittedBy={p.requestedBy}
+                            decidedAt={p.decidedAt}
+                            decidedBy={p.decidedBy}
+                            decision={decision}
+                            compact
+                          />
                         </div>
                         <div className="mt-3">
                           <CommentThread
@@ -2684,6 +2689,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <Button size="sm" variant="ghost" onClick={() => restoreSnapshot(historyDetail)}>Restore decisions</Button>
                   </div>
                 </div>
+
+                <ApprovalTimeline
+                  submittedAt={historyDetail.submittedForApprovalAt}
+                  submittedBy={historyDetail.submittedBy}
+                  decidedAt={historyDetail.approvedAt}
+                  decidedBy={historyDetail.approvedBy}
+                  decision={
+                    (historyDetail.approvalStatus === 'approved'
+                      ? 'approved'
+                      : historyDetail.approvalStatus === 'not_approved'
+                      ? 'not_approved'
+                      : 'pending') as any
+                  }
+                />
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <SummaryStat label="Planned amount" value={ZAR(historyDetail.totals.plannedAmount)} />
