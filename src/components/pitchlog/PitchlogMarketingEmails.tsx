@@ -494,6 +494,8 @@ const PitchlogMarketingEmails: React.FC<PitchlogMarketingEmailsProps> = ({ perio
                           ? 'bg-success/10 text-success border-success/30'
                           : entry.practice_category === 'other'
                           ? 'bg-destructive/10 text-destructive border-destructive/30'
+                          : entry.practice_category === 'not_applicable'
+                          ? 'bg-warning/10 text-warning border-warning/30'
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >
