@@ -165,6 +165,7 @@ const App = () => (
               <Toaster />
               <Sonner />
               <GlobalRefreshButton />
+              <OfflineIndicator />
               <BrowserRouter>
               <ActivityTrackerMount />
               <Suspense fallback={<RouteFallback />}>
