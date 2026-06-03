@@ -89,7 +89,7 @@ const MedicalExpertDirectory = () => {
   useEffect(() => {
     filterExperts();
     setCurrentPage(1);
-  }, [experts, selectedProvince, searchTerm, showInactive, showRecentlyAdded, pageSize, matterTypeFilter, sortBy]);
+  }, [experts, selectedProvince, searchTerm, showInactive, showRecentlyAdded, pageSize, matterTypeFilter, expertTypeFilter, sortBy]);
 
   // Sort helpers
   const sortExperts = (list: MedicalExpert[]) => {
