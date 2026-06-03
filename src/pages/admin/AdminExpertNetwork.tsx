@@ -110,10 +110,13 @@ const AdminExpertNetwork: React.FC = () => {
     return () => window.removeEventListener('medical-expert-updated', handler);
   }, []);
 
-  const filtered = experts.filter(e =>
-    `${e.first_name} ${e.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-    e.expert_type?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = experts.filter(e => {
+    const nameMatch = `${e.first_name} ${e.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
+      e.expert_type?.toLowerCase().includes(search.toLowerCase());
+    const provinceMatch = provinceFilter === 'All Provinces' ||
+      normalizeProvince(e.province) === provinceFilter;
+    return nameMatch && provinceMatch;
+  });
 
   // Group by normalized province, then by discipline
   const provinceGroups = experts.reduce((acc, e) => {
