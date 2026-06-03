@@ -181,6 +181,10 @@ const AdminExpertNetwork: React.FC = () => {
             <DollarSign className="h-3.5 w-3.5" />
             Credit Control
           </TabsTrigger>
+          <TabsTrigger value="fee-reviews" className="flex items-center gap-1.5">
+            <ClipboardList className="h-3.5 w-3.5" />
+            Fee Reviews
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 mt-4">
