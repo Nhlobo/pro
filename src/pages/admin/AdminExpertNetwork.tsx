@@ -78,6 +78,7 @@ const AdminExpertNetwork: React.FC = () => {
   const [search, setSearch] = useState('');
   const [provinceSearch, setProvinceSearch] = useState('');
   const [provinceFilter, setProvinceFilter] = useState('All Provinces');
+  const [pageSize, setPageSize] = useState<number>(20);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null);
