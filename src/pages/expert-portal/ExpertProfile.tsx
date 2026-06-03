@@ -112,10 +112,19 @@ const ExpertProfile: React.FC = () => {
         personal_assistant_contact: form.personal_assistant_contact,
         practice_company_name: form.practice_company_name,
         province: form.province,
+        consultation_fee_mva: form.consultation_fee_mva ? parseInt(form.consultation_fee_mva.replace(/[^\d]/g, '')) || null : null,
+        consultation_fee_med_neg: form.consultation_fee_med_neg ? parseInt(form.consultation_fee_med_neg.replace(/[^\d]/g, '')) || null : null,
+        merit_fees: form.merit_fees ? parseInt(form.merit_fees.replace(/[^\d]/g, '')) || null : null,
+        consultation_fee_per_hour: form.consultation_fee_per_hour ? parseInt(form.consultation_fee_per_hour.replace(/[^\d]/g, '')) || null : null,
+        court_fees: form.court_fees ? parseInt(form.court_fees.replace(/[^\d]/g, '')) || null : null,
+        consultation_fees: (form.consultation_fee_med_neg ? parseInt(form.consultation_fee_med_neg.replace(/[^\d]/g, '')) : null)
+          ?? (form.consultation_fee_mva ? parseInt(form.consultation_fee_mva.replace(/[^\d]/g, '')) : null)
+          ?? (form.consultation_fee_per_hour ? parseInt(form.consultation_fee_per_hour.replace(/[^\d]/g, '')) : null),
         updated_at: new Date().toISOString(),
       }).eq('id', expertId);
       if (error) throw error;
-      toast({ title: 'Profile Updated', description: 'Your profile has been saved and populated to the system.' });
+      window.dispatchEvent(new CustomEvent('medical-expert-updated', { detail: { expertId } }));
+      toast({ title: 'Profile Updated', description: 'Your profile and fees have been saved and populated to the system.' });
       setEditing(false);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
