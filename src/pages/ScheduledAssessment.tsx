@@ -1548,30 +1548,81 @@ const ScheduledAssessment = () => {
         throw new Error(`Failed to queue email: ${insertError.message}`);
       }
 
-      // Auto-send via edge function
+      // Auto-send via edge function — with retry + exponential backoff for transient errors
       if (inserted?.id) {
-        const { data: sendResult, error: sendError } = await supabase.functions.invoke('auto-send-queued-email', { body: { emailId: inserted.id } });
+        const MAX_ATTEMPTS = 4;
+        const BASE_DELAY_MS = 1000; // 1s, 2s, 4s
+        const PERMANENT_PATTERNS = [
+          /unauthor/i, /forbidden/i, /invalid (?:email|recipient|from|api key)/i,
+          /not found/i, /validation/i, /suppress/i, /bounce/i, /domain.*not verif/i,
+          /payload too large/i, /attachment.*too large/i, /bad request/i,
+        ];
+        const isPermanent = (msg: string, status?: number) => {
+          if (status && (status === 400 || status === 401 || status === 403 || status === 404 || status === 413 || status === 422)) return true;
+          return PERMANENT_PATTERNS.some(rx => rx.test(msg));
+        };
+        const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-        if (sendError) {
-          // Surface the actual error returned by the edge function body, if present
-          let serverMsg = sendError.message || 'Unknown error';
-          try {
-            const ctx: any = (sendError as any).context;
-            if (ctx && typeof ctx.json === 'function') {
-              const body = await ctx.json();
-              if (body?.error) serverMsg = body.error;
-            } else if (ctx && typeof ctx.text === 'function') {
-              const txt = await ctx.text();
-              if (txt) serverMsg = txt;
+        let lastErrorMsg = 'Unknown error';
+        let sent = false;
+
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+          const { data: sendResult, error: sendError } = await supabase.functions.invoke(
+            'auto-send-queued-email',
+            { body: { emailId: inserted.id } }
+          );
+
+          // Parse server-side error if present
+          let serverMsg = sendError?.message || '';
+          let status: number | undefined;
+          if (sendError) {
+            try {
+              const ctx: any = (sendError as any).context;
+              if (ctx?.status) status = ctx.status;
+              if (ctx && typeof ctx.json === 'function') {
+                const body = await ctx.json();
+                if (body?.error) serverMsg = typeof body.error === 'string' ? body.error : (body.error.message || serverMsg);
+              } else if (ctx && typeof ctx.text === 'function') {
+                const txt = await ctx.text();
+                if (txt) serverMsg = txt;
+              }
+            } catch { /* ignore */ }
+          } else if (sendResult && !sendResult.success) {
+            serverMsg = sendResult.error || 'Email delivery failed';
+          }
+
+          if (!sendError && sendResult?.success) {
+            sent = true;
+            if (attempt > 1) {
+              toast({ title: 'Sent after retry', description: `Email delivered on attempt ${attempt}.` });
             }
-          } catch { /* ignore parse errors */ }
-          console.error('Edge function invoke error:', sendError, 'serverMsg:', serverMsg);
-          throw new Error(`Failed to send email: ${serverMsg}`);
+            break;
+          }
+
+          lastErrorMsg = serverMsg || 'Unknown error';
+          console.error(`[handleSendEmail] attempt ${attempt}/${MAX_ATTEMPTS} failed:`, { status, serverMsg, sendError });
+
+          // Stop on permanent errors
+          if (isPermanent(lastErrorMsg, status)) {
+            throw new Error(`Failed to send email: ${lastErrorMsg}`);
+          }
+
+          // Stop if out of attempts
+          if (attempt === MAX_ATTEMPTS) {
+            throw new Error(`Failed to send email after ${MAX_ATTEMPTS} attempts: ${lastErrorMsg}`);
+          }
+
+          // Transient — back off and retry
+          const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+          toast({
+            title: `Retrying (${attempt}/${MAX_ATTEMPTS - 1})`,
+            description: `Transient error. Retrying in ${Math.round(delay / 1000)}s…`,
+          });
+          await sleep(delay);
         }
 
-        if (sendResult && !sendResult.success) {
-          console.error('Email send failed:', sendResult.error);
-          throw new Error(`Email delivery failed: ${sendResult.error}`);
+        if (!sent) {
+          throw new Error(`Failed to send email: ${lastErrorMsg}`);
         }
       } else {
         throw new Error('Failed to queue email: no ID returned');
