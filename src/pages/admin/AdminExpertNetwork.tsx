@@ -120,6 +120,16 @@ const AdminExpertNetwork: React.FC = () => {
     return nameMatch && provinceMatch;
   });
 
+  // Reset to first page whenever filters or page size change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, provinceFilter, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginated = filtered.slice(startIndex, endIndex);
+
   // Group by normalized province, then by discipline
   const provinceGroups = experts.reduce((acc, e) => {
     const province = normalizeProvince(e.province);
