@@ -1551,12 +1551,24 @@ const ScheduledAssessment = () => {
       // Auto-send via edge function
       if (inserted?.id) {
         const { data: sendResult, error: sendError } = await supabase.functions.invoke('auto-send-queued-email', { body: { emailId: inserted.id } });
-        
+
         if (sendError) {
-          console.error('Edge function invoke error:', sendError);
-          throw new Error(`Failed to send email: ${sendError.message}`);
+          // Surface the actual error returned by the edge function body, if present
+          let serverMsg = sendError.message || 'Unknown error';
+          try {
+            const ctx: any = (sendError as any).context;
+            if (ctx && typeof ctx.json === 'function') {
+              const body = await ctx.json();
+              if (body?.error) serverMsg = body.error;
+            } else if (ctx && typeof ctx.text === 'function') {
+              const txt = await ctx.text();
+              if (txt) serverMsg = txt;
+            }
+          } catch { /* ignore parse errors */ }
+          console.error('Edge function invoke error:', sendError, 'serverMsg:', serverMsg);
+          throw new Error(`Failed to send email: ${serverMsg}`);
         }
-        
+
         if (sendResult && !sendResult.success) {
           console.error('Email send failed:', sendResult.error);
           throw new Error(`Email delivery failed: ${sendResult.error}`);
