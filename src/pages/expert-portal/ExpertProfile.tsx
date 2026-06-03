@@ -48,6 +48,7 @@ const ExpertProfile: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [feeErrors, setFeeErrors] = useState<Record<string, string>>({});
+  const [feeHistory, setFeeHistory] = useState<any[]>([]);
 
   // Availability calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date());
