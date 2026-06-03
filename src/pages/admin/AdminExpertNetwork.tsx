@@ -294,7 +294,7 @@ const AdminExpertNetwork: React.FC = () => {
                 </Select>
               </div>
               <Badge variant="secondary" className="shrink-0">
-                Showing {Math.min(pageSize, filtered.length)} of {filtered.length}
+                {filtered.length > 0 ? `${startIndex + 1}–${Math.min(endIndex, filtered.length)} of ${filtered.length}` : '0 of 0'}
               </Badge>
             </div>
           </div>
