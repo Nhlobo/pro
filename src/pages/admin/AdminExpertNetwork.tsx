@@ -380,6 +380,35 @@ const AdminExpertNetwork: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="flex items-center gap-1"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="flex items-center gap-1"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="new-expert" className="mt-4">
