@@ -7,10 +7,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const APPROVER_EMAIL = 'boshomane@kutlwanoassociate.com';
-const REMINDER_AFTER_HOURS = 48;
-// Minimum gap between successive reminders for the same snapshot (hours).
-const REPEAT_REMINDER_EVERY_HOURS = 24;
+const APPROVER_EMAIL = Deno.env.get('PAYMENT_APPROVER_EMAIL') || 'boshomane@kutlwanoassociate.com';
+// Configurable via env vars or system_settings table (key: payment_approval_reminders)
+const ENV_REMINDER_AFTER_HOURS = Number(Deno.env.get('PAYMENT_REMINDER_AFTER_HOURS')) || 48;
+const ENV_REPEAT_REMINDER_EVERY_HOURS = Number(Deno.env.get('PAYMENT_REPEAT_REMINDER_EVERY_HOURS')) || 24;
 
 const ZAR = (n: number) =>
   new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(Number(n) || 0);
@@ -22,6 +22,22 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Load overrides from system_settings if present
+    let REMINDER_AFTER_HOURS = ENV_REMINDER_AFTER_HOURS;
+    let REPEAT_REMINDER_EVERY_HOURS = ENV_REPEAT_REMINDER_EVERY_HOURS;
+    try {
+      const { data: setting } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'payment_approval_reminders')
+        .maybeSingle();
+      const v: any = setting?.setting_value || {};
+      if (Number(v.reminder_after_hours) > 0) REMINDER_AFTER_HOURS = Number(v.reminder_after_hours);
+      if (Number(v.repeat_reminder_every_hours) > 0) REPEAT_REMINDER_EVERY_HOURS = Number(v.repeat_reminder_every_hours);
+    } catch (e) {
+      console.warn('Could not load system_settings overrides:', e);
+    }
 
     const now = new Date();
     const cutoff = new Date(now.getTime() - REMINDER_AFTER_HOURS * 3600 * 1000).toISOString();
