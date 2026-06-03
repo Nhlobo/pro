@@ -2080,6 +2080,8 @@ export type Database = {
           filters: Json
           id: string
           label: string
+          last_reminder_sent_at: string | null
+          reminder_count: number
           submitted_by: string | null
           submitted_by_id: string | null
           submitted_for_approval_at: string | null
@@ -2096,6 +2098,8 @@ export type Database = {
           filters?: Json
           id: string
           label: string
+          last_reminder_sent_at?: string | null
+          reminder_count?: number
           submitted_by?: string | null
           submitted_by_id?: string | null
           submitted_for_approval_at?: string | null
@@ -2112,6 +2116,8 @@ export type Database = {
           filters?: Json
           id?: string
           label?: string
+          last_reminder_sent_at?: string | null
+          reminder_count?: number
           submitted_by?: string | null
           submitted_by_id?: string | null
           submitted_for_approval_at?: string | null
