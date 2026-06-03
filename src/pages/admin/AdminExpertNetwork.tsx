@@ -32,6 +32,7 @@ const lazyWithRetry = <T,>(factory: () => Promise<T>) =>
 
 const ExpertFormModule = lazyWithRetry(() => import('@/components/admin/ExpertFormModule'));
 const ExpertCreditControlModule = lazyWithRetry(() => import('@/components/admin/ExpertCreditControlModule'));
+const ExpertFeeReviewApprovals = lazyWithRetry(() => import('@/components/admin/ExpertFeeReviewApprovals'));
 
 const TabFallback = () => (
   <div className="flex items-center justify-center py-12">
