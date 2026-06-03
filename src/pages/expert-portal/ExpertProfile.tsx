@@ -302,6 +302,39 @@ const ExpertProfile: React.FC = () => {
         </Card>
       </div>
 
+      {/* Consultation & Court Fees */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Consultation & Court Fees (ZAR)</CardTitle>
+          <CardDescription className="text-xs">Edits save to the system directory and credit control instantly</CardDescription>
+        </CardHeader>
+        <CardContent className="grid md:grid-cols-3 gap-4">
+          {[
+            { key: 'consultation_fee_mva', label: 'MVA Consultation Fee' },
+            { key: 'consultation_fee_med_neg', label: 'Med-Neg Consultation Fee' },
+            { key: 'merit_fees', label: 'Merit Fees' },
+            { key: 'consultation_fee_per_hour', label: 'Hourly Rate' },
+            { key: 'court_fees', label: 'Court Fee' },
+          ].map(({ key, label }) => (
+            <div key={key}>
+              <Label className="text-xs">{label}</Label>
+              {editing ? (
+                <Input
+                  inputMode="numeric"
+                  value={(form as any)[key]}
+                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value.replace(/[^\d]/g, '') }))}
+                  placeholder="0"
+                />
+              ) : (
+                <p className="text-sm text-foreground">
+                  {(form as any)[key] ? `R${Number((form as any)[key]).toLocaleString()}` : '—'}
+                </p>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
       {/* Availability Calendar */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
