@@ -172,6 +172,7 @@ const ExpertProfile: React.FC = () => {
       if (error) throw error;
       setFeeErrors({});
       window.dispatchEvent(new CustomEvent('medical-expert-updated', { detail: { expertId } }));
+      await loadFeeHistory(expertId);
       toast({ title: 'Profile Updated', description: 'Your profile and fees have been saved and populated to the system.' });
       setEditing(false);
     } catch (err: any) {
