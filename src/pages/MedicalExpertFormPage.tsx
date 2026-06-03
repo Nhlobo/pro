@@ -696,9 +696,6 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       }
 
       if (error) {
-        // Revert the optimistic baseline so the next attempt still detects
-        // the original "previous" fee values for audit logging.
-        if (isEditMode) setPreviousFees(optimisticPreviousFees);
         throw error;
       }
 
