@@ -23,6 +23,22 @@ serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
+    // Load overrides from system_settings if present
+    let REMINDER_AFTER_HOURS = ENV_REMINDER_AFTER_HOURS;
+    let REPEAT_REMINDER_EVERY_HOURS = ENV_REPEAT_REMINDER_EVERY_HOURS;
+    try {
+      const { data: setting } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'payment_approval_reminders')
+        .maybeSingle();
+      const v: any = setting?.setting_value || {};
+      if (Number(v.reminder_after_hours) > 0) REMINDER_AFTER_HOURS = Number(v.reminder_after_hours);
+      if (Number(v.repeat_reminder_every_hours) > 0) REPEAT_REMINDER_EVERY_HOURS = Number(v.repeat_reminder_every_hours);
+    } catch (e) {
+      console.warn('Could not load system_settings overrides:', e);
+    }
+
     const now = new Date();
     const cutoff = new Date(now.getTime() - REMINDER_AFTER_HOURS * 3600 * 1000).toISOString();
 
