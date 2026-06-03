@@ -129,9 +129,7 @@ const ExpertProfile: React.FC = () => {
       .limit(50);
     setFeeHistory(data || []);
   };
-    };
-    load();
-  }, [user]);
+
 
   const handleSaveProfile = async () => {
     if (!expertId) return;
