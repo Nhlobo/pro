@@ -2107,6 +2107,65 @@ export type Database = {
           },
         ]
       }
+      expert_fee_review_requests: {
+        Row: {
+          created_at: string
+          current_value: number | null
+          effective_date: string
+          expert_id: string
+          fee_field: string
+          id: string
+          proposed_value: number
+          reason: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["fee_review_status"]
+          submitted_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number | null
+          effective_date: string
+          expert_id: string
+          fee_field: string
+          id?: string
+          proposed_value: number
+          reason: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["fee_review_status"]
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: number | null
+          effective_date?: string
+          expert_id?: string
+          fee_field?: string
+          id?: string
+          proposed_value?: number
+          reason?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["fee_review_status"]
+          submitted_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_fee_review_requests_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_payment_planner_snapshots: {
         Row: {
           approval_note: string | null
@@ -5219,6 +5278,7 @@ export type Database = {
       epp_payment_status: "unpaid" | "partial" | "paid" | "overdue"
       epp_priority: "low" | "normal" | "high" | "urgent"
       epp_report_status: "pending" | "in_progress" | "completed" | "released"
+      fee_review_status: "pending" | "approved" | "rejected"
       matter_type: "mva" | "med_neg" | "both"
     }
     CompositeTypes: {
@@ -5362,6 +5422,7 @@ export const Constants = {
       epp_payment_status: ["unpaid", "partial", "paid", "overdue"],
       epp_priority: ["low", "normal", "high", "urgent"],
       epp_report_status: ["pending", "in_progress", "completed", "released"],
+      fee_review_status: ["pending", "approved", "rejected"],
       matter_type: ["mva", "med_neg", "both"],
     },
   },
