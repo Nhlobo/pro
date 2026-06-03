@@ -105,7 +105,7 @@ const AdminAttorneyCRM = lazy(() => import("./pages/admin/AdminAttorneyCRM"));
 const AdminCaseManagement = lazy(() => import("./pages/admin/AdminCaseManagement"));
 const AdminExpertNetwork = lazy(() => import("./pages/admin/AdminExpertNetwork"));
 const AdminFindExperts = lazy(() => import("./pages/admin/AdminFindExperts"));
-const AdminFindAttorneys = lazy(() => import("./pages/admin/AdminFindAttorneys"));
+
 const AdminHeatmap = lazy(() => import("./pages/admin/AdminHeatmap"));
 const AdminReportManagement = lazy(() => import("./pages/admin/AdminReportManagement"));
 const AdminReportingDashboard = lazy(() => import("./pages/admin/AdminReportingDashboard"));
