@@ -800,14 +800,25 @@ const MedicalExpertDirectory = () => {
               </Link>
             </div>
             
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Showing {Math.min(displayedExperts.length, pageSize)} of {filteredExperts.filter(e => matterTypeFilter === "all" || e.matter_types?.includes(matterTypeFilter)).length} expert(s)</span>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2 text-sm flex-wrap">
+                <Badge variant="default" className="text-sm px-3 py-1">
+                  {matterFilteredExperts.length} expert{matterFilteredExperts.length === 1 ? '' : 's'} available
+                </Badge>
+                <span className="text-muted-foreground">
+                  Showing {displayedExperts.length} on page {safePage} of {totalPages}
+                </span>
                 {selectedProvince !== "All Provinces" && (
                   <Badge variant="secondary">{selectedProvince}</Badge>
                 )}
+                {expertTypeFilter !== "all" && (
+                  <Badge variant="secondary">{formatExpertType(expertTypeFilter)}</Badge>
+                )}
                 {matterTypeFilter !== "all" && (
                   <Badge variant="default">{matterTypeFilter}</Badge>
+                )}
+                {searchTerm && (
+                  <Badge variant="outline">Search: "{searchTerm}"</Badge>
                 )}
                 {showRecentlyAdded && (
                   <Badge variant="default">Recently Added (30 days)</Badge>
