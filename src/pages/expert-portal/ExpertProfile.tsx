@@ -114,7 +114,21 @@ const ExpertProfile: React.FC = () => {
         .eq('expert_id', prof.expert_id)
         .order('date');
       setAvailability(avail || []);
+      await loadFeeHistory(prof.expert_id);
       setLoading(false);
+    };
+    load();
+  }, [user]);
+
+  const loadFeeHistory = async (eid: string) => {
+    const { data } = await (supabase as any)
+      .from('expert_fee_history')
+      .select('*')
+      .eq('expert_id', eid)
+      .order('changed_at', { ascending: false })
+      .limit(50);
+    setFeeHistory(data || []);
+  };
     };
     load();
   }, [user]);
