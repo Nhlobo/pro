@@ -77,6 +77,11 @@ const ExpertProfile: React.FC = () => {
           personal_assistant_contact: expert.personal_assistant_contact || '',
           practice_company_name: expert.practice_company_name || '',
           province: expert.province || '',
+          consultation_fee_mva: expert.consultation_fee_mva != null ? String(expert.consultation_fee_mva) : '',
+          consultation_fee_med_neg: expert.consultation_fee_med_neg != null ? String(expert.consultation_fee_med_neg) : '',
+          merit_fees: (expert as any).merit_fees != null ? String((expert as any).merit_fees) : '',
+          consultation_fee_per_hour: expert.consultation_fee_per_hour != null ? String(expert.consultation_fee_per_hour) : '',
+          court_fees: expert.court_fees != null ? String(expert.court_fees) : '',
         });
       }
 
