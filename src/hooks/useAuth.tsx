@@ -57,6 +57,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signOut = async () => {
     try {
       cleanupAuthState();
+      // POPIA: wipe any locally cached records on sign out
+      try {
+        const { clearOfflineData } = await import("@/lib/offline/db");
+        await clearOfflineData();
+      } catch { /* noop */ }
       await supabase.auth.signOut({ scope: 'global' });
       window.location.href = '/auth';
     } catch (error) {
