@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Pencil, SlidersHorizontal } from 'lucide-react';
+import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Pencil, SlidersHorizontal, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { useSearchParams } from 'react-router-dom';
