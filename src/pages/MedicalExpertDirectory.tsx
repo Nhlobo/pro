@@ -624,7 +624,7 @@ const MedicalExpertDirectory = () => {
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, type, or specialization..."
+                placeholder="Search by expert name, type, or specialization..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -632,7 +632,7 @@ const MedicalExpertDirectory = () => {
             </div>
 
             {/* Primary filters */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Show per page</label>
                 <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
@@ -656,6 +656,21 @@ const MedicalExpertDirectory = () => {
                   <SelectContent>
                     {provinces.map((province) => (
                       <SelectItem key={province} value={province}>{province}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Expert Type</label>
+                <Select value={expertTypeFilter} onValueChange={setExpertTypeFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Expert Type" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <SelectItem value="all">All Expert Types</SelectItem>
+                    {getUniqueExpertTypes(experts as any[]).map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
