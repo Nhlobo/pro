@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign, ChevronDown, ChevronUp, Pencil, SlidersHorizontal } from 'lucide-react';
+import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Pencil, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { useSearchParams } from 'react-router-dom';
@@ -85,6 +85,7 @@ const AdminExpertNetwork: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [editExpertId, setEditExpertId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [currentPage, setCurrentPage] = useState(1);
 
   const refetchExperts = async () => {
     const { data } = await supabase.rpc('get_medical_experts_secure');
@@ -118,6 +119,16 @@ const AdminExpertNetwork: React.FC = () => {
       normalizeProvince(e.province) === provinceFilter;
     return nameMatch && provinceMatch;
   });
+
+  // Reset to first page whenever filters or page size change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, provinceFilter, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginated = filtered.slice(startIndex, endIndex);
 
   // Group by normalized province, then by discipline
   const provinceGroups = experts.reduce((acc, e) => {
@@ -283,7 +294,7 @@ const AdminExpertNetwork: React.FC = () => {
                 </Select>
               </div>
               <Badge variant="secondary" className="shrink-0">
-                Showing {Math.min(pageSize, filtered.length)} of {filtered.length}
+                {filtered.length > 0 ? `${startIndex + 1}–${Math.min(endIndex, filtered.length)} of ${filtered.length}` : '0 of 0'}
               </Badge>
             </div>
           </div>
@@ -318,7 +329,7 @@ const AdminExpertNetwork: React.FC = () => {
                   <tbody>
                     {loading ? (
                       <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
-                    ) : filtered.slice(0, pageSize).map((e) => {
+                    ) : paginated.map((e) => {
                       const score = Math.floor(Math.random() * 25 + 75);
                       const fee = Number(e.consultation_fees || 0);
                       return (
@@ -369,6 +380,35 @@ const AdminExpertNetwork: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="flex items-center gap-1"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="flex items-center gap-1"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="new-expert" className="mt-4">
