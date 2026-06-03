@@ -75,6 +75,7 @@ const MedicalExpertDirectory = () => {
   const [clearingExperts, setClearingExperts] = useState(false);
   const [selectedExperts, setSelectedExperts] = useState<Set<string>>(new Set());
   const [matterTypeFilter, setMatterTypeFilter] = useState<string>("all");
+  const [expertTypeFilter, setExpertTypeFilter] = useState<string>("all");
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [pageSize, setPageSize] = useState<number>(50);
   const [currentPage, setCurrentPage] = useState<number>(1);
