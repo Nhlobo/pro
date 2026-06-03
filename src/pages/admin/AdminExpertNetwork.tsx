@@ -4,8 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
+import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign, ChevronDown, ChevronUp, Pencil, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { useSearchParams } from 'react-router-dom';
@@ -59,10 +60,24 @@ const normalizeProvince = (province: string): string => {
   return map[p] || province || 'Unknown';
 };
 
+const provincesList = [
+  'All Provinces',
+  'Eastern Cape',
+  'Free State',
+  'Gauteng',
+  'KwaZulu-Natal',
+  'Limpopo',
+  'Mpumalanga',
+  'Northern Cape',
+  'North West',
+  'Western Cape',
+];
+
 const AdminExpertNetwork: React.FC = () => {
   const [experts, setExperts] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [provinceSearch, setProvinceSearch] = useState('');
+  const [provinceFilter, setProvinceFilter] = useState('All Provinces');
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null);
@@ -95,10 +110,13 @@ const AdminExpertNetwork: React.FC = () => {
     return () => window.removeEventListener('medical-expert-updated', handler);
   }, []);
 
-  const filtered = experts.filter(e =>
-    `${e.first_name} ${e.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-    e.expert_type?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = experts.filter(e => {
+    const nameMatch = `${e.first_name} ${e.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
+      e.expert_type?.toLowerCase().includes(search.toLowerCase());
+    const provinceMatch = provinceFilter === 'All Provinces' ||
+      normalizeProvince(e.province) === provinceFilter;
+    return nameMatch && provinceMatch;
+  });
 
   // Group by normalized province, then by discipline
   const provinceGroups = experts.reduce((acc, e) => {
@@ -231,10 +249,28 @@ const AdminExpertNetwork: React.FC = () => {
             )}
           </Card>
 
-          {/* Search */}
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search experts..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          {/* Search & Province Filter */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="relative w-full sm:max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search experts by name or type..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <Select value={provinceFilter} onValueChange={setProvinceFilter}>
+                <SelectTrigger className="w-full sm:w-52 flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <SelectValue placeholder="Filter by province" />
+                </SelectTrigger>
+                <SelectContent>
+                  {provincesList.map((p) => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Badge variant="secondary" className="shrink-0">
+                {filtered.length} expert{filtered.length !== 1 ? 's' : ''}
+              </Badge>
+            </div>
           </div>
 
           {/* Expert List */}
