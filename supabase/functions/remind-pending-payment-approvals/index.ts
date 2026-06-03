@@ -7,10 +7,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const APPROVER_EMAIL = 'boshomane@kutlwanoassociate.com';
-const REMINDER_AFTER_HOURS = 48;
-// Minimum gap between successive reminders for the same snapshot (hours).
-const REPEAT_REMINDER_EVERY_HOURS = 24;
+const APPROVER_EMAIL = Deno.env.get('PAYMENT_APPROVER_EMAIL') || 'boshomane@kutlwanoassociate.com';
+// Configurable via env vars or system_settings table (key: payment_approval_reminders)
+const ENV_REMINDER_AFTER_HOURS = Number(Deno.env.get('PAYMENT_REMINDER_AFTER_HOURS')) || 48;
+const ENV_REPEAT_REMINDER_EVERY_HOURS = Number(Deno.env.get('PAYMENT_REPEAT_REMINDER_EVERY_HOURS')) || 24;
 
 const ZAR = (n: number) =>
   new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(Number(n) || 0);
