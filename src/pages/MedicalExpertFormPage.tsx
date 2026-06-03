@@ -187,17 +187,31 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
   };
 
   const PreviousFeeNote: React.FC<{ previous: string | null; current: string }> = ({ previous, current }) => {
-    const prevFormatted = formatRand(previous);
-    if (!prevFormatted) return null;
     const prevNum = parseInt(String(previous ?? "").replace(/[^\d]/g, "")) || 0;
     const currNum = parseInt(String(current ?? "").replace(/[^\d]/g, "")) || 0;
-    const changed = prevNum !== currNum;
+
+    // Only show the hint when the user has typed a value that differs from the
+    // last saved baseline. If nothing changed (or there was no prior value),
+    // render nothing so the field stays clean.
+    if (!prevNum && !currNum) return null;
+    if (prevNum === currNum) return null;
+
+    const prevFormatted = prevNum ? `R ${prevNum.toLocaleString("en-ZA")}` : "—";
+    const newFormatted = currNum ? `R ${currNum.toLocaleString("en-ZA")}` : "—";
+    const direction = currNum > prevNum ? "↑" : currNum < prevNum ? "↓" : "→";
+    const directionClass = currNum > prevNum
+      ? "text-emerald-600 dark:text-emerald-400"
+      : currNum < prevNum
+        ? "text-rose-600 dark:text-rose-400"
+        : "text-muted-foreground";
+
     return (
-      <p className={`text-xs mt-1 ${changed ? "text-amber-600 dark:text-amber-400 font-medium" : "text-muted-foreground"}`}>
-        Previous: <span className="line-through">{prevFormatted}</span>
-        {changed && currNum > 0 && (
-          <span className="ml-2 not-italic">→ New: R {currNum.toLocaleString("en-ZA")}</span>
-        )}
+      <p className="text-xs mt-1 text-amber-700 dark:text-amber-400 font-medium flex flex-wrap items-center gap-1">
+        <span className="text-muted-foreground font-normal">Previous:</span>
+        <span className="line-through text-muted-foreground font-normal">{prevFormatted}</span>
+        <span className={`font-semibold ${directionClass}`}>{direction}</span>
+        <span className="text-muted-foreground font-normal">New:</span>
+        <span className="font-semibold">{newFormatted}</span>
       </p>
     );
   };
@@ -643,16 +657,13 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       // (directory cards, credit control, statement previews, etc.) BEFORE the
       // network round-trip completes. The editor itself is already controlled
       // by the form values the user just typed, so it reflects changes instantly.
-      const optimisticPreviousFees = previousFees;
+      // Broadcast an optimistic update to the rest of the app (directory cards,
+      // credit control, statement previews, etc.) so they reflect the new fees
+      // before the network round-trip completes. We deliberately do NOT touch
+      // `previousFees` here — that baseline must stay intact until AFTER the
+      // save succeeds so the audit-log diff can detect what actually changed.
       if (isEditMode && expertId) {
         try {
-          setPreviousFees({
-            feesMVA: feesMva?.toString() ?? null,
-            feesMedNeg: feesMedNeg?.toString() ?? null,
-            feesMerit: feesMerit?.toString() ?? null,
-            feesPerHour: feesPerHour?.toString() ?? null,
-            courtFee: courtFees?.toString() ?? null,
-          });
           window.dispatchEvent(new CustomEvent('medical-expert-updated', {
             detail: {
               expertId,
@@ -685,9 +696,6 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       }
 
       if (error) {
-        // Revert the optimistic baseline so the next attempt still detects
-        // the original "previous" fee values for audit logging.
-        if (isEditMode) setPreviousFees(optimisticPreviousFees);
         throw error;
       }
 
