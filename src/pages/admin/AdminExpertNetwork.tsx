@@ -60,10 +60,24 @@ const normalizeProvince = (province: string): string => {
   return map[p] || province || 'Unknown';
 };
 
+const provincesList = [
+  'All Provinces',
+  'Eastern Cape',
+  'Free State',
+  'Gauteng',
+  'KwaZulu-Natal',
+  'Limpopo',
+  'Mpumalanga',
+  'Northern Cape',
+  'North West',
+  'Western Cape',
+];
+
 const AdminExpertNetwork: React.FC = () => {
   const [experts, setExperts] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [provinceSearch, setProvinceSearch] = useState('');
+  const [provinceFilter, setProvinceFilter] = useState('All Provinces');
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null);
