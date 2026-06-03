@@ -22,7 +22,7 @@ import MergeExpertDialog from "@/components/MergeExpertDialog";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
-import { formatExpertType } from "@/utils/expertTypeMapping";
+import { formatExpertType, getUniqueExpertTypes, matchesExpertType } from "@/utils/expertTypeMapping";
 
 interface MedicalExpert {
   id: string;
@@ -75,6 +75,7 @@ const MedicalExpertDirectory = () => {
   const [clearingExperts, setClearingExperts] = useState(false);
   const [selectedExperts, setSelectedExperts] = useState<Set<string>>(new Set());
   const [matterTypeFilter, setMatterTypeFilter] = useState<string>("all");
+  const [expertTypeFilter, setExpertTypeFilter] = useState<string>("all");
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [pageSize, setPageSize] = useState<number>(50);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -88,7 +89,7 @@ const MedicalExpertDirectory = () => {
   useEffect(() => {
     filterExperts();
     setCurrentPage(1);
-  }, [experts, selectedProvince, searchTerm, showInactive, showRecentlyAdded, pageSize, matterTypeFilter, sortBy]);
+  }, [experts, selectedProvince, searchTerm, showInactive, showRecentlyAdded, pageSize, matterTypeFilter, expertTypeFilter, sortBy]);
 
   // Sort helpers
   const sortExperts = (list: MedicalExpert[]) => {
@@ -191,6 +192,10 @@ const MedicalExpertDirectory = () => {
 
     if (selectedProvince !== "All Provinces") {
       filtered = filtered.filter(expert => expert.province === selectedProvince);
+    }
+
+    if (expertTypeFilter !== "all") {
+      filtered = filtered.filter(expert => matchesExpertType(expert.expert_type, expertTypeFilter));
     }
 
     if (searchTerm) {
@@ -619,7 +624,7 @@ const MedicalExpertDirectory = () => {
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, type, or specialization..."
+                placeholder="Search by expert name, type, or specialization..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -627,7 +632,7 @@ const MedicalExpertDirectory = () => {
             </div>
 
             {/* Primary filters */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Show per page</label>
                 <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
@@ -651,6 +656,21 @@ const MedicalExpertDirectory = () => {
                   <SelectContent>
                     {provinces.map((province) => (
                       <SelectItem key={province} value={province}>{province}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Expert Type</label>
+                <Select value={expertTypeFilter} onValueChange={setExpertTypeFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Expert Type" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <SelectItem value="all">All Expert Types</SelectItem>
+                    {getUniqueExpertTypes(experts as any[]).map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -780,14 +800,25 @@ const MedicalExpertDirectory = () => {
               </Link>
             </div>
             
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Showing {Math.min(displayedExperts.length, pageSize)} of {filteredExperts.filter(e => matterTypeFilter === "all" || e.matter_types?.includes(matterTypeFilter)).length} expert(s)</span>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2 text-sm flex-wrap">
+                <Badge variant="default" className="text-sm px-3 py-1">
+                  {matterFilteredExperts.length} expert{matterFilteredExperts.length === 1 ? '' : 's'} available
+                </Badge>
+                <span className="text-muted-foreground">
+                  Showing {displayedExperts.length} on page {safePage} of {totalPages}
+                </span>
                 {selectedProvince !== "All Provinces" && (
                   <Badge variant="secondary">{selectedProvince}</Badge>
                 )}
+                {expertTypeFilter !== "all" && (
+                  <Badge variant="secondary">{formatExpertType(expertTypeFilter)}</Badge>
+                )}
                 {matterTypeFilter !== "all" && (
                   <Badge variant="default">{matterTypeFilter}</Badge>
+                )}
+                {searchTerm && (
+                  <Badge variant="outline">Search: "{searchTerm}"</Badge>
                 )}
                 {showRecentlyAdded && (
                   <Badge variant="default">Recently Added (30 days)</Badge>
