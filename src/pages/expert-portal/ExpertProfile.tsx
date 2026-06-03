@@ -48,6 +48,7 @@ const ExpertProfile: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [feeErrors, setFeeErrors] = useState<Record<string, string>>({});
+  const [feeHistory, setFeeHistory] = useState<any[]>([]);
 
   // Availability calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -113,10 +114,22 @@ const ExpertProfile: React.FC = () => {
         .eq('expert_id', prof.expert_id)
         .order('date');
       setAvailability(avail || []);
+      await loadFeeHistory(prof.expert_id);
       setLoading(false);
     };
     load();
   }, [user]);
+
+  const loadFeeHistory = async (eid: string) => {
+    const { data } = await (supabase as any)
+      .from('expert_fee_history')
+      .select('*')
+      .eq('expert_id', eid)
+      .order('changed_at', { ascending: false })
+      .limit(50);
+    setFeeHistory(data || []);
+  };
+
 
   const handleSaveProfile = async () => {
     if (!expertId) return;
@@ -159,6 +172,7 @@ const ExpertProfile: React.FC = () => {
       if (error) throw error;
       setFeeErrors({});
       window.dispatchEvent(new CustomEvent('medical-expert-updated', { detail: { expertId } }));
+      await loadFeeHistory(expertId);
       toast({ title: 'Profile Updated', description: 'Your profile and fees have been saved and populated to the system.' });
       setEditing(false);
     } catch (err: any) {
@@ -390,6 +404,61 @@ const ExpertProfile: React.FC = () => {
           })}
         </CardContent>
       </Card>
+
+      {/* Fee Change History */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Clock className="h-4 w-4 text-primary" /> Fee Change History
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Audit log of previous fee values with timestamps (last 50 changes)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {feeHistory.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No fee changes recorded yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-xs text-muted-foreground">
+                    <th className="text-left py-2 pr-4 font-medium">When</th>
+                    <th className="text-left py-2 pr-4 font-medium">Fee</th>
+                    <th className="text-left py-2 pr-4 font-medium">Previous</th>
+                    <th className="text-left py-2 pr-4 font-medium">New</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {feeHistory.map((h) => {
+                    const labels: Record<string, string> = {
+                      consultation_fee_mva: 'MVA Consultation',
+                      consultation_fee_med_neg: 'Med-Neg Consultation',
+                      merit_fees: 'Merit Fees',
+                      consultation_fee_per_hour: 'Hourly Rate',
+                      court_fees: 'Court Fee',
+                    };
+                    const fmt = (v: any) =>
+                      v == null ? <span className="text-muted-foreground">—</span> : `R${Number(v).toLocaleString('en-ZA')}`;
+                    return (
+                      <tr key={h.id} className="border-b border-border/30">
+                        <td className="py-2 pr-4 text-xs text-muted-foreground">
+                          {format(parseISO(h.changed_at), 'dd MMM yyyy HH:mm')}
+                        </td>
+                        <td className="py-2 pr-4">{labels[h.fee_field] || h.fee_field}</td>
+                        <td className="py-2 pr-4">{fmt(h.old_value)}</td>
+                        <td className="py-2 pr-4 font-medium">{fmt(h.new_value)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+
 
       {/* Availability Calendar */}
       <Card className="border-border/50">
