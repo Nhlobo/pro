@@ -22,7 +22,7 @@ import MergeExpertDialog from "@/components/MergeExpertDialog";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
-import { formatExpertType } from "@/utils/expertTypeMapping";
+import { formatExpertType, getUniqueExpertTypes, matchesExpertType } from "@/utils/expertTypeMapping";
 
 interface MedicalExpert {
   id: string;
