@@ -136,6 +136,65 @@ const ExpertProfile: React.FC = () => {
       .order('changed_at', { ascending: false })
       .limit(50);
     setFeeHistory(data || []);
+    const { data: reqs } = await (supabase as any)
+      .from('expert_fee_review_requests')
+      .select('*')
+      .eq('expert_id', eid)
+      .order('created_at', { ascending: false })
+      .limit(50);
+    setReviewRequests(reqs || []);
+  };
+
+  const submitReviewRequest = async () => {
+    if (!expertId) return;
+    const digits = reviewForm.proposed_value.replace(/\D/g, '');
+    const proposed = Number(digits);
+    if (!digits || !proposed || proposed < 0 || proposed > MAX_FEE) {
+      toast({ title: 'Invalid amount', description: 'Enter a valid proposed fee amount.', variant: 'destructive' });
+      return;
+    }
+    if (!reviewForm.effective_date) {
+      toast({ title: 'Effective date required', variant: 'destructive' });
+      return;
+    }
+    if (!reviewForm.reason.trim() || reviewForm.reason.trim().length < 5) {
+      toast({ title: 'Reason required', description: 'Please provide a brief reason (at least 5 characters).', variant: 'destructive' });
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      const current = (form as any)[reviewForm.fee_field];
+      const currentNum = current ? Number(String(current).replace(/\D/g, '')) || null : null;
+      const { error } = await (supabase as any).from('expert_fee_review_requests').insert({
+        expert_id: expertId,
+        submitted_by: user?.id || null,
+        fee_field: reviewForm.fee_field,
+        current_value: currentNum,
+        proposed_value: proposed,
+        effective_date: reviewForm.effective_date,
+        reason: reviewForm.reason.trim(),
+      });
+      if (error) throw error;
+      toast({ title: 'Request submitted', description: 'Your annual fee review request has been sent for approval.' });
+      setReviewForm(f => ({ ...f, proposed_value: '', reason: '' }));
+      await loadFeeHistory(expertId);
+    } catch (e: any) {
+      toast({ title: 'Submission failed', description: e?.message || 'Could not submit request.', variant: 'destructive' });
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const cancelReviewRequest = async (id: string) => {
+    if (!expertId) return;
+    const { error } = await (supabase as any).from('expert_fee_review_requests').delete().eq('id', id);
+    if (error) {
+      toast({ title: 'Cancel failed', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Request cancelled' });
+    await loadFeeHistory(expertId);
+  };
   };
 
 
