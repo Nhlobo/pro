@@ -329,7 +329,7 @@ const AdminExpertNetwork: React.FC = () => {
                   <tbody>
                     {loading ? (
                       <tr><td colSpan={8} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
-                    ) : filtered.slice(0, pageSize).map((e) => {
+                    ) : paginated.map((e) => {
                       const score = Math.floor(Math.random() * 25 + 75);
                       const fee = Number(e.consultation_fees || 0);
                       return (
