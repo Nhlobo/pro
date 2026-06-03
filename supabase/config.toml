@@ -110,3 +110,6 @@ verify_jwt = true  # Protected endpoint for case intake screening
 
 [functions.submit-appointment-request]
 verify_jwt = false  # Access code validated in code
+
+[functions.remind-pending-payment-approvals]
+verify_jwt = false  # Called by pg_cron
