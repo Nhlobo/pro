@@ -657,16 +657,13 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       // (directory cards, credit control, statement previews, etc.) BEFORE the
       // network round-trip completes. The editor itself is already controlled
       // by the form values the user just typed, so it reflects changes instantly.
-      const optimisticPreviousFees = previousFees;
+      // Broadcast an optimistic update to the rest of the app (directory cards,
+      // credit control, statement previews, etc.) so they reflect the new fees
+      // before the network round-trip completes. We deliberately do NOT touch
+      // `previousFees` here — that baseline must stay intact until AFTER the
+      // save succeeds so the audit-log diff can detect what actually changed.
       if (isEditMode && expertId) {
         try {
-          setPreviousFees({
-            feesMVA: feesMva?.toString() ?? null,
-            feesMedNeg: feesMedNeg?.toString() ?? null,
-            feesMerit: feesMerit?.toString() ?? null,
-            feesPerHour: feesPerHour?.toString() ?? null,
-            courtFee: courtFees?.toString() ?? null,
-          });
           window.dispatchEvent(new CustomEvent('medical-expert-updated', {
             detail: {
               expertId,
