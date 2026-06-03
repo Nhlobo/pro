@@ -85,6 +85,7 @@ const AdminExpertNetwork: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [editExpertId, setEditExpertId] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
+  const [currentPage, setCurrentPage] = useState(1);
 
   const refetchExperts = async () => {
     const { data } = await supabase.rpc('get_medical_experts_secure');
