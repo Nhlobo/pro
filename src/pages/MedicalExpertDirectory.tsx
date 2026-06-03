@@ -194,6 +194,10 @@ const MedicalExpertDirectory = () => {
       filtered = filtered.filter(expert => expert.province === selectedProvince);
     }
 
+    if (expertTypeFilter !== "all") {
+      filtered = filtered.filter(expert => matchesExpertType(expert.expert_type, expertTypeFilter));
+    }
+
     if (searchTerm) {
       filtered = filtered.filter(expert =>
         expert.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
