@@ -49,6 +49,14 @@ const ExpertProfile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [feeErrors, setFeeErrors] = useState<Record<string, string>>({});
   const [feeHistory, setFeeHistory] = useState<any[]>([]);
+  const [reviewRequests, setReviewRequests] = useState<any[]>([]);
+  const [reviewForm, setReviewForm] = useState({
+    fee_field: 'consultation_fee_mva',
+    proposed_value: '',
+    effective_date: format(new Date(new Date().getFullYear() + 1, 0, 1), 'yyyy-MM-dd'),
+    reason: '',
+  });
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   // Availability calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date());
