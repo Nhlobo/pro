@@ -195,7 +195,7 @@ const ExpertProfile: React.FC = () => {
     toast({ title: 'Request cancelled' });
     await loadFeeHistory(expertId);
   };
-  };
+
 
 
   const handleSaveProfile = async () => {
