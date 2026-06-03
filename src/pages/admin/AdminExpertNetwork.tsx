@@ -249,10 +249,28 @@ const AdminExpertNetwork: React.FC = () => {
             )}
           </Card>
 
-          {/* Search */}
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search experts..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          {/* Search & Province Filter */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div className="relative w-full sm:max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input placeholder="Search experts by name or type..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <Select value={provinceFilter} onValueChange={setProvinceFilter}>
+                <SelectTrigger className="w-full sm:w-52 flex items-center gap-2">
+                  <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <SelectValue placeholder="Filter by province" />
+                </SelectTrigger>
+                <SelectContent>
+                  {provincesList.map((p) => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Badge variant="secondary" className="shrink-0">
+                {filtered.length} expert{filtered.length !== 1 ? 's' : ''}
+              </Badge>
+            </div>
           </div>
 
           {/* Expert List */}
