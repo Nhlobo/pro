@@ -94,16 +94,6 @@ export const ADMIN_MODULES: AdminModule[] = [
     roles: ['admin', 'employee', 'sales_consultant'],
     permissions: [{ category: 'Medical Expert Management' }],
   },
-  {
-    key: 'find-attorneys',
-    title: 'Find Attorneys',
-    href: '/admin/find-attorneys',
-    group: 'Intelligence',
-    icon: Search,
-    description: 'Search referring attorneys by province, district & practice area',
-    roles: ['admin', 'employee', 'sales_consultant'],
-    permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
-  },
   // Intelligence
   {
     key: 'heatmap',
