@@ -256,7 +256,7 @@ const AdminExpertNetwork: React.FC = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input placeholder="Search experts by name or type..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
             </div>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
               <Select value={provinceFilter} onValueChange={setProvinceFilter}>
                 <SelectTrigger className="w-full sm:w-52 flex items-center gap-2">
                   <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -268,8 +268,22 @@ const AdminExpertNetwork: React.FC = () => {
                   ))}
                 </SelectContent>
               </Select>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Show</span>
+                <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                  <SelectTrigger className="w-20 h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[10, 20, 40, 60, 100, 200].map((n) => (
+                      <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                    ))}
+                    <SelectItem value={String(filtered.length || 1)}>All</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <Badge variant="secondary" className="shrink-0">
-                {filtered.length} expert{filtered.length !== 1 ? 's' : ''}
+                Showing {Math.min(pageSize, filtered.length)} of {filtered.length}
               </Badge>
             </div>
           </div>
