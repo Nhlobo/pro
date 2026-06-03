@@ -49,6 +49,11 @@ const ExpertProfile: React.FC = () => {
     personal_assistant_contact: '',
     practice_company_name: '',
     province: '',
+    consultation_fee_mva: '',
+    consultation_fee_med_neg: '',
+    merit_fees: '',
+    consultation_fee_per_hour: '',
+    court_fees: '',
   });
 
   useEffect(() => {
