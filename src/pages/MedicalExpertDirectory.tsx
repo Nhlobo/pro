@@ -199,14 +199,17 @@ const MedicalExpertDirectory = () => {
     }
 
     if (searchTerm) {
-      filtered = filtered.filter(expert =>
-        expert.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expert.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expert.expert_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        expert.specializations?.some(spec =>
-          spec.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      );
+      const tokens = searchTerm.toLowerCase().trim().split(/\s+/).filter(Boolean);
+      filtered = filtered.filter(expert => {
+        const fields = [
+          expert.first_name.toLowerCase(),
+          expert.last_name.toLowerCase(),
+          expert.expert_type.toLowerCase(),
+          expert.province.toLowerCase(),
+          ...(expert.specializations || []).map(s => s.toLowerCase()),
+        ];
+        return tokens.every(token => fields.some(field => field.includes(token)));
+      });
     }
 
     expertsWithBookingStats(filtered).then(withStats => {
@@ -624,7 +627,7 @@ const MedicalExpertDirectory = () => {
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by expert name, type, or specialization..."
+                placeholder="Search by name, type, specialization or province (e.g. orthopaedic Gauteng)..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
