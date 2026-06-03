@@ -472,6 +472,131 @@ const ExpertProfile: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* Annual Fee Review Request */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Edit className="h-4 w-4 text-primary" /> Annual Fee Review Request
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Submit a proposed fee change with an effective date and reason. Pending requests will be reviewed by an administrator before taking effect.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid md:grid-cols-4 gap-3">
+            <div>
+              <Label className="text-xs">Fee</Label>
+              <Select value={reviewForm.fee_field} onValueChange={(v) => setReviewForm(f => ({ ...f, fee_field: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="consultation_fee_mva">MVA Consultation Fee</SelectItem>
+                  <SelectItem value="consultation_fee_med_neg">Med-Neg Consultation Fee</SelectItem>
+                  <SelectItem value="merit_fees">Merit Fees</SelectItem>
+                  <SelectItem value="consultation_fee_per_hour">Hourly Rate</SelectItem>
+                  <SelectItem value="court_fees">Court Fee</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                Current: {(() => {
+                  const cv = (form as any)[reviewForm.fee_field];
+                  return cv ? formatZAR(cv) : '—';
+                })()}
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs">Proposed Amount (ZAR)</Label>
+              <Input
+                inputMode="numeric"
+                value={reviewForm.proposed_value ? formatZAR(reviewForm.proposed_value) : ''}
+                onChange={e => {
+                  const raw = e.target.value.replace(/\D/g, '');
+                  setReviewForm(f => ({ ...f, proposed_value: raw }));
+                }}
+                placeholder="R0"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Effective Date</Label>
+              <Input
+                type="date"
+                value={reviewForm.effective_date}
+                min={format(new Date(), 'yyyy-MM-dd')}
+                onChange={e => setReviewForm(f => ({ ...f, effective_date: e.target.value }))}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button onClick={submitReviewRequest} disabled={submittingReview} className="w-full">
+                {submittingReview ? 'Submitting…' : 'Submit Request'}
+              </Button>
+            </div>
+          </div>
+          <div>
+            <Label className="text-xs">Reason for Change</Label>
+            <Textarea
+              rows={2}
+              value={reviewForm.reason}
+              onChange={e => setReviewForm(f => ({ ...f, reason: e.target.value }))}
+              placeholder="e.g. Annual inflation adjustment, increased operational costs, scope expansion…"
+            />
+          </div>
+
+          <Separator />
+
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Your Requests</p>
+            {reviewRequests.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No fee review requests submitted yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-xs text-muted-foreground">
+                      <th className="text-left py-2 pr-3 font-medium">Submitted</th>
+                      <th className="text-left py-2 pr-3 font-medium">Fee</th>
+                      <th className="text-left py-2 pr-3 font-medium">Current → Proposed</th>
+                      <th className="text-left py-2 pr-3 font-medium">Effective</th>
+                      <th className="text-left py-2 pr-3 font-medium">Reason</th>
+                      <th className="text-left py-2 pr-3 font-medium">Status</th>
+                      <th className="text-right py-2 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reviewRequests.map((r) => {
+                      const labels: Record<string, string> = {
+                        consultation_fee_mva: 'MVA Consultation',
+                        consultation_fee_med_neg: 'Med-Neg Consultation',
+                        merit_fees: 'Merit Fees',
+                        consultation_fee_per_hour: 'Hourly Rate',
+                        court_fees: 'Court Fee',
+                      };
+                      const fmt = (v: any) => v == null ? '—' : `R${Number(v).toLocaleString('en-ZA')}`;
+                      const variant = r.status === 'approved' ? 'default' : r.status === 'rejected' ? 'destructive' : 'secondary';
+                      return (
+                        <tr key={r.id} className="border-b border-border/30 align-top">
+                          <td className="py-2 pr-3 text-xs text-muted-foreground">{format(parseISO(r.created_at), 'dd MMM yyyy')}</td>
+                          <td className="py-2 pr-3">{labels[r.fee_field] || r.fee_field}</td>
+                          <td className="py-2 pr-3">{fmt(r.current_value)} → <span className="font-medium">{fmt(r.proposed_value)}</span></td>
+                          <td className="py-2 pr-3 text-xs">{format(parseISO(r.effective_date), 'dd MMM yyyy')}</td>
+                          <td className="py-2 pr-3 text-xs max-w-xs truncate" title={r.reason}>{r.reason}</td>
+                          <td className="py-2 pr-3"><Badge variant={variant as any} className="capitalize">{r.status}</Badge></td>
+                          <td className="py-2 text-right">
+                            {r.status === 'pending' && (
+                              <Button size="sm" variant="ghost" onClick={() => cancelReviewRequest(r.id)}>
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Fee Change History */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
