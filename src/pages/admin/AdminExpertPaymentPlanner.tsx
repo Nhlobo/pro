@@ -1106,7 +1106,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       `${currentUserName} re-sent "${snap?.label ?? 'a payment plan'}" for approval.`,
       id,
     );
-    toast.success('Re-sent for approval');
+    if (updatedSnap) void emailSubmissionToUserAndAdmins(updatedSnap);
+    toast.success('Re-sent for approval', {
+      description: 'Admins notified in-app and emailed a copy of the plan.',
+    });
   };
 
   const approveSnapshot = async (id: string, note?: string) => {
