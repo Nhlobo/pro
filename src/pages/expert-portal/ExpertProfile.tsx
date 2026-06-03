@@ -49,6 +49,11 @@ const ExpertProfile: React.FC = () => {
     personal_assistant_contact: '',
     practice_company_name: '',
     province: '',
+    consultation_fee_mva: '',
+    consultation_fee_med_neg: '',
+    merit_fees: '',
+    consultation_fee_per_hour: '',
+    court_fees: '',
   });
 
   useEffect(() => {
@@ -72,6 +77,11 @@ const ExpertProfile: React.FC = () => {
           personal_assistant_contact: expert.personal_assistant_contact || '',
           practice_company_name: expert.practice_company_name || '',
           province: expert.province || '',
+          consultation_fee_mva: expert.consultation_fee_mva != null ? String(expert.consultation_fee_mva) : '',
+          consultation_fee_med_neg: expert.consultation_fee_med_neg != null ? String(expert.consultation_fee_med_neg) : '',
+          merit_fees: (expert as any).merit_fees != null ? String((expert as any).merit_fees) : '',
+          consultation_fee_per_hour: expert.consultation_fee_per_hour != null ? String(expert.consultation_fee_per_hour) : '',
+          court_fees: expert.court_fees != null ? String(expert.court_fees) : '',
         });
       }
 
@@ -102,10 +112,19 @@ const ExpertProfile: React.FC = () => {
         personal_assistant_contact: form.personal_assistant_contact,
         practice_company_name: form.practice_company_name,
         province: form.province,
+        consultation_fee_mva: form.consultation_fee_mva ? parseInt(form.consultation_fee_mva.replace(/[^\d]/g, '')) || null : null,
+        consultation_fee_med_neg: form.consultation_fee_med_neg ? parseInt(form.consultation_fee_med_neg.replace(/[^\d]/g, '')) || null : null,
+        merit_fees: form.merit_fees ? parseInt(form.merit_fees.replace(/[^\d]/g, '')) || null : null,
+        consultation_fee_per_hour: form.consultation_fee_per_hour ? parseInt(form.consultation_fee_per_hour.replace(/[^\d]/g, '')) || null : null,
+        court_fees: form.court_fees ? parseInt(form.court_fees.replace(/[^\d]/g, '')) || null : null,
+        consultation_fees: (form.consultation_fee_med_neg ? parseInt(form.consultation_fee_med_neg.replace(/[^\d]/g, '')) : null)
+          ?? (form.consultation_fee_mva ? parseInt(form.consultation_fee_mva.replace(/[^\d]/g, '')) : null)
+          ?? (form.consultation_fee_per_hour ? parseInt(form.consultation_fee_per_hour.replace(/[^\d]/g, '')) : null),
         updated_at: new Date().toISOString(),
       }).eq('id', expertId);
       if (error) throw error;
-      toast({ title: 'Profile Updated', description: 'Your profile has been saved and populated to the system.' });
+      window.dispatchEvent(new CustomEvent('medical-expert-updated', { detail: { expertId } }));
+      toast({ title: 'Profile Updated', description: 'Your profile and fees have been saved and populated to the system.' });
       setEditing(false);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -282,6 +301,39 @@ const ExpertProfile: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Consultation & Court Fees */}
+      <Card className="border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Consultation & Court Fees (ZAR)</CardTitle>
+          <CardDescription className="text-xs">Edits save to the system directory and credit control instantly</CardDescription>
+        </CardHeader>
+        <CardContent className="grid md:grid-cols-3 gap-4">
+          {[
+            { key: 'consultation_fee_mva', label: 'MVA Consultation Fee' },
+            { key: 'consultation_fee_med_neg', label: 'Med-Neg Consultation Fee' },
+            { key: 'merit_fees', label: 'Merit Fees' },
+            { key: 'consultation_fee_per_hour', label: 'Hourly Rate' },
+            { key: 'court_fees', label: 'Court Fee' },
+          ].map(({ key, label }) => (
+            <div key={key}>
+              <Label className="text-xs">{label}</Label>
+              {editing ? (
+                <Input
+                  inputMode="numeric"
+                  value={(form as any)[key]}
+                  onChange={e => setForm(f => ({ ...f, [key]: e.target.value.replace(/[^\d]/g, '') }))}
+                  placeholder="0"
+                />
+              ) : (
+                <p className="text-sm text-foreground">
+                  {(form as any)[key] ? `R${Number((form as any)[key]).toLocaleString()}` : '—'}
+                </p>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       {/* Availability Calendar */}
       <Card className="border-border/50">
