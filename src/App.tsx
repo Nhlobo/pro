@@ -10,7 +10,6 @@ import { AppointmentSyncProvider } from "@/contexts/AppointmentSyncContext";
 import { ConfirmDialogProvider } from "@/hooks/useConfirm";
 import { HelmetProvider } from "react-helmet-async";
 import GlobalRefreshButton from "@/components/GlobalRefreshButton";
-import OfflineIndicator from "@/components/OfflineIndicator";
 import { ActivityTrackerMount } from "@/hooks/useActivityTracker";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
@@ -165,7 +164,6 @@ const App = () => (
               <Toaster />
               <Sonner />
               <GlobalRefreshButton />
-              <OfflineIndicator />
               <BrowserRouter>
               <ActivityTrackerMount />
               <Suspense fallback={<RouteFallback />}>
