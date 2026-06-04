@@ -51,6 +51,7 @@ const Index = () => {
   const { user, signOut } = useAuth();
   const { isReferringAttorney, isAdmin, isSalesConsultant, loading } = usePermissions();
   const { stats, loading: statsLoading, refetchStats } = useDashboardStats();
+  const { items: recentActivity, loading: activityLoading } = useRecentActivity(5);
   const [refreshing, setRefreshing] = useState(false);
   
   // Set up real-time appointment notifications
