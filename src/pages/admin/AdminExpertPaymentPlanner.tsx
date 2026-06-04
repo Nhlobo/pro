@@ -786,7 +786,11 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const load = async () => {
     setLoading(true);
     let step = 'initialize';
-    const todayIso = new Date().toISOString().slice(0, 10);
+    // Default upper bound extends 1 year ahead so upcoming/scheduled assessments are included
+    const futureIso = (() => {
+      const d = new Date(); d.setFullYear(d.getFullYear() + 1);
+      return d.toISOString().slice(0, 10);
+    })();
     try {
       step = 'fetch appointments (Scheduled Assessment)';
       let aptQ = supabase
@@ -800,7 +804,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         `)
         .is('deleted_at', null)
         .gte('appointment_date', dateFrom || DATA_WINDOW_START)
-        .lte('appointment_date', dateTo || todayIso)
+        .lte('appointment_date', dateTo || futureIso)
         .order('appointment_date', { ascending: false })
         .limit(2000);
 
