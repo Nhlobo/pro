@@ -2069,6 +2069,50 @@ export type Database = {
           },
         ]
       }
+      expert_fee_change_history: {
+        Row: {
+          changed_by: string | null
+          changed_by_name: string | null
+          created_at: string
+          expert_id: string
+          fee_field: string
+          id: string
+          new_value: number
+          old_value: number | null
+          source: string
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          expert_id: string
+          fee_field: string
+          id?: string
+          new_value: number
+          old_value?: number | null
+          source?: string
+        }
+        Update: {
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          expert_id?: string
+          fee_field?: string
+          id?: string
+          new_value?: number
+          old_value?: number | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_fee_change_history_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_fee_history: {
         Row: {
           changed_at: string

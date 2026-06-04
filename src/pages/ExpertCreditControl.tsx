@@ -20,6 +20,19 @@ import autoTable from "jspdf-autotable";
 import { ExpertStatementPreviewDialog } from "@/components/ExpertStatementPreviewDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Pencil, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+
+
+interface FeeHistoryEntry {
+  id: string;
+  fee_field: string;
+  old_value: number | null;
+  new_value: number;
+  changed_by_name: string | null;
+  source: string;
+  created_at: string;
+}
+
 
 interface ExpertPaymentData {
   expert_id: string;
@@ -79,15 +92,37 @@ const ExpertCreditControl = () => {
   const [existingPopFileName, setExistingPopFileName] = useState<string | null>(null);
   const [uploadingPop, setUploadingPop] = useState(false);
   const { isAdmin } = usePermissions();
+  const { user } = useAuth();
   const [feeEditExpert, setFeeEditExpert] = useState<ExpertPaymentData | null>(null);
   const [feeConsultation, setFeeConsultation] = useState("");
   const [feeCourt, setFeeCourt] = useState("");
   const [savingFees, setSavingFees] = useState(false);
+  const [feeHistory, setFeeHistory] = useState<FeeHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const loadFeeHistory = async (expertId: string) => {
+    setHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("expert_fee_change_history" as any)
+        .select("id, fee_field, old_value, new_value, changed_by_name, source, created_at")
+        .eq("expert_id", expertId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setFeeHistory((data as any) || []);
+    } catch (e: any) {
+      setFeeHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const openFeeEditor = (expert: ExpertPaymentData) => {
     setFeeEditExpert(expert);
     setFeeConsultation(String(expert.consultation_fees ?? 0));
     setFeeCourt(String(expert.court_fees ?? 0));
+    loadFeeHistory(expert.expert_id);
   };
 
   const handleSaveFees = async () => {
@@ -100,21 +135,58 @@ const ExpertCreditControl = () => {
     }
     setSavingFees(true);
     try {
+      const oldC = Number(feeEditExpert.consultation_fees) || 0;
+      const oldK = Number(feeEditExpert.court_fees) || 0;
       const { error } = await supabase
         .from("medical_experts")
         .update({ consultation_fees: c, court_fees: k })
         .eq("id", feeEditExpert.expert_id);
       if (error) throw error;
+
+      // Record history for any changed fields
+      const changedByName =
+        (user?.user_metadata?.full_name as string | undefined) ||
+        user?.email ||
+        null;
+      const entries: any[] = [];
+      if (c !== oldC) {
+        entries.push({
+          expert_id: feeEditExpert.expert_id,
+          fee_field: "consultation_fees",
+          old_value: oldC,
+          new_value: c,
+          changed_by: user?.id ?? null,
+          changed_by_name: changedByName,
+          source: "credit_control",
+        });
+      }
+      if (k !== oldK) {
+        entries.push({
+          expert_id: feeEditExpert.expert_id,
+          fee_field: "court_fees",
+          old_value: oldK,
+          new_value: k,
+          changed_by: user?.id ?? null,
+          changed_by_name: changedByName,
+          source: "credit_control",
+        });
+      }
+      if (entries.length) {
+        await supabase.from("expert_fee_change_history" as any).insert(entries);
+      }
+
       toast.success("Expert fees updated. Directory synced.");
       window.dispatchEvent(new Event("medical-expert-updated"));
-      setFeeEditExpert(null);
+      await loadFeeHistory(feeEditExpert.expert_id);
       await fetchExpertPaymentData();
+      setFeeEditExpert(null);
     } catch (e: any) {
       toast.error(e?.message || "Failed to update fees.");
     } finally {
       setSavingFees(false);
     }
   };
+
 
   useEffect(() => {
     fetchExpertPaymentData();
@@ -1113,7 +1185,7 @@ const ExpertCreditControl = () => {
       </Dialog>
 
       <Dialog open={!!feeEditExpert} onOpenChange={(o) => !o && setFeeEditExpert(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Expert Fees</DialogTitle>
             <DialogDescription>
@@ -1121,31 +1193,85 @@ const ExpertCreditControl = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="fee-consultation">Consultation Fee (R)</Label>
-              <Input
-                id="fee-consultation"
-                type="number"
-                min="0"
-                step="0.01"
-                value={feeConsultation}
-                onChange={(e) => setFeeConsultation(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="fee-court">Court Fee (R)</Label>
-              <Input
-                id="fee-court"
-                type="number"
-                min="0"
-                step="0.01"
-                value={feeCourt}
-                onChange={(e) => setFeeCourt(e.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="fee-consultation">Consultation Fee (R)</Label>
+                <Input
+                  id="fee-consultation"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={feeConsultation}
+                  onChange={(e) => setFeeConsultation(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="fee-court">Court Fee (R)</Label>
+                <Input
+                  id="fee-court"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={feeCourt}
+                  onChange={(e) => setFeeCourt(e.target.value)}
+                />
+              </div>
             </div>
             <p className="text-xs text-muted-foreground">
               Changes sync both ways: edits made in the Medical Expert Directory also refresh here automatically.
             </p>
+
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-semibold">Fee Change History</Label>
+                <span className="text-xs text-muted-foreground">
+                  {feeHistory.length} {feeHistory.length === 1 ? "entry" : "entries"}
+                </span>
+              </div>
+              <div className="max-h-56 overflow-y-auto rounded-md border">
+                {historyLoading ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin inline mr-1" /> Loading history…
+                  </div>
+                ) : feeHistory.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground">
+                    No fee changes recorded yet.
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">When</TableHead>
+                        <TableHead className="text-xs">Who</TableHead>
+                        <TableHead className="text-xs">Field</TableHead>
+                        <TableHead className="text-xs">Change</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {feeHistory.map((h) => {
+                        const oldV = h.old_value == null ? "—" : `R ${Number(h.old_value).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+                        const newV = `R ${Number(h.new_value).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+                        const fieldLabel = h.fee_field === "consultation_fees" ? "Consultation" : h.fee_field === "court_fees" ? "Court" : h.fee_field;
+                        return (
+                          <TableRow key={h.id}>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {format(new Date(h.created_at), "dd MMM yyyy HH:mm")}
+                            </TableCell>
+                            <TableCell className="text-xs">{h.changed_by_name || "—"}</TableCell>
+                            <TableCell className="text-xs">{fieldLabel}</TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              <span className="text-muted-foreground">{oldV}</span>
+                              <span className="mx-1">→</span>
+                              <span className="font-medium">{newV}</span>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setFeeEditExpert(null)} disabled={savingFees}>Cancel</Button>
