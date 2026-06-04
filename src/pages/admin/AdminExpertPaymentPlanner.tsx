@@ -789,9 +789,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const load = async () => {
     setLoading(true);
     let step = 'initialize';
-    // Default upper bound extends 1 year ahead so upcoming/scheduled assessments are included
+    // Default upper bound extends 5 years ahead so all upcoming/scheduled assessments are included
     const futureIso = (() => {
-      const d = new Date(); d.setFullYear(d.getFullYear() + 1);
+      const d = new Date(); d.setFullYear(d.getFullYear() + 5);
       return d.toISOString().slice(0, 10);
     })();
     try {
