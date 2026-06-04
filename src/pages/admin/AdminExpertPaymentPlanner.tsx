@@ -1216,7 +1216,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         `✅ Your payment plan "${snap.label}" was approved by ${currentUserName}.\n\nNote: ${note}\n\nYou can now email and export this plan.`,
       );
     }
-    toast.success('Plan approved — email & export unlocked');
+    if (snap) void emailDecisionToUserAndAdmins(snap, 'approved', note);
+    toast.success('Plan approved — email & export unlocked', {
+      description: 'Decision emailed to the creator and admins.',
+    });
   };
 
   const declineSnapshot = async (id: string, note?: string) => {
