@@ -2275,6 +2275,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                             })()}
                           </TableCell>
                           <TableCell>
+                            {(() => {
+                              const partial = Number(p.partial) || 0;
+                              const isPaid = r.expert_payment === 'fully paid' || p.expertPaymentOverride === 'Fully paid';
+                              const isScheduled = !isPaid && (p.planned || p.urgent || p.decision === 'approved' || partial > 0 || r.expert_payment === 'partially paid');
+                              const status = isPaid ? 'Paid' : isScheduled ? 'Scheduled' : 'Unpaid';
+                              const cls = isPaid
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : isScheduled
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-amber-50 text-amber-700 border-amber-200';
+                              return <Badge variant="outline" className={cls}>{status}</Badge>;
+                            })()}
+                          </TableCell>
+                          <TableCell>
                             <Badge variant="outline" className={r.report_received === 'yes'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : 'bg-slate-50 text-slate-700 border-slate-200'}>
