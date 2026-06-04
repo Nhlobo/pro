@@ -1251,7 +1251,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         `⚠️ Your payment plan "${snap.label}" was declined by ${currentUserName}.\n\nNote: ${note}\n\nPlease amend the schedule and re-submit for approval.`,
       );
     }
-    toast.success('Plan declined');
+    if (snap) void emailDecisionToUserAndAdmins(snap, 'not_approved', note);
+    toast.success('Plan declined', {
+      description: 'Decision emailed to the creator and admins.',
+    });
   };
 
 
