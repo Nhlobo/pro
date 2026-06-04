@@ -72,53 +72,48 @@ const Index = () => {
 
   // Redirect admin/employee users to the new admin portal
   useEffect(() => {
-    if (!loading && isAdmin() && !isReferringAttorney()) {
-      navigate('/admin', { replace: true });
+    if (!loading && roles.admin && !roles.attorney) {
+      navigate("/admin", { replace: true });
     }
-  }, [loading, isAdmin, isReferringAttorney, navigate]);
-
-  // userProfile now comes from useUserProfile hook above
-
+  }, [loading, roles.admin, roles.attorney, navigate]);
 
   // Get display name
   const getUserDisplayName = () => {
     if (userProfile?.first_name && userProfile?.last_name) {
       return `${userProfile.first_name} ${userProfile.last_name}`;
     }
-    if (userProfile?.first_name) {
-      return userProfile.first_name;
-    }
-    if (user?.user_metadata?.first_name) {
-      return user.user_metadata.first_name;
-    }
-    return user?.email?.split('@')[0] || 'User';
+    if (userProfile?.first_name) return userProfile.first_name;
+    if (user?.user_metadata?.first_name) return user.user_metadata.first_name;
+    return user?.email?.split("@")[0] || "User";
   };
 
   const handleRefresh = async () => {
+    if (refreshing) return;
     setRefreshing(true);
-    await refetchStats();
-    setTimeout(() => setRefreshing(false), 800);
+    try {
+      await refetchStats();
+    } catch (e: any) {
+      console.error("Error refreshing dashboard stats:", e);
+      toast.error(`Refresh failed: ${e?.message ?? "Unknown error"}`);
+    } finally {
+      setTimeout(() => setRefreshing(false), 400);
+    }
   };
 
   // Get user organization/role display
   const getUserRole = () => {
-    if (userProfile?.user_type === 'admin') {
-      return "Administrator";
-    }
-    if (userProfile?.user_type === 'employee') {
-      return userProfile?.position || "Company Employee";
-    }
-    if (userProfile?.user_type === 'referring_attorney' && userProfile?.law_firm?.name) {
+    if (userProfile?.user_type === "admin") return "Administrator";
+    if (userProfile?.user_type === "employee") return userProfile?.position || "Company Employee";
+    if (userProfile?.user_type === "referring_attorney" && userProfile?.law_firm?.name) {
       return userProfile.law_firm.name;
     }
-    if (userProfile?.position) {
-      return userProfile.position;
-    }
+    if (userProfile?.position) return userProfile.position;
     return "Internal User";
   };
 
   // If user is a referring attorney, show restricted dashboard
-  if (!loading && isReferringAttorney()) {
+  if (!loading && roles.attorney) {
+
     return (
       <ProtectedRoute>
         <div className="min-h-screen bg-gradient-to-br from-background via-accent-soft to-muted">
