@@ -20,6 +20,19 @@ import autoTable from "jspdf-autotable";
 import { ExpertStatementPreviewDialog } from "@/components/ExpertStatementPreviewDialog";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Pencil, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { format as fmtDate } from "date-fns";
+
+interface FeeHistoryEntry {
+  id: string;
+  fee_field: string;
+  old_value: number | null;
+  new_value: number;
+  changed_by_name: string | null;
+  source: string;
+  created_at: string;
+}
+
 
 interface ExpertPaymentData {
   expert_id: string;
