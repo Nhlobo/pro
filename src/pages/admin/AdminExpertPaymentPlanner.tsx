@@ -594,6 +594,74 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     }
   };
 
+  // Email the approval/decline decision (with PDF) to the submitter and all admins
+  // so the creator and the wider admin team get a copy of the outcome by email.
+  const emailDecisionToUserAndAdmins = async (
+    snap: HistorySnapshot,
+    decision: 'approved' | 'not_approved',
+    note: string,
+  ) => {
+    try {
+      const { doc, filename } = buildSnapshotPdf(snap);
+      const dataUri = doc.output('datauristring');
+      const pdfBase64 = dataUri.split(',')[1] || '';
+
+      // Collect admin emails (always include the dedicated approver).
+      const adminEmails = new Set<string>();
+      adminEmails.add(APPROVER_EMAIL);
+      try {
+        const { data: roles } = await supabase
+          .from('user_roles').select('user_id').eq('role', 'admin');
+        const ids = (roles || []).map((r: any) => r.user_id).filter(Boolean);
+        if (ids.length) {
+          const { data: profs } = await supabase
+            .from('profiles').select('email').in('id', ids);
+          (profs || []).forEach((p: any) => {
+            if (p?.email) adminEmails.add(String(p.email).trim().toLowerCase());
+          });
+        }
+      } catch (e) { console.warn('Could not resolve admin emails:', e); }
+
+      // Resolve the original submitter's email (the creator of the plan).
+      let submitterEmail = '';
+      if (snap.submittedById) {
+        try {
+          const { data: prof } = await supabase
+            .from('profiles').select('email').eq('id', snap.submittedById).maybeSingle();
+          submitterEmail = String((prof as any)?.email || '').trim().toLowerCase();
+        } catch (e) { console.warn('Could not resolve submitter email:', e); }
+      }
+      // Fallback to the current user if we could not resolve the submitter
+      if (!submitterEmail) submitterEmail = (user?.email || '').trim().toLowerCase();
+
+      const toList = Array.from(new Set([
+        ...(submitterEmail ? [submitterEmail] : []),
+        ...adminEmails,
+      ])).filter(Boolean);
+      if (!toList.length) return;
+
+      const verb = decision === 'approved' ? 'Approved' : 'Declined';
+      const subject = `Payment Plan ${verb} — ${snap.label}`;
+      const message =
+        `An Expert Payment Plan has been ${verb.toLowerCase()}.\n\n` +
+        `Plan: ${snap.label}\n` +
+        `Submitted by: ${snap.submittedBy || ''}\n` +
+        `Decision: ${verb} by ${currentUserName}\n` +
+        `Decision at: ${fmtStamp(new Date().toISOString())}\n` +
+        `Note: ${note}\n\n` +
+        `Items: ${snap.entries.length}  ·  To be paid: ${ZAR(snap.totals.plannedAmount)}  ·  Urgent: ${ZAR(snap.totals.urgentAmount)}\n\n` +
+        `A copy of the plan is attached as a PDF for your reference.`;
+
+      const { error } = await supabase.functions.invoke('send-payment-planner-email', {
+        body: { to: toList.join(','), subject, message, filename, pdfBase64 },
+      });
+      if (error) throw error;
+    } catch (e: any) {
+      console.error('emailDecisionToUserAndAdmins failed:', e);
+      toast.error('Decision recorded, but email copy failed', { description: e?.message || String(e) });
+    }
+  };
+
   // Initial load from DB + realtime subscription
   useEffect(() => {
     let active = true;
