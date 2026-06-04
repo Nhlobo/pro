@@ -2005,8 +2005,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <SelectItem value="moved_next">Move to next payment</SelectItem>
                 </SelectContent>
               </Select>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground">From (leave blank for all past)</label>
+                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground">To (leave blank for all future)</label>
+                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
