@@ -630,7 +630,7 @@ const Index = () => {
             </div>
 
             {/* Enhanced Information Cards - Hidden for Sales Consultants */}
-            {!isSalesConsultant() && (
+            {!roles.sales && (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {/* Quick Access Card */}
               <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300">
