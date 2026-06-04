@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import {
   AlertTriangle, CalendarClock, CalendarDays, ClipboardList,
-  RandSignIcon, FileWarning, Zap,
+  FileWarning, Zap,
 } from "lucide-react";
 import { RandSign } from "@/components/icons/RandSign";
 import { useWorkflowAlerts } from "@/hooks/useWorkflowAlerts";
