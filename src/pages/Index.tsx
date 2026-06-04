@@ -18,6 +18,7 @@ import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import WelcomeSection from "@/components/dashboard/WelcomeSection";
 import DashboardMenus from "@/components/dashboard/DashboardMenus";
 import QuickActionsCard from "@/components/dashboard/QuickActionsCard";
+import WorkflowAlertsCard from "@/components/dashboard/WorkflowAlertsCard";
 import HelpSupportCard from "@/components/dashboard/HelpSupportCard";
 import AttorneyDashboardView from "@/components/dashboard/AttorneyDashboardView";
 import { toast } from "sonner";
@@ -125,7 +126,8 @@ const Index = () => {
             <DashboardMenus />
 
             {!salesConsultant && (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <WorkflowAlertsCard />
                 <QuickActionsCard />
                 <RecentActivityCard />
                 <HelpSupportCard />
