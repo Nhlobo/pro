@@ -2150,6 +2150,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                     <TableHead>Attorney</TableHead>
                     <TableHead>Att. Pay</TableHead>
                     <TableHead>Expert Pay</TableHead>
+                    <TableHead className="whitespace-nowrap" title="Quick payment status: Unpaid, Scheduled, or Paid">Status</TableHead>
                     <TableHead>Report</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Fee Due</TableHead>
                     <TableHead className="text-center" title="File from expert to be taken out — urgent">Urg</TableHead>
