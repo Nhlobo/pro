@@ -911,6 +911,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       if (!map.has(k)) map.set(k, { attorney_name: r.attorney_name, rows: [] });
       map.get(k)!.rows.push(r);
     }
+    // Always show the newest assessment first within each attorney group
+    for (const g of map.values()) {
+      g.rows.sort((a, b) => (b.assessment_date || '').localeCompare(a.assessment_date || ''));
+    }
     return Array.from(map.entries())
       .map(([attorney_id, g]) => {
         const totalExpertDebts = g.rows.reduce((s, r) => s + r.fee_due_to_expert, 0);
