@@ -162,7 +162,10 @@ const PAY_STYLE: Record<string, string> = {
   'partially paid': 'bg-amber-100 text-amber-800 border-amber-200',
 };
 
-const DATA_WINDOW_START = '2025-01-01';
+// Default lower bound is intentionally far in the past so the planner surfaces
+// past, present, and future assessments by default. Users can still narrow the
+// window via the dateFrom/dateTo filters.
+const DATA_WINDOW_START = '2000-01-01';
 
 const AdminExpertPaymentPlanner: React.FC = () => {
   const [rows, setRows] = useState<PlannerRow[]>([]);
