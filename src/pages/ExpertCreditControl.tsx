@@ -11,13 +11,15 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Helmet } from "react-helmet-async";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ExpertStatementPreviewDialog } from "@/components/ExpertStatementPreviewDialog";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Pencil, Loader2 } from "lucide-react";
 
 interface ExpertPaymentData {
   expert_id: string;
