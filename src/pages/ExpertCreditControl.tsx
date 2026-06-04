@@ -92,15 +92,37 @@ const ExpertCreditControl = () => {
   const [existingPopFileName, setExistingPopFileName] = useState<string | null>(null);
   const [uploadingPop, setUploadingPop] = useState(false);
   const { isAdmin } = usePermissions();
+  const { user } = useAuth();
   const [feeEditExpert, setFeeEditExpert] = useState<ExpertPaymentData | null>(null);
   const [feeConsultation, setFeeConsultation] = useState("");
   const [feeCourt, setFeeCourt] = useState("");
   const [savingFees, setSavingFees] = useState(false);
+  const [feeHistory, setFeeHistory] = useState<FeeHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const loadFeeHistory = async (expertId: string) => {
+    setHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("expert_fee_change_history" as any)
+        .select("id, fee_field, old_value, new_value, changed_by_name, source, created_at")
+        .eq("expert_id", expertId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setFeeHistory((data as any) || []);
+    } catch (e: any) {
+      setFeeHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   const openFeeEditor = (expert: ExpertPaymentData) => {
     setFeeEditExpert(expert);
     setFeeConsultation(String(expert.consultation_fees ?? 0));
     setFeeCourt(String(expert.court_fees ?? 0));
+    loadFeeHistory(expert.expert_id);
   };
 
   const handleSaveFees = async () => {
@@ -113,21 +135,58 @@ const ExpertCreditControl = () => {
     }
     setSavingFees(true);
     try {
+      const oldC = Number(feeEditExpert.consultation_fees) || 0;
+      const oldK = Number(feeEditExpert.court_fees) || 0;
       const { error } = await supabase
         .from("medical_experts")
         .update({ consultation_fees: c, court_fees: k })
         .eq("id", feeEditExpert.expert_id);
       if (error) throw error;
+
+      // Record history for any changed fields
+      const changedByName =
+        (user?.user_metadata?.full_name as string | undefined) ||
+        user?.email ||
+        null;
+      const entries: any[] = [];
+      if (c !== oldC) {
+        entries.push({
+          expert_id: feeEditExpert.expert_id,
+          fee_field: "consultation_fees",
+          old_value: oldC,
+          new_value: c,
+          changed_by: user?.id ?? null,
+          changed_by_name: changedByName,
+          source: "credit_control",
+        });
+      }
+      if (k !== oldK) {
+        entries.push({
+          expert_id: feeEditExpert.expert_id,
+          fee_field: "court_fees",
+          old_value: oldK,
+          new_value: k,
+          changed_by: user?.id ?? null,
+          changed_by_name: changedByName,
+          source: "credit_control",
+        });
+      }
+      if (entries.length) {
+        await supabase.from("expert_fee_change_history" as any).insert(entries);
+      }
+
       toast.success("Expert fees updated. Directory synced.");
       window.dispatchEvent(new Event("medical-expert-updated"));
-      setFeeEditExpert(null);
+      await loadFeeHistory(feeEditExpert.expert_id);
       await fetchExpertPaymentData();
+      setFeeEditExpert(null);
     } catch (e: any) {
       toast.error(e?.message || "Failed to update fees.");
     } finally {
       setSavingFees(false);
     }
   };
+
 
   useEffect(() => {
     fetchExpertPaymentData();
