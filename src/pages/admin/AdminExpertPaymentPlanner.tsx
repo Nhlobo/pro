@@ -804,7 +804,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         `)
         .is('deleted_at', null)
         .gte('appointment_date', dateFrom || DATA_WINDOW_START)
-        .lte('appointment_date', dateTo || todayIso)
+        .lte('appointment_date', dateTo || futureIso)
         .order('appointment_date', { ascending: false })
         .limit(2000);
 
