@@ -1255,7 +1255,7 @@ const ExpertCreditControl = () => {
                         return (
                           <TableRow key={h.id}>
                             <TableCell className="text-xs whitespace-nowrap">
-                              {fmtDate(new Date(h.created_at), "dd MMM yyyy HH:mm")}
+                              {format(new Date(h.created_at), "dd MMM yyyy HH:mm")}
                             </TableCell>
                             <TableCell className="text-xs">{h.changed_by_name || "—"}</TableCell>
                             <TableCell className="text-xs">{fieldLabel}</TableCell>
