@@ -34,7 +34,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Card } from "@/components/ui/card";
-import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download, Loader2, Mail, FileCheck, AlertTriangle, DollarSign } from "lucide-react";
+import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download, Loader2, Mail, FileCheck, AlertTriangle } from "lucide-react";
 import { useShortTermAgreements } from "@/hooks/useShortTermAgreements";
 import { syncShortTermPaymentToAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
 import { ShortTermAgreementDialog } from "./ShortTermAgreementDialog";
@@ -45,6 +45,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 import { usePermissions } from "@/hooks/usePermissions";
 
+import { RandSign } from "@/components/icons/RandSign";
 type ReferringAttorney = {
   id: string;
   name: string;
@@ -1253,7 +1254,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                       title="Capture Payment"
                       className="gap-1"
                     >
-                      <DollarSign className="h-3 w-3" />
+                      <RandSign className="h-3 w-3" />
                       Pay
                     </Button>
                     <Button
@@ -1420,7 +1421,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
+              <RandSign className="h-5 w-5" />
               Capture Payment
             </DialogTitle>
           </DialogHeader>
@@ -1551,7 +1552,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
               {capturingPayment ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
               ) : (
-                <><DollarSign className="h-4 w-4 mr-2" /> Capture Payment</>
+                <><RandSign className="h-4 w-4 mr-2" /> Capture Payment</>
               )}
             </Button>
           </div>

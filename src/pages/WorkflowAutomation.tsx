@@ -10,12 +10,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { 
-  AlertTriangle, Calendar, Clock, DollarSign, Users, 
-  Bell, Target, ArrowLeft, CheckCircle2, XCircle,
-  Timer, TrendingUp, Zap, FileText, Stethoscope
+import {
+  AlertTriangle,
+  Calendar,
+  Clock,
+  Users,
+  Bell,
+  Target,
+  ArrowLeft,
+  CheckCircle2,
+  XCircle,
+  Timer,
+  TrendingUp,
+  Zap,
+  FileText,
+  Stethoscope
 } from "lucide-react";
 import { format, differenceInDays, differenceInHours, addDays, isPast, isFuture, isToday, parseISO } from "date-fns";
+import { RandSign } from "@/components/icons/RandSign";
 const WorkflowAutomation = () => {
   const DATA_START_DATE = "2025-01-01T00:00:00";
   const queryClient = useQueryClient();
@@ -237,7 +249,7 @@ const WorkflowAutomation = () => {
             <TabsTrigger value="deadlines" className="gap-1.5"><Target className="h-4 w-4" /> Deadline Tracker</TabsTrigger>
             <TabsTrigger value="multi-expert" className="gap-1.5"><Users className="h-4 w-4" /> Multi-Expert View</TabsTrigger>
             <TabsTrigger value="reports" className="gap-1.5"><FileText className="h-4 w-4" /> Report Deadlines</TabsTrigger>
-            <TabsTrigger value="invoices" className="gap-1.5"><DollarSign className="h-4 w-4" /> Invoice Tracking</TabsTrigger>
+            <TabsTrigger value="invoices" className="gap-1.5"><RandSign className="h-4 w-4" /> Invoice Tracking</TabsTrigger>
           </TabsList>
 
           {/* Deadline Tracker */}
@@ -469,7 +481,7 @@ const WorkflowAutomation = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5 text-destructive" />
+                  <RandSign className="h-5 w-5 text-destructive" />
                   Unpaid Invoice Tracker
                 </CardTitle>
                 <CardDescription>Appointments with outstanding balances from referring attorneys</CardDescription>

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, DollarSign, Clock, Search, Download, Filter, TrendingUp, Users, FileText, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Clock, Search, Download, Filter, TrendingUp, Users, FileText, AlertTriangle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -16,6 +16,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
+import { RandSign } from "@/components/icons/RandSign";
 interface AttorneyAppointment {
   appointment_id: string;
   appointment_date: string;
@@ -539,13 +540,13 @@ const ReferringAttorneyDebtorsControl = () => {
           </Card>
           <Card className="bg-gradient-card border-border/50 shadow-soft">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-2 text-muted-foreground text-sm"><DollarSign className="h-4 w-4" />Total Invoiced</div>
+              <div className="flex items-center gap-2 text-muted-foreground text-sm"><RandSign className="h-4 w-4" />Total Invoiced</div>
               <p className="text-2xl font-bold mt-1">{formatCurrency(summaryStats.totalOwed)}</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-card border-border/50 shadow-soft">
             <CardContent className="pt-6">
-              <div className="flex items-center gap-2 text-muted-foreground text-sm"><DollarSign className="h-4 w-4" />Total Paid</div>
+              <div className="flex items-center gap-2 text-muted-foreground text-sm"><RandSign className="h-4 w-4" />Total Paid</div>
               <p className="text-2xl font-bold mt-1 text-primary">{formatCurrency(summaryStats.totalPaid)}</p>
             </CardContent>
           </Card>

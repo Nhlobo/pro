@@ -8,9 +8,18 @@ import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { LiveCaseTracker } from '@/components/LiveCaseTracker';
 import { Link } from 'react-router-dom';
 import {
-  Briefcase, Calendar, Clock, FileText, CheckCircle2, DollarSign,
-  AlertCircle, TrendingUp, ArrowRight, Wallet, Scale, BookOpen
-} from 'lucide-react';
+  Briefcase,
+  Calendar,
+  Clock,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  TrendingUp,
+  ArrowRight,
+  Wallet,
+  Scale,
+  BookOpen
+} from "lucide-react";
 
 const AttorneyPortalDashboard: React.FC = () => {
   const { stats, liveCases, loading, refetchStats } = useAttorneyDashboardStats();

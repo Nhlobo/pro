@@ -13,11 +13,35 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  Shield, KeyRound, Calendar, FileText, Clock, AlertCircle, CheckCircle2,
-  XCircle, Loader2, Stethoscope, Lock, Search, User, Briefcase, AlertTriangle,
-  Eye, ArrowLeft, MapPin, Building2, DollarSign, TrendingUp, Upload,
-  FileDown, ThumbsUp, ThumbsDown, MessageSquare, File, FileImage, Paperclip
-} from 'lucide-react';
+  Shield,
+  KeyRound,
+  Calendar,
+  FileText,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  Stethoscope,
+  Lock,
+  Search,
+  User,
+  Briefcase,
+  AlertTriangle,
+  Eye,
+  ArrowLeft,
+  MapPin,
+  Building2,
+  TrendingUp,
+  Upload,
+  FileDown,
+  ThumbsUp,
+  ThumbsDown,
+  MessageSquare,
+  File,
+  FileImage,
+  Paperclip
+} from "lucide-react";
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format, differenceInDays, parseISO } from 'date-fns';
 

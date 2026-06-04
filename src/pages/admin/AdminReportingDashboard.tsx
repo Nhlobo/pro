@@ -10,9 +10,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
-  Users, FileCheck, Clock, AlertTriangle, Download, Mail, ChevronDown,
-  FileText, Calendar as CalendarIcon, DollarSign, TrendingUp, Briefcase, FileSpreadsheet, X, Search,
-} from 'lucide-react';
+  Users,
+  FileCheck,
+  Clock,
+  AlertTriangle,
+  Download,
+  Mail,
+  ChevronDown,
+  FileText,
+  Calendar as CalendarIcon,
+  TrendingUp,
+  Briefcase,
+  FileSpreadsheet,
+  X,
+  Search
+} from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { jsPDF } from 'jspdf';
@@ -25,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
+import { RandSign } from "@/components/icons/RandSign";
 type Period = 'monthly' | 'quarterly' | 'yearly' | 'bi_annually';
 
 interface Row {
@@ -93,7 +106,7 @@ const REPORT_TYPES = [
   { id: 'progress', name: 'Report Progress Update', icon: Clock, desc: 'In-progress reports and ETA per claimant' },
   { id: 'outstanding', name: 'Outstanding Reports Notice', icon: AlertTriangle, desc: 'Reports overdue or not yet submitted' },
   { id: 'submitted', name: 'Submitted Reports Confirmation', icon: FileCheck, desc: 'Confirmation list of all delivered reports' },
-  { id: 'financial', name: 'Financial Statement', icon: DollarSign, desc: 'Fees, deposits, AODs and outstanding payments' },
+  { id: 'financial', name: 'Financial Statement', icon: RandSign, desc: 'Fees, deposits, AODs and outstanding payments' },
   { id: 'case_status', name: 'Case Status Brief', icon: Briefcase, desc: 'Litigation phase per matter' },
   { id: 'appointment_schedule', name: 'Upcoming Appointment Schedule', icon: CalendarIcon, desc: 'Next appointments per claimant' },
   { id: 'expert_panel', name: 'Expert Panel Allocation', icon: Users, desc: 'Experts allocated per claimant/matter' },

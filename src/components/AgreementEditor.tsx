@@ -30,10 +30,21 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { 
-  FileText, Save, Send, Download, Edit2, CheckCircle, 
-  AlertTriangle, Calendar as CalendarIcon, Upload, Users, 
-  Loader2, Eye, FileSignature, Building2, DollarSign
+import {
+  FileText,
+  Save,
+  Send,
+  Download,
+  Edit2,
+  CheckCircle,
+  AlertTriangle,
+  Calendar as CalendarIcon,
+  Upload,
+  Users,
+  Loader2,
+  Eye,
+  FileSignature,
+  Building2
 } from "lucide-react";
 import { format, addMonths, differenceInMonths } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -46,6 +57,7 @@ import {
 } from "./AODTemplateData";
 import { supabase } from "@/integrations/supabase/client";
 
+import { RandSign } from "@/components/icons/RandSign";
 // Duration options
 const SHORT_TERM_DURATIONS = [
   { value: "30days", label: "30 Days", months: 1 },
@@ -632,7 +644,7 @@ export const AgreementEditor = ({
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
+                    <RandSign className="h-4 w-4" />
                     Financial Terms
                   </CardTitle>
                 </CardHeader>

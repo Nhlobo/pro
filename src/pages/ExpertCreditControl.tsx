@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail, DollarSign, Clock, Search, Download, Edit, Trash2, Paperclip, Eye, FileText, Filter } from "lucide-react";
+import { ArrowLeft, Mail, Clock, Search, Download, Edit, Trash2, Paperclip, Eye, FileText, Filter } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -23,6 +23,7 @@ import { Pencil, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
 
+import { RandSign } from "@/components/icons/RandSign";
 interface FeeHistoryEntry {
   id: string;
   fee_field: string;
@@ -959,7 +960,7 @@ const ExpertCreditControl = () => {
                                   setShowPaymentDialog(true);
                                 }}
                               >
-                                <DollarSign className="h-4 w-4 mr-1" />
+                                <RandSign className="h-4 w-4 mr-1" />
                                 Record Payment
                               </Button>
                               {appointment.payment_history.length > 0 && (

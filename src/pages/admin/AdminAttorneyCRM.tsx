@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { Users, Search, Star, TrendingUp, DollarSign, Building2, UserPlus, List, Briefcase, GitMerge, CheckCircle, BarChart3 } from 'lucide-react';
+import { Users, Search, Star, TrendingUp, Building2, UserPlus, List, Briefcase, GitMerge, CheckCircle, BarChart3 } from "lucide-react";
 import MergeAttorneyDialog from '@/components/MergeAttorneyDialog';
 import { usePermissions } from '@/hooks/usePermissions';
 
+import { RandSign } from "@/components/icons/RandSign";
 const SalesDashboardModule = lazy(() => import('@/pages/SalesDashboard'));
 const AttorneyPitchlogModule = lazy(() => import('@/components/admin/AttorneyPitchlogModule'));
 const ClaimantFormModule = lazy(() => import('@/components/admin/ClaimantFormModule'));
@@ -201,7 +202,7 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
                           </td>
                           <td className="py-3 px-4">
                             <Badge className="bg-success/10 text-success text-[10px]">
-                              <DollarSign className="h-3 w-3 mr-0.5" />
+                              <RandSign className="h-3 w-3 mr-0.5" />
                               Paid
                             </Badge>
                           </td>

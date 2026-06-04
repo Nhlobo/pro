@@ -11,15 +11,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { 
-  FileText, 
-  Save, 
-  Download, 
-  Mail, 
-  Edit, 
+import {
+  FileText,
+  Save,
+  Download,
+  Mail,
+  Edit,
   Eye,
   Building,
-  DollarSign,
   Calendar,
   Users,
   FileCheck,
@@ -41,6 +40,7 @@ import {
   AODClause,
 } from "./AODTemplateData";
 
+import { RandSign } from "@/components/icons/RandSign";
 interface AODTemplateGeneratorProps {
   aodDocumentId?: string;
   attorneyId?: string;
@@ -710,7 +710,7 @@ export const AODTemplateGenerator = ({
               Debtor
             </TabsTrigger>
             <TabsTrigger value="financial" className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
+              <RandSign className="h-4 w-4" />
               Financial
             </TabsTrigger>
             <TabsTrigger value="scope" className="flex items-center gap-2">

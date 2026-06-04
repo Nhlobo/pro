@@ -12,13 +12,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { 
-  FileText, CheckCircle, Clock, AlertTriangle, 
-  Unlock, Lock, DollarSign, FileCheck
+import {
+  FileText,
+  CheckCircle,
+  Clock,
+  AlertTriangle,
+  Unlock,
+  Lock,
+  FileCheck
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
+import { RandSign } from "@/components/icons/RandSign";
 interface AnnexurePhase {
   id: string;
   phase_name: string;
@@ -235,7 +241,7 @@ export const AgreementAnnexure = ({
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-1">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                    <RandSign className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium">
                       R {phase.payment_amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                     </span>

@@ -26,7 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, Plus, DollarSign, FileText, Trash2, Pencil, Zap, CheckCircle2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Trash2, Pencil, Zap, CheckCircle2, RefreshCw } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -36,6 +36,7 @@ import { syncAODPaymentToAppointments, recalculateShortTermFromAppointments, fet
 import { useAuditTrail } from "@/hooks/useAuditTrail";
 import { Badge } from "@/components/ui/badge";
 
+import { RandSign } from "@/components/icons/RandSign";
 interface AODDocument {
   id: string;
   file_name: string;
@@ -1409,7 +1410,7 @@ export default function AODPaymentTracking() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <DollarSign className="h-5 w-5" />
+                  <RandSign className="h-5 w-5" />
                   Payment History
                 </CardTitle>
                 {!editingPayment && (

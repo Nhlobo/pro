@@ -6,11 +6,12 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, DollarSign, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Pencil, SlidersHorizontal, ClipboardList } from 'lucide-react';
+import { Stethoscope, Search, Activity, MapPin, Plus, Users, Loader2, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Pencil, SlidersHorizontal, ClipboardList } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { useSearchParams } from 'react-router-dom';
 
+import { RandSign } from "@/components/icons/RandSign";
 // Retry dynamic imports once on failure (handles stale chunk hashes after deploy)
 const lazyWithRetry = <T,>(factory: () => Promise<T>) =>
   React.lazy(() =>
@@ -178,7 +179,7 @@ const AdminExpertNetwork: React.FC = () => {
             </TabsTrigger>
           )}
           <TabsTrigger value="credit-control" className="flex items-center gap-1.5">
-            <DollarSign className="h-3.5 w-3.5" />
+            <RandSign className="h-3.5 w-3.5" />
             Credit Control
           </TabsTrigger>
           <TabsTrigger value="fee-reviews" className="flex items-center gap-1.5">

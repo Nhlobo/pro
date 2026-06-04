@@ -34,7 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronDown, ChevronRight, Filter, Users, Calendar, DollarSign, FileText, TrendingUp, AlertCircle, Plus, Loader2, Activity, Pause, CheckCircle2, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, Filter, Users, Calendar, FileText, TrendingUp, AlertCircle, Plus, Loader2, Activity, Pause, CheckCircle2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,6 +50,7 @@ import {
 } from "@/utils/aodLifecycleRules";
 import { AODLifecycleRulesEditor } from "./AODLifecycleRulesEditor";
 
+import { RandSign } from "@/components/icons/RandSign";
 interface AODRecord {
   id: string;
   referring_attorney_id: string;
@@ -686,7 +687,7 @@ export const AODGroupedView = () => {
         <Card>
           <CardContent className="pt-4">
             <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <RandSign className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">Total AOD Value</span>
             </div>
             <p className="text-2xl font-bold">{formatCurrency(summaryStats.totalDebt)}</p>
@@ -938,7 +939,7 @@ export const AODGroupedView = () => {
                             handleOpenPaymentDialog(attorney);
                           }}
                         >
-                          <DollarSign className="h-4 w-4" />
+                          <RandSign className="h-4 w-4" />
                           Record Payment
                         </Button>
                         <div>
@@ -1034,7 +1035,7 @@ export const AODGroupedView = () => {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-primary" />
+              <RandSign className="h-5 w-5 text-primary" />
               Record Payment – {paymentAttorney?.name}
             </DialogTitle>
           </DialogHeader>

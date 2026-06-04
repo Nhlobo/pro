@@ -19,14 +19,14 @@ import {
   FileText,
   BarChart3,
   FolderLock,
-  DollarSign,
   Calendar,
   Mail,
   ShieldCheck,
   Settings,
-  User,
-} from 'lucide-react';
+  User
+} from "lucide-react";
 
+import { RandSign } from "@/components/icons/RandSign";
 export type AdminModuleGroup = 'Core' | 'Intelligence' | 'Workflow' | 'System' | 'Account';
 
 export interface AdminModule {
@@ -147,7 +147,7 @@ export const ADMIN_MODULES: AdminModule[] = [
     title: 'Finance & Payments',
     href: '/admin/finance',
     group: 'Workflow',
-    icon: DollarSign,
+    icon: RandSign,
     description: 'AOD, debtors, payments, agreements',
     roles: ['admin', 'employee', 'sales_consultant'],
     permissions: [{ category: 'Case Management', functionName: 'AOD Management' }],
@@ -157,7 +157,7 @@ export const ADMIN_MODULES: AdminModule[] = [
     title: 'Expert Payment Planner',
     href: '/admin/expert-payment-planner',
     group: 'Workflow',
-    icon: DollarSign,
+    icon: RandSign,
     description: 'Plan monthly expert payments & outstanding invoices',
     roles: ['admin', 'finance', 'director', 'employee'],
     permissions: [{ category: 'Case Management', functionName: 'AOD Management' }],

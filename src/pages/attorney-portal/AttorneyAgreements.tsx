@@ -13,12 +13,12 @@ import {
   Download,
   Eye,
   Calendar,
-  DollarSign,
   Clock,
   CheckCircle2
-} from 'lucide-react';
+} from "lucide-react";
 import { format } from 'date-fns';
 
+import { RandSign } from "@/components/icons/RandSign";
 interface Agreement {
   id: string;
   file_name: string;
@@ -112,7 +112,7 @@ const AttorneyAgreements: React.FC = () => {
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-1">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <RandSign className="h-4 w-4 text-muted-foreground" />
                   R{(agreement.total_contract_value || 0).toLocaleString()}
                 </div>
               </TableCell>

@@ -4,12 +4,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
-import { DollarSign, AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X } from "lucide-react";
 import { toast } from 'sonner';
 import { recalculateAODFromAppointments, recalculateShortTermFromAppointments } from '@/hooks/usePaymentSync';
 import { RegularPaymentDialog } from '@/components/RegularPaymentDialog';
 import FinanceAuditTrail from '@/components/FinanceAuditTrail';
 
+import { RandSign } from "@/components/icons/RandSign";
 interface ConsolidatedAttorney {
   attorneyId: string;
   attorneyName: string;
@@ -319,7 +320,7 @@ const AdminFinance: React.FC = () => {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="border-border/50">
           <CardContent className="pt-4 pb-3 px-4">
-            <DollarSign className="h-5 w-5 text-primary mb-2" />
+            <RandSign className="h-5 w-5 text-primary mb-2" />
             <p className="text-2xl font-bold text-foreground">R{(totalValue / 1000).toFixed(0)}k</p>
             <p className="text-[11px] text-muted-foreground">Total Contract Value</p>
           </CardContent>

@@ -7,11 +7,20 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Bell, Calendar, FileText, CreditCard, AlertCircle,
-  CheckCircle2, Clock, Eye, Mail, DollarSign, FileSignature
-} from 'lucide-react';
+  Bell,
+  Calendar,
+  FileText,
+  CreditCard,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Eye,
+  Mail,
+  FileSignature
+} from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
 
+import { RandSign } from "@/components/icons/RandSign";
 interface Notification {
   id: string;
   title: string;
@@ -70,7 +79,7 @@ const ProfileNotifications: React.FC<ProfileNotificationsProps> = ({ referringAt
 
   const getIcon = (type: string, category: string | null) => {
     if (category === 'aod' || type.includes('aod')) return <FileSignature className="h-5 w-5 text-kutlwano-blue" />;
-    if (category === 'payment' || type.includes('payment') || type.includes('deposit')) return <DollarSign className="h-5 w-5 text-success" />;
+    if (category === 'payment' || type.includes('payment') || type.includes('deposit')) return <RandSign className="h-5 w-5 text-success" />;
     if (category === 'instalment' || type.includes('instalment') || type.includes('overdue')) return <AlertCircle className="h-5 w-5 text-destructive" />;
     if (category === 'report' || type.includes('report')) return <FileText className="h-5 w-5 text-kutlwano-teal" />;
     if (category === 'appointment' || type.includes('appointment')) return <Calendar className="h-5 w-5 text-kutlwano-blue" />;
