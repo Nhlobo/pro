@@ -798,7 +798,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         .select(`
           id, appointment_date, payment_status, payment_date, matter_type,
           service_fee, deposit_amount, expert_id, claimant_id, referring_attorney_id,
-          claimants:claimants!inner(first_name, last_name),
+          claimants:claimants(first_name, last_name),
           medical_experts:medical_experts!inner(first_name, last_name, expert_type, consultation_fees, court_fees),
           referring_attorneys:referring_attorneys!inner(id, name, is_system_company)
         `)
@@ -813,6 +813,28 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
       const { data: apts, error: aptErr } = await aptQ;
       if (aptErr) throw aptErr;
+
+      const aptIds = (apts ?? []).map((a: any) => a.id);
+
+      // Fallback: directly fetch any claimants the embedded join didn't resolve
+      // (covers future-dated assessments or rows where the FK relation is loaded lazily)
+      step = 'fetch fallback claimants';
+      const missingClaimantIds = Array.from(new Set(
+        (apts ?? [])
+          .filter((a: any) => {
+            const c = Array.isArray(a.claimants) ? a.claimants[0] : a.claimants;
+            return a.claimant_id && (!c || (!c.first_name && !c.last_name));
+          })
+          .map((a: any) => a.claimant_id)
+      ));
+      const claimantMap = new Map<string, { first_name: string | null; last_name: string | null }>();
+      if (missingClaimantIds.length) {
+        const { data: cl } = await supabase
+          .from('claimants')
+          .select('id, first_name, last_name')
+          .in('id', missingClaimantIds);
+        (cl ?? []).forEach((c: any) => claimantMap.set(c.id, { first_name: c.first_name, last_name: c.last_name }));
+      }
 
       const aptIds = (apts ?? []).map((a: any) => a.id);
 
