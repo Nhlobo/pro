@@ -1185,7 +1185,7 @@ const ExpertCreditControl = () => {
       </Dialog>
 
       <Dialog open={!!feeEditExpert} onOpenChange={(o) => !o && setFeeEditExpert(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Expert Fees</DialogTitle>
             <DialogDescription>
@@ -1193,31 +1193,85 @@ const ExpertCreditControl = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="space-y-1">
-              <Label htmlFor="fee-consultation">Consultation Fee (R)</Label>
-              <Input
-                id="fee-consultation"
-                type="number"
-                min="0"
-                step="0.01"
-                value={feeConsultation}
-                onChange={(e) => setFeeConsultation(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="fee-court">Court Fee (R)</Label>
-              <Input
-                id="fee-court"
-                type="number"
-                min="0"
-                step="0.01"
-                value={feeCourt}
-                onChange={(e) => setFeeCourt(e.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="fee-consultation">Consultation Fee (R)</Label>
+                <Input
+                  id="fee-consultation"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={feeConsultation}
+                  onChange={(e) => setFeeConsultation(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="fee-court">Court Fee (R)</Label>
+                <Input
+                  id="fee-court"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={feeCourt}
+                  onChange={(e) => setFeeCourt(e.target.value)}
+                />
+              </div>
             </div>
             <p className="text-xs text-muted-foreground">
               Changes sync both ways: edits made in the Medical Expert Directory also refresh here automatically.
             </p>
+
+            <div className="border-t pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-semibold">Fee Change History</Label>
+                <span className="text-xs text-muted-foreground">
+                  {feeHistory.length} {feeHistory.length === 1 ? "entry" : "entries"}
+                </span>
+              </div>
+              <div className="max-h-56 overflow-y-auto rounded-md border">
+                {historyLoading ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin inline mr-1" /> Loading history…
+                  </div>
+                ) : feeHistory.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground">
+                    No fee changes recorded yet.
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">When</TableHead>
+                        <TableHead className="text-xs">Who</TableHead>
+                        <TableHead className="text-xs">Field</TableHead>
+                        <TableHead className="text-xs">Change</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {feeHistory.map((h) => {
+                        const oldV = h.old_value == null ? "—" : `R ${Number(h.old_value).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+                        const newV = `R ${Number(h.new_value).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
+                        const fieldLabel = h.fee_field === "consultation_fees" ? "Consultation" : h.fee_field === "court_fees" ? "Court" : h.fee_field;
+                        return (
+                          <TableRow key={h.id}>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              {fmtDate(new Date(h.created_at), "dd MMM yyyy HH:mm")}
+                            </TableCell>
+                            <TableCell className="text-xs">{h.changed_by_name || "—"}</TableCell>
+                            <TableCell className="text-xs">{fieldLabel}</TableCell>
+                            <TableCell className="text-xs whitespace-nowrap">
+                              <span className="text-muted-foreground">{oldV}</span>
+                              <span className="mx-1">→</span>
+                              <span className="font-medium">{newV}</span>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setFeeEditExpert(null)} disabled={savingFees}>Cancel</Button>
