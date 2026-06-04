@@ -21,9 +21,13 @@ const TABLE_LABELS: Record<string, string> = {
 
 const ACTION_VERB: Record<string, string> = {
   INSERT: "created",
+  CREATE: "created",
   UPDATE: "updated",
   DELETE: "deleted",
 };
+
+const isGenericDescription = (d?: string | null) =>
+  !d || /^(INSERT|CREATE|UPDATE|DELETE)\s+on\s+/i.test(d) || d.startsWith("Sensitive data");
 
 const TONE_BY_TABLE: Record<string, RecentActivityItem["tone"]> = {
   appointments: "success",
