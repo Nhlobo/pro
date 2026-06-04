@@ -1,25 +1,23 @@
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
-import { useRecentActivity } from "@/hooks/useRecentActivity";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PermissionGuard from "@/components/PermissionGuard";
 import ReferringAttorneyDashboard from "@/components/ReferringAttorneyDashboard";
 import { useAppointmentNotifications } from "@/hooks/useAppointmentNotifications";
-import { NotificationBadge } from "@/components/NotificationBadge";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { Helmet } from "react-helmet-async";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  Calendar, 
-  FileText, 
-  UserCheck, 
-  Stethoscope, 
+import {
+  Users,
+  Calendar,
+  FileText,
+  UserCheck,
+  Stethoscope,
   BarChart3,
   Settings,
   Upload,
@@ -28,134 +26,94 @@ import {
   User,
   Building2,
   Clock,
-  TrendingUp,
   Search,
   FileSignature,
   Zap,
   RefreshCw,
-  Target
+  Target,
 } from "lucide-react";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
-
-import { SecuritySummary } from "@/components/SecuritySummary";
 import SalesConsultantStats from "@/components/SalesConsultantStats";
+import DashboardStatsGrid from "@/components/dashboard/DashboardStatsGrid";
+import RecentActivityCard from "@/components/dashboard/RecentActivityCard";
+import { toast } from "sonner";
 
 const Index = () => {
   const { user, signOut } = useAuth();
   const { isReferringAttorney, isAdmin, isSalesConsultant, loading } = usePermissions();
   const { stats, loading: statsLoading, refetchStats } = useDashboardStats();
-  const { items: recentActivity, loading: activityLoading } = useRecentActivity(5);
+  const { profile: userProfile, error: profileError } = useUserProfile(user ?? null);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // Set up real-time appointment notifications
+
   useAppointmentNotifications();
   const navigate = useNavigate();
 
+  // Memoised role flags — avoid recomputing on every render and keep a single source of truth
+  const roles = useMemo(
+    () => ({
+      attorney: isReferringAttorney(),
+      admin: isAdmin(),
+      sales: isSalesConsultant(),
+    }),
+    [isReferringAttorney, isAdmin, isSalesConsultant]
+  );
+
+  // Surface profile load failures to the user instead of swallowing them
+  useEffect(() => {
+    if (profileError) toast.error(`Could not load your profile: ${profileError}`);
+  }, [profileError]);
+
+
   // Redirect admin/employee users to the new admin portal
   useEffect(() => {
-    if (!loading && isAdmin() && !isReferringAttorney()) {
-      navigate('/admin', { replace: true });
+    if (!loading && roles.admin && !roles.attorney) {
+      navigate("/admin", { replace: true });
     }
-  }, [loading, isAdmin, isReferringAttorney, navigate]);
-
-  const [userProfile, setUserProfile] = useState<{
-    first_name?: string;
-    last_name?: string;
-    position?: string;
-    user_type?: string;
-    law_firm?: {
-      name: string;
-      contact_person: string;
-    };
-  } | null>(null);
-
-  // Fetch user profile and referring attorney data
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!user) return;
-
-      try {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select(`
-            first_name,
-            last_name,
-            position,
-            user_type,
-            referring_attorneys:referring_attorney_id (
-              name,
-              contact_person
-            )
-          `)
-          .eq('id', user.id)
-          .single();
-
-        if (error) {
-          console.error('Error fetching user profile:', error);
-          return;
-        }
-
-        setUserProfile({
-          first_name: profile.first_name,
-          last_name: profile.last_name,
-          position: profile.position,
-          user_type: profile.user_type,
-          law_firm: profile.referring_attorneys
-        });
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-      }
-    };
-
-    fetchUserProfile();
-  }, [user]);
+  }, [loading, roles.admin, roles.attorney, navigate]);
 
   // Get display name
   const getUserDisplayName = () => {
     if (userProfile?.first_name && userProfile?.last_name) {
       return `${userProfile.first_name} ${userProfile.last_name}`;
     }
-    if (userProfile?.first_name) {
-      return userProfile.first_name;
-    }
-    if (user?.user_metadata?.first_name) {
-      return user.user_metadata.first_name;
-    }
-    return user?.email?.split('@')[0] || 'User';
+    if (userProfile?.first_name) return userProfile.first_name;
+    if (user?.user_metadata?.first_name) return user.user_metadata.first_name;
+    return user?.email?.split("@")[0] || "User";
   };
 
   const handleRefresh = async () => {
+    if (refreshing) return;
     setRefreshing(true);
-    await refetchStats();
-    setTimeout(() => setRefreshing(false), 800);
+    try {
+      await refetchStats();
+    } catch (e: any) {
+      console.error("Error refreshing dashboard stats:", e);
+      toast.error(`Refresh failed: ${e?.message ?? "Unknown error"}`);
+    } finally {
+      setTimeout(() => setRefreshing(false), 400);
+    }
   };
 
   // Get user organization/role display
   const getUserRole = () => {
-    if (userProfile?.user_type === 'admin') {
-      return "Administrator";
-    }
-    if (userProfile?.user_type === 'employee') {
-      return userProfile?.position || "Company Employee";
-    }
-    if (userProfile?.user_type === 'referring_attorney' && userProfile?.law_firm?.name) {
+    if (userProfile?.user_type === "admin") return "Administrator";
+    if (userProfile?.user_type === "employee") return userProfile?.position || "Company Employee";
+    if (userProfile?.user_type === "referring_attorney" && userProfile?.law_firm?.name) {
       return userProfile.law_firm.name;
     }
-    if (userProfile?.position) {
-      return userProfile.position;
-    }
+    if (userProfile?.position) return userProfile.position;
     return "Internal User";
   };
 
   // If user is a referring attorney, show restricted dashboard
-  if (!loading && isReferringAttorney()) {
+  if (!loading && roles.attorney) {
+
     return (
       <ProtectedRoute>
         <div className="min-h-screen bg-gradient-to-br from-background via-accent-soft to-muted">
@@ -347,7 +305,7 @@ const Index = () => {
             </div>
 
             {/* Sales Consultant Welcome & Performance Dashboard */}
-            {isSalesConsultant() && userProfile?.first_name && (
+            {roles.sales && userProfile?.first_name && (
               <Card className="bg-gradient-card border-border/50 shadow-soft">
                 <CardHeader>
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -378,105 +336,8 @@ const Index = () => {
             )}
 
             {/* Enhanced Stats Cards - Hidden for Sales Consultants */}
-            {!isSalesConsultant() && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">Total Claimants</CardTitle>
-                  <div className="p-2 bg-kutlwano-blue/10 rounded-lg group-hover:bg-kutlwano-blue/20 transition-colors duration-300">
-                    <Users className="h-5 w-5 text-kutlwano-blue" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-kutlwano-blue mb-1">{stats.totalClaimants}</div>
-                  <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>All active cases</span>
-                  </div>
-                </CardContent>
-              </Card>
+            {!roles.sales && <DashboardStatsGrid stats={stats} loading={statsLoading} />}
 
-              <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">Appointments</CardTitle>
-                  <div className="p-2 bg-kutlwano-teal/10 rounded-lg group-hover:bg-kutlwano-teal/20 transition-colors duration-300">
-                    <Calendar className="h-5 w-5 text-kutlwano-teal" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-kutlwano-teal mb-1">{stats.totalAppointments}</div>
-                  <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>Scheduled assessments</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">Pending Reports</CardTitle>
-                  <div className="p-2 bg-warning/10 rounded-lg group-hover:bg-warning/20 transition-colors duration-300">
-                    <FileText className="h-5 w-5 text-warning" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-warning mb-1">{stats.pendingReports}</div>
-                  <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span>Awaiting completion</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">Reports In Progress</CardTitle>
-                  <div className="p-2 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors duration-300">
-                    <Clock className="h-5 w-5 text-blue-500" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-blue-500 mb-1">{stats.reportsInProgress}</div>
-                  <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>Currently being prepared</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">Reports Taken Out</CardTitle>
-                  <div className="p-2 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors duration-300">
-                    <FileSignature className="h-5 w-5 text-purple-500" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-purple-500 mb-1">{stats.reportsTakenOut}</div>
-                  <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>Delivered to attorneys</span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-foreground">Completed</CardTitle>
-                  <div className="p-2 bg-success/10 rounded-lg group-hover:bg-success/20 transition-colors duration-300">
-                    <BarChart3 className="h-5 w-5 text-success" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold text-success mb-1">{stats.completedAssessments}</div>
-                  <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-                    <TrendingUp className="h-3 w-3" />
-                    <span>Reports finalized</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-            )}
 
 
 
@@ -769,7 +630,7 @@ const Index = () => {
             </div>
 
             {/* Enhanced Information Cards - Hidden for Sales Consultants */}
-            {!isSalesConsultant() && (
+            {!roles.sales && (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {/* Quick Access Card */}
               <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300">
@@ -808,52 +669,8 @@ const Index = () => {
                 </CardContent>
               </Card>
 
-              {/* Recent Activity Card */}
-              <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                    <Clock className="h-5 w-5 text-kutlwano-teal" />
-                    Recent Activity
-                  </CardTitle>
-                  <CardDescription>
-                    Latest system activity and updates
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 text-sm">
-                    {activityLoading ? (
-                      <div className="text-muted-foreground text-xs py-2">Loading activity…</div>
-                    ) : recentActivity.length === 0 ? (
-                      <div className="text-muted-foreground text-xs py-2">No recent activity</div>
-                    ) : (
-                      recentActivity.map((a) => {
-                        const dotClass =
-                          a.tone === "success"
-                            ? "bg-success"
-                            : a.tone === "warning"
-                            ? "bg-warning"
-                            : a.tone === "info"
-                            ? "bg-kutlwano-blue"
-                            : "bg-muted-foreground";
-                        const when = new Date(a.createdAt).toLocaleString("en-ZA", {
-                          timeZone: "Africa/Johannesburg",
-                          day: "2-digit",
-                          month: "short",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        });
-                        return (
-                          <div key={a.id} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
-                            <div className={`w-2 h-2 ${dotClass} rounded-full shrink-0`}></div>
-                            <span className="text-muted-foreground flex-1 truncate">{a.label}</span>
-                            <span className="text-[10px] text-muted-foreground/70 shrink-0">{when}</span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <RecentActivityCard />
+
 
               {/* Help & Support Card */}
               <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300">
