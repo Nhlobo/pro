@@ -3,7 +3,6 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import ReferringAttorneyDashboard from "@/components/ReferringAttorneyDashboard";
 import { useAppointmentNotifications } from "@/hooks/useAppointmentNotifications";
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
