@@ -1,6 +1,4 @@
 import * as React from "react";
-
-import { RandSign } from "@/components/icons/RandSign";
 export interface RandSignProps extends React.SVGAttributes<SVGSVGElement> {
   size?: number | string;
   strokeWidth?: number | string;
