@@ -836,7 +836,6 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         (cl ?? []).forEach((c: any) => claimantMap.set(c.id, { first_name: c.first_name, last_name: c.last_name }));
       }
 
-      const aptIds = (apts ?? []).map((a: any) => a.id);
 
       step = 'fetch expert_payments (Expert Credit Control)';
       const { data: payments, error: payErr } = aptIds.length
