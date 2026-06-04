@@ -77,57 +77,8 @@ const Index = () => {
     }
   }, [loading, isAdmin, isReferringAttorney, navigate]);
 
-  const [userProfile, setUserProfile] = useState<{
-    first_name?: string;
-    last_name?: string;
-    position?: string;
-    user_type?: string;
-    law_firm?: {
-      name: string;
-      contact_person: string;
-    };
-  } | null>(null);
+  // userProfile now comes from useUserProfile hook above
 
-  // Fetch user profile and referring attorney data
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!user) return;
-
-      try {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select(`
-            first_name,
-            last_name,
-            position,
-            user_type,
-            referring_attorneys:referring_attorney_id (
-              name,
-              contact_person
-            )
-          `)
-          .eq('id', user.id)
-          .single();
-
-        if (error) {
-          console.error('Error fetching user profile:', error);
-          return;
-        }
-
-        setUserProfile({
-          first_name: profile.first_name,
-          last_name: profile.last_name,
-          position: profile.position,
-          user_type: profile.user_type,
-          law_firm: profile.referring_attorneys
-        });
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-      }
-    };
-
-    fetchUserProfile();
-  }, [user]);
 
   // Get display name
   const getUserDisplayName = () => {
