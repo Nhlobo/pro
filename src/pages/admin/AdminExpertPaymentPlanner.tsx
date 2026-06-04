@@ -162,7 +162,10 @@ const PAY_STYLE: Record<string, string> = {
   'partially paid': 'bg-amber-100 text-amber-800 border-amber-200',
 };
 
-const DATA_WINDOW_START = '2025-01-01';
+// Default lower bound is intentionally far in the past so the planner surfaces
+// past, present, and future assessments by default. Users can still narrow the
+// window via the dateFrom/dateTo filters.
+const DATA_WINDOW_START = '2000-01-01';
 
 const AdminExpertPaymentPlanner: React.FC = () => {
   const [rows, setRows] = useState<PlannerRow[]>([]);
@@ -786,9 +789,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const load = async () => {
     setLoading(true);
     let step = 'initialize';
-    // Default upper bound extends 1 year ahead so upcoming/scheduled assessments are included
+    // Default upper bound extends 5 years ahead so all upcoming/scheduled assessments are included
     const futureIso = (() => {
-      const d = new Date(); d.setFullYear(d.getFullYear() + 1);
+      const d = new Date(); d.setFullYear(d.getFullYear() + 5);
       return d.toISOString().slice(0, 10);
     })();
     try {
@@ -2002,8 +2005,14 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                   <SelectItem value="moved_next">Move to next payment</SelectItem>
                 </SelectContent>
               </Select>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground">From (leave blank for all past)</label>
+                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground">To (leave blank for all future)</label>
+                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
