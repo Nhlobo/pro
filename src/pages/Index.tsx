@@ -1,25 +1,23 @@
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
-import { useRecentActivity } from "@/hooks/useRecentActivity";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PermissionGuard from "@/components/PermissionGuard";
 import ReferringAttorneyDashboard from "@/components/ReferringAttorneyDashboard";
 import { useAppointmentNotifications } from "@/hooks/useAppointmentNotifications";
-import { NotificationBadge } from "@/components/NotificationBadge";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { Helmet } from "react-helmet-async";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  Calendar, 
-  FileText, 
-  UserCheck, 
-  Stethoscope, 
+import {
+  Users,
+  Calendar,
+  FileText,
+  UserCheck,
+  Stethoscope,
   BarChart3,
   Settings,
   Upload,
@@ -28,35 +26,49 @@ import {
   User,
   Building2,
   Clock,
-  TrendingUp,
   Search,
   FileSignature,
   Zap,
   RefreshCw,
-  Target
+  Target,
 } from "lucide-react";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
-
-import { SecuritySummary } from "@/components/SecuritySummary";
 import SalesConsultantStats from "@/components/SalesConsultantStats";
+import DashboardStatsGrid from "@/components/dashboard/DashboardStatsGrid";
+import RecentActivityCard from "@/components/dashboard/RecentActivityCard";
+import { toast } from "sonner";
 
 const Index = () => {
   const { user, signOut } = useAuth();
   const { isReferringAttorney, isAdmin, isSalesConsultant, loading } = usePermissions();
   const { stats, loading: statsLoading, refetchStats } = useDashboardStats();
-  const { items: recentActivity, loading: activityLoading } = useRecentActivity(5);
+  const { profile: userProfile, error: profileError } = useUserProfile(user ?? null);
   const [refreshing, setRefreshing] = useState(false);
-  
-  // Set up real-time appointment notifications
+
   useAppointmentNotifications();
   const navigate = useNavigate();
+
+  // Memoised role flags — avoid recomputing on every render and keep a single source of truth
+  const roles = useMemo(
+    () => ({
+      attorney: isReferringAttorney(),
+      admin: isAdmin(),
+      sales: isSalesConsultant(),
+    }),
+    [isReferringAttorney, isAdmin, isSalesConsultant]
+  );
+
+  // Surface profile load failures to the user instead of swallowing them
+  useEffect(() => {
+    if (profileError) toast.error(`Could not load your profile: ${profileError}`);
+  }, [profileError]);
+
 
   // Redirect admin/employee users to the new admin portal
   useEffect(() => {
