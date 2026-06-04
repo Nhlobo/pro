@@ -67,11 +67,10 @@ export const useRecentActivity = (limit = 5) => {
         data.map((r: any) => {
           const noun = TABLE_LABELS[r.table_name] ?? r.table_name;
           const verb = ACTION_VERB[r.action_type] ?? r.action_type?.toLowerCase() ?? "changed";
+          const fallback = `${noun.charAt(0).toUpperCase() + noun.slice(1)} ${verb}`;
           return {
             id: r.id,
-            label: r.description?.startsWith("Sensitive data")
-              ? `${noun.charAt(0).toUpperCase() + noun.slice(1)} ${verb}`
-              : r.description || `${noun.charAt(0).toUpperCase() + noun.slice(1)} ${verb}`,
+            label: isGenericDescription(r.description) ? fallback : r.description!,
             createdAt: r.created_at,
             tone: TONE_BY_TABLE[r.table_name] ?? "muted",
           };
