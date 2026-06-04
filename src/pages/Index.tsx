@@ -305,7 +305,7 @@ const Index = () => {
             </div>
 
             {/* Sales Consultant Welcome & Performance Dashboard */}
-            {isSalesConsultant() && userProfile?.first_name && (
+            {roles.sales && userProfile?.first_name && (
               <Card className="bg-gradient-card border-border/50 shadow-soft">
                 <CardHeader>
                   <div className="flex flex-wrap items-center justify-between gap-3">
