@@ -1111,6 +1111,51 @@ const ExpertCreditControl = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!feeEditExpert} onOpenChange={(o) => !o && setFeeEditExpert(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Expert Fees</DialogTitle>
+            <DialogDescription>
+              Updates {feeEditExpert?.expert_name}'s fees in the Medical Expert Directory immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="fee-consultation">Consultation Fee (R)</Label>
+              <Input
+                id="fee-consultation"
+                type="number"
+                min="0"
+                step="0.01"
+                value={feeConsultation}
+                onChange={(e) => setFeeConsultation(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="fee-court">Court Fee (R)</Label>
+              <Input
+                id="fee-court"
+                type="number"
+                min="0"
+                step="0.01"
+                value={feeCourt}
+                onChange={(e) => setFeeCourt(e.target.value)}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Changes sync both ways: edits made in the Medical Expert Directory also refresh here automatically.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setFeeEditExpert(null)} disabled={savingFees}>Cancel</Button>
+            <Button onClick={handleSaveFees} disabled={savingFees}>
+              {savingFees && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+              Save & Sync
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
