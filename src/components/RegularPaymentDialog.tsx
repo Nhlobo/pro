@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { DollarSign, FileText, Zap, CheckCircle2, Calendar, Users, Search, X, CheckSquare, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileText, Zap, CheckCircle2, Calendar, Users, Search, X, CheckSquare, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -31,6 +31,7 @@ import {
 } from '@/hooks/usePaymentSync';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 
+import { RandSign } from "@/components/icons/RandSign";
 interface RegularPaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -502,7 +503,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-primary" />
+            <RandSign className="h-5 w-5 text-primary" />
             Record Payment — {attorneyName}
           </DialogTitle>
           <p className="text-xs text-muted-foreground">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, DollarSign, TrendingUp, FileText, AlertCircle } from "lucide-react";
+import { ArrowLeft, TrendingUp, FileText, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
+import { RandSign } from "@/components/icons/RandSign";
 interface AODBalance {
   id: string;
   file_name: string;
@@ -202,7 +203,7 @@ const AODBalanceSummary = () => {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Outstanding</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <RandSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">R{summary.totalOwed.toFixed(2)}</div>

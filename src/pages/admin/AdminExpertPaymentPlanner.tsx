@@ -11,11 +11,30 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
-  DollarSign, AlertTriangle, CheckCircle2, FileText,
-  TrendingDown, RefreshCw, Search, X, CalendarClock, Flame,
-  Download, Mail, ChevronDown, ChevronUp, History, ThumbsUp, ThumbsDown, ArrowRightCircle, Save, Trash2,
-  Columns, Shield, XCircle, User,
-} from 'lucide-react';
+  AlertTriangle,
+  CheckCircle2,
+  FileText,
+  TrendingDown,
+  RefreshCw,
+  Search,
+  X,
+  CalendarClock,
+  Flame,
+  Download,
+  Mail,
+  ChevronDown,
+  ChevronUp,
+  History,
+  ThumbsUp,
+  ThumbsDown,
+  ArrowRightCircle,
+  Save,
+  Trash2,
+  Columns,
+  Shield,
+  XCircle,
+  User
+} from "lucide-react";
 import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -28,6 +47,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Inbox, Send, Lock } from 'lucide-react';
 import { ApprovalTimeline } from '@/components/ApprovalTimeline';
 
+import { RandSign } from "@/components/icons/RandSign";
 type ExpertPayStatus = 'Urgent' | 'Planned to pay' | 'Partially paid' | 'Fully paid' | 'Unpaid';
 type ApprovalStatus = 'pending' | 'approved' | 'not_approved' | 'moved_next';
 type RequestStatus = 'none' | 'submitted';
@@ -1889,10 +1909,10 @@ const AdminExpertPaymentPlanner: React.FC = () => {
 
         {summaryExpanded && (
           <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-            <KpiCard label="Total To Be Paid (Selected)" value={ZAR(kpis.plannedAmount)} icon={<DollarSign className="h-4 w-4" />} tone="success" />
+            <KpiCard label="Total To Be Paid (Selected)" value={ZAR(kpis.plannedAmount)} icon={<RandSign className="h-4 w-4" />} tone="success" />
             <KpiCard label="Urgent To Pay" value={ZAR(kpis.urgentAmount)} icon={<Flame className="h-4 w-4" />} tone="warning" />
             <KpiCard label={`Selected Files (${kpis.urgentSelected} urgent)`} value={String(kpis.plannedSelected)} icon={<CheckCircle2 className="h-4 w-4" />} />
-            <KpiCard label="Scheduled Payment" value={ZAR(kpis.totalExpertDebt)} icon={<DollarSign className="h-4 w-4" />} />
+            <KpiCard label="Scheduled Payment" value={ZAR(kpis.totalExpertDebt)} icon={<RandSign className="h-4 w-4" />} />
             <KpiCard label="Attorneys Outstanding" value={ZAR(kpis.outstanding)} icon={<AlertTriangle className="h-4 w-4" />} />
             <KpiCard label="Files to Be Paid" value={String(kpis.filesToBePaid)} icon={<CalendarClock className="h-4 w-4" />} />
             <KpiCard label="Reports Received" value={String(kpis.reportsReceived)} icon={<FileText className="h-4 w-4" />} />

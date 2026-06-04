@@ -7,15 +7,29 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import {
-  ArrowLeft, User, Briefcase, FileText, Upload, Clock, CheckCircle2, AlertTriangle,
-  Calendar, Download, Building2, Send, XCircle, Check, DollarSign, Eye
-} from 'lucide-react';
+  ArrowLeft,
+  User,
+  Briefcase,
+  FileText,
+  Upload,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Calendar,
+  Download,
+  Building2,
+  Send,
+  XCircle,
+  Check,
+  Eye
+} from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
+import { RandSign } from "@/components/icons/RandSign";
 const STORAGE_BUCKETS = ['documents', 'expert-documents', 'attorney-documents'];
 
 const ExpertCaseDetail: React.FC = () => {
@@ -464,7 +478,7 @@ const ExpertCaseDetail: React.FC = () => {
             <Card className="border-border/50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-warning" /> Payment Information
+                  <RandSign className="h-4 w-4 text-warning" /> Payment Information
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">

@@ -5,8 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { User, Shield, Calendar, DollarSign, Ban, CheckCircle2, Mail, Briefcase } from 'lucide-react';
+import { User, Shield, Calendar, Ban, CheckCircle2, Mail, Briefcase } from "lucide-react";
 
+import { RandSign } from "@/components/icons/RandSign";
 interface ProfileRow {
   first_name: string | null;
   last_name: string | null;
@@ -17,7 +18,7 @@ interface ProfileRow {
 
 const SALES_CONSULTANT_ACCESS: { label: string; description: string; icon: React.ComponentType<any> }[] = [
   { label: 'Appointment Engine', description: 'View and manage scheduled assessments, daily schedule, checklists and communications.', icon: Calendar },
-  { label: 'Finance & Payments', description: 'View AOD records, track payments and reconcile balances.', icon: DollarSign },
+  { label: 'Finance & Payments', description: 'View AOD records, track payments and reconcile balances.', icon: RandSign },
   { label: 'Attorney CRM (Pitchlog)', description: 'Manage referring attorney pitches, follow-ups and outreach.', icon: Briefcase },
   { label: 'Availability Heatmap', description: 'View provincial expert availability density.', icon: Shield },
 ];

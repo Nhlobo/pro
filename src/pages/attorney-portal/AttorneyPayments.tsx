@@ -12,7 +12,6 @@ import { Progress } from '@/components/ui/progress';
 import {
   CreditCard,
   Wallet,
-  DollarSign,
   Calendar,
   FileText,
   Download,
@@ -20,9 +19,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock
-} from 'lucide-react';
+} from "lucide-react";
 import { format } from 'date-fns';
 
+import { RandSign } from "@/components/icons/RandSign";
 interface AODDocument {
   id: string;
   file_name: string;
@@ -133,7 +133,7 @@ const AttorneyPayments: React.FC = () => {
                   </p>
                 </div>
                 <div className="p-3 bg-success/10 rounded-lg">
-                  <DollarSign className="h-6 w-6 text-success" />
+                  <RandSign className="h-6 w-6 text-success" />
                 </div>
               </div>
             </CardContent>
@@ -294,7 +294,7 @@ const AttorneyPayments: React.FC = () => {
                   </div>
                 ) : payments.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
-                    <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <RandSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>No payment records found</p>
                   </div>
                 ) : (

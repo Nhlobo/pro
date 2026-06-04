@@ -1,5 +1,6 @@
 import * as React from "react";
 
+import { RandSign } from "@/components/icons/RandSign";
 export interface RandSignProps extends React.SVGAttributes<SVGSVGElement> {
   size?: number | string;
   strokeWidth?: number | string;
@@ -8,7 +9,7 @@ export interface RandSignProps extends React.SVGAttributes<SVGSVGElement> {
 /**
  * RandSign icon — South African Rand (R) currency glyph.
  * Mirrors the lucide-react icon API (className, size, strokeWidth, ...props)
- * so it can be used as a drop-in replacement for <DollarSign />.
+ * so it can be used as a drop-in replacement for <RandSign />.
  */
 export const RandSign = React.forwardRef<SVGSVGElement, RandSignProps>(
   ({ size = 24, strokeWidth = 2, className, ...props }, ref) => (

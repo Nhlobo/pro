@@ -27,7 +27,6 @@ import {
   MapPin,
   FileText,
   FolderLock,
-  DollarSign,
   Calendar,
   BarChart3,
   ShieldCheck,
@@ -46,8 +45,8 @@ import {
   Ban,
   CheckSquare,
   Square,
-  ListChecks,
-} from 'lucide-react';
+  ListChecks
+} from "lucide-react";
 import { Checkbox } from '@/components/ui/checkbox';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
 import { UserProfile, usePermissions } from '@/hooks/usePermissions';
@@ -55,6 +54,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 
+import { RandSign } from "@/components/icons/RandSign";
 interface FunctionPermissionsManagerProps {
   user: UserProfile;
   onPermissionChange?: () => void;
@@ -134,7 +134,7 @@ const ROLE_PRESETS: PresetDef[] = [
     key: 'finance-officer',
     title: 'Finance Officer',
     description: 'AOD, payments, debtors, reporting & email queue',
-    icon: DollarSign,
+    icon: RandSign,
     suggestedRole: 'employee',
     moduleKeys: ['operations', 'finance', 'reports', 'analytics', 'email'],
     accent: 'border-border bg-card hover:bg-muted/50',

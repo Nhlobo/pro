@@ -13,13 +13,28 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import {
-  BarChart3, TrendingUp, TrendingDown, AlertTriangle, Users, Star,
-  Search, ArrowUpDown, Crown, Shield, UserPlus, UserX, Loader2,
-  DollarSign, FileText, Calendar, ChevronUp, ChevronDown
-} from 'lucide-react';
+  BarChart3,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  Users,
+  Star,
+  Search,
+  ArrowUpDown,
+  Crown,
+  Shield,
+  UserPlus,
+  UserX,
+  Loader2,
+  FileText,
+  Calendar,
+  ChevronUp,
+  ChevronDown
+} from "lucide-react";
 import { format, subMonths, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 
+import { RandSign } from "@/components/icons/RandSign";
 interface AttorneyMetrics {
   id: string;
   name: string;
@@ -311,7 +326,7 @@ const AttorneyReferralIntelligence: React.FC = () => {
         <Card className="bg-gradient-card border-border/50">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-1">
-              <DollarSign className="h-4 w-4 text-destructive" />
+              <RandSign className="h-4 w-4 text-destructive" />
               <p className="text-xs text-muted-foreground">Outstanding</p>
             </div>
             <p className="text-2xl font-bold text-destructive">R{totalOutstanding.toLocaleString()}</p>

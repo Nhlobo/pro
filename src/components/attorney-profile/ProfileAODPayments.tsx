@@ -10,12 +10,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import {
-  CreditCard, Wallet, DollarSign, Calendar, FileText,
-  Download, TrendingUp, AlertCircle, CheckCircle2, Clock, FileSignature, Receipt, User
-} from 'lucide-react';
+  CreditCard,
+  Wallet,
+  Calendar,
+  FileText,
+  Download,
+  TrendingUp,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  FileSignature,
+  Receipt,
+  User
+} from "lucide-react";
 import { format } from 'date-fns';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 
+import { RandSign } from "@/components/icons/RandSign";
 interface AODDocument {
   id: string;
   file_name: string;
@@ -132,7 +143,7 @@ const ProfileAODPayments: React.FC<ProfileAODPaymentsProps> = ({ referringAttorn
                 <p className="text-xs text-muted-foreground">Deposits</p>
                 <p className="text-lg font-bold text-success">R{totalDeposits.toLocaleString()}</p>
               </div>
-              <DollarSign className="h-5 w-5 text-success" />
+              <RandSign className="h-5 w-5 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -255,7 +266,7 @@ const ProfileAODPayments: React.FC<ProfileAODPaymentsProps> = ({ referringAttorn
         <TabsContent value="history" className="mt-4">
           {payments.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
-              <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <RandSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No payment records found</p>
             </div>
           ) : (

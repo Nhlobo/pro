@@ -20,7 +20,6 @@ import {
   Scale,
   FileText,
   FolderLock,
-  DollarSign,
   Calendar,
   BarChart3,
   ShieldCheck,
@@ -33,8 +32,8 @@ import {
   ChevronDown,
   Settings,
   Building2,
-  Mail,
-} from 'lucide-react';
+  Mail
+} from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,

@@ -3,14 +3,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  Briefcase, Clock, FileText, AlertTriangle, CheckCircle2, Calendar, BarChart3, TrendingUp, User,
-  DollarSign, Upload, Eye
-} from 'lucide-react';
+  Briefcase,
+  Clock,
+  FileText,
+  AlertTriangle,
+  CheckCircle2,
+  Calendar,
+  BarChart3,
+  TrendingUp,
+  User,
+  Upload,
+  Eye
+} from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
+import { RandSign } from "@/components/icons/RandSign";
 const ExpertDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -173,7 +183,7 @@ const ExpertDashboard: React.FC = () => {
           { label: 'Completed', value: stats.completedAssessments, icon: CheckCircle2, color: 'text-success', onClick: () => navigate('/expert-portal/performance') },
           { label: 'Total Cases', value: stats.totalCases, icon: Briefcase, color: 'text-primary', onClick: () => navigate('/expert-portal/cases') },
           { label: 'Avg Days', value: stats.averageDays, icon: TrendingUp, color: 'text-muted-foreground' },
-          { label: 'Payments', value: stats.outstandingDebt > 0 ? `R${stats.outstandingDebt.toLocaleString()}` : 'R0', icon: DollarSign, color: 'text-primary' },
+          { label: 'Payments', value: stats.outstandingDebt > 0 ? `R${stats.outstandingDebt.toLocaleString()}` : 'R0', icon: RandSign, color: 'text-primary' },
         ].map(s => (
           <Card key={s.label} className="border-border/50 cursor-pointer hover:shadow-md transition-shadow" onClick={s.onClick}>
             <CardContent className="pt-3 pb-2 px-3 flex items-center gap-2">
