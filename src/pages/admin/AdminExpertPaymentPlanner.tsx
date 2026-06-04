@@ -885,7 +885,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
             service_fee: Number(a.service_fee || 0),
             deposit_amount: Number(a.deposit_amount || 0),
           } as PlannerRow;
-        });
+        })
+        // Always show the newest assessment first when loading scheduled payments
+        .sort((a, b) => new Date(b.assessment_date).getTime() - new Date(a.assessment_date).getTime());
 
       setRows(shaped);
       setLoadError(null);
