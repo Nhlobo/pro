@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useRecentActivity } from "@/hooks/useRecentActivity";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PermissionGuard from "@/components/PermissionGuard";
 import ReferringAttorneyDashboard from "@/components/ReferringAttorneyDashboard";
