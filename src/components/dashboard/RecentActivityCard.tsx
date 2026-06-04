@@ -29,7 +29,7 @@ const RecentActivityCard = () => {
             <div className="text-muted-foreground text-xs py-2">No recent activity</div>
           ) : (
             items.map((a) => {
-              const when = new Date(a.createdAt).toLocaleString("en-ZA", {
+              const absolute = new Date(a.createdAt).toLocaleString("en-ZA", {
                 timeZone: "Africa/Johannesburg",
                 day: "2-digit",
                 month: "short",
@@ -40,7 +40,12 @@ const RecentActivityCard = () => {
                 <div key={a.id} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
                   <div className={`w-2 h-2 ${toneToDot[a.tone] ?? "bg-muted-foreground"} rounded-full shrink-0`} />
                   <span className="text-muted-foreground flex-1 truncate">{a.label}</span>
-                  <span className="text-[10px] text-muted-foreground/70 shrink-0">{when}</span>
+                  <span
+                    className="text-[10px] text-muted-foreground/70 shrink-0"
+                    title={absolute}
+                  >
+                    {a.relativeTime}
+                  </span>
                 </div>
               );
             })
