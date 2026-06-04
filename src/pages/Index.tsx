@@ -1,6 +1,7 @@
 import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useRecentActivity } from "@/hooks/useRecentActivity";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import PermissionGuard from "@/components/PermissionGuard";
 import ReferringAttorneyDashboard from "@/components/ReferringAttorneyDashboard";
@@ -50,6 +51,7 @@ const Index = () => {
   const { user, signOut } = useAuth();
   const { isReferringAttorney, isAdmin, isSalesConsultant, loading } = usePermissions();
   const { stats, loading: statsLoading, refetchStats } = useDashboardStats();
+  const { items: recentActivity, loading: activityLoading } = useRecentActivity(5);
   const [refreshing, setRefreshing] = useState(false);
   
   // Set up real-time appointment notifications
@@ -819,18 +821,36 @@ const Index = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 text-sm">
-                    <div className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
-                      <div className="w-2 h-2 bg-success rounded-full"></div>
-                      <span className="text-muted-foreground">New appointment scheduled</span>
-                    </div>
-                    <div className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
-                      <div className="w-2 h-2 bg-warning rounded-full"></div>
-                      <span className="text-muted-foreground">Report pending review</span>
-                    </div>
-                    <div className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
-                      <div className="w-2 h-2 bg-kutlwano-blue rounded-full"></div>
-                      <span className="text-muted-foreground">New claimant added</span>
-                    </div>
+                    {activityLoading ? (
+                      <div className="text-muted-foreground text-xs py-2">Loading activity…</div>
+                    ) : recentActivity.length === 0 ? (
+                      <div className="text-muted-foreground text-xs py-2">No recent activity</div>
+                    ) : (
+                      recentActivity.map((a) => {
+                        const dotClass =
+                          a.tone === "success"
+                            ? "bg-success"
+                            : a.tone === "warning"
+                            ? "bg-warning"
+                            : a.tone === "info"
+                            ? "bg-kutlwano-blue"
+                            : "bg-muted-foreground";
+                        const when = new Date(a.createdAt).toLocaleString("en-ZA", {
+                          timeZone: "Africa/Johannesburg",
+                          day: "2-digit",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        });
+                        return (
+                          <div key={a.id} className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg">
+                            <div className={`w-2 h-2 ${dotClass} rounded-full shrink-0`}></div>
+                            <span className="text-muted-foreground flex-1 truncate">{a.label}</span>
+                            <span className="text-[10px] text-muted-foreground/70 shrink-0">{when}</span>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </CardContent>
               </Card>
