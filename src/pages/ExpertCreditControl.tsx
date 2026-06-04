@@ -21,7 +21,7 @@ import { ExpertStatementPreviewDialog } from "@/components/ExpertStatementPrevie
 import { usePermissions } from "@/hooks/usePermissions";
 import { Pencil, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { format as fmtDate } from "date-fns";
+
 
 interface FeeHistoryEntry {
   id: string;
