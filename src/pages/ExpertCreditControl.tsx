@@ -78,6 +78,43 @@ const ExpertCreditControl = () => {
   const [existingPopUrl, setExistingPopUrl] = useState<string | null>(null);
   const [existingPopFileName, setExistingPopFileName] = useState<string | null>(null);
   const [uploadingPop, setUploadingPop] = useState(false);
+  const { isAdmin } = usePermissions();
+  const [feeEditExpert, setFeeEditExpert] = useState<ExpertPaymentData | null>(null);
+  const [feeConsultation, setFeeConsultation] = useState("");
+  const [feeCourt, setFeeCourt] = useState("");
+  const [savingFees, setSavingFees] = useState(false);
+
+  const openFeeEditor = (expert: ExpertPaymentData) => {
+    setFeeEditExpert(expert);
+    setFeeConsultation(String(expert.consultation_fees ?? 0));
+    setFeeCourt(String(expert.court_fees ?? 0));
+  };
+
+  const handleSaveFees = async () => {
+    if (!feeEditExpert) return;
+    const c = Number(feeConsultation);
+    const k = Number(feeCourt);
+    if (Number.isNaN(c) || c < 0 || Number.isNaN(k) || k < 0) {
+      toast.error("Enter valid non-negative fee amounts.");
+      return;
+    }
+    setSavingFees(true);
+    try {
+      const { error } = await supabase
+        .from("medical_experts")
+        .update({ consultation_fees: c, court_fees: k })
+        .eq("id", feeEditExpert.expert_id);
+      if (error) throw error;
+      toast.success("Expert fees updated. Directory synced.");
+      window.dispatchEvent(new Event("medical-expert-updated"));
+      setFeeEditExpert(null);
+      await fetchExpertPaymentData();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update fees.");
+    } finally {
+      setSavingFees(false);
+    }
+  };
 
   useEffect(() => {
     fetchExpertPaymentData();
