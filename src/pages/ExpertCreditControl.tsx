@@ -11,13 +11,15 @@ import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Helmet } from "react-helmet-async";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { ExpertStatementPreviewDialog } from "@/components/ExpertStatementPreviewDialog";
+import { usePermissions } from "@/hooks/usePermissions";
+import { Pencil, Loader2 } from "lucide-react";
 
 interface ExpertPaymentData {
   expert_id: string;
@@ -76,6 +78,43 @@ const ExpertCreditControl = () => {
   const [existingPopUrl, setExistingPopUrl] = useState<string | null>(null);
   const [existingPopFileName, setExistingPopFileName] = useState<string | null>(null);
   const [uploadingPop, setUploadingPop] = useState(false);
+  const { isAdmin } = usePermissions();
+  const [feeEditExpert, setFeeEditExpert] = useState<ExpertPaymentData | null>(null);
+  const [feeConsultation, setFeeConsultation] = useState("");
+  const [feeCourt, setFeeCourt] = useState("");
+  const [savingFees, setSavingFees] = useState(false);
+
+  const openFeeEditor = (expert: ExpertPaymentData) => {
+    setFeeEditExpert(expert);
+    setFeeConsultation(String(expert.consultation_fees ?? 0));
+    setFeeCourt(String(expert.court_fees ?? 0));
+  };
+
+  const handleSaveFees = async () => {
+    if (!feeEditExpert) return;
+    const c = Number(feeConsultation);
+    const k = Number(feeCourt);
+    if (Number.isNaN(c) || c < 0 || Number.isNaN(k) || k < 0) {
+      toast.error("Enter valid non-negative fee amounts.");
+      return;
+    }
+    setSavingFees(true);
+    try {
+      const { error } = await supabase
+        .from("medical_experts")
+        .update({ consultation_fees: c, court_fees: k })
+        .eq("id", feeEditExpert.expert_id);
+      if (error) throw error;
+      toast.success("Expert fees updated. Directory synced.");
+      window.dispatchEvent(new Event("medical-expert-updated"));
+      setFeeEditExpert(null);
+      await fetchExpertPaymentData();
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update fees.");
+    } finally {
+      setSavingFees(false);
+    }
+  };
 
   useEffect(() => {
     fetchExpertPaymentData();
@@ -692,17 +731,39 @@ const ExpertCreditControl = () => {
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4 mt-4 mb-3">
-                  <div className="bg-muted/50 p-3 rounded-lg">
+                  <div className="bg-muted/50 p-3 rounded-lg relative">
                     <p className="text-xs text-muted-foreground">Consultation Fee</p>
                     <p className="text-sm font-semibold text-foreground">
                       R {expert.consultation_fees.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                     </p>
+                    {isAdmin() && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={() => openFeeEditor(expert)}
+                        title="Edit fees (syncs to directory)"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
-                  <div className="bg-muted/50 p-3 rounded-lg">
+                  <div className="bg-muted/50 p-3 rounded-lg relative">
                     <p className="text-xs text-muted-foreground">Court Fee (if applicable)</p>
                     <p className="text-sm font-semibold text-foreground">
                       R {expert.court_fees.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                     </p>
+                    {isAdmin() && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={() => openFeeEditor(expert)}
+                        title="Edit fees (syncs to directory)"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
                 
@@ -1048,6 +1109,51 @@ const ExpertCreditControl = () => {
               {uploadingPop ? 'Uploading...' : (editingPaymentId ? 'Update' : 'Record')} Payment
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!feeEditExpert} onOpenChange={(o) => !o && setFeeEditExpert(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Expert Fees</DialogTitle>
+            <DialogDescription>
+              Updates {feeEditExpert?.expert_name}'s fees in the Medical Expert Directory immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="fee-consultation">Consultation Fee (R)</Label>
+              <Input
+                id="fee-consultation"
+                type="number"
+                min="0"
+                step="0.01"
+                value={feeConsultation}
+                onChange={(e) => setFeeConsultation(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="fee-court">Court Fee (R)</Label>
+              <Input
+                id="fee-court"
+                type="number"
+                min="0"
+                step="0.01"
+                value={feeCourt}
+                onChange={(e) => setFeeCourt(e.target.value)}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Changes sync both ways: edits made in the Medical Expert Directory also refresh here automatically.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setFeeEditExpert(null)} disabled={savingFees}>Cancel</Button>
+            <Button onClick={handleSaveFees} disabled={savingFees}>
+              {savingFees && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+              Save & Sync
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
