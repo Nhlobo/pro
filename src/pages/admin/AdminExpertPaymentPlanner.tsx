@@ -866,7 +866,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
           return true;
         })
         .map((a: any) => {
-          const claimant = Array.isArray(a.claimants) ? a.claimants[0] : a.claimants;
+          const embedded = Array.isArray(a.claimants) ? a.claimants[0] : a.claimants;
+          const fallback = a.claimant_id ? claimantMap.get(a.claimant_id) : null;
+          const claimant = (embedded && (embedded.first_name || embedded.last_name)) ? embedded : (fallback || embedded);
           const expert = Array.isArray(a.medical_experts) ? a.medical_experts[0] : a.medical_experts;
           const att = Array.isArray(a.referring_attorneys) ? a.referring_attorneys[0] : a.referring_attorneys;
 
