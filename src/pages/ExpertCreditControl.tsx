@@ -731,17 +731,39 @@ const ExpertCreditControl = () => {
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4 mt-4 mb-3">
-                  <div className="bg-muted/50 p-3 rounded-lg">
+                  <div className="bg-muted/50 p-3 rounded-lg relative">
                     <p className="text-xs text-muted-foreground">Consultation Fee</p>
                     <p className="text-sm font-semibold text-foreground">
                       R {expert.consultation_fees.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                     </p>
+                    {isAdmin() && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={() => openFeeEditor(expert)}
+                        title="Edit fees (syncs to directory)"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
-                  <div className="bg-muted/50 p-3 rounded-lg">
+                  <div className="bg-muted/50 p-3 rounded-lg relative">
                     <p className="text-xs text-muted-foreground">Court Fee (if applicable)</p>
                     <p className="text-sm font-semibold text-foreground">
                       R {expert.court_fees.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                     </p>
+                    {isAdmin() && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={() => openFeeEditor(expert)}
+                        title="Edit fees (syncs to directory)"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
                 
