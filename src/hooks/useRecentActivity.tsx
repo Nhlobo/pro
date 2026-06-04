@@ -87,6 +87,11 @@ export const useRecentActivity = (limit = 5) => {
         { event: "INSERT", schema: "public", table: "audit_logs" },
         () => load()
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "audit_logs" },
+        () => load()
+      )
       .subscribe();
 
     return () => {
