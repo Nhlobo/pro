@@ -68,6 +68,9 @@ const formSchema = z.object({
   feesMerit: z.string().optional().default(""),
   feesPerHour: z.string().optional().default(""),
   courtFee: z.string().optional().default(""),
+  addendumFee: z.string().optional().default(""),
+  affidavitFee: z.string().optional().default(""),
+  jointMinutesFee: z.string().optional().default(""),
   courtAvailability: z.enum(["Yes", "No"]),
   notes: z.string().optional(),
   personalAssistantName: z.string().optional(),
@@ -107,7 +110,10 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
     feesMerit: string | null;
     feesPerHour: string | null;
     courtFee: string | null;
-  }>({ feesMVA: null, feesMedNeg: null, feesMerit: null, feesPerHour: null, courtFee: null });
+    addendumFee: string | null;
+    affidavitFee: string | null;
+    jointMinutesFee: string | null;
+  }>({ feesMVA: null, feesMedNeg: null, feesMerit: null, feesPerHour: null, courtFee: null, addendumFee: null, affidavitFee: null, jointMinutesFee: null });
 
   const { logAuditTrail } = useAuditTrail();
   const [feeHistory, setFeeHistory] = useState<any[]>([]);
@@ -126,6 +132,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
     merit_fees: "Merit Fees",
     consultation_fee_per_hour: "Hourly Rate Fee",
     court_fees: "Court Fee",
+    addendum_fees: "Addendum Fee",
+    affidavit_fees: "Affidavit Fee",
+    joint_minutes_fees: "Joint Minutes Fee",
   };
   const FEE_FIELD_KEYS = Object.keys(FEE_FIELD_LABELS);
 
@@ -244,6 +253,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       feesMerit: "",
       feesPerHour: "",
       courtFee: "",
+      addendumFee: "",
+      affidavitFee: "",
+      jointMinutesFee: "",
       courtAvailability: undefined,
       notes: "",
       personalAssistantName: "",
@@ -432,6 +444,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           feesMerit: data.merit_fees != null ? String(data.merit_fees) : "",
           feesPerHour: data.consultation_fee_per_hour != null ? String(data.consultation_fee_per_hour) : "",
           courtFee: data.court_fees != null ? String(data.court_fees) : "",
+          addendumFee: (data as any).addendum_fees != null ? String((data as any).addendum_fees) : "",
+          affidavitFee: (data as any).affidavit_fees != null ? String((data as any).affidavit_fees) : "",
+          jointMinutesFee: (data as any).joint_minutes_fees != null ? String((data as any).joint_minutes_fees) : "",
           courtAvailability: "Yes",
           notes: data.availability_notes || "",
           personalAssistantName: data.personal_assistant_name || "",
@@ -445,6 +460,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           feesMerit: (data as any).merit_fees?.toString() ?? null,
           feesPerHour: data.consultation_fee_per_hour?.toString() ?? null,
           courtFee: data.court_fees?.toString() ?? null,
+          addendumFee: (data as any).addendum_fees?.toString() ?? null,
+          affidavitFee: (data as any).affidavit_fees?.toString() ?? null,
+          jointMinutesFee: (data as any).joint_minutes_fees?.toString() ?? null,
         });
 
         // Keep a snapshot of the freshly loaded record so we can diff field
@@ -601,6 +619,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       const feesMerit = values.feesMerit ? parseInt(values.feesMerit.replace(/[^\d]/g, '')) : null;
       const feesPerHour = values.feesPerHour ? parseInt(values.feesPerHour.replace(/[^\d]/g, '')) : null;
       const courtFees = parseInt(values.courtFee.replace(/[^\d]/g, '')) || null;
+      const addendumFees = values.addendumFee ? parseInt(values.addendumFee.replace(/[^\d]/g, '')) : null;
+      const affidavitFees = values.affidavitFee ? parseInt(values.affidavitFee.replace(/[^\d]/g, '')) : null;
+      const jointMinutesFees = values.jointMinutesFee ? parseInt(values.jointMinutesFee.replace(/[^\d]/g, '')) : null;
 
       // Keep legacy `consultation_fees` in sync so the directory table updates correctly.
       // Prefer Med Neg (if provided), else MVA, else per-hour.
@@ -636,6 +657,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
         consultation_fee_per_hour: feesPerHour,
         consultation_fees: legacyConsultationFees,
         court_fees: courtFees,
+        addendum_fees: addendumFees,
+        affidavit_fees: affidavitFees,
+        joint_minutes_fees: jointMinutesFees,
         qualifications: values.qualifications,
         years_experience: parseInt(values.experience) || null,
         specializations: values.specialization,
@@ -737,6 +761,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
         feesMerit: feesMerit?.toString() ?? null,
         feesPerHour: feesPerHour?.toString() ?? null,
         courtFee: courtFees?.toString() ?? null,
+        addendumFee: addendumFees?.toString() ?? null,
+        affidavitFee: affidavitFees?.toString() ?? null,
+        jointMinutesFee: jointMinutesFees?.toString() ?? null,
       });
 
       // Log fee changes to audit trail (only changed fee fields)
@@ -747,6 +774,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           merit_fees: previousFees.feesMerit ? parseInt(previousFees.feesMerit) : null,
           consultation_fee_per_hour: previousFees.feesPerHour ? parseInt(previousFees.feesPerHour) : null,
           court_fees: previousFees.courtFee ? parseInt(previousFees.courtFee) : null,
+          addendum_fees: previousFees.addendumFee ? parseInt(previousFees.addendumFee) : null,
+          affidavit_fees: previousFees.affidavitFee ? parseInt(previousFees.affidavitFee) : null,
+          joint_minutes_fees: previousFees.jointMinutesFee ? parseInt(previousFees.jointMinutesFee) : null,
         };
         const newMap: Record<string, number | null> = {
           consultation_fee_mva: feesMva,
@@ -754,6 +784,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           merit_fees: feesMerit,
           consultation_fee_per_hour: feesPerHour,
           court_fees: courtFees,
+          addendum_fees: addendumFees,
+          affidavit_fees: affidavitFees,
+          joint_minutes_fees: jointMinutesFees,
         };
         const oldChanged: Record<string, number | null> = {};
         const newChanged: Record<string, number | null> = {};
@@ -1396,6 +1429,51 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                           <Input placeholder="e.g., R 8000" {...field} />
                         </FormControl>
                         <PreviousFeeNote previous={previousFees.courtFee} current={field.value} />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="addendumFee"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel>Addendum Fee (Rand)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., R 1500" {...field} />
+                        </FormControl>
+                        <PreviousFeeNote previous={previousFees.addendumFee} current={field.value} />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="affidavitFee"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel>Affidavit Fee (Rand)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., R 2000" {...field} />
+                        </FormControl>
+                        <PreviousFeeNote previous={previousFees.affidavitFee} current={field.value} />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="jointMinutesFee"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel>Joint Minutes Fee (Rand)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., R 3000" {...field} />
+                        </FormControl>
+                        <PreviousFeeNote previous={previousFees.jointMinutesFee} current={field.value} />
                         <FormMessage />
                       </FormItem>
                     )}
