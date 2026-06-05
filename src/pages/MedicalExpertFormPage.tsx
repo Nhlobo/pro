@@ -774,6 +774,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           merit_fees: previousFees.feesMerit ? parseInt(previousFees.feesMerit) : null,
           consultation_fee_per_hour: previousFees.feesPerHour ? parseInt(previousFees.feesPerHour) : null,
           court_fees: previousFees.courtFee ? parseInt(previousFees.courtFee) : null,
+          addendum_fees: previousFees.addendumFee ? parseInt(previousFees.addendumFee) : null,
+          affidavit_fees: previousFees.affidavitFee ? parseInt(previousFees.affidavitFee) : null,
+          joint_minutes_fees: previousFees.jointMinutesFee ? parseInt(previousFees.jointMinutesFee) : null,
         };
         const newMap: Record<string, number | null> = {
           consultation_fee_mva: feesMva,
@@ -781,6 +784,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           merit_fees: feesMerit,
           consultation_fee_per_hour: feesPerHour,
           court_fees: courtFees,
+          addendum_fees: addendumFees,
+          affidavit_fees: affidavitFees,
+          joint_minutes_fees: jointMinutesFees,
         };
         const oldChanged: Record<string, number | null> = {};
         const newChanged: Record<string, number | null> = {};
