@@ -1436,6 +1436,51 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
 
                   <FormField
                     control={form.control}
+                    name="addendumFee"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel>Addendum Fee (Rand)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., R 1500" {...field} />
+                        </FormControl>
+                        <PreviousFeeNote previous={previousFees.addendumFee} current={field.value} />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="affidavitFee"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel>Affidavit Fee (Rand)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., R 2000" {...field} />
+                        </FormControl>
+                        <PreviousFeeNote previous={previousFees.affidavitFee} current={field.value} />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="jointMinutesFee"
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-1">
+                        <FormLabel>Joint Minutes Fee (Rand)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., R 3000" {...field} />
+                        </FormControl>
+                        <PreviousFeeNote previous={previousFees.jointMinutesFee} current={field.value} />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="courtAvailability"
                     render={({ field, fieldState }) => (
                       <FormItem className="md:col-span-1">
