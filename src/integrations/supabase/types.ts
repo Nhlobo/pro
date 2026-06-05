@@ -2867,6 +2867,8 @@ export type Database = {
       }
       medical_experts: {
         Row: {
+          addendum_fees: number | null
+          affidavit_fees: number | null
           assessment_turnaround_days: number | null
           availability_notes: string | null
           city: string | null
@@ -2884,6 +2886,7 @@ export type Database = {
           hpcsa_document_url: string | null
           hpcsa_number: string | null
           id: string
+          joint_minutes_fees: number | null
           languages: string[] | null
           last_name: string
           matter_types: string[] | null
@@ -2906,6 +2909,8 @@ export type Database = {
           years_experience: number | null
         }
         Insert: {
+          addendum_fees?: number | null
+          affidavit_fees?: number | null
           assessment_turnaround_days?: number | null
           availability_notes?: string | null
           city?: string | null
@@ -2923,6 +2928,7 @@ export type Database = {
           hpcsa_document_url?: string | null
           hpcsa_number?: string | null
           id?: string
+          joint_minutes_fees?: number | null
           languages?: string[] | null
           last_name: string
           matter_types?: string[] | null
@@ -2945,6 +2951,8 @@ export type Database = {
           years_experience?: number | null
         }
         Update: {
+          addendum_fees?: number | null
+          affidavit_fees?: number | null
           assessment_turnaround_days?: number | null
           availability_notes?: string | null
           city?: string | null
@@ -2962,6 +2970,7 @@ export type Database = {
           hpcsa_document_url?: string | null
           hpcsa_number?: string | null
           id?: string
+          joint_minutes_fees?: number | null
           languages?: string[] | null
           last_name?: string
           matter_types?: string[] | null
