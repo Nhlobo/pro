@@ -619,6 +619,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       const feesMerit = values.feesMerit ? parseInt(values.feesMerit.replace(/[^\d]/g, '')) : null;
       const feesPerHour = values.feesPerHour ? parseInt(values.feesPerHour.replace(/[^\d]/g, '')) : null;
       const courtFees = parseInt(values.courtFee.replace(/[^\d]/g, '')) || null;
+      const addendumFees = values.addendumFee ? parseInt(values.addendumFee.replace(/[^\d]/g, '')) : null;
+      const affidavitFees = values.affidavitFee ? parseInt(values.affidavitFee.replace(/[^\d]/g, '')) : null;
+      const jointMinutesFees = values.jointMinutesFee ? parseInt(values.jointMinutesFee.replace(/[^\d]/g, '')) : null;
 
       // Keep legacy `consultation_fees` in sync so the directory table updates correctly.
       // Prefer Med Neg (if provided), else MVA, else per-hour.
