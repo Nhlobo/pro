@@ -132,6 +132,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
     merit_fees: "Merit Fees",
     consultation_fee_per_hour: "Hourly Rate Fee",
     court_fees: "Court Fee",
+    addendum_fees: "Addendum Fee",
+    affidavit_fees: "Affidavit Fee",
+    joint_minutes_fees: "Joint Minutes Fee",
   };
   const FEE_FIELD_KEYS = Object.keys(FEE_FIELD_LABELS);
 
