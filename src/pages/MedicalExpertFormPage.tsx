@@ -761,6 +761,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
         feesMerit: feesMerit?.toString() ?? null,
         feesPerHour: feesPerHour?.toString() ?? null,
         courtFee: courtFees?.toString() ?? null,
+        addendumFee: addendumFees?.toString() ?? null,
+        affidavitFee: affidavitFees?.toString() ?? null,
+        jointMinutesFee: jointMinutesFees?.toString() ?? null,
       });
 
       // Log fee changes to audit trail (only changed fee fields)
