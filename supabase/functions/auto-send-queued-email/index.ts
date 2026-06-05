@@ -124,6 +124,42 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('Failed to write recipient audit log (non-fatal):', auditErr);
     }
 
+    // Dedicated audit log: record CC addresses dropped by policy (kutlwanoassociate.com block + invalid format)
+    if (droppedCc.length > 0) {
+      try {
+        const emailRegex = /^[^\s<>@]+@[^\s<>@.]+\.[^\s<>@]+$/;
+        const droppedDetails = droppedCc.map((addr) => {
+          const reasons: string[] = [];
+          if (/@kutlwanoassociate\.com$/i.test(addr)) reasons.push('blocked_domain_kutlwanoassociate');
+          if (!emailRegex.test(addr)) reasons.push('invalid_format');
+          if (reasons.length === 0) reasons.push('duplicate_or_filtered');
+          return { address: addr, reasons };
+        });
+
+        await supabase.from('audit_logs').insert({
+          action_type: 'EMAIL_CC_DROPPED_BY_POLICY',
+          table_name: email.related_table || 'email_queue',
+          record_id: email.related_record_id || emailId,
+          function_area: 'Email History',
+          description: `Dropped ${droppedCc.length} CC address(es) by policy for queued email ${emailId} (${email.email_type})`,
+          new_values: {
+            email_id: emailId,
+            email_type: email.email_type,
+            subject: email.subject,
+            to: email.recipient_email,
+            cc_kept: sanitizedCc,
+            cc_dropped: droppedCc,
+            cc_dropped_count: droppedCc.length,
+            cc_dropped_details: droppedDetails,
+            cc_raw_input: rawCcInput,
+          },
+        });
+      } catch (auditErr) {
+        console.error('Failed to write CC-dropped audit log (non-fatal):', auditErr);
+      }
+    }
+
+
     console.log(`Sanitized recipients for ${emailId} — to=${email.recipient_email} cc=[${sanitizedCc.join(', ')}] dropped=[${droppedCc.join(', ')}]`);
 
     // Send the email immediately via Resend
