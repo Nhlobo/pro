@@ -1503,21 +1503,21 @@ const ScheduledAssessment = () => {
 
       // Parse CC addresses — robust split on commas, semicolons, colons, whitespace
       const emailRegex = /^[^\s<>@]+@[^\s<>@.]+\.[^\s<>@]+$/;
+      const ccRawList = emailCc
+        .split(/[,;:\s\n\r]+/)
+        .map(e => e.trim().replace(/^<|>$/g, ''))
+        .filter(e => e.length > 0);
+      const ccInvalid = ccRawList.filter(e => !emailRegex.test(e));
+      // Memory rule: never CC kutlwanoassociate.com addresses (silently dropped)
       const ccAddresses = Array.from(new Set(
-        emailCc
-          .split(/[,;:\s\n\r]+/)
-          .map(e => e.trim().replace(/^<|>$/g, ''))
-          .filter(e => e.length > 0 && emailRegex.test(e))
-          // Memory rule: never CC kutlwanoassociate.com addresses
-          .filter(e => !/@kutlwanoassociate\.com$/i.test(e))
+        ccRawList.filter(e => emailRegex.test(e) && !/@kutlwanoassociate\.com$/i.test(e))
       ));
 
-      // Surface any invalid entries to the user so they can fix them
-      const rawCount = emailCc.split(/[,;:\s\n\r]+/).filter(s => s.trim().length > 0).length;
-      if (emailCc.trim().length > 0 && ccAddresses.length === 0 && rawCount > 0) {
+      // Only block send if user typed something that is actually malformed
+      if (ccInvalid.length > 0) {
         toast({
           title: "CC addresses invalid",
-          description: "Separate CC emails with commas. Each must be a valid email address.",
+          description: `Invalid: ${ccInvalid.join(', ')}. Separate CC emails with commas.`,
           variant: "destructive",
         });
         setEmailSending(false);
