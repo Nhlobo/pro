@@ -457,6 +457,9 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           feesMerit: (data as any).merit_fees?.toString() ?? null,
           feesPerHour: data.consultation_fee_per_hour?.toString() ?? null,
           courtFee: data.court_fees?.toString() ?? null,
+          addendumFee: (data as any).addendum_fees?.toString() ?? null,
+          affidavitFee: (data as any).affidavit_fees?.toString() ?? null,
+          jointMinutesFee: (data as any).joint_minutes_fees?.toString() ?? null,
         });
 
         // Keep a snapshot of the freshly loaded record so we can diff field
