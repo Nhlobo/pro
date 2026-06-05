@@ -110,7 +110,10 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
     feesMerit: string | null;
     feesPerHour: string | null;
     courtFee: string | null;
-  }>({ feesMVA: null, feesMedNeg: null, feesMerit: null, feesPerHour: null, courtFee: null });
+    addendumFee: string | null;
+    affidavitFee: string | null;
+    jointMinutesFee: string | null;
+  }>({ feesMVA: null, feesMedNeg: null, feesMerit: null, feesPerHour: null, courtFee: null, addendumFee: null, affidavitFee: null, jointMinutesFee: null });
 
   const { logAuditTrail } = useAuditTrail();
   const [feeHistory, setFeeHistory] = useState<any[]>([]);
