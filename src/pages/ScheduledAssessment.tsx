@@ -1804,9 +1804,13 @@ const ScheduledAssessment = () => {
 
       // Resolve who is generating the report
       let generatedByName = 'Unknown user';
+      let generatedById: string | null = null;
+      let generatedByEmail: string | null = null;
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          generatedById = user.id;
+          generatedByEmail = user.email || null;
           const { data: profile } = await supabase
             .from('profiles')
             .select('first_name, last_name, email')
