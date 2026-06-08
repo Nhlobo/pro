@@ -1038,6 +1038,12 @@ const ScheduledAssessment = () => {
         paymentStatus = depositAmount >= serviceFee ? 'full_payment' : 'deposit';
       }
 
+      // Stamp payment_date when the deposit is recorded or changes
+      const depositChanged = depositAmount !== prevDep;
+      const paymentDateStamp = depositAmount > 0 && depositChanged
+        ? new Date().toISOString()
+        : undefined;
+
       // 1. Update the appointment
       const { error: updErr } = await supabase
         .from('appointments')
@@ -1048,6 +1054,7 @@ const ScheduledAssessment = () => {
           discount_rate: financeForm.discountType === 'percentage' ? rawDiscount : 0,
           discount_type: financeForm.discountType,
           payment_status: paymentStatus,
+          ...(paymentDateStamp ? { payment_date: paymentDateStamp } : {}),
           updated_at: new Date().toISOString(),
         } as any)
         .eq('id', selectedAppointment.id);
