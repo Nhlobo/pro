@@ -1790,10 +1790,11 @@ const ScheduledAssessment = () => {
         if (user) {
           const { data: profile } = await supabase
             .from('profiles')
-            .select('full_name, email')
+            .select('first_name, last_name, email')
             .eq('id', user.id)
             .maybeSingle();
-          generatedByName = profile?.full_name || profile?.email || user.email || 'Unknown user';
+          const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim();
+          generatedByName = fullName || profile?.email || user.email || 'Unknown user';
         }
       } catch (e) {
         console.warn('Could not resolve generating user:', e);
