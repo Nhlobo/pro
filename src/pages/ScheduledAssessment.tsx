@@ -1710,6 +1710,17 @@ const ScheduledAssessment = () => {
     }
   };
 
+  const formatDepositStatus = (a: ScheduledAppointment): string => {
+    const fee = a.assessment_fee || 0;
+    const deposit = a.deposit_amount || 0;
+    const dateStr = a.deposit_date
+      ? format(new Date(a.deposit_date), 'd MMMM yyyy')
+      : (a.payment_date ? format(new Date(a.payment_date), 'd MMMM yyyy') : null);
+    if (deposit <= 0) return 'Not Paid';
+    if (fee > 0 && deposit >= fee) return dateStr ? `Fully Paid (${dateStr})` : 'Fully Paid';
+    return dateStr ? `Partially Paid (${dateStr})` : 'Partially Paid';
+  };
+
   const handleDownloadReport = async () => {
     try {
       
