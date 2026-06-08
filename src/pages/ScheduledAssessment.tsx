@@ -1038,6 +1038,12 @@ const ScheduledAssessment = () => {
         paymentStatus = depositAmount >= serviceFee ? 'full_payment' : 'deposit';
       }
 
+      // Stamp payment_date when the deposit is recorded or changes
+      const depositChanged = depositAmount !== prevDep;
+      const paymentDateStamp = depositAmount > 0 && depositChanged
+        ? new Date().toISOString()
+        : undefined;
+
       // 1. Update the appointment
       const { error: updErr } = await supabase
         .from('appointments')
@@ -1048,6 +1054,7 @@ const ScheduledAssessment = () => {
           discount_rate: financeForm.discountType === 'percentage' ? rawDiscount : 0,
           discount_type: financeForm.discountType,
           payment_status: paymentStatus,
+          ...(paymentDateStamp ? { payment_date: paymentDateStamp } : {}),
           updated_at: new Date().toISOString(),
         } as any)
         .eq('id', selectedAppointment.id);
@@ -1710,12 +1717,24 @@ const ScheduledAssessment = () => {
     }
   };
 
+  const parseFlexibleDate = (val?: string | null): Date | null => {
+    if (!val) return null;
+    // Handle "dd/MM/yyyy HH:mm" or "dd/MM/yyyy"
+    const m = val.match(/^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/);
+    if (m) {
+      const [, dd, mm, yyyy, hh = '00', mi = '00'] = m;
+      const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(mi));
+      return isNaN(d.getTime()) ? null : d;
+    }
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   const formatDepositStatus = (a: ScheduledAppointment): string => {
     const fee = a.assessment_fee || 0;
     const deposit = a.deposit_amount || 0;
-    const dateStr = a.deposit_date
-      ? format(new Date(a.deposit_date), 'd MMMM yyyy')
-      : (a.payment_date ? format(new Date(a.payment_date), 'd MMMM yyyy') : null);
+    const parsed = parseFlexibleDate(a.deposit_date) || parseFlexibleDate(a.payment_date);
+    const dateStr = parsed ? format(parsed, "d MMMM yyyy 'at' HH:mm") : null;
     if (deposit <= 0) return 'Not Paid';
     if (fee > 0 && deposit >= fee) return dateStr ? `Fully Paid (${dateStr})` : 'Fully Paid';
     return dateStr ? `Partially Paid (${dateStr})` : 'Partially Paid';
