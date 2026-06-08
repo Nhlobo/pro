@@ -1804,9 +1804,13 @@ const ScheduledAssessment = () => {
 
       // Resolve who is generating the report
       let generatedByName = 'Unknown user';
+      let generatedById: string | null = null;
+      let generatedByEmail: string | null = null;
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          generatedById = user.id;
+          generatedByEmail = user.email || null;
           const { data: profile } = await supabase
             .from('profiles')
             .select('first_name, last_name, email')
@@ -1930,6 +1934,27 @@ const ScheduledAssessment = () => {
       addBrandingFooter(doc);
 
       doc.save(`scheduled-assessments-${periodText}.pdf`);
+
+      // Record audit log for report generation
+      try {
+        await supabase.from('audit_logs').insert({
+          action_type: 'GENERATE_REPORT',
+          table_name: 'scheduled_assessments',
+          function_area: 'reporting',
+          description: `Scheduled assessment ${reportPeriod} PDF report generated for period ${periodText} covering ${reportData.length} assessment(s).`,
+          record_id: null,
+          user_id: generatedById,
+          user_email: generatedByEmail,
+          new_values: {
+            report_period: reportPeriod,
+            period_text: periodText,
+            record_count: reportData.length,
+            generated_at: new Date().toISOString(),
+          },
+        });
+      } catch (auditErr) {
+        console.warn('Audit log insertion failed:', auditErr);
+      }
 
       toast({
         title: "Success",
