@@ -96,6 +96,9 @@ verify_jwt = false  # Auth validated in code
 [functions.auto-send-grouped-confirmation]
 verify_jwt = false  # Called automatically by system
 
+[functions.auto-send-queued-email]
+verify_jwt = false  # Auth validated in code (is_admin_or_employee + service-role check)
+
 [functions.proofread-document]
 verify_jwt = true  # Protected endpoint for document proofreading
 
