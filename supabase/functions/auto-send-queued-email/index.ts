@@ -6,12 +6,57 @@ import { withErrorHandler } from "../_shared/errors.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Expose-Headers': 'x-correlation-id',
 };
+
+const FUNCTION_NAME = 'auto-send-queued-email';
+
+type LogLevel = 'info' | 'warn' | 'error';
+
+function makeLogger(correlationId: string, baseCtx: Record<string, unknown> = {}) {
+  const emit = (level: LogLevel, event: string, ctx: Record<string, unknown> = {}) => {
+    const payload = {
+      ts: new Date().toISOString(),
+      level,
+      fn: FUNCTION_NAME,
+      correlation_id: correlationId,
+      event,
+      ...baseCtx,
+      ...ctx,
+    };
+    const line = JSON.stringify(payload);
+    if (level === 'error') console.error(line);
+    else if (level === 'warn') console.warn(line);
+    else console.log(line);
+  };
+  return {
+    info: (event: string, ctx?: Record<string, unknown>) => emit('info', event, ctx),
+    warn: (event: string, ctx?: Record<string, unknown>) => emit('warn', event, ctx),
+    error: (event: string, ctx?: Record<string, unknown>) => emit('error', event, ctx),
+    extend: (extra: Record<string, unknown>) => makeLogger(correlationId, { ...baseCtx, ...extra }),
+  };
+}
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Correlation ID: honour inbound header if present, otherwise mint one.
+  const correlationId =
+    req.headers.get('x-correlation-id') ||
+    req.headers.get('x-request-id') ||
+    crypto.randomUUID();
+
+  let log = makeLogger(correlationId);
+  const startedAt = performance.now();
+  const respond = (body: unknown, status = 200) =>
+    new Response(JSON.stringify({ ...(body as object), correlation_id: correlationId }), {
+      status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'x-correlation-id': correlationId },
+    });
+
+  log.info('request_received', { method: req.method, url: req.url });
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -25,26 +70,40 @@ const handler = async (req: Request): Promise<Response> => {
       ? authHeader.slice(7).trim()
       : '';
     const isInternal = providedToken && providedToken === supabaseKey;
+    let callerUserId: string | null = null;
     if (!isInternal) {
       if (!providedToken) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        log.warn('auth_rejected', { reason: 'missing_bearer_token' });
+        return respond({ success: false, error: 'Unauthorized' }, 401);
       }
       const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
       const { data: userRes, error: userErr } = await userClient.auth.getUser();
       if (userErr || !userRes?.user) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        log.warn('auth_rejected', { reason: 'invalid_token', err: userErr?.message });
+        return respond({ success: false, error: 'Unauthorized' }, 401);
       }
+      callerUserId = userRes.user.id;
       const { data: isStaff } = await userClient.rpc('is_admin_or_employee');
       if (!isStaff) {
-        return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        log.warn('auth_rejected', { reason: 'not_staff', user_id: callerUserId });
+        return respond({ success: false, error: 'Forbidden' }, 403);
       }
+      log = log.extend({ caller_user_id: callerUserId, caller: 'staff' });
+    } else {
+      log = log.extend({ caller: 'service_role' });
     }
+    log.info('auth_ok');
 
-    const { emailId } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { emailId } = body ?? {};
 
     if (!emailId) {
-      throw new Error('emailId is required');
+      log.error('validation_failed', { reason: 'missing_emailId' });
+      return respond({ success: false, error: 'emailId is required' }, 400);
     }
+
+    log = log.extend({ email_id: emailId });
+    log.info('queue_fetch_start');
 
     // Get the email from queue
     const { data: email, error: fetchError } = await supabase
@@ -54,25 +113,31 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (fetchError || !email) {
-      throw new Error('Email not found: ' + (fetchError?.message || 'unknown'));
+      log.error('queue_fetch_failed', { err: fetchError?.message });
+      return respond({ success: false, error: 'Email not found: ' + (fetchError?.message || 'unknown') }, 404);
     }
+
+    log = log.extend({
+      email_type: email.email_type,
+      recipient: email.recipient_email,
+      related_table: email.related_table,
+      related_record_id: email.related_record_id,
+      queue_status: email.status,
+    });
+    log.info('queue_fetch_ok');
 
     // If already sent, skip
     if (email.status === 'sent') {
-      return new Response(
-        JSON.stringify({ success: true, message: 'Already sent', messageId: null }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      log.info('skip_already_sent');
+      return respond({ success: true, message: 'Already sent', messageId: null });
     }
 
     // Determine the "from" name — use custom from_name in metadata if available
     const customFromName = email.metadata?.from_name;
-    const fromAddress = customFromName 
+    const fromAddress = customFromName
       ? `${customFromName} <noreply@kamedico-legal.co.za>`
       : undefined; // will use default from sendEmail
 
-    console.log(`Attempting to send email ${emailId} to: ${email.recipient_email}, subject: ${email.subject}`);
-    
     // Extract attachments from metadata if present
     const metadataAttachments = email.metadata?.attachments || [];
 
@@ -100,6 +165,13 @@ const handler = async (req: Request): Promise<Response> => {
       return Array.from(new Set(rawTokens.filter(t => !keepSet.has(t.toLowerCase()))));
     })();
 
+    log.info('recipients_sanitized', {
+      cc_count: sanitizedCc.length,
+      cc_dropped_count: droppedCc.length,
+      attachments_count: metadataAttachments.length,
+      from_address: fromAddress ?? '(default)',
+    });
+
     // Pre-send audit log: capture the EXACT sanitized recipients used for this send
     try {
       await supabase.from('audit_logs').insert({
@@ -109,6 +181,7 @@ const handler = async (req: Request): Promise<Response> => {
         function_area: 'Email History',
         description: `Sanitized recipients for queued email ${emailId} (${email.email_type})`,
         new_values: {
+          correlation_id: correlationId,
           email_id: emailId,
           email_type: email.email_type,
           subject: email.subject,
@@ -120,11 +193,11 @@ const handler = async (req: Request): Promise<Response> => {
           cc_dropped: droppedCc,
         },
       });
-    } catch (auditErr) {
-      console.error('Failed to write recipient audit log (non-fatal):', auditErr);
+    } catch (auditErr: any) {
+      log.warn('audit_recipients_sanitized_failed', { err: auditErr?.message });
     }
 
-    // Dedicated audit log: record CC addresses dropped by policy (kutlwanoassociate.com block + invalid format)
+    // Dedicated audit log: record CC addresses dropped by policy
     if (droppedCc.length > 0) {
       try {
         const emailRegex = /^[^\s<>@]+@[^\s<>@.]+\.[^\s<>@]+$/;
@@ -143,6 +216,7 @@ const handler = async (req: Request): Promise<Response> => {
           function_area: 'Email History',
           description: `Dropped ${droppedCc.length} CC address(es) by policy for queued email ${emailId} (${email.email_type})`,
           new_values: {
+            correlation_id: correlationId,
             email_id: emailId,
             email_type: email.email_type,
             subject: email.subject,
@@ -154,15 +228,15 @@ const handler = async (req: Request): Promise<Response> => {
             cc_raw_input: rawCcInput,
           },
         });
-      } catch (auditErr) {
-        console.error('Failed to write CC-dropped audit log (non-fatal):', auditErr);
+        log.info('cc_dropped_logged', { dropped: droppedDetails });
+      } catch (auditErr: any) {
+        log.warn('audit_cc_dropped_failed', { err: auditErr?.message });
       }
     }
 
-
-    console.log(`Sanitized recipients for ${emailId} — to=${email.recipient_email} cc=[${sanitizedCc.join(', ')}] dropped=[${droppedCc.join(', ')}]`);
-
     // Send the email immediately via Resend
+    log.info('send_start');
+    const sendStart = performance.now();
     const emailResult = await sendEmail({
       to: email.recipient_email,
       subject: email.subject,
@@ -172,12 +246,13 @@ const handler = async (req: Request): Promise<Response> => {
       ...(sanitizedCc.length > 0 && { cc: sanitizedCc }),
       ...(metadataAttachments.length > 0 && { attachments: metadataAttachments }),
     });
-
-
-    console.log(`Email send result for ${emailId}:`, JSON.stringify(emailResult));
+    const sendDurationMs = Math.round(performance.now() - sendStart);
 
     if (!emailResult.success) {
-      // Update status to error
+      log.error('send_failed', {
+        provider_error: emailResult.error,
+        send_duration_ms: sendDurationMs,
+      });
       await supabase
         .from('email_queue')
         .update({
@@ -186,12 +261,13 @@ const handler = async (req: Request): Promise<Response> => {
         })
         .eq('id', emailId);
 
-      console.error('Email send failed:', emailResult.error);
-      return new Response(
-        JSON.stringify({ success: false, error: emailResult.error }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return respond({ success: false, error: emailResult.error }, 500);
     }
+
+    log.info('send_ok', {
+      message_id: emailResult.messageId,
+      send_duration_ms: sendDurationMs,
+    });
 
     // Update email status to sent
     await supabase
@@ -203,32 +279,39 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('id', emailId);
 
     // Log email sent
-    await supabase.from('audit_logs').insert({
-      action_type: 'EMAIL_AUTO_SENT',
-      table_name: email.related_table || 'email_queue',
-      record_id: email.related_record_id || emailId,
-      function_area: 'Email History',
-      description: `Auto-sent ${email.email_type} email to ${email.recipient_email}`,
-      new_values: {
-        recipient: email.recipient_email,
-        message_id: emailResult.messageId,
-        email_type: email.email_type
-      }
+    try {
+      await supabase.from('audit_logs').insert({
+        action_type: 'EMAIL_AUTO_SENT',
+        table_name: email.related_table || 'email_queue',
+        record_id: email.related_record_id || emailId,
+        function_area: 'Email History',
+        description: `Auto-sent ${email.email_type} email to ${email.recipient_email}`,
+        new_values: {
+          correlation_id: correlationId,
+          recipient: email.recipient_email,
+          message_id: emailResult.messageId,
+          email_type: email.email_type,
+          send_duration_ms: sendDurationMs,
+        },
+      });
+    } catch (auditErr: any) {
+      log.warn('audit_auto_sent_failed', { err: auditErr?.message });
+    }
+
+    log.info('request_complete', {
+      total_duration_ms: Math.round(performance.now() - startedAt),
+      message_id: emailResult.messageId,
     });
 
-    console.log(`Auto-sent email ${emailId} to ${email.recipient_email}. MessageID: ${emailResult.messageId}`);
-
-    return new Response(
-      JSON.stringify({ success: true, messageId: emailResult.messageId }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return respond({ success: true, messageId: emailResult.messageId });
 
   } catch (error: any) {
-    console.error('Error in auto-send-queued-email:', error);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    log.error('unhandled_exception', {
+      err: error?.message,
+      stack: error?.stack,
+      total_duration_ms: Math.round(performance.now() - startedAt),
+    });
+    return respond({ success: false, error: error.message }, 500);
   }
 };
 
