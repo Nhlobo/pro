@@ -92,6 +92,8 @@ const ExpertCreditControl = () => {
   const [existingPopUrl, setExistingPopUrl] = useState<string | null>(null);
   const [existingPopFileName, setExistingPopFileName] = useState<string | null>(null);
   const [uploadingPop, setUploadingPop] = useState(false);
+  const [paymentReference, setPaymentReference] = useState("");
+  const [sageoneTransactionId, setSageoneTransactionId] = useState("");
   const { isAdmin } = usePermissions();
   const { user } = useAuth();
   const [feeEditExpert, setFeeEditExpert] = useState<ExpertPaymentData | null>(null);
