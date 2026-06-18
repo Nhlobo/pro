@@ -122,8 +122,15 @@ const AppointmentRequest = () => {
   const [attorneys, setAttorneys] = React.useState<Array<{ id: string; name: string; email: string; code: string }>>([]);
   const [loadingAttorneys, setLoadingAttorneys] = React.useState(true);
   const [showAddAttorneyDialog, setShowAddAttorneyDialog] = React.useState(false);
+  const [paymentReference, setPaymentReference] = React.useState<string>("");
+  const [stagedPopFile, setStagedPopFile] = React.useState<File | null>(null);
+  const { uploadPop } = usePopAttachment();
+  const { getSetting } = useSystemSettings('payments');
+  const popRequiredSetting = getSetting('pop_required_on_submission');
+  const popRequired = popRequiredSetting === true || (popRequiredSetting as any) === 'true';
 
   const { draft, setDraft, clearDraft, lastSavedAt, saveStatus } = useFormDraft<typeof AR_FORM_DEFAULTS>('appointment-request-new', AR_FORM_DEFAULTS);
+  
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
