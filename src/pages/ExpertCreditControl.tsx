@@ -325,7 +325,9 @@ const ExpertCreditControl = () => {
           recorded_by: p.recorded_by,
           notes: p.payment_notes,
           pop_url: p.pop_url,
-          pop_file_name: p.pop_file_name
+          pop_file_name: p.pop_file_name,
+          payment_reference: p.payment_reference,
+          sageone_transaction_id: p.sageone_transaction_id,
         }));
 
         // Get or create expert data entry
