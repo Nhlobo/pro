@@ -305,6 +305,14 @@ const AppointmentRequest = () => {
   const watchPreferredDateType = form.watch("preferredDateType");
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (popRequired && !stagedPopFile) {
+      toast({
+        title: "Proof of Payment required",
+        description: "Please attach a POP before submitting this request.",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsSubmitting(true);
     try {
       // Get current user info
