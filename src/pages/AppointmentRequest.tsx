@@ -127,7 +127,7 @@ const AppointmentRequest = () => {
   const { uploadPop } = usePopAttachment();
   const { getSetting } = useSystemSettings('payments');
   const popRequiredSetting = getSetting('pop_required_on_submission');
-  const popRequired = popRequiredSetting === true || (popRequiredSetting as any) === 'true';
+  const popRequired = popRequiredSetting === true || (popRequiredSetting as any) === 'true' || (popRequiredSetting as any)?.value === true;
 
   const { draft, setDraft, clearDraft, lastSavedAt, saveStatus } = useFormDraft<typeof AR_FORM_DEFAULTS>('appointment-request-new', AR_FORM_DEFAULTS);
   
