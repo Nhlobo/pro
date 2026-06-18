@@ -361,15 +361,28 @@ const AppointmentRequest = () => {
         suggested_month: values.preferredDateType === "month" ? values.suggestedMonth : null,
         additional_notes: values.additionalNotes,
         status: 'pending',
+        payment_reference: paymentReference?.trim() || null,
       };
 
-      // Insert the appointment request
-      const { error: insertError } = await supabase
+      // Insert the appointment request and capture the id for POP linking
+      const { data: insertedRequest, error: insertError } = await supabase
         .from('appointment_requests')
-        .insert(requestData);
+        .insert(requestData)
+        .select('id')
+        .single();
 
       if (insertError) {
         throw new Error(insertError.message);
+      }
+
+      // Upload staged POP file (if any) and link to the new request
+      if (stagedPopFile && insertedRequest?.id) {
+        await uploadPop({
+          record_type: 'appointment_request',
+          record_id: insertedRequest.id,
+          file: stagedPopFile,
+          payment_reference: paymentReference?.trim() || undefined,
+        });
       }
 
       // Send email notification to info@kutlwanoassociate.com
