@@ -89,11 +89,14 @@ export function PopAttachmentField({
     if (url) window.open(url, "_blank", "noopener,noreferrer");
   };
 
-  const status = attachment
-    ? { label: "POP Uploaded", variant: "default" as const, icon: <FileCheck2 className="h-3 w-3" /> }
+  const hasFile = !!attachment || !!stagedFile;
+  const status = hasFile
+    ? { label: stagedFile && !attachment ? "POP Ready (will upload on submit)" : "POP Uploaded", variant: "default" as const, icon: <FileCheck2 className="h-3 w-3" /> }
     : required
     ? { label: "Missing POP", variant: "destructive" as const, icon: <AlertCircle className="h-3 w-3" /> }
     : { label: "POP Optional", variant: "secondary" as const, icon: <Paperclip className="h-3 w-3" /> };
+
+  const displayedName = attachment?.file_name ?? stagedFile?.name;
 
   return (
     <div className={className}>
@@ -120,24 +123,26 @@ export function PopAttachmentField({
           </div>
         )}
 
-        {attachment && (
+        {displayedName && (
           <div className="flex items-center justify-between rounded bg-muted/40 px-2 py-1 text-sm">
             <div className="truncate">
-              <span className="font-medium">{attachment.file_name ?? "POP file"}</span>
-              <span className="ml-2 text-xs text-muted-foreground">
-                Ref: {attachment.payment_reference}
-              </span>
+              <span className="font-medium">{displayedName}</span>
+              {attachment && (
+                <span className="ml-2 text-xs text-muted-foreground">Ref: {attachment.payment_reference}</span>
+              )}
             </div>
-            <Button type="button" size="sm" variant="ghost" onClick={handleDownload}>
-              <Download className="h-4 w-4" />
-            </Button>
+            {attachment && (
+              <Button type="button" size="sm" variant="ghost" onClick={handleDownload}>
+                <Download className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         )}
 
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={handlePick} disabled={uploading}>
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
-            {attachment ? "Replace POP" : "Attach POP"}
+            {hasFile ? "Replace POP" : "Attach POP"}
           </Button>
           <span className="text-xs text-muted-foreground">PDF, JPG, PNG · max 10MB</span>
         </div>
