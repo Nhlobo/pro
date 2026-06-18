@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Mail, Clock, Search, Download, Edit, Trash2, Paperclip, Eye, FileText, Filter } from "lucide-react";
+import { ArrowLeft, Mail, Clock, Search, Download, Edit, Trash2, Paperclip, Eye, Filter } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -21,7 +21,9 @@ import { ExpertStatementPreviewDialog } from "@/components/ExpertStatementPrevie
 import { usePermissions } from "@/hooks/usePermissions";
 import { Pencil, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-
+import { PopAttachmentField } from "@/components/pop/PopAttachmentField";
+import { usePopAttachment } from "@/hooks/usePopAttachment";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 import { RandSign } from "@/components/icons/RandSign";
 interface FeeHistoryEntry {
