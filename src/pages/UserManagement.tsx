@@ -21,6 +21,7 @@ import EmployeeNotificationSettings from '@/components/EmployeeNotificationSetti
 import FunctionPermissionsManager from '@/components/FunctionPermissionsManager';
 import { EmailConfigurationAlert } from '@/components/EmailConfigurationAlert';
 import EditProfileDialog from '@/components/EditProfileDialog';
+import { AdminUserActionsMenu, AccountStatusBadge } from '@/components/admin/AdminUserActionsMenu';
 
 
 const AVAILABLE_PERMISSIONS = [
