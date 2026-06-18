@@ -30,6 +30,9 @@ import {
   recalculateShortTermFromAppointments,
 } from '@/hooks/usePaymentSync';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
+import { PopAttachmentField } from '@/components/pop/PopAttachmentField';
+import { usePopAttachment } from '@/hooks/usePopAttachment';
+import { useSystemSettings } from '@/hooks/useSystemSettings';
 
 import { RandSign } from "@/components/icons/RandSign";
 interface RegularPaymentDialogProps {
@@ -113,6 +116,13 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   // 'both'     → capture payment AND mark reports taken out (full workflow)
   type CaptureMode = 'payment' | 'reports' | 'both';
   const [mode, setMode] = useState<CaptureMode>('both');
+
+  // POP attachment state
+  const { uploadPop } = usePopAttachment();
+  const { getSetting } = useSystemSettings('payments');
+  const popRequired = !!getSetting('pop_required_on_submission');
+  const [stagedPopFile, setStagedPopFile] = useState<File | null>(null);
+  const [paymentReference, setPaymentReference] = useState('');
 
   useEffect(() => {
     if (open) {
@@ -319,6 +329,11 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       toast.error('Enter a payment amount');
       return;
     }
+    // POP enforcement (only when actual money is being captured)
+    if (!statusOnly && popRequired && !stagedPopFile) {
+      toast.error('Proof of Payment is required by system policy. Please attach a POP file before submitting.');
+      return;
+    }
     // NOTE: reportsCount === 0 in 'both' mode is allowed — the payment is
     // recorded/synced now and reports can be marked taken out later when
     // files are released.
@@ -345,9 +360,26 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
           payment_date: paymentDate,
           reports_taken_out: reportsCount,
           payment_notes: notes || `Regular payment: ${reportsCount} report(s) taken out`,
-        }).select('id').single();
+          payment_reference: paymentReference?.trim() || null,
+        } as any).select('id').single();
         if (error) throw error;
         paymentId = inserted.id;
+
+        // Upload staged POP and link to the new aod_payment row
+        if (stagedPopFile) {
+          const uploaded = await uploadPop({
+            record_type: 'aod_payment',
+            record_id: paymentId,
+            file: stagedPopFile,
+            payment_reference: paymentReference?.trim() || undefined,
+          });
+          if (uploaded) {
+            await (supabase as any)
+              .from('aod_payments')
+              .update({ pop_attachment_id: uploaded.id, payment_reference: uploaded.payment_reference })
+              .eq('id', paymentId);
+          }
+        }
       } else {
         paymentId = crypto.randomUUID();
       }
@@ -482,6 +514,8 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
       setNotes('');
       setClaimantSearch('');
+      setStagedPopFile(null);
+      setPaymentReference('');
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
 
@@ -826,6 +860,18 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                 </Button>
               </div>
             </div>
+
+            {/* Proof of Payment (AOD only — short-term agreements roll up via their own flow) */}
+            {agreementType === 'aod' && mode !== 'reports' && (
+              <PopAttachmentField
+                recordType="aod_payment"
+                paymentReference={paymentReference}
+                onPaymentReferenceChange={setPaymentReference}
+                onStagedFileChange={setStagedPopFile}
+                required={popRequired}
+              />
+            )}
+
 
             {/* Previously Allocated Reports */}
             {previousAllocations.length > 0 && (

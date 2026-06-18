@@ -92,6 +92,8 @@ const ExpertCreditControl = () => {
   const [existingPopUrl, setExistingPopUrl] = useState<string | null>(null);
   const [existingPopFileName, setExistingPopFileName] = useState<string | null>(null);
   const [uploadingPop, setUploadingPop] = useState(false);
+  const [paymentReference, setPaymentReference] = useState("");
+  const [sageoneTransactionId, setSageoneTransactionId] = useState("");
   const { isAdmin } = usePermissions();
   const { user } = useAuth();
   const [feeEditExpert, setFeeEditExpert] = useState<ExpertPaymentData | null>(null);
@@ -323,7 +325,9 @@ const ExpertCreditControl = () => {
           recorded_by: p.recorded_by,
           notes: p.payment_notes,
           pop_url: p.pop_url,
-          pop_file_name: p.pop_file_name
+          pop_file_name: p.pop_file_name,
+          payment_reference: p.payment_reference,
+          sageone_transaction_id: p.sageone_transaction_id,
         }));
 
         // Get or create expert data entry
@@ -431,7 +435,9 @@ const ExpertCreditControl = () => {
             payment_notes: paymentNotes || null,
             pop_url: popUrl,
             pop_file_name: popFileName,
-          })
+            payment_reference: paymentReference?.trim() || null,
+            sageone_transaction_id: sageoneTransactionId?.trim() || null,
+          } as any)
           .eq('id', editingPaymentId);
 
         if (updateError) throw updateError;
@@ -465,7 +471,9 @@ const ExpertCreditControl = () => {
             recorded_by: user.id,
             pop_url: popUrl,
             pop_file_name: popFileName,
-          });
+            payment_reference: paymentReference?.trim() || null,
+            sageone_transaction_id: sageoneTransactionId?.trim() || null,
+          } as any);
 
         if (insertError) throw insertError;
 
@@ -480,6 +488,7 @@ const ExpertCreditControl = () => {
             payment_date: paymentDate || new Date().toISOString(),
             payment_notes: paymentNotes,
             pop_file_name: popFileName,
+            payment_reference: paymentReference,
           },
           p_description: `Payment of R${amount} recorded for expert ${selectedExpertId}`,
         });
@@ -497,6 +506,8 @@ const ExpertCreditControl = () => {
       setPopFile(null);
       setExistingPopUrl(null);
       setExistingPopFileName(null);
+      setPaymentReference("");
+      setSageoneTransactionId("");
       fetchExpertPaymentData();
     } catch (error: any) {
       console.error("Error recording payment:", error);
@@ -514,6 +525,8 @@ const ExpertCreditControl = () => {
     setExistingPopUrl(payment.pop_url || null);
     setExistingPopFileName(payment.pop_file_name || null);
     setPopFile(null);
+    setPaymentReference(payment.payment_reference || "");
+    setSageoneTransactionId(payment.sageone_transaction_id || "");
     setShowPaymentDialog(true);
   };
 
@@ -1152,6 +1165,28 @@ const ExpertCreditControl = () => {
                 Upload proof of payment (PDF, JPG, PNG, DOC)
               </p>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="payment-ref">Payment Reference</Label>
+                <Input
+                  id="payment-ref"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  placeholder="e.g. bank ref (auto-generated if blank)"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sage-id">SageOne Transaction ID</Label>
+                <Input
+                  id="sage-id"
+                  value={sageoneTransactionId}
+                  onChange={(e) => setSageoneTransactionId(e.target.value)}
+                  placeholder="Optional — admin only"
+                />
+              </div>
+            </div>
+
 
             {!editingPaymentId && (
               <div className="text-xs text-muted-foreground">
