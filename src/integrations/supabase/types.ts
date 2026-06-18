@@ -4750,6 +4750,7 @@ export type Database = {
       }
       generate_attorney_access_code: { Args: never; Returns: string }
       generate_expert_access_code: { Args: never; Returns: string }
+      get_app_roles: { Args: never; Returns: string[] }
       get_claimant_secure: {
         Args: { claimant_id: string }
         Returns: {
