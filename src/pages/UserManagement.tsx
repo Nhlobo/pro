@@ -1088,7 +1088,7 @@ const UserManagement: React.FC = () => {
                     disabled={isCreatingUser || !newUserForm.email || !newUserForm.firstName || !newUserForm.lastName || !newUserForm.position}
                     className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
                   >
-                    {isCreatingUser ? 'Creating...' : 'Create User'}
+                    {isCreatingUser ? 'Sending activation…' : 'Create & Send Activation'}
                   </Button>
                 </div>
               </div>
