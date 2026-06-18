@@ -63,8 +63,9 @@ interface ExpertPaymentData {
       date: string;
       recorded_by: string;
       notes?: string;
-      pop_url?: string;
-      pop_file_name?: string;
+      pop_attachment_id?: string | null;
+      payment_reference?: string | null;
+      sageone_transaction_id?: string | null;
     }[];
   }[];
   total_owed: number;
@@ -90,12 +91,13 @@ const ExpertCreditControl = () => {
   const [showEmailPreview, setShowEmailPreview] = useState(false);
   const [selectedExpertForEmail, setSelectedExpertForEmail] = useState<ExpertPaymentData | null>(null);
   const [expandedAppointment, setExpandedAppointment] = useState<string | null>(null);
-  const [popFile, setPopFile] = useState<File | null>(null);
-  const [existingPopUrl, setExistingPopUrl] = useState<string | null>(null);
-  const [existingPopFileName, setExistingPopFileName] = useState<string | null>(null);
-  const [uploadingPop, setUploadingPop] = useState(false);
+  const [stagedPopFile, setStagedPopFile] = useState<File | null>(null);
+  const [existingAttachmentId, setExistingAttachmentId] = useState<string | null>(null);
   const [paymentReference, setPaymentReference] = useState("");
   const [sageoneTransactionId, setSageoneTransactionId] = useState("");
+  const { uploadPop, getSignedUrl } = usePopAttachment();
+  const { getSetting } = useSystemSettings('payments');
+  const popRequired = !!getSetting('pop_required_on_submission');
   const { isAdmin } = usePermissions();
   const { user } = useAuth();
   const [feeEditExpert, setFeeEditExpert] = useState<ExpertPaymentData | null>(null);
@@ -326,10 +328,9 @@ const ExpertCreditControl = () => {
           date: p.payment_date,
           recorded_by: p.recorded_by,
           notes: p.payment_notes,
-          pop_url: p.pop_url,
-          pop_file_name: p.pop_file_name,
-          payment_reference: p.payment_reference,
-          sageone_transaction_id: p.sageone_transaction_id,
+          pop_attachment_id: p.pop_attachment_id ?? null,
+          payment_reference: p.payment_reference ?? null,
+          sageone_transaction_id: p.sageone_transaction_id ?? null,
         }));
 
         // Get or create expert data entry
