@@ -861,6 +861,18 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               </div>
             </div>
 
+            {/* Proof of Payment (AOD only — short-term agreements roll up via their own flow) */}
+            {agreementType === 'aod' && mode !== 'reports' && (
+              <PopAttachmentField
+                recordType="aod_payment"
+                paymentReference={paymentReference}
+                onPaymentReferenceChange={setPaymentReference}
+                onStagedFileChange={setStagedPopFile}
+                required={popRequired}
+              />
+            )}
+
+
             {/* Previously Allocated Reports */}
             {previousAllocations.length > 0 && (
               <>
