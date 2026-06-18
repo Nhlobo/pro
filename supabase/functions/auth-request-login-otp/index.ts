@@ -22,11 +22,7 @@ serve(async (req) => {
     const { email, password } = await req.json();
     if (!email || !password) return json({ error: "Invalid credentials" }, 400);
 
-    // Look up user via admin to check status + lock before attempting password
-    const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 1 });
-    // listUsers doesn't filter, use the API to search:
-    const { data: usersByEmail } = await admin.rpc("noop_for_types").catch(() => ({ data: null }));
-    // Fallback: look up profile by email
+    // Look up profile by email
     const { data: profile } = await admin.from("profiles")
       .select("id, email, account_status, failed_login_count, locked_until, security_setup_completed, must_reset_password")
       .ilike("email", email).maybeSingle();
