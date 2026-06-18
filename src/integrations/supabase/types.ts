@@ -1078,6 +1078,75 @@ export type Database = {
         }
         Relationships: []
       }
+      auth_activation_tokens: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      auth_active_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          ip: string | null
+          last_seen_at: string
+          revoked_at: string | null
+          revoked_reason: string | null
+          session_token: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          ip?: string | null
+          last_seen_at?: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          session_token: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip?: string | null
+          last_seen_at?: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          session_token?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       auth_audit_log: {
         Row: {
           browser: string | null
@@ -1117,6 +1186,87 @@ export type Database = {
         }
         Relationships: []
       }
+      auth_events: {
+        Row: {
+          browser: string | null
+          created_at: string
+          device: string | null
+          email: string | null
+          event_type: string
+          id: string
+          ip: string | null
+          metadata: Json
+          os: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          browser?: string | null
+          created_at?: string
+          device?: string | null
+          email?: string | null
+          event_type: string
+          id?: string
+          ip?: string | null
+          metadata?: Json
+          os?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          browser?: string | null
+          created_at?: string
+          device?: string | null
+          email?: string | null
+          event_type?: string
+          id?: string
+          ip?: string | null
+          metadata?: Json
+          os?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      auth_login_otps: {
+        Row: {
+          attempt_count: number
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          otp_hash: string
+          purpose: string
+          resend_count: number
+          superseded_at: string | null
+          user_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          otp_hash: string
+          purpose?: string
+          resend_count?: number
+          superseded_at?: string | null
+          user_id: string
+        }
+        Update: {
+          attempt_count?: number
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          otp_hash?: string
+          purpose?: string
+          resend_count?: number
+          superseded_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       auth_otp_codes: {
         Row: {
           attempts: number
@@ -1149,6 +1299,33 @@ export type Database = {
           id?: string
           purpose?: string
           resend_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      auth_password_reset_tokens: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token_hash?: string
           user_id?: string
         }
         Relationships: []
@@ -3444,9 +3621,11 @@ export type Database = {
           last_failed_login_at: string | null
           last_name: string | null
           locked_until: string | null
+          must_reset_password: boolean
           position: string | null
           referring_attorney_id: string | null
           role: string | null
+          security_setup_completed: boolean
           security_setup_completed_at: string | null
           updated_at: string
           user_type: string | null
@@ -3464,9 +3643,11 @@ export type Database = {
           last_failed_login_at?: string | null
           last_name?: string | null
           locked_until?: string | null
+          must_reset_password?: boolean
           position?: string | null
           referring_attorney_id?: string | null
           role?: string | null
+          security_setup_completed?: boolean
           security_setup_completed_at?: string | null
           updated_at?: string
           user_type?: string | null
@@ -3484,9 +3665,11 @@ export type Database = {
           last_failed_login_at?: string | null
           last_name?: string | null
           locked_until?: string | null
+          must_reset_password?: boolean
           position?: string | null
           referring_attorney_id?: string | null
           role?: string | null
+          security_setup_completed?: boolean
           security_setup_completed_at?: string | null
           updated_at?: string
           user_type?: string | null
@@ -5400,6 +5583,20 @@ export type Database = {
           p_status: Database["public"]["Enums"]["approval_status"]
         }
         Returns: boolean
+      }
+      record_auth_event: {
+        Args: {
+          _browser: string
+          _device: string
+          _email: string
+          _event_type: string
+          _ip: string
+          _metadata: Json
+          _os: string
+          _user_agent: string
+          _user_id: string
+        }
+        Returns: string
       }
       remove_duplicate_medical_experts: {
         Args: never

@@ -12,6 +12,7 @@ import { HelmetProvider } from "react-helmet-async";
 import GlobalRefreshButton from "@/components/GlobalRefreshButton";
 import { ActivityTrackerMount } from "@/hooks/useActivityTracker";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { SessionGuardMount } from "./components/SessionGuardMount";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
 
@@ -27,6 +28,10 @@ const Index = lazy(() => import("./pages/Index"));
 const Health = lazy(() => import("./pages/Health"));
 const ApiDocs = lazy(() => import("./pages/ApiDocs"));
 const EmailConfirmation = lazy(() => import("./pages/EmailConfirmation"));
+const Activate = lazy(() => import("./pages/Activate"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const SecuritySetupWizard = lazy(() => import("./pages/SecuritySetupWizard"));
 const ReferringAttorneyForm = lazy(() => import("./pages/ReferringAttorneyForm"));
 const ReferringAttorneyList = lazy(() => import("./pages/ReferringAttorneyList"));
 const ReferringAttorneyReport = lazy(() => import("./pages/ReferringAttorneyReport"));
@@ -166,10 +171,15 @@ const App = () => (
               <GlobalRefreshButton />
               <BrowserRouter>
               <ActivityTrackerMount />
+              <SessionGuardMount />
               <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/activate" element={<Activate />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/security-setup" element={<ProtectedRoute><SecuritySetupWizard /></ProtectedRoute>} />
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
                 <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
                 <Route path="/Expertzone/case-access" element={<ExpertCaseAccess />} />
