@@ -5099,6 +5099,7 @@ export type Database = {
         Args: { _position: string; _user_type?: string }
         Returns: boolean
       }
+      is_strict_admin: { Args: never; Returns: boolean }
       is_system_admin: { Args: never; Returns: boolean }
       is_within_edit_window: {
         Args: { created_date: string }
