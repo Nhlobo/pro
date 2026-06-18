@@ -220,9 +220,6 @@ const UserManagement: React.FC = () => {
     return userPermissions.some(p => p.permission_name === permissionName && p.granted);
   };
 
-  const validatePassword = (password: string): boolean => {
-    return password.length >= 8;
-  };
 
   const handleCreateUser = async () => {
     if (!newUserForm.email || !newUserForm.firstName || !newUserForm.lastName) {
