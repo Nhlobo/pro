@@ -99,10 +99,12 @@ const Auth = () => {
             .rpc('get_current_user_role');
           const secureRole = userRoleData || role;
 
-          // Allow access based on user type, profile role, or secure user_roles role
-          const validRoles = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert'];
-          const validUserTypes = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert'];
-          
+          // Allow access based on user type, profile role, or secure user_roles role.
+          // All app_role enum values are permitted to sign in; per-route access is enforced
+          // downstream by ProtectedRoute / portal layouts / RLS.
+          const validRoles = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert', 'director', 'finance', 'user'];
+          const validUserTypes = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert', 'director', 'finance', 'user'];
+
           const hasValidRole = validRoles.includes(secureRole) || validRoles.includes(role);
           const hasValidUserType = validUserTypes.includes(userType);
 
