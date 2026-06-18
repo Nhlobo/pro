@@ -401,6 +401,8 @@ const AppointmentRequest = () => {
       });
       clearDraft(); // Clear draft after successful submit
       form.reset(AR_FORM_DEFAULTS);
+      setStagedPopFile(null);
+      setPaymentReference("");
       navigate('/referring-attorney-list');
     } catch (error: any) {
       toast({
