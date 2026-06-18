@@ -12,6 +12,7 @@ import { HelmetProvider } from "react-helmet-async";
 import GlobalRefreshButton from "@/components/GlobalRefreshButton";
 import { ActivityTrackerMount } from "@/hooks/useActivityTracker";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { SessionGuardMount } from "./components/SessionGuardMount";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
 
