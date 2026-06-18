@@ -1155,6 +1155,28 @@ const ExpertCreditControl = () => {
               </p>
             </div>
 
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="payment-ref">Payment Reference</Label>
+                <Input
+                  id="payment-ref"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  placeholder="e.g. bank ref (auto-generated if blank)"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sage-id">SageOne Transaction ID</Label>
+                <Input
+                  id="sage-id"
+                  value={sageoneTransactionId}
+                  onChange={(e) => setSageoneTransactionId(e.target.value)}
+                  placeholder="Optional — admin only"
+                />
+              </div>
+            </div>
+
+
             {!editingPaymentId && (
               <div className="text-xs text-muted-foreground">
                 Payment will be recorded with current timestamp: {format(new Date(), 'dd MMM yyyy HH:mm')}
