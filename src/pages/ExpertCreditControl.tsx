@@ -433,7 +433,9 @@ const ExpertCreditControl = () => {
             payment_notes: paymentNotes || null,
             pop_url: popUrl,
             pop_file_name: popFileName,
-          })
+            payment_reference: paymentReference?.trim() || null,
+            sageone_transaction_id: sageoneTransactionId?.trim() || null,
+          } as any)
           .eq('id', editingPaymentId);
 
         if (updateError) throw updateError;
