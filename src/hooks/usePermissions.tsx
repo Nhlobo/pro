@@ -227,7 +227,7 @@ export const usePermissions = () => {
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('id, email, role, user_type, position, first_name, last_name, referring_attorney_id')
+        .select('id, email, role, user_type, position, first_name, last_name, referring_attorney_id, account_status, locked_until, must_reset_password, security_setup_completed, failed_login_count')
         .order('created_at', { ascending: false });
 
       return data || [];
