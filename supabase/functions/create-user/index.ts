@@ -88,9 +88,21 @@ serve(withErrorHandler(async (req) => {
       );
     }
 
-    // Validate role
-    const validRoles = ['admin', 'employee', 'referring_attorney', 'user', 'sales_consultant'];
+    // Validate role against the live app_role enum (source of truth).
+    // This avoids a hard-coded whitelist — new enum values are picked up automatically.
     const role = requestBody.role || 'user';
+    let validRoles: string[] = [];
+    {
+      const { data: rolesData, error: rolesError } = await supabaseAdmin.rpc('get_app_roles');
+      if (rolesError || !Array.isArray(rolesData)) {
+        console.error('Error loading app_role enum values:', rolesError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to load supported roles' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      validRoles = rolesData as string[];
+    }
     if (!validRoles.includes(role)) {
       return new Response(
         JSON.stringify({ error: 'Invalid role. Must be one of: ' + validRoles.join(', ') }),
