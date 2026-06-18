@@ -30,6 +30,9 @@ import {
   recalculateShortTermFromAppointments,
 } from '@/hooks/usePaymentSync';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
+import { PopAttachmentField } from '@/components/pop/PopAttachmentField';
+import { usePopAttachment } from '@/hooks/usePopAttachment';
+import { useSystemSettings } from '@/hooks/useSystemSettings';
 
 import { RandSign } from "@/components/icons/RandSign";
 interface RegularPaymentDialogProps {
