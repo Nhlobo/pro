@@ -234,80 +234,48 @@ const UserManagement: React.FC = () => {
   };
 
   const handleCreateUser = async () => {
-    if (!newUserForm.email || !newUserForm.password) {
-      toast.error('Email and password are required');
-      return;
-    }
-
-    if (!validatePassword(newUserForm.password)) {
-      toast.error('Password must be at least 8 characters long');
+    if (!newUserForm.email || !newUserForm.firstName || !newUserForm.lastName) {
+      toast.error('First name, last name, and email are required');
       return;
     }
 
     setIsCreatingUser(true);
 
     try {
-      console.log('Creating user via edge function...');
-      
       // Determine role based on position
       const userRole = newUserForm.position === 'Sales Consultant' ? 'sales_consultant' : newUserForm.role;
-      
-      // Call the edge function to create user
-      const { data, error } = await supabase.functions.invoke('create-user', {
+
+      // Passwordless creation — user activates via emailed link.
+      const { data, error } = await supabase.functions.invoke('auth-admin-create-user', {
         body: {
           email: newUserForm.email,
-          password: newUserForm.password,
           firstName: newUserForm.firstName,
           lastName: newUserForm.lastName,
           role: userRole,
           userType: newUserForm.userType,
           position: newUserForm.position,
           permissions: newUserForm.permissions,
-          lawFirmId: newUserForm.userType === 'referring_attorney' ? newUserForm.lawFirmId : null
-        }
+          lawFirmId: newUserForm.userType === 'referring_attorney' ? newUserForm.lawFirmId : null,
+        },
       });
 
       if (error) {
         console.error('Edge function error:', error);
-        
-        // Provide user-friendly error messages based on error type
-        let errorMessage = 'Failed to create user';
-        
-        if (error.name === 'FunctionsHttpError') {
-          // This typically means the function returned a non-2xx status
-          errorMessage = 'Email address is already registered. Please use a different email or check if the user already exists.';
-        } else {
-          errorMessage = error.message || 'An unexpected error occurred while creating the user';
-        }
-        
-        toast.error(errorMessage);
+        const msg =
+          error.name === 'FunctionsHttpError'
+            ? 'Could not create user. The email may already be registered.'
+            : error.message || 'An unexpected error occurred while creating the user';
+        toast.error(msg);
         return;
       }
 
       if (data?.error) {
-        console.error('User creation error:', data.error);
         toast.error(data.error);
         return;
       }
 
       if (data?.success) {
-        console.log('User created successfully:', data.user);
-        toast.success('User created successfully! They will receive a confirmation email to activate their account.');
-        
-        // Save summary of created user before resetting form
-        setCreatedUserSummary({
-          firstName: newUserForm.firstName,
-          lastName: newUserForm.lastName,
-          email: newUserForm.email,
-          position: newUserForm.position,
-          userType: newUserForm.userType,
-        });
-        
-        // Show the password to admin
-        setDisplayPassword(newUserForm.password);
-        setPasswordAction("created");
-        setShowPasswordDialog(true);
-        
+        toast.success(`Account created. An activation email has been sent to ${newUserForm.email}.`);
         setIsAddUserModalOpen(false);
         setNewUserForm({
           email: '',
@@ -318,12 +286,12 @@ const UserManagement: React.FC = () => {
           userType: 'employee',
           position: '',
           lawFirmId: '',
-          permissions: []
+          permissions: [],
         });
         fetchUsers();
       }
-    } catch (error) {
-      console.error('Unexpected error:', error);
+    } catch (err) {
+      console.error('Unexpected error:', err);
       toast.error('Failed to create user');
     } finally {
       setIsCreatingUser(false);
