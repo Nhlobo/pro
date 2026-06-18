@@ -116,27 +116,3 @@ verify_jwt = false  # Access code validated in code
 
 [functions.remind-pending-payment-approvals]
 verify_jwt = false  # Called by pg_cron
-
-[functions.auth-login-start]
-verify_jwt = false  # Pre-auth endpoint; validates credentials in-code
-
-[functions.auth-login-verify]
-verify_jwt = false  # Pre-auth endpoint; validates OTP challenge in-code
-
-[functions.admin-create-user]
-verify_jwt = false  # Admin token validated in-code
-
-[functions.admin-user-action]
-verify_jwt = false  # Admin token validated in-code
-
-[functions.auth-activate-account]
-verify_jwt = false  # Public token-based activation flow
-
-[functions.auth-forgot-password]
-verify_jwt = false  # Public; no enumeration
-
-[functions.auth-reset-password]
-verify_jwt = false  # Public token-based reset flow
-
-[functions.auth-session-heartbeat]
-verify_jwt = false  # JWT validated in-code via getClaims

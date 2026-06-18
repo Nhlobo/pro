@@ -1,107 +1,71 @@
+## Activity Time Tracking + Personal Activity Reports
 
-# Authentication Module Upgrade
+Extend the existing Sales Performance Reporting system so every logged-in user (sales consultants AND non-sales staff) gets a clean weekly + monthly email showing **where they spent their time** in the system, with their top activities ranked. Sales consultants get this merged into their existing performance report; everyone else gets a standalone "Your Activity" report.
 
-This plan upgrades only the auth surface. RLS, the 8 existing roles, the `has_role` RPC, dashboards, business workflows, and edge-function authorization remain untouched. All existing users keep their accounts; their next login routes through a one-time Security Setup wizard.
+---
 
-## Decisions (from your answers)
+### 1. Time tracking (frontend)
 
-- **2FA**: Email OTP for internal staff (admin, employee, sales_consultant, finance, director, user). Attorney/Expert portals keep the existing TOTP `MFARequiredGuard` — unchanged.
-- **Single session**: On successful login, call `signOut({scope:'global'})` on the prior session first, then sign in fresh. Other devices lose refresh ability within ~1 hr.
-- **Legacy detection**: New column `profiles.security_setup_completed_at`. NULL = legacy → wizard required.
-- **PWA**: Manifest + icons only. No service worker.
+A lightweight `useActivityTracker` hook mounted once in `App.tsx`:
+- Listens for route changes (`useLocation`) and user interaction (mousemove / keydown / click) to detect "active" vs idle.
+- Buffers heartbeats locally and flushes every 60s (and on `visibilitychange`/`beforeunload`) to a new `log_activity_time` RPC.
+- An activity name is derived from the route via a small `activityLabels.ts` map (e.g. `/admin/aod-payment-tracking` → "AOD Payment Tracking", `/expert-portal/...` → "Expert Portal"). Unknown routes fall back to a humanised slug.
+- Idle threshold: 90s without interaction stops accumulating until next interaction. Tab hidden = paused.
 
-## Database changes (one migration)
+This keeps tracking smart (no inflated time from idle tabs) and simple (one hook, one RPC).
 
-New columns on `public.profiles` (no RLS changes):
-- `security_setup_completed_at timestamptz` — NULL marks a legacy user.
-- `account_status text default 'active'` — values: `active`, `pending_activation`, `suspended`, `locked`.
-- `locked_until timestamptz`
-- `failed_login_count int default 0`
-- `last_failed_login_at timestamptz`
-- `current_session_id text` — last-known active session for single-session enforcement.
-- `force_security_setup boolean default false` — admin can re-trigger wizard.
+### 2. Database (migration)
 
-New tables (with GRANTs + RLS — admin-only read, service-role write):
-- `auth_otp_codes` — `user_id, code_hash, purpose ('login'|'reset'), expires_at, attempts, resend_count, consumed_at, created_at`. Unique partial index on `(user_id, purpose) where consumed_at is null` so a new code invalidates the prior.
-- `account_activations` — `user_id, token_hash, expires_at, consumed_at, created_by, created_at`. 24-hour single-use links.
-- `password_reset_tokens` — `user_id, token_hash, expires_at, consumed_at, created_at`. 1-hour single-use.
-- `auth_audit_log` — `user_id, event_type, ip, user_agent, browser, os, device, metadata jsonb, created_at`. Append-only (revoke UPDATE/DELETE from all roles). Reusable RPC `log_auth_event(...)` invoked from edge functions only.
+**Table `user_activity_time`** — append-only seconds-per-activity-per-day rows:
+- `user_id`, `activity_key` (e.g. `aod-payment-tracking`), `activity_label`, `day` (date), `seconds_spent` (int), `last_updated_at`.
+- Unique index on `(user_id, activity_key, day)` so the RPC upserts (adds seconds) instead of inserting duplicates.
+- RLS: users read their own rows; admins/managers read all; service role full.
 
-Event types logged: `login_success`, `login_failed`, `logout`, `forced_logout`, `password_created`, `password_changed`, `password_reset_requested`, `password_reset_completed`, `otp_sent`, `otp_verified`, `otp_failed`, `account_activated`, `account_locked`, `account_unlocked`, `account_suspended`, `account_reactivated`, `session_expired`, `security_setup_completed`, `activation_link_sent`.
+**RPC `log_activity_time(_activity_key, _activity_label, _seconds)`**
+- Upserts into `user_activity_time` for `auth.uid()` + `current_date` (SAST), incrementing `seconds_spent`. SECURITY DEFINER.
 
-## Edge functions (new — `verify_jwt = false`, in-code auth)
+**RPC `get_user_activity_summary(_user_id, _start, _end)`**
+- Returns ranked rows: `activity_label`, `total_seconds`, `pct_of_total`, plus overall totals (total seconds, active days, top activity). Used by the edge function and admin preview.
 
-All use the existing dual-client pattern, structured logs + correlation IDs (matching the `auto-send-queued-email` style), and write to `auth_audit_log`.
+### 3. Edge function — extend existing `send-sales-performance-report`
 
-1. `auth-login-start` — input: email + password. Verifies credentials via service-role `signInWithPassword` against a throwaway client, immediately signs that scratch session out, locks account after 3 fails, generates 6-digit OTP, hashes + stores it, invalidates prior OTP, enqueues email via `send-transactional-email` (`login-otp` template). Returns `challenge_id` only.
-2. `auth-login-verify` — input: `challenge_id` + 6-digit code. Checks attempts ≤ 3, expiry ≤ 5 min. On success: revokes user's prior refresh tokens (single-session), mints a real session via `admin.generateLink({type:'magiclink'})` flow → returns access/refresh tokens to the client, stamps `current_session_id`, logs `login_success`.
-3. `admin-create-user` — admin-only. Creates auth user with random unguessable password (never returned), inserts profile with `account_status='pending_activation'`, assigns role via existing `user_roles`, generates activation token, emails it (`account-activation` template). Replaces the parts of `create-user` that exposed temp passwords.
-4. `admin-user-action` — admin-only dispatcher: `suspend`, `reactivate`, `unlock`, `disable`, `resend_activation`, `force_password_reset`, `force_security_setup`, `force_logout_all`. Every action audit-logged.
-5. `auth-activate-account` — consumes activation token, marks profile `pending_activation` → wizard state, returns a short-lived signed handoff for the wizard.
-6. `auth-forgot-password` — accepts email, always returns 200 (no enumeration), enqueues reset email if account exists & active.
-7. `auth-reset-password` — consumes reset token, sets new password through service-role `admin.updateUserById`, then requires the user to do email-OTP via `auth-login-start` to actually log in.
-8. `auth-session-heartbeat` (lightweight) — called by client every 60s; verifies `profiles.current_session_id` still matches client's session marker, otherwise returns 401 → client redirects to login. Backs the "logging in elsewhere kicks me out" rule without polling DB heavily.
+- For each recipient, call `get_user_activity_summary` for the period.
+- Add a new **"Where you spent your time"** section to the report HTML:
+  - Top 5 activities with a clean horizontal bar (% of total) + formatted duration (`2h 14m`).
+  - Headline stat: total active hours + most-used activity ("Most of your time went to *Report Management* — 8h 42m, 41% of your week").
+  - Smart auto-comment: if 1 activity > 60% → "Heavy focus on X"; if top activity changed from previous period → "Shift from X → Y"; if total active time dropped >30% → gentle nudge.
+- Expand the recipient pool: today the function iterates `sales_consultants`. New behaviour — also iterate `profiles` for all active users whose `user_id` has any activity in the period and who are **not** already covered as sales consultants. Non-sales users receive a slimmer report (no deals/strikes/targets) — just the activity section + a friendly greeting.
+- Reuses existing `sendEmail` helper, queue, retry, and `sales_performance_reports` history row (new column `report_kind` = `sales` | `activity_only`).
 
-## Email templates (transactional)
+### 4. Cron — unchanged schedules, broader audience
 
-Scaffold transactional email infra if not present, then add templates:
-- `login-otp` — 6-digit code, 5-minute validity notice.
-- `account-activation` — branded activation link, 24-hour notice, who created the account.
-- `password-reset` — 1-hour link.
-- `account-locked-admin` — sent to admins on lockout.
-- `forced-logout` (optional notice).
+Existing Monday 09:00 SAST + month-end 18:00 SAST cron jobs already call the function. No new schedule needed; the function itself now covers all users.
 
-Branded with Medico-Legal Pro tokens (existing index.css palette + Scale icon mark).
+### 5. Admin UI — extend `SalesPerformanceReports.tsx`
 
-## Frontend
+- Add filter chip: **Report kind** (All / Sales / Activity-only).
+- Preview dialog already renders HTML — works automatically for the new section.
+- New small "Top activities" column showing the user's #1 activity for the period.
 
-New/updated files (UI + presentation only — no business logic changes):
+### 6. Privacy & POPIA
 
-- `src/pages/Auth.tsx` — replace single-form with three-step state machine: email+password → OTP → (handoff to wizard if `security_setup_completed_at` null or `force_security_setup`).
-- `src/pages/auth/SecuritySetupWizard.tsx` — new. Steps: Welcome → Create Password (12+ chars, upper/lower/number/symbol with live checks via `zod`) → Email OTP → Done → route to dashboard. Cannot be skipped or back-buttoned past completion.
-- `src/pages/auth/Activate.tsx` — new. Handles `/activate?token=...` deep link, exchanges token, drops user straight into the wizard.
-- `src/pages/auth/ForgotPassword.tsx` and `src/pages/auth/ResetPassword.tsx` — new. Standard 2-page flow → forces OTP login after reset.
-- `src/hooks/useAuth.tsx` — add wizard-required check (`security_setup_completed_at IS NULL` OR `force_security_setup`) and route guard.
-- `src/components/ProtectedRoute.tsx` — extend with wizard-incomplete redirect to `/security-setup`.
-- `src/hooks/useIdleTimeout.tsx` — new. 25-min warning toast, 30-min auto signOut. Reset on pointer/keydown/visibility.
-- `src/hooks/useSessionHeartbeat.tsx` — new. Polls `auth-session-heartbeat` every 60s; on 401 → `signOut` + redirect.
-- `src/hooks/useMaxSession.tsx` — new. Tracks session age; forces logout at 8 hr from `auth_audit_log.login_success`.
-- `src/pages/UserManagement.tsx` — replace "create user with password" UI with "create user (sends activation email)" + buttons for suspend/reactivate/unlock/disable/resend activation/force reset/force wizard/force logout all. Surface a read-only "Authentication History" panel filtered to the selected user (login_success/failed, lockouts, OTP, password events).
-- Remove/disable the public **Sign Up** tab on `Auth.tsx`.
+- Activity tracking is per-user only, no claimant/case content captured — just route + duration. Logged into existing `audit_logs` once at enablement.
+- Users can see their own report; only admins/managers see others (matches existing reporting RLS).
 
-## PWA (manifest-only)
+---
 
-- `public/manifest.webmanifest` — Medico-Legal Pro name, theme `#0F172A`, `display: "standalone"`, icons.
-- Generate `icon-192.png`, `icon-512.png` (maskable) + `apple-touch-icon.png` from Scale mark.
-- Add `<link rel="manifest">`, `<meta name="theme-color">`, `<link rel="apple-touch-icon">` to `index.html`.
-- No service worker. Existing Supabase `persistSession: true` already handles "valid session → dashboard, no session → login" on PWA launch.
+### Files
 
-## What this plan deliberately does NOT touch
+- `supabase/migrations/<ts>_user_activity_time.sql` — table, indexes, RLS, GRANTs, two RPCs, adds `report_kind` column to `sales_performance_reports`.
+- `src/hooks/useActivityTracker.tsx` — new hook.
+- `src/config/activityLabels.ts` — route → friendly label map.
+- `src/App.tsx` — mount the hook inside the authenticated layout.
+- `supabase/functions/send-sales-performance-report/index.ts` — add activity section, broaden recipients, write `report_kind`.
+- `src/lib/salesPerformanceEmailTemplate.ts` — add activity block renderer.
+- `src/pages/admin/SalesPerformanceReports.tsx` — kind filter + top-activity column.
 
-- `user_roles` enum, `has_role`, RLS on any business table.
-- Any dashboard route, admin module, attorney/expert portal page, or business edge function.
-- TOTP `MFARequiredGuard` for attorney/expert portals — kept exactly as is.
-- Existing email-queue, audit-trail (`audit_logs`), or notification systems — new `auth_audit_log` is additive.
+### Notes
 
-## Migration safety for existing users
-
-- All current users continue to authenticate with their existing password (still in `auth.users`).
-- First login after deploy → password works → server forces OTP → server forces wizard (because `security_setup_completed_at IS NULL`) → user picks a new compliant password + verifies OTP → wizard timestamps the column → never asked again.
-- No `auth.users` rows are deleted, recreated, or have IDs changed. No profile rows are deleted.
-
-## Rollout order
-
-1. Migration (columns + new tables + RPC + GRANTs).
-2. Edge functions + email templates + deploy.
-3. Frontend wizard, login flow, forgot/reset, idle/heartbeat/max-session hooks.
-4. UserManagement admin UI rewrite.
-5. PWA manifest + icons.
-6. Manual smoke test of: legacy login → wizard, admin-created user → activation → wizard, forgot-password, lockout after 3 fails, suspended account, single-session kick, idle warning + timeout, 8-hr max, PWA install on iOS/Android home screen.
-
-## Open items I'd flag before building
-
-- "Notify the Administrator" on lockout — OK to email every user whose `app_role = 'admin'`? (That's the implicit reading.)
-- Suspended accounts: the spec says "generic suspension message." Confirm wording, e.g. *"This account is not currently active. Contact your administrator."*
-- Activation email sender domain: I'll use the already-configured Lovable email domain. If you'd like activation emails to come from a specific From address (e.g. `admin@medicolegalpro.co.za`), tell me.
-
-Confirm and I'll start with the migration + edge functions.
+- Keeps the feature **simple**: one hook, one table, one RPC for writes, one for reads, one edge function extended.
+- Keeps it **smart**: idle detection, tab-hidden pause, route-based labels, auto comments based on focus/shift/drop.
+- Backwards compatible — existing sales weekly/monthly reports keep working; non-sales users start receiving activity-only reports from the next scheduled run.
