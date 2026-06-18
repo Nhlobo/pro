@@ -21,6 +21,11 @@ export interface UserProfile {
   first_name: string | null;
   last_name: string | null;
   referring_attorney_id: string | null;
+  account_status?: string | null;
+  locked_until?: string | null;
+  must_reset_password?: boolean | null;
+  security_setup_completed?: boolean | null;
+  failed_login_count?: number | null;
 }
 
 export const usePermissions = () => {
