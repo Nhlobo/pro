@@ -29,6 +29,9 @@ import { AddAttorneyDialog } from "@/components/AddAttorneyDialog";
 import { Plus } from "lucide-react";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
+import { PopAttachmentField } from "@/components/pop/PopAttachmentField";
+import { usePopAttachment } from "@/hooks/usePopAttachment";
+import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 
 const formSchema = z.object({
