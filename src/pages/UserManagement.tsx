@@ -58,19 +58,10 @@ const UserManagement: React.FC = () => {
   });
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
-  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-  const [userToChangePassword, setUserToChangePassword] = useState<UserProfile | null>(null);
   const [showEmailConfigAlert, setShowEmailConfigAlert] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [displayPassword, setDisplayPassword] = useState<string>("");
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [passwordAction, setPasswordAction] = useState<string>("");
-  const [createdUserSummary, setCreatedUserSummary] = useState<{ firstName: string; lastName: string; email: string; position: string; userType: string } | null>(null);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [userToEditProfile, setUserToEditProfile] = useState<UserProfile | null>(null);
   
@@ -91,7 +82,6 @@ const UserManagement: React.FC = () => {
   // Add user form state
   const [newUserForm, setNewUserForm] = useState({
     email: '',
-    password: '',
     firstName: '',
     lastName: '',
     role: 'employee' as string,
@@ -229,9 +219,6 @@ const UserManagement: React.FC = () => {
     return userPermissions.some(p => p.permission_name === permissionName && p.granted);
   };
 
-  const validatePassword = (password: string): boolean => {
-    return password.length >= 8;
-  };
 
   const handleCreateUser = async () => {
     if (!newUserForm.email || !newUserForm.firstName || !newUserForm.lastName) {
@@ -279,7 +266,7 @@ const UserManagement: React.FC = () => {
         setIsAddUserModalOpen(false);
         setNewUserForm({
           email: '',
-          password: '',
+          
           firstName: '',
           lastName: '',
           role: 'employee',
@@ -365,107 +352,8 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleChangePassword = async () => {
-    if (!userToChangePassword || !newPassword) {
-      toast.error('Password is required');
-      return;
-    }
 
-    if (newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters long');
-      return;
-    }
 
-    setIsChangingPassword(true);
-
-    try {
-      console.log('Changing password via user-management function...');
-      
-      const { data, error } = await supabase.functions.invoke('user-management', {
-        body: {
-          action: 'change_password',
-          userId: userToChangePassword.id,
-          newPassword: newPassword
-        }
-      });
-
-      if (error) {
-        console.error('Edge function error:', error);
-        toast.error('Failed to change password');
-        return;
-      }
-
-      if (data?.error) {
-        console.error('Password change error:', data.error);
-        toast.error(data.error);
-        return;
-      }
-
-      if (data?.success) {
-        console.log('Password changed successfully');
-        toast.success(`Password changed successfully for ${userToChangePassword.email}`);
-        
-        // Show the new password to admin
-        setDisplayPassword(newPassword);
-        setPasswordAction("changed");
-        setShowPasswordDialog(true);
-        
-        setIsChangePasswordOpen(false);
-        setUserToChangePassword(null);
-        setNewPassword('');
-      }
-    } catch (error) {
-      console.error('Unexpected error:', error);
-      toast.error('Failed to change password');
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
-  const generateRandomPassword = () => {
-    const upperCase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const lowerCase = 'abcdefghijklmnopqrstuvwxyz';
-    const numbers = '0123456789';
-    const symbols = '#@!$%&*';
-    
-    // Ensure at least one character from each category
-    let password = '';
-    password += upperCase[Math.floor(Math.random() * upperCase.length)];
-    password += lowerCase[Math.floor(Math.random() * lowerCase.length)];
-    password += numbers[Math.floor(Math.random() * numbers.length)];
-    password += symbols[Math.floor(Math.random() * symbols.length)];
-    
-    // Fill the rest (6 more characters to make 10 total)
-    const allChars = upperCase + lowerCase + numbers + symbols;
-    for (let i = 4; i < 10; i++) {
-      password += allChars[Math.floor(Math.random() * allChars.length)];
-    }
-    
-    // Shuffle the password to randomize position of required characters
-    return password.split('').sort(() => Math.random() - 0.5).join('');
-  };
-
-  const handleAutoGeneratePassword = () => {
-    const generatedPassword = generateRandomPassword();
-    setNewPassword(generatedPassword);
-    toast.success('Password auto-generated');
-  };
-
-  const copyPasswordToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(displayPassword);
-      toast.success('Password copied to clipboard');
-    } catch (error) {
-      toast.error('Failed to copy password');
-    }
-  };
-
-  const handleClosePasswordDialog = () => {
-    setShowPasswordDialog(false);
-    setDisplayPassword("");
-    setPasswordAction("");
-    setCreatedUserSummary(null);
-  };
 
   const handleEditProfileOpen = (user: UserProfile) => {
     setUserToEditProfile(user);
@@ -830,18 +718,6 @@ const UserManagement: React.FC = () => {
                     >
                       <Mail className="h-4 w-4 mr-2" />
                       Resend Email Confirmation
-                    </Button>
-                    <Button 
-                      onClick={() => {
-                        setUserToChangePassword(user);
-                        setIsChangePasswordOpen(true);
-                      }}
-                      className="w-full"
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Key className="h-4 w-4 mr-2" />
-                      Change Password
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -1226,161 +1102,6 @@ const UserManagement: React.FC = () => {
             onProfileUpdated={fetchUsers}
           />
 
-          {/* Change Password Dialog */}
-          <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Key className="h-5 w-5 text-kutlwano-blue" />
-                  Change User Password
-                </DialogTitle>
-                <DialogDescription>
-                  Set a new password for {userToChangePassword?.email}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="newPassword">New Password</Label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        id="newPassword"
-                        type={showPassword ? "text" : "password"}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Enter new password (min 8 characters)"
-                        className="pr-10"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-0 top-0 h-full px-3"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      onClick={handleAutoGeneratePassword}
-                      title="Auto-generate secure password"
-                      className="border-kutlwano-blue/20 hover:bg-kutlwano-blue/5"
-                    >
-                      <Shuffle className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Password must be at least 8 characters long. Click <Shuffle className="inline h-3 w-3 mx-1" /> to auto-generate a secure password.
-                  </p>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => {
-                      setIsChangePasswordOpen(false);
-                      setUserToChangePassword(null);
-                      setNewPassword('');
-                    }}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleChangePassword}
-                    disabled={isChangingPassword || !newPassword || newPassword.length < 8}
-                    className="flex-1 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
-                  >
-                    {isChangingPassword ? 'Changing...' : 'Change Password'}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Password Display Dialog */}
-          <Dialog open={showPasswordDialog} onOpenChange={handleClosePasswordDialog}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Key className="h-5 w-5" />
-                  Password {passwordAction === "created" ? "Created" : "Changed"}
-                </DialogTitle>
-                <DialogDescription>
-                  The password has been successfully {passwordAction}. Please copy it and share it securely with the user.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-4">
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-amber-800 mb-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span className="font-medium text-sm">Security Notice</span>
-                  </div>
-                  <p className="text-sm text-amber-700">
-                    This password will only be shown once. Make sure to copy it and share it securely with the user.
-                  </p>
-                </div>
-
-                {/* Created User Summary */}
-                {passwordAction === "created" && createdUserSummary && (
-                  <div className="p-4 bg-muted rounded-lg space-y-2">
-                    <h4 className="font-semibold text-sm text-foreground">User Details</h4>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                      <span className="text-muted-foreground">Name:</span>
-                      <span className="font-medium">{createdUserSummary.firstName} {createdUserSummary.lastName}</span>
-                      <span className="text-muted-foreground">Email:</span>
-                      <span className="font-medium">{createdUserSummary.email}</span>
-                      <span className="text-muted-foreground">User Type:</span>
-                      <span className="font-medium">
-                        {createdUserSummary.userType === 'employee' ? 'Company Employee' : 
-                         createdUserSummary.userType === 'admin' ? 'Administrator' : 
-                         createdUserSummary.userType}
-                      </span>
-                      <span className="text-muted-foreground">Position:</span>
-                      <span className="font-medium">{createdUserSummary.position || 'Not set'}</span>
-                      <span className="text-muted-foreground">System Role:</span>
-                      <span className="font-medium">
-                        {createdUserSummary.position === 'Sales Consultant' 
-                          ? 'Sales Consultant' 
-                          : 'Employee (Full Access)'}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="display-password">Generated Password</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="display-password"
-                      type="text"
-                      value={displayPassword}
-                      readOnly
-                      className="font-mono bg-muted"
-                    />
-                    <Button 
-                      onClick={copyPasswordToClipboard}
-                      variant="outline"
-                      size="icon"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 mt-6">
-                <Button onClick={handleClosePasswordDialog} className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white">
-                  I've Copied the Password
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
 
           {/* Link Attorney Dialog */}
           <Dialog open={isLinkAttorneyOpen} onOpenChange={setIsLinkAttorneyOpen}>
