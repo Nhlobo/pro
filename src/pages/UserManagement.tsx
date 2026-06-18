@@ -266,7 +266,7 @@ const UserManagement: React.FC = () => {
         setIsAddUserModalOpen(false);
         setNewUserForm({
           email: '',
-          password: '',
+          
           firstName: '',
           lastName: '',
           role: 'employee',
