@@ -890,8 +890,26 @@ const AppointmentRequest = () => {
                   />
                 </div>
 
+                {/* Proof of Payment */}
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold">Payment</h3>
+                  <PopAttachmentField
+                    recordType="appointment_request"
+                    paymentReference={paymentReference}
+                    onPaymentReferenceChange={setPaymentReference}
+                    onStagedFileChange={setStagedPopFile}
+                    required={popRequired}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {popRequired
+                      ? "A Proof of Payment is required to submit this request."
+                      : "Attaching a Proof of Payment is optional but helps speed up reconciliation."}
+                  </p>
+                </div>
+
                 {/* Submit Button */}
                 <div className="flex gap-4 pt-6">
+
                   <Button type="submit" disabled={isSubmitting} className="flex-1">
                     <Send className="h-4 w-4 mr-2" />
                     {isSubmitting ? "Submitting Request..." : "Submit Appointment Request"}
