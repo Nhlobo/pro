@@ -820,19 +820,23 @@ const UserManagement: React.FC = () => {
                         </CardDescription>
                       </div>
                     </div>
-                    <Badge 
-                      variant={user.user_type === 'admin' ? 'default' : 'secondary'}
-                      className={user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : ''}
-                    >
-                          {user.user_type === 'admin' ? 'Administrator' : 
-                       user.user_type === 'employee' ? 'Company Employee' :
-                       user.user_type === 'referring_attorney' ? 'Attorney' : 
-                       user.role || 'user'}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge 
+                        variant={user.user_type === 'admin' ? 'default' : 'secondary'}
+                        className={user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : ''}
+                      >
+                            {user.user_type === 'admin' ? 'Administrator' : 
+                         user.user_type === 'employee' ? 'Company Employee' :
+                         user.user_type === 'referring_attorney' ? 'Attorney' : 
+                         user.role || 'user'}
+                      </Badge>
+                      <AccountStatusBadge user={user} />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
+                    <AdminUserActionsMenu user={user} onChanged={fetchUsers} />
                     <Button 
                       onClick={() => handleUserSelect(user)}
                       className="w-full"
