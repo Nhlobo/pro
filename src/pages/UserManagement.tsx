@@ -234,80 +234,48 @@ const UserManagement: React.FC = () => {
   };
 
   const handleCreateUser = async () => {
-    if (!newUserForm.email || !newUserForm.password) {
-      toast.error('Email and password are required');
-      return;
-    }
-
-    if (!validatePassword(newUserForm.password)) {
-      toast.error('Password must be at least 8 characters long');
+    if (!newUserForm.email || !newUserForm.firstName || !newUserForm.lastName) {
+      toast.error('First name, last name, and email are required');
       return;
     }
 
     setIsCreatingUser(true);
 
     try {
-      console.log('Creating user via edge function...');
-      
       // Determine role based on position
       const userRole = newUserForm.position === 'Sales Consultant' ? 'sales_consultant' : newUserForm.role;
-      
-      // Call the edge function to create user
-      const { data, error } = await supabase.functions.invoke('create-user', {
+
+      // Passwordless creation — user activates via emailed link.
+      const { data, error } = await supabase.functions.invoke('auth-admin-create-user', {
         body: {
           email: newUserForm.email,
-          password: newUserForm.password,
           firstName: newUserForm.firstName,
           lastName: newUserForm.lastName,
           role: userRole,
           userType: newUserForm.userType,
           position: newUserForm.position,
           permissions: newUserForm.permissions,
-          lawFirmId: newUserForm.userType === 'referring_attorney' ? newUserForm.lawFirmId : null
-        }
+          lawFirmId: newUserForm.userType === 'referring_attorney' ? newUserForm.lawFirmId : null,
+        },
       });
 
       if (error) {
         console.error('Edge function error:', error);
-        
-        // Provide user-friendly error messages based on error type
-        let errorMessage = 'Failed to create user';
-        
-        if (error.name === 'FunctionsHttpError') {
-          // This typically means the function returned a non-2xx status
-          errorMessage = 'Email address is already registered. Please use a different email or check if the user already exists.';
-        } else {
-          errorMessage = error.message || 'An unexpected error occurred while creating the user';
-        }
-        
-        toast.error(errorMessage);
+        const msg =
+          error.name === 'FunctionsHttpError'
+            ? 'Could not create user. The email may already be registered.'
+            : error.message || 'An unexpected error occurred while creating the user';
+        toast.error(msg);
         return;
       }
 
       if (data?.error) {
-        console.error('User creation error:', data.error);
         toast.error(data.error);
         return;
       }
 
       if (data?.success) {
-        console.log('User created successfully:', data.user);
-        toast.success('User created successfully! They will receive a confirmation email to activate their account.');
-        
-        // Save summary of created user before resetting form
-        setCreatedUserSummary({
-          firstName: newUserForm.firstName,
-          lastName: newUserForm.lastName,
-          email: newUserForm.email,
-          position: newUserForm.position,
-          userType: newUserForm.userType,
-        });
-        
-        // Show the password to admin
-        setDisplayPassword(newUserForm.password);
-        setPasswordAction("created");
-        setShowPasswordDialog(true);
-        
+        toast.success(`Account created. An activation email has been sent to ${newUserForm.email}.`);
         setIsAddUserModalOpen(false);
         setNewUserForm({
           email: '',
@@ -318,12 +286,12 @@ const UserManagement: React.FC = () => {
           userType: 'employee',
           position: '',
           lawFirmId: '',
-          permissions: []
+          permissions: [],
         });
         fetchUsers();
       }
-    } catch (error) {
-      console.error('Unexpected error:', error);
+    } catch (err) {
+      console.error('Unexpected error:', err);
       toast.error('Failed to create user');
     } finally {
       setIsCreatingUser(false);
@@ -1007,7 +975,7 @@ const UserManagement: React.FC = () => {
                   Add New User
                 </DialogTitle>
                 <DialogDescription>
-                  Create a new user account with email, password, and permissions
+                  Create a new user account. They'll receive an activation email to set their own password and complete security setup.
                 </DialogDescription>
               </DialogHeader>
 
@@ -1046,35 +1014,9 @@ const UserManagement: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Minimum 8 characters"
-                        value={newUserForm.password}
-                        onChange={(e) => setNewUserForm(prev => ({ ...prev, password: e.target.value }))}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                    {newUserForm.password && newUserForm.password.length < 8 && (
-                      <p className="text-sm text-destructive mt-1">
-                        Password must be at least 8 characters long
-                      </p>
-                    )}
+                  <div className="rounded-md border border-dashed bg-muted/30 p-3 text-sm text-muted-foreground">
+                    <strong className="text-foreground">Passwordless creation:</strong> the new user receives an
+                    activation email and chooses their own password during security setup. The link expires in 24 hours.
                   </div>
 
                   <div>
@@ -1143,10 +1085,10 @@ const UserManagement: React.FC = () => {
                   </Button>
                   <Button 
                     onClick={handleCreateUser}
-                    disabled={isCreatingUser || !newUserForm.email || !newUserForm.password || !newUserForm.position}
+                    disabled={isCreatingUser || !newUserForm.email || !newUserForm.firstName || !newUserForm.lastName || !newUserForm.position}
                     className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
                   >
-                    {isCreatingUser ? 'Creating...' : 'Create User'}
+                    {isCreatingUser ? 'Sending activation…' : 'Create & Send Activation'}
                   </Button>
                 </div>
               </div>
