@@ -117,6 +117,13 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   type CaptureMode = 'payment' | 'reports' | 'both';
   const [mode, setMode] = useState<CaptureMode>('both');
 
+  // POP attachment state
+  const { uploadPop } = usePopAttachment();
+  const { getSetting } = useSystemSettings('payments');
+  const popRequired = !!getSetting('pop_required_on_submission');
+  const [stagedPopFile, setStagedPopFile] = useState<File | null>(null);
+  const [paymentReference, setPaymentReference] = useState('');
+
   useEffect(() => {
     if (open) {
       fetchSummary();
