@@ -469,7 +469,9 @@ const ExpertCreditControl = () => {
             recorded_by: user.id,
             pop_url: popUrl,
             pop_file_name: popFileName,
-          });
+            payment_reference: paymentReference?.trim() || null,
+            sageone_transaction_id: sageoneTransactionId?.trim() || null,
+          } as any);
 
         if (insertError) throw insertError;
 
@@ -484,6 +486,7 @@ const ExpertCreditControl = () => {
             payment_date: paymentDate || new Date().toISOString(),
             payment_notes: paymentNotes,
             pop_file_name: popFileName,
+            payment_reference: paymentReference,
           },
           p_description: `Payment of R${amount} recorded for expert ${selectedExpertId}`,
         });
@@ -501,6 +504,8 @@ const ExpertCreditControl = () => {
       setPopFile(null);
       setExistingPopUrl(null);
       setExistingPopFileName(null);
+      setPaymentReference("");
+      setSageoneTransactionId("");
       fetchExpertPaymentData();
     } catch (error: any) {
       console.error("Error recording payment:", error);
