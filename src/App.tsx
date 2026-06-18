@@ -174,6 +174,7 @@ const App = () => (
                 <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
                 <Route path="/Expertzone/case-access" element={<ExpertCaseAccess />} />
                 <Route path="/contact-us" element={<ContactUs />} />
+                <Route path="/trust" element={<Trust />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 
                 {/* ============ ADMIN PORTAL ============ */}
