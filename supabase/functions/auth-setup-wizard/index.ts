@@ -110,6 +110,48 @@ serve(async (req) => {
       return json({ success: true });
     }
 
+    // One-shot activation: validate token, set password, mark active, consume token.
+    // Email ownership is proven by clicking the activation link from the inbox, so no OTP is required.
+    if (action === "complete-activation") {
+      if (!payload.activationToken || typeof payload.activationToken !== "string") {
+        return json({ error: "Missing activation token" }, 400);
+      }
+      const policyErr = validatePasswordPolicy(payload.password);
+      if (policyErr) return json({ error: policyErr }, 400);
+
+      const tHash = await sha256Hex(String(payload.activationToken));
+      const { data: tokenRow } = await admin
+        .from("auth_activation_tokens")
+        .select("id, user_id, expires_at, consumed_at")
+        .eq("token_hash", tHash)
+        .maybeSingle();
+      if (!tokenRow || tokenRow.consumed_at || new Date(tokenRow.expires_at) < new Date()) {
+        return json({ error: "Activation link is invalid or has expired." }, 410);
+      }
+
+      const { error: updErr } = await admin.auth.admin.updateUserById(tokenRow.user_id, {
+        password: payload.password,
+        email_confirm: true,
+      });
+      if (updErr) return json({ error: "Failed to set password" }, 500);
+
+      await admin.from("profiles").update({
+        security_setup_completed: true,
+        account_status: "active",
+        must_reset_password: false,
+      }).eq("id", tokenRow.user_id);
+
+      await admin.from("auth_activation_tokens")
+        .update({ consumed_at: new Date().toISOString() })
+        .eq("id", tokenRow.id);
+
+      await recordAuthEvent(admin, {
+        user_id: tokenRow.user_id, email: user.email,
+        event_type: "security_setup_completed", ctx, metadata: { via: "activation_link" },
+      });
+      return json({ success: true });
+    }
+
     return json({ error: "Unknown action" }, 400);
   } catch (e) {
     console.error(e);
