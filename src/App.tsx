@@ -172,6 +172,7 @@ const App = () => (
               <BrowserRouter>
               <ActivityTrackerMount />
               <SessionGuardMount />
+              <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />
