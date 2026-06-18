@@ -367,7 +367,7 @@ const AppointmentRequest = () => {
       // Insert the appointment request and capture the id for POP linking
       const { data: insertedRequest, error: insertError } = await supabase
         .from('appointment_requests')
-        .insert(requestData)
+        .insert(requestData as any)
         .select('id')
         .single();
 
