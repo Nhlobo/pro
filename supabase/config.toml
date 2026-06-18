@@ -146,3 +146,9 @@ verify_jwt = false  # Access code validated in code
 
 [functions.remind-pending-payment-approvals]
 verify_jwt = false  # Called by pg_cron
+
+[functions.upload-pop-attachment]
+verify_jwt = true  # User auth required, validated in code
+
+[functions.get-pop-signed-url]
+verify_jwt = true  # User auth required, validated in code
