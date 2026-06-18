@@ -720,18 +720,6 @@ const UserManagement: React.FC = () => {
                       <Mail className="h-4 w-4 mr-2" />
                       Resend Email Confirmation
                     </Button>
-                    <Button 
-                      onClick={() => {
-                        setUserToChangePassword(user);
-                        setIsChangePasswordOpen(true);
-                      }}
-                      className="w-full"
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Key className="h-4 w-4 mr-2" />
-                      Change Password
-                    </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button 
