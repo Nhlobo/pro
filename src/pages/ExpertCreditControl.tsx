@@ -1092,38 +1092,16 @@ const ExpertCreditControl = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="pop-file">Proof of Payment (POP)</Label>
-              {existingPopFileName && !popFile && (
-                <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg text-sm">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Current: {existingPopFileName}</span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => existingPopUrl && handleViewPop(existingPopUrl, existingPopFileName)}
-                  >
-                    <Eye className="h-3 w-3" />
-                  </Button>
-                </div>
-              )}
-              <Input
-                id="pop-file"
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                onChange={(e) => setPopFile(e.target.files?.[0] || null)}
-              />
-              {popFile && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Paperclip className="h-3 w-3" />
-                  {popFile.name}
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Upload proof of payment (PDF, JPG, PNG, DOC)
-              </p>
-            </div>
+            <PopAttachmentField
+              recordType="expert_payment"
+              recordId={editingPaymentId ?? undefined}
+              initialAttachmentId={existingAttachmentId ?? undefined}
+              paymentReference={paymentReference}
+              onPaymentReferenceChange={setPaymentReference}
+              onStagedFileChange={setStagedPopFile}
+              required={popRequired}
+              showReferenceInput={false}
+            />
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
@@ -1142,9 +1120,11 @@ const ExpertCreditControl = () => {
                   value={sageoneTransactionId}
                   onChange={(e) => setSageoneTransactionId(e.target.value)}
                   placeholder="Optional — admin only"
+                  disabled={!isAdmin()}
                 />
               </div>
             </div>
+
 
 
             {!editingPaymentId && (
@@ -1165,15 +1145,16 @@ const ExpertCreditControl = () => {
                 setSelectedAppointmentId(null);
                 setSelectedExpertId(null);
                 setEditingPaymentId(null);
-                setPopFile(null);
-                setExistingPopUrl(null);
-                setExistingPopFileName(null);
+                setStagedPopFile(null);
+                setExistingAttachmentId(null);
+                setPaymentReference("");
+                setSageoneTransactionId("");
               }}
             >
               Cancel
             </Button>
-            <Button onClick={handleRecordPayment} disabled={uploadingPop}>
-              {uploadingPop ? 'Uploading...' : (editingPaymentId ? 'Update' : 'Record')} Payment
+            <Button onClick={handleRecordPayment}>
+              {editingPaymentId ? 'Update' : 'Record'} Payment
             </Button>
           </div>
         </DialogContent>
