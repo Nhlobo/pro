@@ -933,9 +933,10 @@ const ExpertCreditControl = () => {
                                   setPaymentAmount("");
                                   setPaymentNotes("");
                                   setPaymentDate("");
-                                  setPopFile(null);
-                                  setExistingPopUrl(null);
-                                  setExistingPopFileName(null);
+                                  setStagedPopFile(null);
+                                  setExistingAttachmentId(null);
+                                  setPaymentReference("");
+                                  setSageoneTransactionId("");
                                   setShowPaymentDialog(true);
                                 }}
                               >
@@ -984,7 +985,7 @@ const ExpertCreditControl = () => {
                                               </p>
                                             </div>
                                           )}
-                                          {payment.pop_url && (
+                                          {payment.pop_attachment_id && (
                                             <div className="flex items-center gap-2">
                                               <Badge variant="outline" className="text-xs">
                                                 <Paperclip className="h-3 w-3 mr-1" />
@@ -993,18 +994,10 @@ const ExpertCreditControl = () => {
                                               <Button
                                                 size="sm"
                                                 variant="ghost"
-                                                onClick={() => handleViewPop(payment.pop_url!, payment.pop_file_name || 'pop')}
+                                                onClick={() => handleViewAttachment(payment.pop_attachment_id!)}
                                               >
                                                 <Eye className="h-3 w-3 mr-1" />
                                                 View
-                                              </Button>
-                                              <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => handleDownloadPop(payment.pop_url!, payment.pop_file_name || 'pop')}
-                                              >
-                                                <Download className="h-3 w-3 mr-1" />
-                                                Download
                                               </Button>
                                             </div>
                                           )}
