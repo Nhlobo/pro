@@ -25,7 +25,7 @@ import { toast } from "sonner";
 
 const Index = () => {
   const { user, signOut } = useAuth();
-  const { isReferringAttorney, isAdmin, isSalesConsultant, loading } = usePermissions();
+  const { isReferringAttorney, isAdmin, isSalesConsultant, userRole, loading } = usePermissions();
   const { stats, loading: statsLoading, refetchStats } = useDashboardStats();
   const { profile: userProfile, error: profileError } = useUserProfile(user ?? null);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,12 +42,33 @@ const Index = () => {
     if (profileError) toast.error(`Could not load your profile: ${profileError}`);
   }, [profileError]);
 
-  // Redirect admin/employee users to the new admin portal
+  // Route each role to its proper landing portal.
+  // Keeps a unified entry point but enforces the rules in src/utils/portalAccess.ts.
   useEffect(() => {
-    if (!loading && admin && !referringAttorney) {
-      navigate("/admin", { replace: true });
+    if (loading) return;
+    if (admin && !referringAttorney) {
+      navigate('/admin', { replace: true });
+      return;
     }
-  }, [loading, admin, referringAttorney, navigate]);
+    if (userRole === 'employee') {
+      navigate('/admin', { replace: true });
+      return;
+    }
+    if (userRole === 'sales_consultant') {
+      navigate('/admin/appointments', { replace: true });
+      return;
+    }
+    if (userRole === 'medical_expert') {
+      navigate('/expert-portal', { replace: true });
+      return;
+    }
+    if (referringAttorney) {
+      navigate('/attorney-portal', { replace: true });
+      return;
+    }
+    // director / finance / user fall through to the generic dashboard below
+  }, [loading, admin, referringAttorney, userRole, navigate]);
+
 
   const handleRefresh = async () => {
     if (refreshing) return;
