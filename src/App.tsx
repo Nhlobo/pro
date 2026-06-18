@@ -171,7 +171,7 @@ const App = () => (
               <GlobalRefreshButton />
               <BrowserRouter>
               <ActivityTrackerMount />
-              <Suspense fallback={<RouteFallback />}>
+              <SessionGuardMount />
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />
