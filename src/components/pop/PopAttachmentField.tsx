@@ -42,7 +42,7 @@ export function PopAttachmentField({
     let active = true;
     (async () => {
       if (initialAttachmentId) {
-        const { data } = await supabase
+        const { data } = await (supabase as any)
           .from("payment_pop_attachments")
           .select("*")
           .eq("id", initialAttachmentId)
