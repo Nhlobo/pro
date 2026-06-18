@@ -25,7 +25,6 @@ import ExpertPortalLayout from "./components/portal/ExpertPortalLayout";
 // Lazy-loaded pages — each becomes its own chunk, downloaded only when the route is visited
 const Index = lazy(() => import("./pages/Index"));
 const Health = lazy(() => import("./pages/Health"));
-const Trust = lazy(() => import("./pages/Trust"));
 const ApiDocs = lazy(() => import("./pages/ApiDocs"));
 const EmailConfirmation = lazy(() => import("./pages/EmailConfirmation"));
 const ReferringAttorneyForm = lazy(() => import("./pages/ReferringAttorneyForm"));
@@ -175,7 +174,6 @@ const App = () => (
                 <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
                 <Route path="/Expertzone/case-access" element={<ExpertCaseAccess />} />
                 <Route path="/contact-us" element={<ContactUs />} />
-                <Route path="/trust" element={<Trust />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 
                 {/* ============ ADMIN PORTAL ============ */}

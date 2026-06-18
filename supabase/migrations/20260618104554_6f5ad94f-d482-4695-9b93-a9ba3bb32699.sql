@@ -1,1 +1,0 @@
-UPDATE public.profiles SET first_name='Test' WHERE id='e65179d4-b784-4251-97a2-65df84a93e7e' AND first_name='PWNED';
