@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_activations: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agreement_annexures: {
         Row: {
           agreement_id: string
@@ -1045,6 +1075,81 @@ export type Database = {
           user_agent?: string | null
           user_email?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      auth_audit_log: {
+        Row: {
+          browser: string | null
+          created_at: string
+          device: string | null
+          event_type: string
+          id: string
+          ip: string | null
+          metadata: Json
+          os: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          browser?: string | null
+          created_at?: string
+          device?: string | null
+          event_type: string
+          id?: string
+          ip?: string | null
+          metadata?: Json
+          os?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          browser?: string | null
+          created_at?: string
+          device?: string | null
+          event_type?: string
+          id?: string
+          ip?: string | null
+          metadata?: Json
+          os?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      auth_otp_codes: {
+        Row: {
+          attempts: number
+          code_hash: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          purpose: string
+          resend_count: number
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          purpose: string
+          resend_count?: number
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          purpose?: string
+          resend_count?: number
+          user_id?: string
         }
         Relationships: []
       }
@@ -3149,6 +3254,33 @@ export type Database = {
         }
         Relationships: []
       }
+      password_reset_tokens: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       payment_report_allocations: {
         Row: {
           appointment_id: string | null
@@ -3300,41 +3432,62 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_status: string
           created_at: string
+          current_session_id: string | null
           email: string | null
           expert_id: string | null
+          failed_login_count: number
           first_name: string | null
+          force_security_setup: boolean
           id: string
+          last_failed_login_at: string | null
           last_name: string | null
+          locked_until: string | null
           position: string | null
           referring_attorney_id: string | null
           role: string | null
+          security_setup_completed_at: string | null
           updated_at: string
           user_type: string | null
         }
         Insert: {
+          account_status?: string
           created_at?: string
+          current_session_id?: string | null
           email?: string | null
           expert_id?: string | null
+          failed_login_count?: number
           first_name?: string | null
+          force_security_setup?: boolean
           id: string
+          last_failed_login_at?: string | null
           last_name?: string | null
+          locked_until?: string | null
           position?: string | null
           referring_attorney_id?: string | null
           role?: string | null
+          security_setup_completed_at?: string | null
           updated_at?: string
           user_type?: string | null
         }
         Update: {
+          account_status?: string
           created_at?: string
+          current_session_id?: string | null
           email?: string | null
           expert_id?: string | null
+          failed_login_count?: number
           first_name?: string | null
+          force_security_setup?: boolean
           id?: string
+          last_failed_login_at?: string | null
           last_name?: string | null
+          locked_until?: string | null
           position?: string | null
           referring_attorney_id?: string | null
           role?: string | null
+          security_setup_completed_at?: string | null
           updated_at?: string
           user_type?: string | null
         }
@@ -5153,6 +5306,19 @@ export type Database = {
             }
             Returns: string
           }
+      log_auth_event: {
+        Args: {
+          _browser?: string
+          _device?: string
+          _event_type: string
+          _ip?: string
+          _metadata?: Json
+          _os?: string
+          _user_agent?: string
+          _user_id: string
+        }
+        Returns: string
+      }
       log_case_access: {
         Args: {
           p_description?: string
