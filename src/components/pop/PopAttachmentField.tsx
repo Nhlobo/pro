@@ -14,6 +14,7 @@ interface PopAttachmentFieldProps {
   paymentReference?: string;
   onPaymentReferenceChange?: (value: string) => void;
   onUploaded?: (attachment: PopAttachment) => void;
+  onStagedFileChange?: (file: File | null) => void; // used when recordId not yet known
   showReferenceInput?: boolean;
   required?: boolean; // if true, shows red "Missing POP"
   className?: string;
