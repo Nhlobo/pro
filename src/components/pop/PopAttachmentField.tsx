@@ -63,24 +63,9 @@ export function PopAttachmentField({
     e.target.value = "";
     if (!file) return;
     if (!recordId) {
-      // Parent hasn't created the record yet; bubble the file up via temp object
-      onUploaded?.({
-        id: "pending",
-        record_type: recordType,
-        record_id: "",
-        payment_reference: paymentReference ?? "",
-        sageone_transaction_id: null,
-        file_path: "",
-        file_name: file.name,
-        file_size_bytes: file.size,
-        mime_type: file.type,
-        uploaded_by: null,
-        uploaded_at: new Date().toISOString(),
-        notes: null,
-      });
-      // Store the actual File on a dataset-like ref via a custom event so parent can grab it
-      const ev = new CustomEvent("pop-file-staged", { detail: { file, recordType } });
-      window.dispatchEvent(ev);
+      // Stage the file; parent will upload after creating the record
+      setStagedFile(file);
+      onStagedFileChange?.(file);
       return;
     }
     const uploaded = await uploadPop({
