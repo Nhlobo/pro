@@ -975,7 +975,7 @@ const UserManagement: React.FC = () => {
                   Add New User
                 </DialogTitle>
                 <DialogDescription>
-                  Create a new user account with email, password, and permissions
+                  Create a new user account. They'll receive an activation email to set their own password and complete security setup.
                 </DialogDescription>
               </DialogHeader>
 
