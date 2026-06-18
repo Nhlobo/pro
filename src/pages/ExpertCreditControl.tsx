@@ -523,6 +523,8 @@ const ExpertCreditControl = () => {
     setExistingPopUrl(payment.pop_url || null);
     setExistingPopFileName(payment.pop_file_name || null);
     setPopFile(null);
+    setPaymentReference(payment.payment_reference || "");
+    setSageoneTransactionId(payment.sageone_transaction_id || "");
     setShowPaymentDialog(true);
   };
 
