@@ -1014,35 +1014,9 @@ const UserManagement: React.FC = () => {
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="password">Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Minimum 8 characters"
-                        value={newUserForm.password}
-                        onChange={(e) => setNewUserForm(prev => ({ ...prev, password: e.target.value }))}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                    {newUserForm.password && newUserForm.password.length < 8 && (
-                      <p className="text-sm text-destructive mt-1">
-                        Password must be at least 8 characters long
-                      </p>
-                    )}
+                  <div className="rounded-md border border-dashed bg-muted/30 p-3 text-sm text-muted-foreground">
+                    <strong className="text-foreground">Passwordless creation:</strong> the new user receives an
+                    activation email and chooses their own password during security setup. The link expires in 24 hours.
                   </div>
 
                   <div>
