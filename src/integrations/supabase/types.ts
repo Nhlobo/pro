@@ -342,9 +342,12 @@ export type Database = {
           payment_amount: number
           payment_date: string
           payment_notes: string | null
+          payment_reference: string | null
           payment_type: string
+          pop_attachment_id: string | null
           recorded_by: string | null
           reports_taken_out: number | null
+          sageone_transaction_id: string | null
           updated_at: string
         }
         Insert: {
@@ -354,9 +357,12 @@ export type Database = {
           payment_amount: number
           payment_date: string
           payment_notes?: string | null
+          payment_reference?: string | null
           payment_type: string
+          pop_attachment_id?: string | null
           recorded_by?: string | null
           reports_taken_out?: number | null
+          sageone_transaction_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -366,9 +372,12 @@ export type Database = {
           payment_amount?: number
           payment_date?: string
           payment_notes?: string | null
+          payment_reference?: string | null
           payment_type?: string
+          pop_attachment_id?: string | null
           recorded_by?: string | null
           reports_taken_out?: number | null
+          sageone_transaction_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -377,6 +386,13 @@ export type Database = {
             columns: ["aod_document_id"]
             isOneToOne: false
             referencedRelation: "aod_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aod_payments_pop_attachment_id_fkey"
+            columns: ["pop_attachment_id"]
+            isOneToOne: false
+            referencedRelation: "payment_pop_attachments"
             referencedColumns: ["id"]
           },
         ]
@@ -553,6 +569,8 @@ export type Database = {
           id: string
           is_minor: boolean
           matter_type: string
+          payment_reference: string | null
+          pop_attachment_id: string | null
           preferred_date_type: string
           processed_at: string | null
           processed_by: string | null
@@ -560,6 +578,7 @@ export type Database = {
           referring_attorney_id: string
           referring_attorney_name: string
           requested_by: string
+          sageone_transaction_id: string | null
           special_requests: string[] | null
           status: string
           suggested_date: string | null
@@ -580,6 +599,8 @@ export type Database = {
           id?: string
           is_minor?: boolean
           matter_type: string
+          payment_reference?: string | null
+          pop_attachment_id?: string | null
           preferred_date_type: string
           processed_at?: string | null
           processed_by?: string | null
@@ -587,6 +608,7 @@ export type Database = {
           referring_attorney_id: string
           referring_attorney_name: string
           requested_by: string
+          sageone_transaction_id?: string | null
           special_requests?: string[] | null
           status?: string
           suggested_date?: string | null
@@ -607,6 +629,8 @@ export type Database = {
           id?: string
           is_minor?: boolean
           matter_type?: string
+          payment_reference?: string | null
+          pop_attachment_id?: string | null
           preferred_date_type?: string
           processed_at?: string | null
           processed_by?: string | null
@@ -614,6 +638,7 @@ export type Database = {
           referring_attorney_id?: string
           referring_attorney_name?: string
           requested_by?: string
+          sageone_transaction_id?: string | null
           special_requests?: string[] | null
           status?: string
           suggested_date?: string | null
@@ -622,6 +647,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "appointment_requests_pop_attachment_id_fkey"
+            columns: ["pop_attachment_id"]
+            isOneToOne: false
+            referencedRelation: "payment_pop_attachments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appointment_requests_synced_appointment_id_fkey"
             columns: ["synced_appointment_id"]
@@ -2558,9 +2590,12 @@ export type Database = {
           payment_amount: number
           payment_date: string
           payment_notes: string | null
+          payment_reference: string | null
+          pop_attachment_id: string | null
           pop_file_name: string | null
           pop_url: string | null
           recorded_by: string | null
+          sageone_transaction_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2571,9 +2606,12 @@ export type Database = {
           payment_amount: number
           payment_date?: string
           payment_notes?: string | null
+          payment_reference?: string | null
+          pop_attachment_id?: string | null
           pop_file_name?: string | null
           pop_url?: string | null
           recorded_by?: string | null
+          sageone_transaction_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2584,9 +2622,12 @@ export type Database = {
           payment_amount?: number
           payment_date?: string
           payment_notes?: string | null
+          payment_reference?: string | null
+          pop_attachment_id?: string | null
           pop_file_name?: string | null
           pop_url?: string | null
           recorded_by?: string | null
+          sageone_transaction_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2609,6 +2650,13 @@ export type Database = {
             columns: ["expert_id"]
             isOneToOne: false
             referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_payments_pop_attachment_id_fkey"
+            columns: ["pop_attachment_id"]
+            isOneToOne: false
+            referencedRelation: "payment_pop_attachments"
             referencedColumns: ["id"]
           },
         ]
@@ -3457,6 +3505,65 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      payment_pop_attachments: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          file_path: string
+          file_size_bytes: number | null
+          id: string
+          mime_type: string | null
+          notes: string | null
+          payment_reference: string
+          record_id: string
+          record_type: string
+          sageone_transaction_id: string | null
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          file_path: string
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          payment_reference: string
+          record_id: string
+          record_type: string
+          sageone_transaction_id?: string | null
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          file_path?: string
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          payment_reference?: string
+          record_id?: string
+          record_type?: string
+          sageone_transaction_id?: string | null
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_pop_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_report_allocations: {
         Row: {
