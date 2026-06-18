@@ -58,19 +58,10 @@ const UserManagement: React.FC = () => {
   });
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
-  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
-  const [userToChangePassword, setUserToChangePassword] = useState<UserProfile | null>(null);
   const [showEmailConfigAlert, setShowEmailConfigAlert] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [displayPassword, setDisplayPassword] = useState<string>("");
-  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [passwordAction, setPasswordAction] = useState<string>("");
-  const [createdUserSummary, setCreatedUserSummary] = useState<{ firstName: string; lastName: string; email: string; position: string; userType: string } | null>(null);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [userToEditProfile, setUserToEditProfile] = useState<UserProfile | null>(null);
   
