@@ -27,6 +27,7 @@ export function PopAttachmentField({
   paymentReference,
   onPaymentReferenceChange,
   onUploaded,
+  onStagedFileChange,
   showReferenceInput = true,
   required = false,
   className,
@@ -34,6 +35,7 @@ export function PopAttachmentField({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploading, uploadPop, getSignedUrl, fetchByRecord } = usePopAttachment();
   const [attachment, setAttachment] = useState<PopAttachment | null>(null);
+  const [stagedFile, setStagedFile] = useState<File | null>(null);
 
   // Load existing attachment by id or by record
   useEffect(() => {
