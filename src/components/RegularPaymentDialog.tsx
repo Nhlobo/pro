@@ -329,6 +329,11 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       toast.error('Enter a payment amount');
       return;
     }
+    // POP enforcement (only when actual money is being captured)
+    if (!statusOnly && popRequired && !stagedPopFile) {
+      toast.error('Proof of Payment is required by system policy. Please attach a POP file before submitting.');
+      return;
+    }
     // NOTE: reportsCount === 0 in 'both' mode is allowed — the payment is
     // recorded/synced now and reports can be marked taken out later when
     // files are released.
@@ -355,9 +360,26 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
           payment_date: paymentDate,
           reports_taken_out: reportsCount,
           payment_notes: notes || `Regular payment: ${reportsCount} report(s) taken out`,
-        }).select('id').single();
+          payment_reference: paymentReference?.trim() || null,
+        } as any).select('id').single();
         if (error) throw error;
         paymentId = inserted.id;
+
+        // Upload staged POP and link to the new aod_payment row
+        if (stagedPopFile) {
+          const uploaded = await uploadPop({
+            record_type: 'aod_payment',
+            record_id: paymentId,
+            file: stagedPopFile,
+            payment_reference: paymentReference?.trim() || undefined,
+          });
+          if (uploaded) {
+            await (supabase as any)
+              .from('aod_payments')
+              .update({ pop_attachment_id: uploaded.id, payment_reference: uploaded.payment_reference })
+              .eq('id', paymentId);
+          }
+        }
       } else {
         paymentId = crypto.randomUUID();
       }
