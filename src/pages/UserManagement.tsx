@@ -958,6 +958,7 @@ const UserManagement: React.FC = () => {
                            user.user_type === 'referring_attorney' ? 'Attorney' : 
                            user.role || 'user'}
                          </Badge>
+                        <AccountStatusBadge user={user} />
                         
                         <div className="flex gap-2">
                           <Button 
@@ -975,6 +976,7 @@ const UserManagement: React.FC = () => {
                           >
                             Edit Profile
                           </Button>
+                          <AdminUserActionsMenu user={user} onChanged={fetchUsers} />
                         </div>
                       </div>
                     </div>
