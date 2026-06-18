@@ -393,7 +393,7 @@ const ExpertCreditControl = () => {
 
     try {
       const amount = parseFloat(paymentAmount);
-      
+
       if (isNaN(amount) || amount <= 0) {
         toast.error("Invalid payment amount");
         return;
@@ -405,39 +405,22 @@ const ExpertCreditControl = () => {
         return;
       }
 
-      let popUrl = existingPopUrl;
-      let popFileName = existingPopFileName;
-
-      // Upload POP file if provided
-      if (popFile) {
-        setUploadingPop(true);
-        const fileExt = popFile.name.split('.').pop();
-        const fileName = `${selectedExpertId}/${selectedAppointmentId}/${Date.now()}.${fileExt}`;
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('expert-pop-documents')
-          .upload(fileName, popFile);
-
-        if (uploadError) {
-          setUploadingPop(false);
-          throw new Error(`Failed to upload POP: ${uploadError.message}`);
-        }
-
-        popUrl = uploadData.path;
-        popFileName = popFile.name;
-        setUploadingPop(false);
+      // Enforce POP requirement (system-wide setting)
+      const hasPop = !!stagedPopFile || !!existingAttachmentId;
+      if (popRequired && !hasPop) {
+        toast.error("Proof of Payment is required by system policy. Please attach a POP before submitting.");
+        return;
       }
 
+      let recordId = editingPaymentId;
+
       if (editingPaymentId) {
-        // Update existing payment
         const { error: updateError } = await supabase
           .from("expert_payments")
           .update({
             payment_amount: amount,
             payment_date: paymentDate || new Date().toISOString(),
             payment_notes: paymentNotes || null,
-            pop_url: popUrl,
-            pop_file_name: popFileName,
             payment_reference: paymentReference?.trim() || null,
             sageone_transaction_id: sageoneTransactionId?.trim() || null,
           } as any)
@@ -445,25 +428,20 @@ const ExpertCreditControl = () => {
 
         if (updateError) throw updateError;
 
-        // Log to audit trail
         await supabase.rpc('log_audit_trail', {
           p_table_name: 'expert_payments',
           p_record_id: editingPaymentId,
           p_action_type: 'UPDATE',
           p_function_area: 'expert_payment',
-          p_new_values: { 
+          p_new_values: {
             payment_amount: amount,
             payment_date: paymentDate || new Date().toISOString(),
             payment_notes: paymentNotes,
-            pop_file_name: popFileName,
           },
           p_description: `Payment updated to R${amount} for expert ${selectedExpertId}`,
         });
-
-        toast.success("Payment updated successfully");
       } else {
-        // Insert new payment
-        const { error: insertError } = await supabase
+        const { data: inserted, error: insertError } = await supabase
           .from("expert_payments")
           .insert({
             appointment_id: selectedAppointmentId,
@@ -472,32 +450,50 @@ const ExpertCreditControl = () => {
             payment_date: paymentDate || new Date().toISOString(),
             payment_notes: paymentNotes || null,
             recorded_by: user.id,
-            pop_url: popUrl,
-            pop_file_name: popFileName,
             payment_reference: paymentReference?.trim() || null,
             sageone_transaction_id: sageoneTransactionId?.trim() || null,
-          } as any);
+          } as any)
+          .select('id')
+          .single();
 
         if (insertError) throw insertError;
+        recordId = inserted.id;
 
-        // Log to audit trail
         await supabase.rpc('log_audit_trail', {
           p_table_name: 'expert_payments',
-          p_record_id: selectedAppointmentId,
+          p_record_id: recordId,
           p_action_type: 'INSERT',
           p_function_area: 'expert_payment',
-          p_new_values: { 
+          p_new_values: {
             payment_amount: amount,
             payment_date: paymentDate || new Date().toISOString(),
             payment_notes: paymentNotes,
-            pop_file_name: popFileName,
             payment_reference: paymentReference,
           },
           p_description: `Payment of R${amount} recorded for expert ${selectedExpertId}`,
         });
-
-        toast.success("Payment recorded successfully");
       }
+
+      // Upload staged POP via unified system and link
+      if (stagedPopFile && recordId) {
+        const uploaded = await uploadPop({
+          record_type: 'expert_payment',
+          record_id: recordId,
+          file: stagedPopFile,
+          payment_reference: paymentReference?.trim() || undefined,
+        });
+        if (uploaded) {
+          await (supabase as any)
+            .from('expert_payments')
+            .update({
+              pop_attachment_id: uploaded.id,
+              payment_reference: uploaded.payment_reference,
+            })
+            .eq('id', recordId);
+        }
+      }
+
+      toast.success(editingPaymentId ? "Payment updated successfully" : "Payment recorded successfully");
 
       setShowPaymentDialog(false);
       setPaymentAmount("");
@@ -506,9 +502,8 @@ const ExpertCreditControl = () => {
       setSelectedAppointmentId(null);
       setSelectedExpertId(null);
       setEditingPaymentId(null);
-      setPopFile(null);
-      setExistingPopUrl(null);
-      setExistingPopFileName(null);
+      setStagedPopFile(null);
+      setExistingAttachmentId(null);
       setPaymentReference("");
       setSageoneTransactionId("");
       fetchExpertPaymentData();
@@ -525,50 +520,18 @@ const ExpertCreditControl = () => {
     setPaymentAmount(payment.amount.toString());
     setPaymentDate(payment.date);
     setPaymentNotes(payment.notes || "");
-    setExistingPopUrl(payment.pop_url || null);
-    setExistingPopFileName(payment.pop_file_name || null);
-    setPopFile(null);
+    setExistingAttachmentId(payment.pop_attachment_id || null);
+    setStagedPopFile(null);
     setPaymentReference(payment.payment_reference || "");
     setSageoneTransactionId(payment.sageone_transaction_id || "");
     setShowPaymentDialog(true);
   };
 
-  const handleViewPop = async (popUrl: string, popFileName: string) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('expert-pop-documents')
-        .createSignedUrl(popUrl, 604800); // 7-day expiry — lets the browser/CDN cache the file
-
-      if (error) throw error;
-
-      window.open(data.signedUrl, '_blank');
-    } catch (error: any) {
-      console.error("Error viewing POP:", error);
-      toast.error("Failed to view proof of payment");
-    }
+  const handleViewAttachment = async (attachmentId: string) => {
+    const url = await getSignedUrl(attachmentId);
+    if (url) window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const handleDownloadPop = async (popUrl: string, popFileName: string) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from('expert-pop-documents')
-        .download(popUrl);
-
-      if (error) throw error;
-
-      const url = URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = popFileName || 'proof-of-payment';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error: any) {
-      console.error("Error downloading POP:", error);
-      toast.error("Failed to download proof of payment");
-    }
-  };
 
   const handleDeletePayment = async (paymentId: string, expertId: string) => {
     if (!confirm("Are you sure you want to delete this payment record? This action cannot be undone.")) {
