@@ -93,7 +93,7 @@ export function usePopAttachment() {
 
   const fetchByRecord = useCallback(
     async (record_type: PopRecordType, record_id: string): Promise<PopAttachment | null> => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("payment_pop_attachments")
         .select("*")
         .eq("record_type", record_type)
