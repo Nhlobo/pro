@@ -82,7 +82,6 @@ const UserManagement: React.FC = () => {
   // Add user form state
   const [newUserForm, setNewUserForm] = useState({
     email: '',
-    password: '',
     firstName: '',
     lastName: '',
     role: 'employee' as string,
