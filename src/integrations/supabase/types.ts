@@ -4750,7 +4750,6 @@ export type Database = {
       }
       generate_attorney_access_code: { Args: never; Returns: string }
       generate_expert_access_code: { Args: never; Returns: string }
-      get_app_roles: { Args: never; Returns: string[] }
       get_claimant_secure: {
         Args: { claimant_id: string }
         Returns: {
@@ -5099,7 +5098,6 @@ export type Database = {
         Args: { _position: string; _user_type?: string }
         Returns: boolean
       }
-      is_strict_admin: { Args: never; Returns: boolean }
       is_system_admin: { Args: never; Returns: boolean }
       is_within_edit_window: {
         Args: { created_date: string }
