@@ -29,9 +29,6 @@ import { AddAttorneyDialog } from "@/components/AddAttorneyDialog";
 import { Plus } from "lucide-react";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
-import { PopAttachmentField } from "@/components/pop/PopAttachmentField";
-import { usePopAttachment } from "@/hooks/usePopAttachment";
-import { useSystemSettings } from "@/hooks/useSystemSettings";
 
 
 const formSchema = z.object({
@@ -122,15 +119,8 @@ const AppointmentRequest = () => {
   const [attorneys, setAttorneys] = React.useState<Array<{ id: string; name: string; email: string; code: string }>>([]);
   const [loadingAttorneys, setLoadingAttorneys] = React.useState(true);
   const [showAddAttorneyDialog, setShowAddAttorneyDialog] = React.useState(false);
-  const [paymentReference, setPaymentReference] = React.useState<string>("");
-  const [stagedPopFile, setStagedPopFile] = React.useState<File | null>(null);
-  const { uploadPop } = usePopAttachment();
-  const { getSetting } = useSystemSettings('payments');
-  const popRequiredSetting = getSetting('pop_required_on_submission');
-  const popRequired = (popRequiredSetting as unknown) === true || (popRequiredSetting as unknown) === 'true';
 
   const { draft, setDraft, clearDraft, lastSavedAt, saveStatus } = useFormDraft<typeof AR_FORM_DEFAULTS>('appointment-request-new', AR_FORM_DEFAULTS);
-  
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -305,14 +295,6 @@ const AppointmentRequest = () => {
   const watchPreferredDateType = form.watch("preferredDateType");
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (popRequired && !stagedPopFile) {
-      toast({
-        title: "Proof of Payment required",
-        description: "Please attach a POP before submitting this request.",
-        variant: "destructive",
-      });
-      return;
-    }
     setIsSubmitting(true);
     try {
       // Get current user info
@@ -361,28 +343,15 @@ const AppointmentRequest = () => {
         suggested_month: values.preferredDateType === "month" ? values.suggestedMonth : null,
         additional_notes: values.additionalNotes,
         status: 'pending',
-        payment_reference: paymentReference?.trim() || null,
       };
 
-      // Insert the appointment request and capture the id for POP linking
-      const { data: insertedRequest, error: insertError } = await supabase
+      // Insert the appointment request
+      const { error: insertError } = await supabase
         .from('appointment_requests')
-        .insert(requestData as any)
-        .select('id')
-        .single();
+        .insert(requestData);
 
       if (insertError) {
         throw new Error(insertError.message);
-      }
-
-      // Upload staged POP file (if any) and link to the new request
-      if (stagedPopFile && insertedRequest?.id) {
-        await uploadPop({
-          record_type: 'appointment_request',
-          record_id: insertedRequest.id,
-          file: stagedPopFile,
-          payment_reference: paymentReference?.trim() || undefined,
-        });
       }
 
       // Send email notification to info@kutlwanoassociate.com
@@ -401,8 +370,6 @@ const AppointmentRequest = () => {
       });
       clearDraft(); // Clear draft after successful submit
       form.reset(AR_FORM_DEFAULTS);
-      setStagedPopFile(null);
-      setPaymentReference("");
       navigate('/referring-attorney-list');
     } catch (error: any) {
       toast({
@@ -890,26 +857,8 @@ const AppointmentRequest = () => {
                   />
                 </div>
 
-                {/* Proof of Payment */}
-                <div className="space-y-2">
-                  <h3 className="text-lg font-semibold">Payment</h3>
-                  <PopAttachmentField
-                    recordType="appointment_request"
-                    paymentReference={paymentReference}
-                    onPaymentReferenceChange={setPaymentReference}
-                    onStagedFileChange={setStagedPopFile}
-                    required={popRequired}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {popRequired
-                      ? "A Proof of Payment is required to submit this request."
-                      : "Attaching a Proof of Payment is optional but helps speed up reconciliation."}
-                  </p>
-                </div>
-
                 {/* Submit Button */}
                 <div className="flex gap-4 pt-6">
-
                   <Button type="submit" disabled={isSubmitting} className="flex-1">
                     <Send className="h-4 w-4 mr-2" />
                     {isSubmitting ? "Submitting Request..." : "Submit Appointment Request"}

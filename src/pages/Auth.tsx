@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,176 +6,292 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import consultationImage from '@/assets/consultation-image.png';
 import familyBackground from '@/assets/family-background.png';
-import { setSessionToken } from '@/lib/sessionToken';
-
-type Step = 'credentials' | 'otp';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [otp, setOtp] = useState('');
-  const [step, setStep] = useState<Step>('credentials');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    const check = async () => {
+    // Check if user is already logged in
+    const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) navigate('/');
+      if (session) {
+        navigate('/');
+      }
     };
-    check();
+    checkUser();
   }, [navigate]);
 
   const cleanupAuthState = () => {
+    // Clean up any existing auth state
     Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith('supabase.auth.') || key.includes('sb-')) localStorage.removeItem(key);
+      if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+        localStorage.removeItem(key);
+      }
     });
   };
 
-  const submitCredentials = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true); setError('');
+    setLoading(true);
+    setError('');
+
     try {
       cleanupAuthState();
-      const { data, error } = await supabase.functions.invoke('auth-request-login-otp', {
-        body: { email: email.trim(), password },
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
       });
-      if (error || !data?.success) {
-        setError((data?.error as string) || 'Invalid credentials');
+
+      if (error) {
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('invalid login credentials')) {
+          setError('Invalid email or password. Please check your credentials and try again.');
+        } else if (msg.includes('confirm')) {
+          // Redirect to email confirmation flow
+          localStorage.setItem('pendingConfirmationEmail', email.trim());
+          navigate(`/email-confirmation?email=${encodeURIComponent(email.trim())}`);
+        } else {
+          setError(error.message);
+        }
         return;
       }
-      setStep('otp');
-      toast({ title: 'Verification code sent', description: 'Check your email for a 6-digit code.' });
-    } catch {
-      setError('Unexpected error. Please try again.');
-    } finally { setLoading(false); }
-  };
 
-  const submitOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true); setError('');
-    try {
-      const { data, error } = await supabase.functions.invoke('auth-verify-login-otp', {
-        body: { email: email.trim(), password, otp },
-      });
-      if (error || !data?.success) {
-        setError((data?.error as string) || 'Invalid code');
-        return;
+      if (data.user) {
+        // Special handling for primary administrator
+        if (data.user.email === 'boshomane@kutlwanoassociate.com') {
+          toast({ 
+            title: "Welcome back, Mr. Boshomane!", 
+            description: 'You have full administrative access to the system.' 
+          });
+          window.location.href = '/';
+          return;
+        }
+
+        // Get user profile to check role and user_type
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role, user_type, first_name, last_name, position')
+          .eq('id', data.user.id)
+          .single();
+
+        // Check if user has valid profile and access
+        if (profile) {
+          const userType = profile.user_type || 'user';
+          const role = profile.role || 'user';
+          const userName = profile.first_name ? 
+            `${profile.first_name}${profile.last_name ? ' ' + profile.last_name : ''}` : 
+            data.user.email?.split('@')[0];
+
+          // Also check user_roles table for the authoritative role
+          const { data: userRoleData } = await supabase
+            .rpc('get_current_user_role');
+          const secureRole = userRoleData || role;
+
+          // Allow access based on user type, profile role, or secure user_roles role
+          const validRoles = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert'];
+          const validUserTypes = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert'];
+          
+          const hasValidRole = validRoles.includes(secureRole) || validRoles.includes(role);
+          const hasValidUserType = validUserTypes.includes(userType);
+
+          if (hasValidRole || hasValidUserType) {
+            if (userType === 'admin' || secureRole === 'admin' || role === 'admin') {
+              toast({ 
+                title: `Welcome back, ${userName}!`, 
+                description: 'You have successfully signed in with admin privileges.' 
+              });
+            } else if (userType === 'employee' || secureRole === 'employee' || role === 'employee') {
+              const position = profile.position ? ` (${profile.position})` : '';
+              toast({ 
+                title: `Welcome back, ${userName}${position}!`, 
+                description: 'You have successfully signed in as an employee.' 
+              });
+            } else if (secureRole === 'sales_consultant' || userType === 'sales_consultant') {
+              const position = profile.position ? ` (${profile.position})` : '';
+              toast({ 
+                title: `Welcome back, ${userName}${position}!`, 
+                description: 'You have successfully signed in as a Sales Consultant.' 
+              });
+            } else if (userType === 'referring_attorney' || secureRole === 'referring_attorney' || role === 'referring_attorney') {
+              toast({ 
+                title: `Welcome back, ${userName}!`, 
+                description: 'You have successfully signed in. You can access your referring attorney data.' 
+              });
+            } else if (secureRole === 'medical_expert' || userType === 'medical_expert') {
+              toast({ 
+                title: `Welcome back, ${userName}!`, 
+                description: 'You have successfully signed in as a Medical Expert.' 
+              });
+            } else {
+              toast({ 
+                title: `Welcome back, ${userName}!`, 
+                description: 'You have successfully signed in.' 
+              });
+            }
+          } else {
+            // Block access for unknown user types with no valid role
+            await supabase.auth.signOut();
+            setError('Access not authorized. Please contact your administrator for assistance.');
+            return;
+          }
+
+          window.location.href = '/';
+        } else if (profileError) {
+          // If profile fetch fails, check if it's a system issue vs. user not found
+          console.error('Profile fetch error:', profileError);
+          await supabase.auth.signOut();
+          setError('Unable to verify account permissions. Please contact support.');
+          return;
+        } else {
+          await supabase.auth.signOut();
+          setError('Account not found or access not authorized. Please contact support.');
+          return;
+        }
       }
-      // Set the session into Supabase client.
-      const session = data.session as { access_token: string; refresh_token: string };
-      await supabase.auth.setSession({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-      });
-      setSessionToken(data.session_token);
-
-      if (!data.security_setup_completed || data.must_reset_password) {
-        navigate('/security-setup', { replace: true });
-      } else {
-        window.location.href = '/';
-      }
-    } catch {
-      setError('Unexpected error. Please try again.');
-    } finally { setLoading(false); }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const resendOtp = async () => {
-    setLoading(true);
-    try {
-      await supabase.functions.invoke('auth-resend-otp', { body: { email: email.trim() } });
-      toast({ title: 'Code resent' });
-    } finally { setLoading(false); }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-kutlwano-blue/8 via-background to-kutlwano-teal/6 flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute inset-0 bg-cover bg-center opacity-10" style={{ backgroundImage: `url(${familyBackground})` }} />
-      <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 to-kutlwano-teal/5" />
-
+      {/* Family Background Image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center opacity-10"
+        style={{ backgroundImage: `url(${familyBackground})` }}
+      ></div>
+      
+      {/* Background decoration */}
+      <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 to-kutlwano-teal/5"></div>
+      <div className="absolute top-0 left-0 w-96 h-96 bg-kutlwano-blue/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+      <div className="absolute bottom-0 right-0 w-96 h-96 bg-kutlwano-teal/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
+      
+      {/* Decorative geometric elements */}
+      <div className="absolute top-20 right-20 w-32 h-32 border-2 border-kutlwano-blue/20 rounded-lg rotate-45 animate-[spin_20s_linear_infinite]"></div>
+      <div className="absolute bottom-32 left-20 w-24 h-24 border-2 border-kutlwano-teal/20 rounded-full animate-pulse"></div>
+      <div className="absolute top-1/2 right-10 w-16 h-16 bg-white/5 backdrop-blur-sm rounded-full"></div>
+      <div className="absolute bottom-20 right-1/3 w-20 h-20 border border-white/10 rounded-lg rotate-12"></div>
+      
       <Helmet>
-        <title>Sign In - Medico-Legal Pro</title>
-        <meta name="description" content="Sign in securely to the Medico-Legal Pro portal." />
+        <title>Sign In - Medico-Legal Assessment System</title>
+        <meta name="description" content="Sign in to access the medico-legal assessment system and manage medical expert directories." />
       </Helmet>
 
       <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 items-center relative z-10">
+        {/* Animated Illustration Section */}
         <div className="hidden lg:flex flex-col items-center justify-center space-y-6 animate-fade-in">
           <div className="relative group">
-            <img src={consultationImage} alt="Professional Consultation" className="w-full h-auto rounded-2xl shadow-2xl" />
+            <img 
+              src={consultationImage} 
+              alt="Professional Consultation" 
+              className="w-full h-auto rounded-2xl shadow-2xl transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-kutlwano-blue/20 to-transparent rounded-2xl"></div>
+            {/* Decorative frame corners */}
+            <div className="absolute -top-2 -left-2 w-8 h-8 border-t-2 border-l-2 border-kutlwano-blue"></div>
+            <div className="absolute -top-2 -right-2 w-8 h-8 border-t-2 border-r-2 border-kutlwano-teal"></div>
+            <div className="absolute -bottom-2 -left-2 w-8 h-8 border-b-2 border-l-2 border-kutlwano-teal"></div>
+            <div className="absolute -bottom-2 -right-2 w-8 h-8 border-b-2 border-r-2 border-kutlwano-blue"></div>
           </div>
-          <div className="text-center space-y-2">
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal bg-clip-text text-transparent">We touch a file</h2>
-            <p className="text-4xl font-bold text-foreground">We change lives.</p>
+          <div className="text-center space-y-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
+            <h2 className="text-3xl font-bold bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal bg-clip-text text-transparent">
+              We touch a file
+            </h2>
+            <p className="text-4xl font-bold text-foreground">
+              We change lives.
+            </p>
           </div>
         </div>
 
-        <Card className="w-full backdrop-blur-sm bg-card/95 border-kutlwano-blue/20 shadow-2xl animate-scale-in">
-          <CardHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" className="h-12 w-12" />
-            </div>
-            <CardTitle className="text-2xl">{step === 'credentials' ? 'Welcome Back' : 'Verify your identity'}</CardTitle>
-            <CardDescription>
-              {step === 'credentials'
-                ? 'Sign in to access your Medico-Legal Pro portal'
-                : 'Enter the 6-digit code we just emailed you.'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {step === 'credentials' ? (
-              <form onSubmit={submitCredentials} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="your@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                </div>
-                {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Continue
-                </Button>
-                <div className="text-center">
-                  <button type="button" className="text-sm text-primary underline" onClick={() => navigate('/forgot-password')}>
-                    Forgot password?
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={submitOtp} className="space-y-4">
-                <p className="text-sm flex items-center gap-2 text-muted-foreground"><Mail className="h-4 w-4" /> Code sent to {email}</p>
-                <div className="space-y-2">
-                  <Label htmlFor="otp">Verification code</Label>
-                  <Input id="otp" inputMode="numeric" maxLength={6} value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} required />
-                </div>
-                {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-                <Button type="submit" className="w-full" disabled={loading || otp.length !== 6}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Verify & sign in
-                </Button>
-                <div className="flex justify-between text-sm">
-                  <button type="button" className="text-primary underline" onClick={resendOtp} disabled={loading}>Resend code</button>
-                  <button type="button" className="text-muted-foreground underline" onClick={() => { setStep('credentials'); setOtp(''); setError(''); }}>
-                    Use different account
-                  </button>
-                </div>
-              </form>
-            )}
-
-            <div className="mt-6 pt-4 border-t text-center text-sm text-muted-foreground">
-              <p>For assistance, please contact support</p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Login Card */}
+        <Card className="w-full backdrop-blur-sm bg-card/95 border-kutlwano-blue/20 shadow-2xl shadow-kutlwano-blue/10 animate-scale-in">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" className="h-12 w-12" />
+          </div>
+          <CardTitle className="text-2xl">Welcome Back</CardTitle>
+          <CardDescription>
+            Sign in to access your Medico-Legal Service portal
+          </CardDescription>
+          
+          {/* Mobile tagline */}
+          <div className="lg:hidden mt-4 space-y-1">
+            <p className="text-sm font-semibold text-kutlwano-blue">We touch a file</p>
+            <p className="text-lg font-bold text-foreground">We change lives.</p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="w-full">
+            
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Sign In
+              </Button>
+            </form>
+          </div>
+          
+          <div className="mt-6 pt-4 border-t text-center text-sm text-muted-foreground">
+            <p>For assistance, please contact support</p>
+          </div>
+        </CardContent>
+      </Card>
       </div>
+      
+      <style>{`
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-20px);
+          }
+        }
+      `}</style>
     </div>
   );
 };

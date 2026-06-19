@@ -1,83 +1,71 @@
-## Goal
+## Activity Time Tracking + Personal Activity Reports
 
-Add a unified Proof-of-Payment (POP) attachment + payment reference workflow across the three "attorney request" surfaces (Appointment Requests, AOD Payments, Expert Payments), with a SageOne placeholder field and a configurable required/optional toggle (default: optional).
+Extend the existing Sales Performance Reporting system so every logged-in user (sales consultants AND non-sales staff) gets a clean weekly + monthly email showing **where they spent their time** in the system, with their top activities ranked. Sales consultants get this merged into their existing performance report; everyone else gets a standalone "Your Activity" report.
 
-## Database (single migration)
+---
 
-Create a new generic table `public.payment_pop_attachments`:
+### 1. Time tracking (frontend)
 
-- `id uuid pk`
-- `record_type text` check in (`appointment_request`, `aod_payment`, `expert_payment`)
-- `record_id uuid not null` (loose FK — different parent tables)
-- `payment_reference text not null` (indexed)
-- `sageone_transaction_id text` (nullable, indexed, admin-editable)
-- `file_path text not null` (Supabase Storage path)
-- `file_name text`, `file_size_bytes int`, `mime_type text`
-- `uploaded_by uuid` (profiles.id, ON DELETE SET NULL)
-- `uploaded_at timestamptz default now()`
-- `notes text`
-- standard `created_at`, `updated_at` + trigger
+A lightweight `useActivityTracker` hook mounted once in `App.tsx`:
+- Listens for route changes (`useLocation`) and user interaction (mousemove / keydown / click) to detect "active" vs idle.
+- Buffers heartbeats locally and flushes every 60s (and on `visibilitychange`/`beforeunload`) to a new `log_activity_time` RPC.
+- An activity name is derived from the route via a small `activityLabels.ts` map (e.g. `/admin/aod-payment-tracking` → "AOD Payment Tracking", `/expert-portal/...` → "Expert Portal"). Unknown routes fall back to a humanised slug.
+- Idle threshold: 90s without interaction stops accumulating until next interaction. Tab hidden = paused.
 
-Add columns to existing tables:
-- `appointment_requests.payment_reference text`, `pop_attachment_id uuid`, `sageone_transaction_id text`
-- `aod_payments.payment_reference text` (if not present), `pop_attachment_id uuid`, `sageone_transaction_id text`
-- `expert_payments.payment_reference text`, `pop_attachment_id uuid`, `sageone_transaction_id text`
+This keeps tracking smart (no inflated time from idle tabs) and simple (one hook, one RPC).
 
-Auto-generate reference via trigger when null: `PAY-YYYYMM-<6-char-suffix>` (user can override on insert).
+### 2. Database (migration)
 
-RLS:
-- authenticated users can SELECT/INSERT POPs they uploaded or which belong to records they can already see (via existing policies on the parent tables — checked through `has_role('admin')` OR matching attorney via `user_attorney_links`).
-- only admins can edit `sageone_transaction_id`.
-- service_role full access.
+**Table `user_activity_time`** — append-only seconds-per-activity-per-day rows:
+- `user_id`, `activity_key` (e.g. `aod-payment-tracking`), `activity_label`, `day` (date), `seconds_spent` (int), `last_updated_at`.
+- Unique index on `(user_id, activity_key, day)` so the RPC upserts (adds seconds) instead of inserting duplicates.
+- RLS: users read their own rows; admins/managers read all; service role full.
 
-Audit trail: insert into `audit_logs` on POP upload/delete (admin visibility per POPIA memory).
+**RPC `log_activity_time(_activity_key, _activity_label, _seconds)`**
+- Upserts into `user_activity_time` for `auth.uid()` + `current_date` (SAST), incrementing `seconds_spent`. SECURITY DEFINER.
 
-## Storage
+**RPC `get_user_activity_summary(_user_id, _start, _end)`**
+- Returns ranked rows: `activity_label`, `total_seconds`, `pct_of_total`, plus overall totals (total seconds, active days, top activity). Used by the edge function and admin preview.
 
-New private bucket `payment-pops`. RLS on `storage.objects`:
-- authenticated can INSERT into their own scoped path `{record_type}/{record_id}/...`
-- SELECT allowed for admins and for the uploading user; attorneys see only POPs on records they can access.
-- 10 MB cap enforced client-side; allowed MIME: `application/pdf`, `image/jpeg`, `image/png`.
+### 3. Edge function — extend existing `send-sales-performance-report`
 
-## System Setting
+- For each recipient, call `get_user_activity_summary` for the period.
+- Add a new **"Where you spent your time"** section to the report HTML:
+  - Top 5 activities with a clean horizontal bar (% of total) + formatted duration (`2h 14m`).
+  - Headline stat: total active hours + most-used activity ("Most of your time went to *Report Management* — 8h 42m, 41% of your week").
+  - Smart auto-comment: if 1 activity > 60% → "Heavy focus on X"; if top activity changed from previous period → "Shift from X → Y"; if total active time dropped >30% → gentle nudge.
+- Expand the recipient pool: today the function iterates `sales_consultants`. New behaviour — also iterate `profiles` for all active users whose `user_id` has any activity in the period and who are **not** already covered as sales consultants. Non-sales users receive a slimmer report (no deals/strikes/targets) — just the activity section + a friendly greeting.
+- Reuses existing `sendEmail` helper, queue, retry, and `sales_performance_reports` history row (new column `report_kind` = `sales` | `activity_only`).
 
-Add row to `system_settings`: key `pop_required_on_submission` = `false` (default optional). Surfaced in `AdminSystemControl` as a toggle.
+### 4. Cron — unchanged schedules, broader audience
 
-## Edge functions
+Existing Monday 09:00 SAST + month-end 18:00 SAST cron jobs already call the function. No new schedule needed; the function itself now covers all users.
 
-- `upload-pop-attachment` (verify_jwt=true): receives base64 file + metadata, validates mime/size, writes to storage, inserts `payment_pop_attachments` row, updates parent record's `pop_attachment_id` + `payment_reference`, writes audit log. Returns row id + signed-url helper.
-- `get-pop-signed-url`: returns a 5-minute signed download URL after permission check.
+### 5. Admin UI — extend `SalesPerformanceReports.tsx`
 
-(No SageOne integration logic — placeholder column only.)
+- Add filter chip: **Report kind** (All / Sales / Activity-only).
+- Preview dialog already renders HTML — works automatically for the new section.
+- New small "Top activities" column showing the user's #1 activity for the period.
 
-## Frontend
+### 6. Privacy & POPIA
 
-New shared component `src/components/pop/PopAttachmentField.tsx`:
-- "Attach POP" button → file picker (PDF/JPG/PNG, 10 MB)
-- Inline status badge: "POP Uploaded" (green) / "Missing POP" (amber) / "Not required" (muted) based on system setting
-- View + Download links (signed URL)
-- Payment reference input (auto-suggested, editable)
-- Admin-only SageOne Transaction ID field
+- Activity tracking is per-user only, no claimant/case content captured — just route + duration. Logged into existing `audit_logs` once at enablement.
+- Users can see their own report; only admins/managers see others (matches existing reporting RLS).
 
-New hook `src/hooks/usePopAttachment.tsx` for upload/fetch/delete.
+---
 
-Wire `PopAttachmentField` into:
-- `src/pages/AppointmentRequest.tsx` (submission form) + show status column in `AppointmentRequestDashboard.tsx`
-- AOD payment recording UI in `AODManagement.tsx`
-- Expert payment recording UI in `ExpertCreditControl.tsx` (already has POP concept per memory — extend to use the new unified table; keep backward compat by falling back to existing `expert_pop_attachments` memory pattern via dual read)
+### Files
 
-Submission validation:
-- Read `pop_required_on_submission` from `useSystemSettings`. If `true` and no POP attached → block submit with toast. If `false` → allow, show "Missing POP" badge.
+- `supabase/migrations/<ts>_user_activity_time.sql` — table, indexes, RLS, GRANTs, two RPCs, adds `report_kind` column to `sales_performance_reports`.
+- `src/hooks/useActivityTracker.tsx` — new hook.
+- `src/config/activityLabels.ts` — route → friendly label map.
+- `src/App.tsx` — mount the hook inside the authenticated layout.
+- `supabase/functions/send-sales-performance-report/index.ts` — add activity section, broaden recipients, write `report_kind`.
+- `src/lib/salesPerformanceEmailTemplate.ts` — add activity block renderer.
+- `src/pages/admin/SalesPerformanceReports.tsx` — kind filter + top-activity column.
 
-## Out of scope
+### Notes
 
-- Actual SageOne API calls (placeholder column only)
-- Migrating historical POPs already stored in `aod_documents` / expert POP fields (those remain readable; new uploads use unified table)
-- Auto-reconciliation logic
-
-## Technical details
-
-- Loose `record_id` (no FK) keeps one table serving three parents; integrity enforced at app layer + RLS.
-- Generated reference uses `to_char(now(),'YYYYMM') || '-' || substr(md5(random()::text),1,6)` in BEFORE INSERT trigger only when null.
-- Signed URLs (not public bucket) preserve POPIA compliance.
-- Realtime not enabled on the new table (no live dashboard need).
+- Keeps the feature **simple**: one hook, one table, one RPC for writes, one for reads, one edge function extended.
+- Keeps it **smart**: idle detection, tab-hidden pause, route-based labels, auto comments based on focus/shift/drop.
+- Backwards compatible — existing sales weekly/monthly reports keep working; non-sales users start receiving activity-only reports from the next scheduled run.

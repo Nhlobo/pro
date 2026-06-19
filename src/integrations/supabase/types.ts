@@ -14,36 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      account_activations: {
-        Row: {
-          consumed_at: string | null
-          created_at: string
-          created_by: string | null
-          expires_at: string
-          id: string
-          token_hash: string
-          user_id: string
-        }
-        Insert: {
-          consumed_at?: string | null
-          created_at?: string
-          created_by?: string | null
-          expires_at: string
-          id?: string
-          token_hash: string
-          user_id: string
-        }
-        Update: {
-          consumed_at?: string | null
-          created_at?: string
-          created_by?: string | null
-          expires_at?: string
-          id?: string
-          token_hash?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       agreement_annexures: {
         Row: {
           agreement_id: string
@@ -342,12 +312,9 @@ export type Database = {
           payment_amount: number
           payment_date: string
           payment_notes: string | null
-          payment_reference: string | null
           payment_type: string
-          pop_attachment_id: string | null
           recorded_by: string | null
           reports_taken_out: number | null
-          sageone_transaction_id: string | null
           updated_at: string
         }
         Insert: {
@@ -357,12 +324,9 @@ export type Database = {
           payment_amount: number
           payment_date: string
           payment_notes?: string | null
-          payment_reference?: string | null
           payment_type: string
-          pop_attachment_id?: string | null
           recorded_by?: string | null
           reports_taken_out?: number | null
-          sageone_transaction_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -372,12 +336,9 @@ export type Database = {
           payment_amount?: number
           payment_date?: string
           payment_notes?: string | null
-          payment_reference?: string | null
           payment_type?: string
-          pop_attachment_id?: string | null
           recorded_by?: string | null
           reports_taken_out?: number | null
-          sageone_transaction_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -386,13 +347,6 @@ export type Database = {
             columns: ["aod_document_id"]
             isOneToOne: false
             referencedRelation: "aod_documents"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "aod_payments_pop_attachment_id_fkey"
-            columns: ["pop_attachment_id"]
-            isOneToOne: false
-            referencedRelation: "payment_pop_attachments"
             referencedColumns: ["id"]
           },
         ]
@@ -569,8 +523,6 @@ export type Database = {
           id: string
           is_minor: boolean
           matter_type: string
-          payment_reference: string | null
-          pop_attachment_id: string | null
           preferred_date_type: string
           processed_at: string | null
           processed_by: string | null
@@ -578,7 +530,6 @@ export type Database = {
           referring_attorney_id: string
           referring_attorney_name: string
           requested_by: string
-          sageone_transaction_id: string | null
           special_requests: string[] | null
           status: string
           suggested_date: string | null
@@ -599,8 +550,6 @@ export type Database = {
           id?: string
           is_minor?: boolean
           matter_type: string
-          payment_reference?: string | null
-          pop_attachment_id?: string | null
           preferred_date_type: string
           processed_at?: string | null
           processed_by?: string | null
@@ -608,7 +557,6 @@ export type Database = {
           referring_attorney_id: string
           referring_attorney_name: string
           requested_by: string
-          sageone_transaction_id?: string | null
           special_requests?: string[] | null
           status?: string
           suggested_date?: string | null
@@ -629,8 +577,6 @@ export type Database = {
           id?: string
           is_minor?: boolean
           matter_type?: string
-          payment_reference?: string | null
-          pop_attachment_id?: string | null
           preferred_date_type?: string
           processed_at?: string | null
           processed_by?: string | null
@@ -638,7 +584,6 @@ export type Database = {
           referring_attorney_id?: string
           referring_attorney_name?: string
           requested_by?: string
-          sageone_transaction_id?: string | null
           special_requests?: string[] | null
           status?: string
           suggested_date?: string | null
@@ -647,13 +592,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "appointment_requests_pop_attachment_id_fkey"
-            columns: ["pop_attachment_id"]
-            isOneToOne: false
-            referencedRelation: "payment_pop_attachments"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "appointment_requests_synced_appointment_id_fkey"
             columns: ["synced_appointment_id"]
@@ -1107,258 +1045,6 @@ export type Database = {
           user_agent?: string | null
           user_email?: string | null
           user_id?: string | null
-        }
-        Relationships: []
-      }
-      auth_activation_tokens: {
-        Row: {
-          consumed_at: string | null
-          created_at: string
-          created_by: string | null
-          expires_at: string
-          id: string
-          token_hash: string
-          user_id: string
-        }
-        Insert: {
-          consumed_at?: string | null
-          created_at?: string
-          created_by?: string | null
-          expires_at: string
-          id?: string
-          token_hash: string
-          user_id: string
-        }
-        Update: {
-          consumed_at?: string | null
-          created_at?: string
-          created_by?: string | null
-          expires_at?: string
-          id?: string
-          token_hash?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      auth_active_sessions: {
-        Row: {
-          created_at: string
-          expires_at: string
-          id: string
-          ip: string | null
-          last_seen_at: string
-          revoked_at: string | null
-          revoked_reason: string | null
-          session_token: string
-          user_agent: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          expires_at: string
-          id?: string
-          ip?: string | null
-          last_seen_at?: string
-          revoked_at?: string | null
-          revoked_reason?: string | null
-          session_token: string
-          user_agent?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          expires_at?: string
-          id?: string
-          ip?: string | null
-          last_seen_at?: string
-          revoked_at?: string | null
-          revoked_reason?: string | null
-          session_token?: string
-          user_agent?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      auth_audit_log: {
-        Row: {
-          browser: string | null
-          created_at: string
-          device: string | null
-          event_type: string
-          id: string
-          ip: string | null
-          metadata: Json
-          os: string | null
-          user_agent: string | null
-          user_id: string | null
-        }
-        Insert: {
-          browser?: string | null
-          created_at?: string
-          device?: string | null
-          event_type: string
-          id?: string
-          ip?: string | null
-          metadata?: Json
-          os?: string | null
-          user_agent?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          browser?: string | null
-          created_at?: string
-          device?: string | null
-          event_type?: string
-          id?: string
-          ip?: string | null
-          metadata?: Json
-          os?: string | null
-          user_agent?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      auth_events: {
-        Row: {
-          browser: string | null
-          created_at: string
-          device: string | null
-          email: string | null
-          event_type: string
-          id: string
-          ip: string | null
-          metadata: Json
-          os: string | null
-          user_agent: string | null
-          user_id: string | null
-        }
-        Insert: {
-          browser?: string | null
-          created_at?: string
-          device?: string | null
-          email?: string | null
-          event_type: string
-          id?: string
-          ip?: string | null
-          metadata?: Json
-          os?: string | null
-          user_agent?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          browser?: string | null
-          created_at?: string
-          device?: string | null
-          email?: string | null
-          event_type?: string
-          id?: string
-          ip?: string | null
-          metadata?: Json
-          os?: string | null
-          user_agent?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
-      auth_login_otps: {
-        Row: {
-          attempt_count: number
-          consumed_at: string | null
-          created_at: string
-          expires_at: string
-          id: string
-          otp_hash: string
-          purpose: string
-          resend_count: number
-          superseded_at: string | null
-          user_id: string
-        }
-        Insert: {
-          attempt_count?: number
-          consumed_at?: string | null
-          created_at?: string
-          expires_at: string
-          id?: string
-          otp_hash: string
-          purpose?: string
-          resend_count?: number
-          superseded_at?: string | null
-          user_id: string
-        }
-        Update: {
-          attempt_count?: number
-          consumed_at?: string | null
-          created_at?: string
-          expires_at?: string
-          id?: string
-          otp_hash?: string
-          purpose?: string
-          resend_count?: number
-          superseded_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      auth_otp_codes: {
-        Row: {
-          attempts: number
-          code_hash: string
-          consumed_at: string | null
-          created_at: string
-          expires_at: string
-          id: string
-          purpose: string
-          resend_count: number
-          user_id: string
-        }
-        Insert: {
-          attempts?: number
-          code_hash: string
-          consumed_at?: string | null
-          created_at?: string
-          expires_at: string
-          id?: string
-          purpose: string
-          resend_count?: number
-          user_id: string
-        }
-        Update: {
-          attempts?: number
-          code_hash?: string
-          consumed_at?: string | null
-          created_at?: string
-          expires_at?: string
-          id?: string
-          purpose?: string
-          resend_count?: number
-          user_id?: string
-        }
-        Relationships: []
-      }
-      auth_password_reset_tokens: {
-        Row: {
-          consumed_at: string | null
-          created_at: string
-          expires_at: string
-          id: string
-          token_hash: string
-          user_id: string
-        }
-        Insert: {
-          consumed_at?: string | null
-          created_at?: string
-          expires_at: string
-          id?: string
-          token_hash: string
-          user_id: string
-        }
-        Update: {
-          consumed_at?: string | null
-          created_at?: string
-          expires_at?: string
-          id?: string
-          token_hash?: string
-          user_id?: string
         }
         Relationships: []
       }
@@ -2590,12 +2276,9 @@ export type Database = {
           payment_amount: number
           payment_date: string
           payment_notes: string | null
-          payment_reference: string | null
-          pop_attachment_id: string | null
           pop_file_name: string | null
           pop_url: string | null
           recorded_by: string | null
-          sageone_transaction_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2606,12 +2289,9 @@ export type Database = {
           payment_amount: number
           payment_date?: string
           payment_notes?: string | null
-          payment_reference?: string | null
-          pop_attachment_id?: string | null
           pop_file_name?: string | null
           pop_url?: string | null
           recorded_by?: string | null
-          sageone_transaction_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2622,12 +2302,9 @@ export type Database = {
           payment_amount?: number
           payment_date?: string
           payment_notes?: string | null
-          payment_reference?: string | null
-          pop_attachment_id?: string | null
           pop_file_name?: string | null
           pop_url?: string | null
           recorded_by?: string | null
-          sageone_transaction_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2650,13 +2327,6 @@ export type Database = {
             columns: ["expert_id"]
             isOneToOne: false
             referencedRelation: "medical_experts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "expert_payments_pop_attachment_id_fkey"
-            columns: ["pop_attachment_id"]
-            isOneToOne: false
-            referencedRelation: "payment_pop_attachments"
             referencedColumns: ["id"]
           },
         ]
@@ -3479,92 +3149,6 @@ export type Database = {
         }
         Relationships: []
       }
-      password_reset_tokens: {
-        Row: {
-          consumed_at: string | null
-          created_at: string
-          expires_at: string
-          id: string
-          token_hash: string
-          user_id: string
-        }
-        Insert: {
-          consumed_at?: string | null
-          created_at?: string
-          expires_at: string
-          id?: string
-          token_hash: string
-          user_id: string
-        }
-        Update: {
-          consumed_at?: string | null
-          created_at?: string
-          expires_at?: string
-          id?: string
-          token_hash?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      payment_pop_attachments: {
-        Row: {
-          created_at: string
-          file_name: string | null
-          file_path: string
-          file_size_bytes: number | null
-          id: string
-          mime_type: string | null
-          notes: string | null
-          payment_reference: string
-          record_id: string
-          record_type: string
-          sageone_transaction_id: string | null
-          updated_at: string
-          uploaded_at: string
-          uploaded_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          file_name?: string | null
-          file_path: string
-          file_size_bytes?: number | null
-          id?: string
-          mime_type?: string | null
-          notes?: string | null
-          payment_reference: string
-          record_id: string
-          record_type: string
-          sageone_transaction_id?: string | null
-          updated_at?: string
-          uploaded_at?: string
-          uploaded_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          file_name?: string | null
-          file_path?: string
-          file_size_bytes?: number | null
-          id?: string
-          mime_type?: string | null
-          notes?: string | null
-          payment_reference?: string
-          record_id?: string
-          record_type?: string
-          sageone_transaction_id?: string | null
-          updated_at?: string
-          uploaded_at?: string
-          uploaded_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_pop_attachments_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       payment_report_allocations: {
         Row: {
           appointment_id: string | null
@@ -3716,68 +3300,41 @@ export type Database = {
       }
       profiles: {
         Row: {
-          account_status: string
           created_at: string
-          current_session_id: string | null
           email: string | null
           expert_id: string | null
-          failed_login_count: number
           first_name: string | null
-          force_security_setup: boolean
           id: string
-          last_failed_login_at: string | null
           last_name: string | null
-          locked_until: string | null
-          must_reset_password: boolean
           position: string | null
           referring_attorney_id: string | null
           role: string | null
-          security_setup_completed: boolean
-          security_setup_completed_at: string | null
           updated_at: string
           user_type: string | null
         }
         Insert: {
-          account_status?: string
           created_at?: string
-          current_session_id?: string | null
           email?: string | null
           expert_id?: string | null
-          failed_login_count?: number
           first_name?: string | null
-          force_security_setup?: boolean
           id: string
-          last_failed_login_at?: string | null
           last_name?: string | null
-          locked_until?: string | null
-          must_reset_password?: boolean
           position?: string | null
           referring_attorney_id?: string | null
           role?: string | null
-          security_setup_completed?: boolean
-          security_setup_completed_at?: string | null
           updated_at?: string
           user_type?: string | null
         }
         Update: {
-          account_status?: string
           created_at?: string
-          current_session_id?: string | null
           email?: string | null
           expert_id?: string | null
-          failed_login_count?: number
           first_name?: string | null
-          force_security_setup?: boolean
           id?: string
-          last_failed_login_at?: string | null
           last_name?: string | null
-          locked_until?: string | null
-          must_reset_password?: boolean
           position?: string | null
           referring_attorney_id?: string | null
           role?: string | null
-          security_setup_completed?: boolean
-          security_setup_completed_at?: string | null
           updated_at?: string
           user_type?: string | null
         }
@@ -5596,19 +5153,6 @@ export type Database = {
             }
             Returns: string
           }
-      log_auth_event: {
-        Args: {
-          _browser?: string
-          _device?: string
-          _event_type: string
-          _ip?: string
-          _metadata?: Json
-          _os?: string
-          _user_agent?: string
-          _user_id: string
-        }
-        Returns: string
-      }
       log_case_access: {
         Args: {
           p_description?: string
@@ -5690,20 +5234,6 @@ export type Database = {
           p_status: Database["public"]["Enums"]["approval_status"]
         }
         Returns: boolean
-      }
-      record_auth_event: {
-        Args: {
-          _browser: string
-          _device: string
-          _email: string
-          _event_type: string
-          _ip: string
-          _metadata: Json
-          _os: string
-          _user_agent: string
-          _user_id: string
-        }
-        Returns: string
       }
       remove_duplicate_medical_experts: {
         Args: never

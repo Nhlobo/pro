@@ -99,36 +99,6 @@ verify_jwt = false  # Called automatically by system
 [functions.auto-send-queued-email]
 verify_jwt = false  # Auth validated in code (is_admin_or_employee + service-role check)
 
-[functions.auth-admin-create-user]
-verify_jwt = false  # Admin check performed in code
-
-[functions.auth-activate-account]
-verify_jwt = false  # Public endpoint, token validated in code
-
-[functions.auth-request-login-otp]
-verify_jwt = false  # Password is the credential
-
-[functions.auth-verify-login-otp]
-verify_jwt = false  # OTP+password validated in code
-
-[functions.auth-resend-otp]
-verify_jwt = false
-
-[functions.auth-request-password-reset]
-verify_jwt = false  # Public
-
-[functions.auth-complete-password-reset]
-verify_jwt = false  # Token is the credential
-
-[functions.auth-setup-wizard]
-verify_jwt = false  # Token OR session validated in code
-
-[functions.auth-validate-session]
-verify_jwt = false  # Validates supplied bearer in code
-
-[functions.auth-admin-user-actions]
-verify_jwt = false  # Admin check performed in code
-
 [functions.proofread-document]
 verify_jwt = true  # Protected endpoint for document proofreading
 
@@ -146,9 +116,3 @@ verify_jwt = false  # Access code validated in code
 
 [functions.remind-pending-payment-approvals]
 verify_jwt = false  # Called by pg_cron
-
-[functions.upload-pop-attachment]
-verify_jwt = true  # User auth required, validated in code
-
-[functions.get-pop-signed-url]
-verify_jwt = true  # User auth required, validated in code

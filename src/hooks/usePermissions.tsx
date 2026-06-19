@@ -21,11 +21,6 @@ export interface UserProfile {
   first_name: string | null;
   last_name: string | null;
   referring_attorney_id: string | null;
-  account_status?: string | null;
-  locked_until?: string | null;
-  must_reset_password?: boolean | null;
-  security_setup_completed?: boolean | null;
-  failed_login_count?: number | null;
 }
 
 export const usePermissions = () => {
@@ -227,7 +222,7 @@ export const usePermissions = () => {
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('id, email, role, user_type, position, first_name, last_name, referring_attorney_id, account_status, locked_until, must_reset_password, security_setup_completed, failed_login_count')
+        .select('id, email, role, user_type, position, first_name, last_name, referring_attorney_id')
         .order('created_at', { ascending: false });
 
       return data || [];
