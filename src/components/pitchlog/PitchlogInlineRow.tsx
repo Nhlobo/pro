@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Edit, Trash2, Save, X, CalendarDays, Mail, Phone, CalendarIcon, UserPlus, AlertCircle, RotateCw } from 'lucide-react';
+import { Edit, Trash2, Save, X, CalendarDays, Mail, Phone, CalendarIcon, UserPlus, AlertCircle, RotateCw, History, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,9 +57,11 @@ interface Props {
   onDelete?: (id: string) => void;
   statusColor: (status: string) => string;
   followUpCount?: number;
+  attorneyCrmId?: string | null;
+  onAttorneyClick?: (firmName: string) => void;
 }
 
-const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusColor, followUpCount = 0 }) => {
+const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusColor, followUpCount = 0, attorneyCrmId, onAttorneyClick }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(entry);
 
@@ -347,7 +350,44 @@ const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusCol
       {followUpIndicator}
       <TableCell className="text-sm">{format(new Date(entry.created_at), 'dd MMM yyyy')}</TableCell>
       <TableCell className="text-sm">{entry.province}</TableCell>
-      <TableCell className="text-sm font-medium">{entry.law_firm_name}</TableCell>
+      <TableCell className="text-sm font-medium">
+        <div className="flex items-center gap-1">
+          {onAttorneyClick ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => onAttorneyClick(entry.law_firm_name)}
+                    className="text-left text-kutlwano-blue hover:underline focus:outline-none focus:underline"
+                  >
+                    {entry.law_firm_name}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Show full pitchlog history for this attorney</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <span>{entry.law_firm_name}</span>
+          )}
+          {attorneyCrmId && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    to={`/referring-attorney/${attorneyCrmId}`}
+                    className="inline-flex items-center text-muted-foreground hover:text-kutlwano-blue"
+                    aria-label="Open CRM profile"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Open CRM profile</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+      </TableCell>
       <TableCell><Badge variant="outline" className="text-xs">{entry.attorney_type}</Badge></TableCell>
       <TableCell><Badge variant="secondary" className="text-xs">{entry.practice_area}</Badge></TableCell>
       <TableCell className="text-sm">{entry.contact_person}</TableCell>
