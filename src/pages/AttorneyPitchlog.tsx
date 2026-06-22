@@ -208,6 +208,28 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
      return countMap;
    }, [perfAppointmentStats]);
 
+   // Resolve a pitchlog firm name to a CRM referring_attorney id (for jump-to-CRM link)
+   const resolveAttorneyCrmId = useMemo(() => {
+     const byNorm = new Map<string, string>();
+     perfReferringAttorneys.forEach(ra => byNorm.set(normalisePerf(ra.name), ra.id));
+     return (firmName: string, matchedId?: string | null): string | null => {
+       if (matchedId) return matchedId;
+       if (!firmName) return null;
+       const norm = normalisePerf(firmName);
+       if (byNorm.has(norm)) return byNorm.get(norm)!;
+       for (const ra of perfReferringAttorneys) {
+         const rn = normalisePerf(ra.name);
+         if (rn && (rn.includes(norm) || norm.includes(rn))) return ra.id;
+       }
+       return null;
+     };
+   }, [perfReferringAttorneys]);
+
+   const handleAttorneyClick = (firmName: string) => {
+     setSearchTerm(firmName);
+     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+   };
+
    // Count deals closed per sales person by matching their pitchlog entries to referring attorneys with appointments
    // Closed deals = number of scheduled appointments/assessments (not unique firms)
    const { dealsClosedBySalesPerson, totalDealsClosed, closedDealEntryIds, closedDealsByProvince, closedDealsByConsultantProvince } = useMemo(() => {
