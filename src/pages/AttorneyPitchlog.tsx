@@ -573,9 +573,25 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   const goToToday = useCallback(() => setFilterDate(new Date()), []);
 
   const isEntryInPeriod = useCallback((entry: PitchEntry) => {
+    // Primary: match by created_at (when the entry was captured)
     const entryDate = entry.created_at ? new Date(entry.created_at) : null;
-    if (!entryDate) return false;
-    return isWithinInterval(entryDate, { start: periodRange.start, end: periodRange.end });
+    if (entryDate && isWithinInterval(entryDate, { start: periodRange.start, end: periodRange.end })) {
+      return true;
+    }
+    // Fallback: match by the entry's assigned month_year (yyyy-MM).
+    // This ensures entries captured today for a different reporting month
+    // still surface when viewing that month, and entries tagged for the
+    // current month show up even if created_at drifts across the boundary.
+    if (entry.month_year && /^\d{4}-\d{2}$/.test(entry.month_year)) {
+      const [y, m] = entry.month_year.split('-').map(Number);
+      const monthStart = new Date(y, m - 1, 1);
+      const monthEnd = new Date(y, m, 0, 23, 59, 59, 999);
+      // Overlap test between [monthStart, monthEnd] and periodRange
+      if (monthStart <= periodRange.end && monthEnd >= periodRange.start) {
+        return true;
+      }
+    }
+    return false;
   }, [periodRange]);
 
   // For sales consultants, only show their own entries.
