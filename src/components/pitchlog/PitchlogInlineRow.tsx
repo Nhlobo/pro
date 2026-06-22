@@ -57,9 +57,11 @@ interface Props {
   onDelete?: (id: string) => void;
   statusColor: (status: string) => string;
   followUpCount?: number;
+  attorneyCrmId?: string | null;
+  onAttorneyClick?: (firmName: string) => void;
 }
 
-const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusColor, followUpCount = 0 }) => {
+const PitchlogInlineRow: React.FC<Props> = ({ entry, onSave, onDelete, statusColor, followUpCount = 0, attorneyCrmId, onAttorneyClick }) => {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(entry);
 
