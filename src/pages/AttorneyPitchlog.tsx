@@ -1188,8 +1188,8 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
             <Card className="border-border/50 shadow-soft">
               <CardHeader className="flex flex-row items-start justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-kutlwano-blue" />Pitchlog — {periodRange.label}</CardTitle>
-                  <CardDescription>{filteredEntries.length} entries for {periodRange.label} — click Edit icon on any row to edit inline</CardDescription>
+                  <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-kutlwano-blue" />Pitchlog — {isGlobalSearch ? `Search: "${searchTerm}"` : periodRange.label}</CardTitle>
+                  <CardDescription>{filteredEntries.length} {isGlobalSearch ? `entries across all months matching “${searchTerm}”` : `entries for ${periodRange.label}`} — click Edit icon on any row to edit inline</CardDescription>
                 </div>
                 <ConsultantDownload onDownload={(c) => downloadTabPdf(
                   'Monthly_Pitchlog', filteredEntries,
