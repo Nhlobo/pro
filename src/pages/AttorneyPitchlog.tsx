@@ -536,13 +536,16 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
     return isWithinInterval(entryDate, { start: periodRange.start, end: periodRange.end });
   }, [periodRange]);
 
-  // For sales consultants, only show their own entries
+  // For sales consultants, only show their own entries.
+  // GLOBAL SEARCH: when a search term is entered, ignore the period filter and
+  // surface the full pitchlog history of matching attorneys across all months.
   const filteredEntries = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
+    const isSearching = term.length > 0;
     return userEntries.filter(e => {
-      if (!isEntryInPeriod(e)) return false;
+      if (!isSearching && !isEntryInPeriod(e)) return false;
       if (filterSalesPerson !== 'all' && e.sales_person !== filterSalesPerson) return false;
-      if (term) {
+      if (isSearching) {
         const searchable = [
           e.law_firm_name, e.contact_person, e.email, e.telephone,
           e.province, e.attorney_type, e.practice_area, e.sales_person,
@@ -551,8 +554,19 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
         if (!searchable.includes(term)) return false;
       }
       return true;
+    }).sort((a, b) => {
+      // When searching, group by attorney (law firm) then chronologically month-by-month
+      if (isSearching) {
+        const firmA = (a.law_firm_name || '').toLowerCase();
+        const firmB = (b.law_firm_name || '').toLowerCase();
+        if (firmA !== firmB) return firmA.localeCompare(firmB);
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      return 0;
     });
   }, [userEntries, isEntryInPeriod, filterSalesPerson, searchTerm]);
+
+  const isGlobalSearch = searchTerm.trim().length > 0;
 
   const potentialAttorneys = useMemo(() => {
     // Deduplicate per law firm + contact, keeping the most recent entry
@@ -1132,13 +1146,30 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
           <div className="relative flex items-center ml-auto">
             <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search pitchlog..."
+              placeholder="Global search: attorney / firm / contact..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 w-[220px] h-9"
+              className="pl-9 w-[280px] h-9"
+              title="Searches the full pitchlog across all months — ignores the date period filter"
             />
+            {isGlobalSearch && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-1 h-9 px-2 text-xs"
+                onClick={() => setSearchTerm('')}
+              >
+                Clear
+              </Button>
+            )}
           </div>
         </div>
+
+        {isGlobalSearch && (
+          <div className="rounded-md border border-kutlwano-blue/30 bg-kutlwano-blue/5 px-3 py-2 text-xs text-kutlwano-blue">
+            Global search active — showing all pitchlog entries matching “{searchTerm}” across every month. Date period filter is ignored.
+          </div>
+        )}
 
         <Tabs defaultValue={defaultTab || "pitchlog"} className="space-y-4">
           <TabsList className="bg-muted flex-wrap">
@@ -1157,8 +1188,8 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
             <Card className="border-border/50 shadow-soft">
               <CardHeader className="flex flex-row items-start justify-between">
                 <div>
-                  <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-kutlwano-blue" />Pitchlog — {periodRange.label}</CardTitle>
-                  <CardDescription>{filteredEntries.length} entries for {periodRange.label} — click Edit icon on any row to edit inline</CardDescription>
+                  <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-kutlwano-blue" />Pitchlog — {isGlobalSearch ? `Search: "${searchTerm}"` : periodRange.label}</CardTitle>
+                  <CardDescription>{filteredEntries.length} {isGlobalSearch ? `entries across all months matching “${searchTerm}”` : `entries for ${periodRange.label}`} — click Edit icon on any row to edit inline</CardDescription>
                 </div>
                 <ConsultantDownload onDownload={(c) => downloadTabPdf(
                   'Monthly_Pitchlog', filteredEntries,
