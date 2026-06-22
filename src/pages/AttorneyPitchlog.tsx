@@ -56,6 +56,26 @@ const getMonthOptions = () => {
   return options;
 };
 
+// Levenshtein distance for fuzzy search (typo tolerance)
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    let curr = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      const next = Math.min(curr + 1, prev[j] + 1, prev[j - 1] + cost);
+      prev[j - 1] = curr;
+      curr = next;
+    }
+    prev[b.length] = curr;
+  }
+  return prev[b.length];
+}
+
 const emptyForm = {
   month_year: format(new Date(), 'yyyy-MM'),
   province: '',
@@ -539,6 +559,24 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   // For sales consultants, only show their own entries.
   // GLOBAL SEARCH: when a search term is entered, ignore the period filter and
   // surface the full pitchlog history of matching attorneys across all months.
+  // Supports fuzzy + partial-token matching, e.g. "mphela" matches "Thabo Mphela",
+  // "mphella" (typo) and "Mphela & Associates".
+  const fuzzyMatch = useCallback((needle: string, haystack: string) => {
+    if (!needle) return true;
+    if (!haystack) return false;
+    if (haystack.includes(needle)) return true;
+    // Token-level: every needle token must appear as substring in some haystack token
+    const hayTokens = haystack.split(/[\s,.;:/\\&()-]+/).filter(Boolean);
+    const needleTokens = needle.split(/[\s,.;:/\\&()-]+/).filter(Boolean);
+    const tokenHit = (nt: string) => {
+      if (hayTokens.some(ht => ht.includes(nt) || nt.includes(ht))) return true;
+      // Levenshtein-lite for typos: allow distance <= max(1, floor(len/5))
+      const maxDist = Math.max(1, Math.floor(nt.length / 5));
+      return hayTokens.some(ht => Math.abs(ht.length - nt.length) <= maxDist && levenshtein(ht, nt) <= maxDist);
+    };
+    return needleTokens.every(tokenHit);
+  }, []);
+
   const filteredEntries = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
     const isSearching = term.length > 0;
@@ -551,7 +589,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
           e.province, e.attorney_type, e.practice_area, e.sales_person,
           e.pitch_status, e.comment, e.comment_2, e.identified_challenge
         ].filter(Boolean).join(' ').toLowerCase();
-        if (!searchable.includes(term)) return false;
+        if (!fuzzyMatch(term, searchable)) return false;
       }
       return true;
     }).sort((a, b) => {
@@ -564,7 +602,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
       }
       return 0;
     });
-  }, [userEntries, isEntryInPeriod, filterSalesPerson, searchTerm]);
+  }, [userEntries, isEntryInPeriod, filterSalesPerson, searchTerm, fuzzyMatch]);
 
   const isGlobalSearch = searchTerm.trim().length > 0;
 
