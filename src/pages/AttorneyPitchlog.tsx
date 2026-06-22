@@ -536,13 +536,16 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
     return isWithinInterval(entryDate, { start: periodRange.start, end: periodRange.end });
   }, [periodRange]);
 
-  // For sales consultants, only show their own entries
+  // For sales consultants, only show their own entries.
+  // GLOBAL SEARCH: when a search term is entered, ignore the period filter and
+  // surface the full pitchlog history of matching attorneys across all months.
   const filteredEntries = useMemo(() => {
     const term = searchTerm.toLowerCase().trim();
+    const isSearching = term.length > 0;
     return userEntries.filter(e => {
-      if (!isEntryInPeriod(e)) return false;
+      if (!isSearching && !isEntryInPeriod(e)) return false;
       if (filterSalesPerson !== 'all' && e.sales_person !== filterSalesPerson) return false;
-      if (term) {
+      if (isSearching) {
         const searchable = [
           e.law_firm_name, e.contact_person, e.email, e.telephone,
           e.province, e.attorney_type, e.practice_area, e.sales_person,
@@ -551,8 +554,19 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
         if (!searchable.includes(term)) return false;
       }
       return true;
+    }).sort((a, b) => {
+      // When searching, group by attorney (law firm) then chronologically month-by-month
+      if (isSearching) {
+        const firmA = (a.law_firm_name || '').toLowerCase();
+        const firmB = (b.law_firm_name || '').toLowerCase();
+        if (firmA !== firmB) return firmA.localeCompare(firmB);
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      return 0;
     });
   }, [userEntries, isEntryInPeriod, filterSalesPerson, searchTerm]);
+
+  const isGlobalSearch = searchTerm.trim().length > 0;
 
   const potentialAttorneys = useMemo(() => {
     // Deduplicate per law firm + contact, keeping the most recent entry
