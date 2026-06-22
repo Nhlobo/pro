@@ -1146,13 +1146,30 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
           <div className="relative flex items-center ml-auto">
             <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search pitchlog..."
+              placeholder="Global search: attorney / firm / contact..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 w-[220px] h-9"
+              className="pl-9 w-[280px] h-9"
+              title="Searches the full pitchlog across all months — ignores the date period filter"
             />
+            {isGlobalSearch && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-1 h-9 px-2 text-xs"
+                onClick={() => setSearchTerm('')}
+              >
+                Clear
+              </Button>
+            )}
           </div>
         </div>
+
+        {isGlobalSearch && (
+          <div className="rounded-md border border-kutlwano-blue/30 bg-kutlwano-blue/5 px-3 py-2 text-xs text-kutlwano-blue">
+            Global search active — showing all pitchlog entries matching “{searchTerm}” across every month. Date period filter is ignored.
+          </div>
+        )}
 
         <Tabs defaultValue={defaultTab || "pitchlog"} className="space-y-4">
           <TabsList className="bg-muted flex-wrap">
