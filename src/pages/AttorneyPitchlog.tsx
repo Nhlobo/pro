@@ -1293,6 +1293,8 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
                           onDelete={isAdmin() ? (id) => deleteMutation.mutate(id) : undefined}
                           statusColor={statusColor}
                           followUpCount={followUpCountByFirm[entry.law_firm_name.toLowerCase().trim()] || 0}
+                          attorneyCrmId={resolveAttorneyCrmId(entry.law_firm_name, (entry as any).matched_referring_attorney_id)}
+                          onAttorneyClick={handleAttorneyClick}
                         />
                       ))}
                       <PitchlogAddRow
