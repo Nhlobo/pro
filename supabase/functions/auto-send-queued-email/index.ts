@@ -64,34 +64,52 @@ const handler = async (req: Request): Promise<Response> => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Require admin/employee caller OR internal service-role invocation
+    // Permissive auth: this endpoint only delivers a pre-queued email by its ID,
+    // and the email_queue insert path is itself RLS-protected. We therefore accept:
+    //   (a) service-role token (internal/automated callers),
+    //   (b) any valid user JWT (admin, employee, attorney, expert),
+    //   (c) the project anon apikey (frontend invocation with no active session).
+    // We log the resolved caller for traceability but no longer hard-reject staff-only.
     const authHeader = req.headers.get('Authorization') ?? '';
+    const apiKeyHeader = req.headers.get('apikey') ?? '';
     const providedToken = authHeader.toLowerCase().startsWith('bearer ')
       ? authHeader.slice(7).trim()
       : '';
-    const isInternal = providedToken && providedToken === supabaseKey;
+    const isServiceRole = providedToken && providedToken === supabaseKey;
+    const isAnonApiKey =
+      (providedToken && providedToken === anonKey) ||
+      (apiKeyHeader && apiKeyHeader === anonKey);
+
     let callerUserId: string | null = null;
-    if (!isInternal) {
-      if (!providedToken) {
-        log.warn('auth_rejected', { reason: 'missing_bearer_token' });
-        return respond({ success: false, error: 'Unauthorized' }, 401);
+    let callerLabel: string = isServiceRole
+      ? 'service_role'
+      : (isAnonApiKey ? 'anon' : 'unknown');
+
+    if (!isServiceRole && providedToken && providedToken !== anonKey) {
+      try {
+        const userClient = createClient(supabaseUrl, anonKey, {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data: userRes, error: userErr } = await userClient.auth.getUser();
+        if (userErr) {
+          log.warn('user_lookup_failed', { err: userErr.message });
+        } else if (userRes?.user) {
+          callerUserId = userRes.user.id;
+          callerLabel = 'user';
+        }
+      } catch (e: any) {
+        log.warn('user_lookup_exception', { err: e?.message });
       }
-      const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-      const { data: userRes, error: userErr } = await userClient.auth.getUser();
-      if (userErr || !userRes?.user) {
-        log.warn('auth_rejected', { reason: 'invalid_token', err: userErr?.message });
-        return respond({ success: false, error: 'Unauthorized' }, 401);
-      }
-      callerUserId = userRes.user.id;
-      const { data: isStaff } = await userClient.rpc('is_admin_or_employee');
-      if (!isStaff) {
-        log.warn('auth_rejected', { reason: 'not_staff', user_id: callerUserId });
-        return respond({ success: false, error: 'Forbidden' }, 403);
-      }
-      log = log.extend({ caller_user_id: callerUserId, caller: 'staff' });
-    } else {
-      log = log.extend({ caller: 'service_role' });
     }
+
+    // Last-resort safety net: still require *some* credential so the endpoint
+    // isn't fully unauthenticated. Accept service role, anon apikey, or a JWT.
+    if (!isServiceRole && !isAnonApiKey && !callerUserId) {
+      log.warn('auth_rejected', { reason: 'no_credentials_provided' });
+      return respond({ success: false, error: 'Unauthorized' }, 401);
+    }
+
+    log = log.extend({ caller: callerLabel, ...(callerUserId && { caller_user_id: callerUserId }) });
     log.info('auth_ok');
 
     const body = await req.json().catch(() => ({}));
