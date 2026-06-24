@@ -125,12 +125,19 @@ export async function sendEmail(options: EmailOptions): Promise<EmailResponse> {
 
       console.log(`Sending email batch ${batchIndex + 1}/${batches.length} to: ${recipients.join(", ")}${ccRecipients ? ` (CC: ${ccRecipients.join(", ")})` : ''} with ${batch.length} attachment(s)`);
 
+      const defaultReplyTo = "info@kamedico-legal.co.za";
+      const replyToAddress = options.replyTo || defaultReplyTo;
+
       const { data, error } = await resend.emails.send({
         from: fromEmail,
         to: recipients,
         subject,
         html,
-        ...(options.replyTo && { reply_to: options.replyTo }),
+        reply_to: replyToAddress,
+        headers: {
+          "List-Unsubscribe": `<mailto:${defaultReplyTo}?subject=Unsubscribe>`,
+          "X-Entity-Ref-ID": crypto.randomUUID(),
+        },
         ...(ccRecipients && ccRecipients.length > 0 && { cc: ccRecipients }),
         ...(batch.length > 0 && { attachments: batch })
       });
