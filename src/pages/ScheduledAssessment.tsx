@@ -1085,10 +1085,14 @@ const ScheduledAssessment = () => {
         // Fallback: if nothing was explicitly linked, recalc every agreement for this attorney
         // so legacy AODs/Short-term docs without linked_appointment_ids stay in sync.
         if (attorneyId && aodList.length === 0) {
+          // Perf: only recalc the MOST RECENT AOD as a fallback. Recalculating every
+          // legacy AOD an attorney ever had was firing 50-200 UPDATEs per save.
           const { data: attorneyAods } = await supabase
             .from('aod_documents')
             .select('id, referring_attorney_id')
-            .eq('referring_attorney_id', attorneyId);
+            .eq('referring_attorney_id', attorneyId)
+            .order('created_at', { ascending: false })
+            .limit(1);
           aodList = attorneyAods || [];
 
           // Backfill linked_appointment_ids on the most recent AOD so future edits resolve directly
@@ -1110,11 +1114,14 @@ const ScheduledAssessment = () => {
           }
         }
         if (attorneyId && stList.length === 0) {
+          // Perf: only recalc the MOST RECENT active short-term agreement as fallback.
           const { data: attorneySTs } = await supabase
             .from('short_term_agreements')
             .select('id, referring_attorney_id')
             .eq('referring_attorney_id', attorneyId)
-            .eq('status', 'active');
+            .eq('status', 'active')
+            .order('created_at', { ascending: false })
+            .limit(1);
           stList = attorneySTs || [];
 
           if (stList.length > 0) {
