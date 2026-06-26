@@ -104,18 +104,31 @@ export const AgreementDefaultMonitor = ({ lawFirmId, onAction }: AgreementDefaul
 
       // Combine and enrich with attorney names
       const allAgreements: DefaultAgreement[] = [];
-      
-      const processAgreements = async (data: any[], type: string) => {
-        if (!data) return;
-        
-        for (const agreement of data) {
-          // Fetch attorney name
-          const { data: attorney } = await supabase
-            .from("referring_attorneys")
-            .select("name")
-            .eq("id", agreement.referring_attorney_id)
-            .single();
 
+      // Perf: batch-fetch all referring attorney names in a single query
+      // instead of one-per-row (was N+1, hot in slow-query log).
+      const attorneyIds = Array.from(
+        new Set(
+          [...(aodData || []), ...(stData || [])]
+            .map((a: any) => a.referring_attorney_id)
+            .filter(Boolean)
+        )
+      );
+      const attorneyNameMap: Record<string, string> = {};
+      if (attorneyIds.length > 0) {
+        const { data: attorneys } = await supabase
+          .from("referring_attorneys")
+          .select("id, name")
+          .in("id", attorneyIds);
+        for (const a of attorneys || []) {
+          attorneyNameMap[a.id] = a.name || "Unknown";
+        }
+      }
+
+      const processAgreements = (data: any[], type: string) => {
+        if (!data) return;
+
+        for (const agreement of data) {
           // Calculate days overdue
           let daysOverdue = 0;
           if (agreement.next_payment_date) {
@@ -126,15 +139,15 @@ export const AgreementDefaultMonitor = ({ lawFirmId, onAction }: AgreementDefaul
             allAgreements.push({
               ...agreement,
               agreement_type: type,
-              attorney_name: attorney?.name || "Unknown",
+              attorney_name: attorneyNameMap[agreement.referring_attorney_id] || "Unknown",
               days_overdue: daysOverdue > 0 ? daysOverdue : undefined,
             });
           }
         }
       };
 
-      await processAgreements(aodData, "aod");
-      await processAgreements(stData, "short_term");
+      processAgreements(aodData, "aod");
+      processAgreements(stData, "short_term");
 
       // Sort by days overdue (most overdue first)
       allAgreements.sort((a, b) => (b.days_overdue || 0) - (a.days_overdue || 0));
