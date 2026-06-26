@@ -145,10 +145,13 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ['attorney-pitchlog'],
     queryFn: async () => {
+      // Perf: cap to the most recent 500 entries (sales reps rarely review older history live;
+      // historical analysis goes through Reports). Prevents full-table scans on every page open.
       const { data, error } = await supabase
         .from('attorney_pitchlog')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(500);
       if (error) throw error;
       return (data || []) as PitchEntry[];
     },
