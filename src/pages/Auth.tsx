@@ -175,7 +175,7 @@ const Auth = () => {
 
       {/* Card */}
       <div className="relative z-10 min-h-screen flex items-center justify-center p-4 pb-24">
-        <Card className="w-full max-w-md bg-card/80 backdrop-blur-md border-kutlwano-blue/20 shadow-2xl">
+        <Card className="w-full max-w-md bg-[#0f1e3a]/90 backdrop-blur-md border-kutlwano-blue/20 text-foreground dark shadow-2xl">
           <CardContent className="p-8 space-y-6">
             {step === 'sign-in' && (
               <>
