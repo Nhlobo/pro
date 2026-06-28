@@ -168,8 +168,10 @@ const App = () => (
               <ActivityTrackerMount />
               <Suspense fallback={<RouteFallback />}>
               <Routes>
-                <Route path="/" element={<Landing />} />
+                <Route path="/" element={<Auth />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/landing" element={<Landing />} />
+
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
                 <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
                 <Route path="/Expertzone/case-access" element={<ExpertCaseAccess />} />
