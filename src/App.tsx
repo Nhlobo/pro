@@ -27,6 +27,7 @@ const Index = lazy(() => import("./pages/Index"));
 const Health = lazy(() => import("./pages/Health"));
 const ApiDocs = lazy(() => import("./pages/ApiDocs"));
 const EmailConfirmation = lazy(() => import("./pages/EmailConfirmation"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const ReferringAttorneyForm = lazy(() => import("./pages/ReferringAttorneyForm"));
 const ReferringAttorneyList = lazy(() => import("./pages/ReferringAttorneyList"));
 const ReferringAttorneyReport = lazy(() => import("./pages/ReferringAttorneyReport"));
@@ -171,6 +172,7 @@ const App = () => (
                 <Route path="/" element={<Landing />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
                 <Route path="/Expertzone/case-access" element={<ExpertCaseAccess />} />
                 <Route path="/contact-us" element={<ContactUs />} />

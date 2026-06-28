@@ -62,11 +62,22 @@ serve(withErrorHandler(async (req) => {
 
     // Parse and validate request body
     const requestBody = await req.json();
-    
+
+    // sendMagicLink=true lets the admin invite the user without setting a password.
+    // The user receives a magic-link email and sets their own password via the
+    // /reset-password flow on first login.
+    const sendMagicLink = requestBody.sendMagicLink === true;
+
     // Basic validation
-    if (!requestBody.email || !requestBody.password || !requestBody.firstName || !requestBody.lastName) {
+    if (!requestBody.email || !requestBody.firstName || !requestBody.lastName) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: email, password, firstName, lastName' }),
+        JSON.stringify({ error: 'Missing required fields: email, firstName, lastName' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (!sendMagicLink && !requestBody.password) {
+      return new Response(
+        JSON.stringify({ error: 'Password is required unless sendMagicLink is true' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -80,8 +91,8 @@ serve(withErrorHandler(async (req) => {
       );
     }
 
-    // Validate password strength (min 8 chars)
-    if (requestBody.password.length < 8) {
+    // Validate password strength (min 8 chars) when password flow is used
+    if (!sendMagicLink && requestBody.password.length < 8) {
       return new Response(
         JSON.stringify({ error: 'Password must be at least 8 characters long' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -104,16 +115,15 @@ serve(withErrorHandler(async (req) => {
 
     const origin = 'https://kamedico-legal.co.za';
 
-    // Create user
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+    // Create user — when sendMagicLink, the user is pre-confirmed so they can sign in via the link.
+    const createPayload: any = {
       email,
-      password,
-      email_confirm: false,
-      user_metadata: {
-        first_name: firstName,
-        last_name: lastName
-      }
-    })
+      email_confirm: sendMagicLink, // magic-link invites skip the confirm step
+      user_metadata: { first_name: firstName, last_name: lastName },
+    };
+    if (!sendMagicLink) createPayload.password = password;
+
+    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser(createPayload);
 
     if (createError) {
       console.error('Error creating user:', createError)
@@ -133,49 +143,56 @@ serve(withErrorHandler(async (req) => {
 
     console.log('User created successfully:', newUser.user.id)
 
-    // Send confirmation email through the project email service instead of relying on Supabase SMTP.
+    // Send invitation / confirmation email through the project email service.
     try {
-      const { data: linkData, error: emailError } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'signup',
-        email: email,
-        password,
-        options: {
-          redirectTo: `${origin}/`
-        }
-      });
-      
+      const linkType = sendMagicLink ? 'magiclink' : 'signup';
+      const linkPayload: any = {
+        type: linkType,
+        email,
+        options: { redirectTo: sendMagicLink ? `${origin}/reset-password` : `${origin}/` },
+      };
+      if (!sendMagicLink) linkPayload.password = password;
+
+      const { data: linkData, error: emailError } =
+        await supabaseAdmin.auth.admin.generateLink(linkPayload);
+
       if (emailError || !linkData?.properties?.action_link) {
-        console.error('Error generating confirmation email link:', emailError);
+        console.error('Error generating invite/confirmation link:', emailError);
       } else {
         const actionLink = linkData.properties.action_link;
+        const subject = sendMagicLink
+          ? 'Welcome to Medico-Legal Pro – Set up your account'
+          : 'Confirm your email - Medico-Legal Pro';
+        const heading = sendMagicLink ? 'Welcome to Medico-Legal Pro' : 'Confirm Your Email';
+        const body = sendMagicLink
+          ? `An administrator has created an account for you. Click the button below to sign in securely. You'll be prompted to set your own password on first login.`
+          : `Please click the button below to confirm your email address and activate your account.`;
+        const cta = sendMagicLink ? 'Sign in &amp; set password' : 'Confirm Email';
+
         const emailResult = await sendEmail({
           to: email,
-          subject: 'Confirm your email - Medico-Legal Pro',
+          subject,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 24px; color: #1f2937;">
               <div style="text-align:center; border-bottom: 1px solid #e5e7eb; padding-bottom: 18px; margin-bottom: 24px;">
-                <h1 style="margin:0; color:#0f172a; font-size:24px;">Confirm Your Email</h1>
+                <h1 style="margin:0; color:#0f172a; font-size:24px;">${heading}</h1>
                 <p style="margin:8px 0 0; color:#64748b;">Medico-Legal Pro</p>
               </div>
-              <p>Please click the button below to confirm your email address and activate your account.</p>
+              <p>${body}</p>
               <div style="text-align:center; margin: 32px 0;">
-                <a href="${actionLink}" style="background-color:#0ea5e9; color:#ffffff; padding: 13px 28px; text-decoration:none; border-radius:6px; display:inline-block; font-weight:bold;">Confirm Email</a>
+                <a href="${actionLink}" style="background-color:#0ea5e9; color:#ffffff; padding: 13px 28px; text-decoration:none; border-radius:6px; display:inline-block; font-weight:bold;">${cta}</a>
               </div>
               <p style="font-size:13px; color:#64748b;">If the button does not work, copy and paste this link into your browser:</p>
               <p style="font-size:12px; word-break:break-all; color:#0284c7;">${actionLink}</p>
-              <p style="font-size:12px; color:#94a3b8; margin-top:28px;">If you did not request this email, you can safely ignore it.</p>
+              <p style="font-size:12px; color:#94a3b8; margin-top:28px;">If you did not expect this email, you can safely ignore it.</p>
             </div>
           `
         });
-
-        if (!emailResult.success) {
-          console.error('Error sending confirmation email:', emailResult.error);
-        } else {
-          console.log('Confirmation email sent successfully to:', email);
-        }
+        if (!emailResult.success) console.error('Error sending email:', emailResult.error);
+        else console.log('Email sent successfully to:', email);
       }
     } catch (emailErr) {
-      console.error('Failed to send confirmation email:', emailErr);
+      console.error('Failed to send invitation email:', emailErr);
     }
 
     // Create profile
