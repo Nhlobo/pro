@@ -4738,42 +4738,6 @@ export type Database = {
           },
         ]
       }
-      trusted_devices: {
-        Row: {
-          created_at: string
-          device_name: string | null
-          device_token_hash: string
-          expires_at: string
-          id: string
-          ip_address: string | null
-          last_seen_at: string
-          user_agent: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          device_name?: string | null
-          device_token_hash: string
-          expires_at?: string
-          id?: string
-          ip_address?: string | null
-          last_seen_at?: string
-          user_agent?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          device_name?: string | null
-          device_token_hash?: string
-          expires_at?: string
-          id?: string
-          ip_address?: string | null
-          last_seen_at?: string
-          user_agent?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       user_activity_time: {
         Row: {
           activity_key: string
@@ -4835,45 +4799,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      user_passkeys: {
-        Row: {
-          aaguid: string | null
-          counter: number
-          created_at: string
-          credential_id: string
-          device_name: string | null
-          id: string
-          last_used_at: string | null
-          public_key: string
-          transports: string[] | null
-          user_id: string
-        }
-        Insert: {
-          aaguid?: string | null
-          counter?: number
-          created_at?: string
-          credential_id: string
-          device_name?: string | null
-          id?: string
-          last_used_at?: string | null
-          public_key: string
-          transports?: string[] | null
-          user_id: string
-        }
-        Update: {
-          aaguid?: string | null
-          counter?: number
-          created_at?: string
-          credential_id?: string
-          device_name?: string | null
-          id?: string
-          last_used_at?: string | null
-          public_key?: string
-          transports?: string[] | null
-          user_id?: string
-        }
-        Relationships: []
       }
       user_permissions: {
         Row: {
@@ -5766,7 +5691,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      purge_expired_trusted_devices: { Args: never; Returns: undefined }
       record_auth_event: {
         Args: {
           _browser: string
