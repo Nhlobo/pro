@@ -68,24 +68,24 @@ const Auth = () => {
     });
   };
 
-  // ---------- SIGN IN (logic preserved from original) ----------
+  // ---------- SIGN IN ----------
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    const emailAddress = email.trim().toLowerCase();
     try {
-      cleanupAuthState();
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: emailAddress,
         password,
       });
       if (error) {
         const msg = (error.message || '').toLowerCase();
         if (msg.includes('invalid login credentials')) {
-          setError('Invalid email or password. Please check your credentials and try again.');
+          setError('Invalid email or password. Please check your details or use Forgot Password to reset access.');
         } else if (msg.includes('confirm')) {
-          localStorage.setItem('pendingConfirmationEmail', email.trim());
-          navigate(`/email-confirmation?email=${encodeURIComponent(email.trim())}`);
+          localStorage.setItem('pendingConfirmationEmail', emailAddress);
+          navigate(`/email-confirmation?email=${encodeURIComponent(emailAddress)}`);
         } else {
           setError(error.message);
         }
@@ -97,38 +97,22 @@ const Auth = () => {
           window.location.href = '/';
           return;
         }
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('role, user_type, first_name, last_name, position')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
 
-        if (profile) {
-          const userType = profile.user_type || 'user';
-          const role = profile.role || 'user';
-          const userName = profile.first_name
-            ? `${profile.first_name}${profile.last_name ? ' ' + profile.last_name : ''}`
-            : data.user.email?.split('@')[0];
+        const userName = profile?.first_name
+          ? `${profile.first_name}${profile.last_name ? ' ' + profile.last_name : ''}`
+          : data.user.email?.split('@')[0];
 
-          const { data: userRoleData } = await supabase.rpc('get_current_user_role');
-          const secureRole = userRoleData || role;
-          const validRoles = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert'];
-          const hasValidRole = validRoles.includes(secureRole) || validRoles.includes(role);
-          const hasValidUserType = validRoles.includes(userType);
-
-          if (hasValidRole || hasValidUserType) {
-            toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in.' });
-            window.location.href = '/';
-          } else {
-            await supabase.auth.signOut();
-            setError('Access not authorized. Please contact your administrator for assistance.');
-          }
-        } else {
-          await supabase.auth.signOut();
-          setError('Account not found or access not authorized. Please contact support.');
-        }
+        toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in.' });
+        window.location.href = '/';
       }
-    } catch {
+    } catch (err) {
+      console.error('Sign-in failed:', err);
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
@@ -141,7 +125,7 @@ const Auth = () => {
     setLoading(true);
     setError('');
     try {
-      const target = email.trim();
+      const target = email.trim().toLowerCase();
       const { error } = await supabase.auth.resetPasswordForEmail(target, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
