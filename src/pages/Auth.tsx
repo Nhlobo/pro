@@ -2,38 +2,65 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-
+import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
-import consultationImage from '@/assets/consultation-image.png';
+import {
+  Loader2, Mail, Lock, ArrowLeft, Eye, EyeOff,
+  ShieldCheck, CheckCircle2, User,
+} from 'lucide-react';
 import familyBackground from '@/assets/family-background.png';
 
+type Step = 'sign-in' | 'forgot' | 'check-email';
+
+const SecurityBadges = () => (
+  <div className="flex items-center justify-center gap-4 text-xs text-kutlwano-blue/80 pt-2">
+    <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Secure</span>
+    <span className="text-kutlwano-blue/40">•</span>
+    <span className="flex items-center gap-1.5"><Lock className="h-3.5 w-3.5" /> Confidential</span>
+    <span className="text-kutlwano-blue/40">•</span>
+    <span className="flex items-center gap-1.5"><ShieldCheck className="h-3.5 w-3.5" /> Protected</span>
+  </div>
+);
+
+const Footer = () => (
+  <div className="absolute bottom-0 left-0 right-0 border-t border-white/5 bg-background/40 backdrop-blur-sm">
+    <div className="max-w-md mx-auto px-6 py-3 flex items-center justify-between text-xs text-muted-foreground">
+      <span>© 2015–{new Date().getFullYear()} Kutlwano & Associates (Pty) Ltd. All rights reserved.</span>
+      <div className="flex gap-3">
+        <a href="#" className="hover:text-foreground transition">Privacy Policy</a>
+        <span>|</span>
+        <a href="#" className="hover:text-foreground transition">Terms of Use</a>
+      </div>
+    </div>
+  </div>
+);
+
 const Auth = () => {
+  const [step, setStep] = useState<Step>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [resetSentTo, setResetSentTo] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if user is already logged in
-    const checkUser = async () => {
+    const check = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate('/');
-      }
+      if (session) navigate('/');
     };
-    checkUser();
+    check();
   }, [navigate]);
 
   const cleanupAuthState = () => {
-    // Clean up any existing auth state
     Object.keys(localStorage).forEach((key) => {
       if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
         localStorage.removeItem(key);
@@ -41,25 +68,22 @@ const Auth = () => {
     });
   };
 
+  // ---------- SIGN IN (logic preserved from original) ----------
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
       cleanupAuthState();
-      
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
-
       if (error) {
         const msg = (error.message || '').toLowerCase();
         if (msg.includes('invalid login credentials')) {
           setError('Invalid email or password. Please check your credentials and try again.');
         } else if (msg.includes('confirm')) {
-          // Redirect to email confirmation flow
           localStorage.setItem('pendingConfirmationEmail', email.trim());
           navigate(`/email-confirmation?email=${encodeURIComponent(email.trim())}`);
         } else {
@@ -67,231 +91,285 @@ const Auth = () => {
         }
         return;
       }
-
       if (data.user) {
-        // Special handling for primary administrator
         if (data.user.email === 'boshomane@kutlwanoassociate.com') {
-          toast({ 
-            title: "Welcome back, Mr. Boshomane!", 
-            description: 'You have full administrative access to the system.' 
-          });
+          toast({ title: 'Welcome back, Mr. Boshomane!', description: 'Full administrative access.' });
           window.location.href = '/';
           return;
         }
-
-        // Get user profile to check role and user_type
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile } = await supabase
           .from('profiles')
           .select('role, user_type, first_name, last_name, position')
           .eq('id', data.user.id)
           .single();
 
-        // Check if user has valid profile and access
         if (profile) {
           const userType = profile.user_type || 'user';
           const role = profile.role || 'user';
-          const userName = profile.first_name ? 
-            `${profile.first_name}${profile.last_name ? ' ' + profile.last_name : ''}` : 
-            data.user.email?.split('@')[0];
+          const userName = profile.first_name
+            ? `${profile.first_name}${profile.last_name ? ' ' + profile.last_name : ''}`
+            : data.user.email?.split('@')[0];
 
-          // Also check user_roles table for the authoritative role
-          const { data: userRoleData } = await supabase
-            .rpc('get_current_user_role');
+          const { data: userRoleData } = await supabase.rpc('get_current_user_role');
           const secureRole = userRoleData || role;
-
-          // Allow access based on user type, profile role, or secure user_roles role
           const validRoles = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert'];
-          const validUserTypes = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert'];
-          
           const hasValidRole = validRoles.includes(secureRole) || validRoles.includes(role);
-          const hasValidUserType = validUserTypes.includes(userType);
+          const hasValidUserType = validRoles.includes(userType);
 
           if (hasValidRole || hasValidUserType) {
-            if (userType === 'admin' || secureRole === 'admin' || role === 'admin') {
-              toast({ 
-                title: `Welcome back, ${userName}!`, 
-                description: 'You have successfully signed in with admin privileges.' 
-              });
-            } else if (userType === 'employee' || secureRole === 'employee' || role === 'employee') {
-              const position = profile.position ? ` (${profile.position})` : '';
-              toast({ 
-                title: `Welcome back, ${userName}${position}!`, 
-                description: 'You have successfully signed in as an employee.' 
-              });
-            } else if (secureRole === 'sales_consultant' || userType === 'sales_consultant') {
-              const position = profile.position ? ` (${profile.position})` : '';
-              toast({ 
-                title: `Welcome back, ${userName}${position}!`, 
-                description: 'You have successfully signed in as a Sales Consultant.' 
-              });
-            } else if (userType === 'referring_attorney' || secureRole === 'referring_attorney' || role === 'referring_attorney') {
-              toast({ 
-                title: `Welcome back, ${userName}!`, 
-                description: 'You have successfully signed in. You can access your referring attorney data.' 
-              });
-            } else if (secureRole === 'medical_expert' || userType === 'medical_expert') {
-              toast({ 
-                title: `Welcome back, ${userName}!`, 
-                description: 'You have successfully signed in as a Medical Expert.' 
-              });
-            } else {
-              toast({ 
-                title: `Welcome back, ${userName}!`, 
-                description: 'You have successfully signed in.' 
-              });
-            }
+            toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in.' });
+            window.location.href = '/';
           } else {
-            // Block access for unknown user types with no valid role
             await supabase.auth.signOut();
             setError('Access not authorized. Please contact your administrator for assistance.');
-            return;
           }
-
-          window.location.href = '/';
-        } else if (profileError) {
-          // If profile fetch fails, check if it's a system issue vs. user not found
-          console.error('Profile fetch error:', profileError);
-          await supabase.auth.signOut();
-          setError('Unable to verify account permissions. Please contact support.');
-          return;
         } else {
           await supabase.auth.signOut();
           setError('Account not found or access not authorized. Please contact support.');
-          return;
         }
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  // ---------- FORGOT PASSWORD ----------
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const target = email.trim();
+      const { error } = await supabase.auth.resetPasswordForEmail(target, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      setResetSentTo(target);
+      setStep('check-email');
+    } catch {
+      setError('Could not send reset link. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // ---------- RENDER ----------
   return (
-    <div className="min-h-screen bg-gradient-to-br from-kutlwano-blue/8 via-background to-kutlwano-teal/6 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Family Background Image */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center opacity-10"
-        style={{ backgroundImage: `url(${familyBackground})` }}
-      ></div>
-      
-      {/* Background decoration */}
-      <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 to-kutlwano-teal/5"></div>
-      <div className="absolute top-0 left-0 w-96 h-96 bg-kutlwano-blue/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-kutlwano-teal/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
-      
-      {/* Decorative geometric elements */}
-      <div className="absolute top-20 right-20 w-32 h-32 border-2 border-kutlwano-blue/20 rounded-lg rotate-45 animate-[spin_20s_linear_infinite]"></div>
-      <div className="absolute bottom-32 left-20 w-24 h-24 border-2 border-kutlwano-teal/20 rounded-full animate-pulse"></div>
-      <div className="absolute top-1/2 right-10 w-16 h-16 bg-white/5 backdrop-blur-sm rounded-full"></div>
-      <div className="absolute bottom-20 right-1/3 w-20 h-20 border border-white/10 rounded-lg rotate-12"></div>
-      
+    <div className="min-h-screen bg-[#0a1428] relative overflow-hidden">
       <Helmet>
-        <title>Sign In - Medico-Legal Assessment System</title>
-        <meta name="description" content="Sign in to access the medico-legal assessment system and manage medical expert directories." />
+        <title>Sign In - Medico-Legal Pro</title>
+        <meta name="description" content="Secure sign-in to the Medico-Legal Pro portal." />
       </Helmet>
 
-      <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 items-center relative z-10">
-        {/* Animated Illustration Section */}
-        <div className="hidden lg:flex flex-col items-center justify-center space-y-6 animate-fade-in">
-          <div className="relative group">
-            <img 
-              src={consultationImage} 
-              alt="Professional Consultation" 
-              className="w-full h-auto rounded-2xl shadow-2xl transition-transform duration-500 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-kutlwano-blue/20 to-transparent rounded-2xl"></div>
-            {/* Decorative frame corners */}
-            <div className="absolute -top-2 -left-2 w-8 h-8 border-t-2 border-l-2 border-kutlwano-blue"></div>
-            <div className="absolute -top-2 -right-2 w-8 h-8 border-t-2 border-r-2 border-kutlwano-teal"></div>
-            <div className="absolute -bottom-2 -left-2 w-8 h-8 border-b-2 border-l-2 border-kutlwano-teal"></div>
-            <div className="absolute -bottom-2 -right-2 w-8 h-8 border-b-2 border-r-2 border-kutlwano-blue"></div>
-          </div>
-          <div className="text-center space-y-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal bg-clip-text text-transparent">
-              We touch a file
-            </h2>
-            <p className="text-4xl font-bold text-foreground">
-              We change lives.
-            </p>
-          </div>
-        </div>
+      {/* Background image */}
+      <div
+        className="absolute inset-0 bg-cover bg-center opacity-25"
+        style={{ backgroundImage: `url(${familyBackground})` }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0a1428]/95 via-[#0a1428]/85 to-[#102347]/90" />
 
-        {/* Login Card */}
-        <Card className="w-full backdrop-blur-sm bg-card/95 border-kutlwano-blue/20 shadow-2xl shadow-kutlwano-blue/10 animate-scale-in">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" className="h-12 w-12" />
-          </div>
-          <CardTitle className="text-2xl">Welcome Back</CardTitle>
-          <CardDescription>
-            Sign in to access your Medico-Legal Service portal
-          </CardDescription>
-          
-          {/* Mobile tagline */}
-          <div className="lg:hidden mt-4 space-y-1">
-            <p className="text-sm font-semibold text-kutlwano-blue">We touch a file</p>
-            <p className="text-lg font-bold text-foreground">We change lives.</p>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="w-full">
-            
-            <form onSubmit={handleSignIn} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-              
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign In
-              </Button>
-            </form>
-          </div>
-          
-          <div className="mt-6 pt-4 border-t text-center text-sm text-muted-foreground">
-            <p>For assistance, please contact support</p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Card */}
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-4 pb-24">
+        <Card className="w-full max-w-md bg-[#0f1e3a]/90 backdrop-blur-md border-kutlwano-blue/20 text-foreground dark shadow-2xl">
+          <CardContent className="p-8 space-y-6">
+            {step === 'sign-in' && (
+              <>
+                <div className="text-center space-y-2">
+                  <div className="flex justify-center mb-2">
+                    <img
+                      src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png"
+                      alt="Kutlwano & Associates"
+                      className="h-16 w-16"
+                    />
+                  </div>
+                  <div className="text-center -mt-1">
+                    <div className="text-base font-bold tracking-[0.15em] text-foreground">KUTLWANO</div>
+                    <div className="text-[10px] tracking-[0.2em] text-muted-foreground">
+                      &amp; ASSOCIATES (PTY) LTD
+                    </div>
+                    <div className="text-[10px] tracking-[0.3em] text-kutlwano-blue mt-0.5">
+                      MEDICO-LEGAL SERVICES
+                    </div>
+                  </div>
+                  <h1 className="text-2xl font-bold text-foreground pt-3">Welcome Back</h1>
+                  <p className="text-sm text-muted-foreground">Sign in to access your account</p>
+                </div>
+
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email" className="text-xs tracking-wider uppercase text-muted-foreground">
+                      Email Address
+                    </Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="Enter your email address"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="pl-10"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="password" className="text-xs tracking-wider uppercase text-muted-foreground">
+                      Password
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pl-10 pr-10"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((s) => !s)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={rememberMe}
+                        onCheckedChange={(v) => setRememberMe(Boolean(v))}
+                      />
+                      <span className="text-muted-foreground">Remember me</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => { setError(''); setStep('forgot'); }}
+                      className="text-kutlwano-blue hover:underline font-medium"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Sign In
+                  </Button>
+                </form>
+                <SecurityBadges />
+              </>
+            )}
+
+            {step === 'forgot' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => { setError(''); setStep('sign-in'); }}
+                  className="flex items-center gap-2 text-sm text-kutlwano-blue hover:underline"
+                >
+                  <ArrowLeft className="h-4 w-4" /> Back to Sign In
+                </button>
+
+                <div className="text-center space-y-3 pt-2">
+                  <div className="mx-auto w-16 h-16 rounded-2xl border border-kutlwano-blue/30 bg-kutlwano-blue/10 flex items-center justify-center">
+                    <Mail className="h-7 w-7 text-kutlwano-blue" />
+                  </div>
+                  <h1 className="text-2xl font-bold">Reset Password</h1>
+                  <p className="text-sm text-muted-foreground">
+                    Enter your email address and we'll send you a link to reset your password.
+                  </p>
+                </div>
+
+                <form onSubmit={handleForgot} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="reset-email" className="text-xs tracking-wider uppercase text-muted-foreground">
+                      Email Address
+                    </Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="reset-email"
+                        type="email"
+                        placeholder="Enter your email address"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="pl-10"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {error && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Send Reset Link
+                  </Button>
+                </form>
+                <SecurityBadges />
+              </>
+            )}
+
+            {step === 'check-email' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => { setError(''); setStep('sign-in'); }}
+                  className="flex items-center gap-2 text-sm text-kutlwano-blue hover:underline"
+                >
+                  <ArrowLeft className="h-4 w-4" /> Back to Sign In
+                </button>
+
+                <div className="text-center space-y-3 pt-2">
+                  <div className="mx-auto w-16 h-16 rounded-2xl border border-kutlwano-blue/30 bg-kutlwano-blue/10 flex items-center justify-center">
+                    <Mail className="h-7 w-7 text-kutlwano-blue" />
+                  </div>
+                  <h1 className="text-2xl font-bold">Check Your Email</h1>
+                  <p className="text-sm text-muted-foreground">We've sent a password reset link to</p>
+                  <p className="font-semibold text-foreground">{resetSentTo}</p>
+                  <p className="text-xs text-muted-foreground">The link will expire in 60 minutes.</p>
+                </div>
+
+                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 flex items-start gap-2 text-sm text-emerald-200">
+                  <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <span>If you don't see the email, check your spam or junk folder.</span>
+                </div>
+
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => { setError(''); setStep('sign-in'); }}
+                >
+                  Back to Sign In
+                </Button>
+                <SecurityBadges />
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
-      
-      <style>{`
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-20px);
-          }
-        }
-      `}</style>
+
+      <Footer />
     </div>
   );
 };
