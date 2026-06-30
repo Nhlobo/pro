@@ -14,6 +14,7 @@ describe("getClaimPhraseForMatterType", () => {
     ["Slip and Fall Matter", "a Slip and Fall Matter claim"],
     ["Court Preparation", "Court Preparation in respect of the claim"],
     ["Court Attendance", "Court Attendance in respect of the claim"],
+    ["Mitigation", "Mitigation in respect of the claim"],
     ["MVA", "a Road Accident Fund claim"],
     ["RAF", "a Road Accident Fund claim"],
   ];
