@@ -25,6 +25,7 @@ const getClaimPhraseForMatterType = (matterType?: string | null): string => {
   if (t.includes("merit")) return "a Merit Report on the claim";
   if (t.includes("assault")) return "an Assault Matter claim";
   if (t.includes("slip") || t.includes("fall")) return "a Slip and Fall Matter claim";
+  if (t.includes("mitigation")) return "Mitigation in respect of the claim";
   if (t.includes("court preparation")) return "Court Preparation in respect of the claim";
   if (t.includes("court attendance")) return "Court Attendance in respect of the claim";
   if (t.includes("raf") || t.includes("mva") || t.includes("road accident")) {

@@ -36,6 +36,9 @@ export const getClaimPhraseForMatterType = (matterType?: string | null): string 
   // Slip and Fall
   if (t.includes("slip") || t.includes("fall")) return "a Slip and Fall Matter claim";
 
+  // Mitigation
+  if (t.includes("mitigation")) return "Mitigation in respect of the claim";
+
   // Court Preparation / Court Attendance
   if (t.includes("court preparation")) return "Court Preparation in respect of the claim";
   if (t.includes("court attendance")) return "Court Attendance in respect of the claim";
