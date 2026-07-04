@@ -50,16 +50,16 @@ All colors MUST be HSL.
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
 
-    --radius: 0.5rem;
+    --radius: 0rem;
 
-    --sidebar-background: 203 92% 48%; /* Kutlwano blue */
-    --sidebar-foreground: 0 0% 100%; /* White text */
-    --sidebar-primary: 169 78% 42%; /* Kutlwano teal */
+    --sidebar-background: 210 20% 98%; /* Clean near-white */
+    --sidebar-foreground: 222 47% 11%; /* Slate text */
+    --sidebar-primary: 203 92% 48%; /* Kutlwano blue accent */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 169 78% 42%; /* Kutlwano teal for hover */
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 203 92% 40%; /* Darker blue for borders */
-    --sidebar-ring: 169 78% 42%; /* Kutlwano teal for focus */
+    --sidebar-accent: 210 40% 94%; /* Soft slate hover */
+    --sidebar-accent-foreground: 203 92% 40%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 203 92% 48%;
 
     /* Design tokens */
     --primary-glow: 246 90% 66%;
@@ -184,5 +184,9 @@ All colors MUST be HSL.
       min-width: 44px;
       min-height: 44px;
     }
+  }
+
+  .gradient-nav {
+    background: linear-gradient(135deg, hsl(var(--kutlwano-blue)), hsl(var(--kutlwano-teal)));
   }
 }

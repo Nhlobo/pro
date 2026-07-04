@@ -1,0 +1,25 @@
+{
+  "name": "Medico-Legal Pro — Kutlwano & Associate",
+  "short_name": "Medico-Legal Pro",
+  "description": "Professional medico-legal case management system for law firms and medical experts.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F5EE",
+  "theme_color": "#0A9BE0",
+  "icons": [
+    {
+      "src": "/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
