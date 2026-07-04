@@ -1,44 +1,65 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
-import consultationImage from '@/assets/consultation-image.png';
-import familyBackground from '@/assets/family-background.png';
+import { Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
+import { getDashboardPathForRole, isValidPortalRole } from '@/utils/authRoutes';
+import PwaInstallPrompt from '@/components/PwaInstallPrompt';
+
+const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [authMode, setAuthMode] = useState<'sign-in' | 'forgot-password'>('sign-in');
+  const [resetLoading, setResetLoading] = useState(false);
+
   const navigate = useNavigate();
   const { toast } = useToast();
+  const emailInputRef = useRef<HTMLInputElement | null>(null);
+
+  const authLinkRowClass = useMemo(
+    () => 'grid grid-cols-1 gap-2 text-xs sm:grid-cols-2 sm:gap-3 sm:text-sm',
+    []
+  );
 
   useEffect(() => {
-    // Check if user is already logged in
-    const checkUser = async () => {
+    const timer = window.setTimeout(() => {
+      emailInputRef.current?.focus({ preventScroll: true });
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [authMode]);
+
+  useEffect(() => {
+    const ensureNoSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        navigate('/');
+        const { data: roleData } = await supabase.rpc('get_current_user_role');
+        navigate(getDashboardPathForRole(roleData as string | null), { replace: true });
       }
     };
-    checkUser();
+    ensureNoSession();
   }, [navigate]);
 
   const cleanupAuthState = () => {
-    // Clean up any existing auth state
     Object.keys(localStorage).forEach((key) => {
       if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
         localStorage.removeItem(key);
       }
     });
+  };
+
+  const handlePasswordKeyState = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    setCapsLockOn(e.getModifierState('CapsLock'));
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -48,9 +69,10 @@ const Auth = () => {
 
     try {
       cleanupAuthState();
-      
+      const cleanEmail = email.trim();
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: cleanEmail,
         password,
       });
 
@@ -59,9 +81,8 @@ const Auth = () => {
         if (msg.includes('invalid login credentials')) {
           setError('Invalid email or password. Please check your credentials and try again.');
         } else if (msg.includes('confirm')) {
-          // Redirect to email confirmation flow
-          localStorage.setItem('pendingConfirmationEmail', email.trim());
-          navigate(`/email-confirmation?email=${encodeURIComponent(email.trim())}`);
+          localStorage.setItem('pendingConfirmationEmail', cleanEmail);
+          navigate(`/email-confirmation?email=${encodeURIComponent(cleanEmail)}`, { replace: true });
         } else {
           setError(error.message);
         }
@@ -69,87 +90,58 @@ const Auth = () => {
       }
 
       if (data.user) {
-        // Special handling for primary administrator
         if (data.user.email === 'boshomane@kutlwanoassociate.com') {
-          toast({ 
-            title: "Welcome back, Mr. Boshomane!", 
-            description: 'You have full administrative access to the system.' 
+          toast({
+            title: 'Welcome back, Mr. Boshomane!',
+            description: 'You have full administrative access to the system.',
           });
-          window.location.href = '/';
+          window.location.replace(getDashboardPathForRole('admin'));
           return;
         }
 
-        // Get user profile to check role and user_type
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('role, user_type, first_name, last_name, position')
           .eq('id', data.user.id)
           .single();
 
-        // Check if user has valid profile and access
         if (profile) {
           const userType = profile.user_type || 'user';
           const role = profile.role || 'user';
-          const userName = profile.first_name ? 
-            `${profile.first_name}${profile.last_name ? ' ' + profile.last_name : ''}` : 
-            data.user.email?.split('@')[0];
+          const userName = profile.first_name
+            ? `${profile.first_name}${profile.last_name ? ` ${profile.last_name}` : ''}`
+            : data.user.email?.split('@')[0];
 
-          // Also check user_roles table for the authoritative role
-          const { data: userRoleData } = await supabase
-            .rpc('get_current_user_role');
-          const secureRole = userRoleData || role;
+          const { data: userRoleData } = await supabase.rpc('get_current_user_role');
+          const secureRole = (userRoleData as string) || role;
 
-          // Allow access based on user type, profile role, or secure user_roles role
-          const validRoles = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert'];
-          const validUserTypes = ['admin', 'employee', 'sales_consultant', 'referring_attorney', 'medical_expert'];
-          
-          const hasValidRole = validRoles.includes(secureRole) || validRoles.includes(role);
-          const hasValidUserType = validUserTypes.includes(userType);
+          const hasValidRole = isValidPortalRole(secureRole) || isValidPortalRole(role);
+          const hasValidUserType = isValidPortalRole(userType);
 
           if (hasValidRole || hasValidUserType) {
             if (userType === 'admin' || secureRole === 'admin' || role === 'admin') {
-              toast({ 
-                title: `Welcome back, ${userName}!`, 
-                description: 'You have successfully signed in with admin privileges.' 
-              });
+              toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in with admin privileges.' });
             } else if (userType === 'employee' || secureRole === 'employee' || role === 'employee') {
               const position = profile.position ? ` (${profile.position})` : '';
-              toast({ 
-                title: `Welcome back, ${userName}${position}!`, 
-                description: 'You have successfully signed in as an employee.' 
-              });
+              toast({ title: `Welcome back, ${userName}${position}!`, description: 'You have successfully signed in as an employee.' });
             } else if (secureRole === 'sales_consultant' || userType === 'sales_consultant') {
               const position = profile.position ? ` (${profile.position})` : '';
-              toast({ 
-                title: `Welcome back, ${userName}${position}!`, 
-                description: 'You have successfully signed in as a Sales Consultant.' 
-              });
+              toast({ title: `Welcome back, ${userName}${position}!`, description: 'You have successfully signed in as a Sales Consultant.' });
             } else if (userType === 'referring_attorney' || secureRole === 'referring_attorney' || role === 'referring_attorney') {
-              toast({ 
-                title: `Welcome back, ${userName}!`, 
-                description: 'You have successfully signed in. You can access your referring attorney data.' 
-              });
+              toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in. You can access your referring attorney data.' });
             } else if (secureRole === 'medical_expert' || userType === 'medical_expert') {
-              toast({ 
-                title: `Welcome back, ${userName}!`, 
-                description: 'You have successfully signed in as a Medical Expert.' 
-              });
+              toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in as a Medical Expert.' });
             } else {
-              toast({ 
-                title: `Welcome back, ${userName}!`, 
-                description: 'You have successfully signed in.' 
-              });
+              toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in.' });
             }
           } else {
-            // Block access for unknown user types with no valid role
             await supabase.auth.signOut();
             setError('Access not authorized. Please contact your administrator for assistance.');
             return;
           }
 
-          window.location.href = '/';
+          window.location.replace(getDashboardPathForRole(secureRole, userType));
         } else if (profileError) {
-          // If profile fetch fails, check if it's a system issue vs. user not found
           console.error('Profile fetch error:', profileError);
           await supabase.auth.signOut();
           setError('Unable to verify account permissions. Please contact support.');
@@ -160,138 +152,240 @@ const Auth = () => {
           return;
         }
       }
-    } catch (err) {
+    } catch {
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleForgotPasswordRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setError('Enter your work email address before requesting a password reset link.');
+      return;
+    }
+
+    setResetLoading(true);
+    setError('');
+
+    try {
+      const redirectTo = `${window.location.origin}/reset-password`;
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, { redirectTo });
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      toast({ title: 'Reset link sent', description: 'Check your email for the password reset link.' });
+      setAuthMode('sign-in');
+    } catch {
+      setError('Unable to send a reset link right now. Please try again.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const isSignInDisabled = loading || !email.trim() || !password.trim();
+  const isResetDisabled = resetLoading || !email.trim();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-kutlwano-blue/8 via-background to-kutlwano-teal/6 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Family Background Image */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center opacity-10"
-        style={{ backgroundImage: `url(${familyBackground})` }}
-      ></div>
-      
-      {/* Background decoration */}
-      <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 to-kutlwano-teal/5"></div>
-      <div className="absolute top-0 left-0 w-96 h-96 bg-kutlwano-blue/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-kutlwano-teal/10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
-      
-      {/* Decorative geometric elements */}
-      <div className="absolute top-20 right-20 w-32 h-32 border-2 border-kutlwano-blue/20 rounded-lg rotate-45 animate-[spin_20s_linear_infinite]"></div>
-      <div className="absolute bottom-32 left-20 w-24 h-24 border-2 border-kutlwano-teal/20 rounded-full animate-pulse"></div>
-      <div className="absolute top-1/2 right-10 w-16 h-16 bg-white/5 backdrop-blur-sm rounded-full"></div>
-      <div className="absolute bottom-20 right-1/3 w-20 h-20 border border-white/10 rounded-lg rotate-12"></div>
-      
+    <div className="min-h-screen bg-[#F7F5EE]">
       <Helmet>
-        <title>Sign In - Medico-Legal Assessment System</title>
-        <meta name="description" content="Sign in to access the medico-legal assessment system and manage medical expert directories." />
+        <title>Sign In - Medico-Legal Pro</title>
+        <meta name="description" content="Sign in to access the Medico-Legal Pro portal — Kutlwano & Associate." />
       </Helmet>
 
-      <div className="w-full max-w-6xl mx-auto grid lg:grid-cols-2 gap-8 items-center relative z-10">
-        {/* Animated Illustration Section */}
-        <div className="hidden lg:flex flex-col items-center justify-center space-y-6 animate-fade-in">
-          <div className="relative group">
-            <img 
-              src={consultationImage} 
-              alt="Professional Consultation" 
-              className="w-full h-auto rounded-2xl shadow-2xl transition-transform duration-500 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-kutlwano-blue/20 to-transparent rounded-2xl"></div>
-            {/* Decorative frame corners */}
-            <div className="absolute -top-2 -left-2 w-8 h-8 border-t-2 border-l-2 border-kutlwano-blue"></div>
-            <div className="absolute -top-2 -right-2 w-8 h-8 border-t-2 border-r-2 border-kutlwano-teal"></div>
-            <div className="absolute -bottom-2 -left-2 w-8 h-8 border-b-2 border-l-2 border-kutlwano-teal"></div>
-            <div className="absolute -bottom-2 -right-2 w-8 h-8 border-b-2 border-r-2 border-kutlwano-blue"></div>
+      <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 lg:grid-cols-2">
+        {/* Left brand panel */}
+        <aside className="hidden flex-col justify-between gradient-nav p-10 text-white lg:flex">
+          <div className="flex items-center gap-3">
+            <img src={logoSrc} alt="Kutlwano & Associate" className="h-12 w-12" />
+            <div>
+              <div className="text-lg font-bold tracking-wide">Medico-Legal Pro</div>
+              <div className="text-xs text-white/80">Kutlwano &amp; Associate</div>
+            </div>
           </div>
-          <div className="text-center space-y-2 animate-fade-in" style={{ animationDelay: '0.3s' }}>
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal bg-clip-text text-transparent">
-              We touch a file
-            </h2>
-            <p className="text-4xl font-bold text-foreground">
-              We change lives.
+
+          <div className="space-y-4">
+            <h1 className="text-4xl font-bold leading-tight">We touch a file.<br />We change lives.</h1>
+            <p className="max-w-sm text-sm text-white/85">
+              Sign in with your authorised staff account to access your assigned workspace and manage medico-legal cases.
             </p>
           </div>
-        </div>
 
-        {/* Login Card */}
-        <Card className="w-full backdrop-blur-sm bg-card/95 border-kutlwano-blue/20 shadow-2xl shadow-kutlwano-blue/10 animate-scale-in">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" className="h-12 w-12" />
+          <div className="text-xs text-white/70">
+            © {new Date().getFullYear()} Kutlwano &amp; Associate (Pty) Ltd
           </div>
-          <CardTitle className="text-2xl">Welcome Back</CardTitle>
-          <CardDescription>
-            Sign in to access your Medico-Legal Service portal
-          </CardDescription>
-          
-          {/* Mobile tagline */}
-          <div className="lg:hidden mt-4 space-y-1">
-            <p className="text-sm font-semibold text-kutlwano-blue">We touch a file</p>
-            <p className="text-lg font-bold text-foreground">We change lives.</p>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="w-full">
-            
-            <form onSubmit={handleSignIn} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+        </aside>
+
+        {/* Right form panel */}
+        <main className="flex items-center justify-center bg-white p-6 sm:p-10">
+          <div className="w-full max-w-md">
+            <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
+              <img src={logoSrc} alt="Kutlwano & Associate" className="h-12 w-12" />
+              <div className="text-center">
+                <div className="text-lg font-bold">Medico-Legal Pro</div>
+                <div className="text-xs text-slate-500">Kutlwano &amp; Associate</div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+            </div>
+
+            <div className="mb-6">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00BAAD]">Staff access</div>
+              <h2 className="mt-2 text-2xl font-bold text-black">
+                {authMode === 'sign-in' ? 'Staff Sign In' : 'Forgot Password'}
+              </h2>
+              <p className="mt-1 text-sm text-slate-600">
+                {authMode === 'sign-in'
+                  ? 'Welcome back. Please sign in to continue.'
+                  : 'Enter your work email to receive a password reset link.'}
+              </p>
+            </div>
+
+            {authMode === 'sign-in' ? (
+              <form onSubmit={handleSignIn} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-sm font-semibold text-black">Email Address</Label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      id="email"
+                      ref={emailInputRef}
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@firm.co.za"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="h-12 rounded-none border-black/15 bg-white pl-11 text-black placeholder:text-slate-500 focus-visible:ring-[#00BAAD]"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-sm font-semibold text-black">Password</Label>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      placeholder="Enter your password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onKeyUp={handlePasswordKeyState}
+                      onKeyDown={handlePasswordKeyState}
+                      className="h-12 rounded-none border-black/15 bg-white pl-11 pr-11 text-black placeholder:text-slate-500 focus-visible:ring-[#00BAAD]"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-black"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-pressed={showPassword}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+
+                  {capsLockOn && (
+                    <p className="text-xs font-medium text-amber-600">Caps Lock is on.</p>
+                  )}
+                </div>
+
+                <div className={authLinkRowClass}>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('forgot-password'); setError(''); }}
+                    className="truncate text-left font-semibold text-black hover:text-[#00BAAD] hover:underline"
+                  >
+                    Forgot Password?
+                  </button>
+                  <Link
+                    to="/contact"
+                    className="truncate text-left font-semibold text-black hover:text-[#00BAAD] hover:underline sm:text-right"
+                  >
+                    Forgot email?
+                  </Link>
+                </div>
+
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={isSignInDisabled}
+                  className="h-12 w-full rounded-none bg-black font-semibold uppercase tracking-wide text-white hover:bg-black/85"
+                >
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Sign In
+                </Button>
+
+                <PwaInstallPrompt />
+              </form>
+            ) : (
+              <form onSubmit={handleForgotPasswordRequest} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email" className="text-sm font-semibold text-black">Email Address</Label>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      id="reset-email"
+                      ref={emailInputRef}
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@firm.co.za"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="h-12 rounded-none border-black/15 bg-white pl-11 text-black placeholder:text-slate-500 focus-visible:ring-[#00BAAD]"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Button
+                    type="submit"
+                    disabled={isResetDisabled}
+                    className="h-12 rounded-none bg-black font-semibold uppercase tracking-wide text-white hover:bg-black/85"
+                  >
+                    {resetLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Send Reset Link
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => { setAuthMode('sign-in'); setError(''); }}
+                    className="h-12 rounded-none border-black/15 bg-transparent font-semibold uppercase tracking-wide text-black hover:bg-black/5"
+                  >
+                    Back
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            <div className="mt-8 border-t border-black/10 pt-4 text-center text-xs text-slate-500">
+              <div className="flex items-center justify-center gap-3">
+                <Link to="/privacy" className="hover:text-[#00BAAD]">Privacy</Link>
+                <span>|</span>
+                <Link to="/terms" className="hover:text-[#00BAAD]">Terms</Link>
+                <span>|</span>
+                <Link to="/contact" className="hover:text-[#00BAAD]">Help</Link>
               </div>
-              
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign In
-              </Button>
-            </form>
+            </div>
           </div>
-          
-          <div className="mt-6 pt-4 border-t text-center text-sm text-muted-foreground">
-            <p>For assistance, please contact support</p>
-          </div>
-        </CardContent>
-      </Card>
+        </main>
       </div>
-      
-      <style>{`
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-20px);
-          }
-        }
-      `}</style>
     </div>
   );
 };
