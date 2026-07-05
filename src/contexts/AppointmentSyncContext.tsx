@@ -321,7 +321,10 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
               console.log(`Retrying connection (attempt ${retryCountRef.current})...`);
               setupChannel();
             }, retryDelay);
-          } else {
+            } else if (typeof navigator === 'undefined' || navigator.onLine) {
+            // Only surface this when the device itself is online — if the
+            // device is offline, the dedicated /offline page already owns
+            // that message and this would just be a redundant duplicate.
             toast({
               title: "Sync Unavailable",
               description: "Real-time updates paused. Data will refresh on navigation.",
