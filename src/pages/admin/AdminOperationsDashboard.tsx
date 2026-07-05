@@ -1,15 +1,19 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
-  Users, Calendar, FileText, Clock, TrendingUp, TrendingDown, BarChart3,
-  AlertTriangle, CheckCircle2, FileSignature, ArrowUpRight, ArrowDownRight, Minus
+  Users, Calendar, FileText, Clock, TrendingUp, BarChart3,
+  AlertTriangle, CheckCircle2, FileSignature, ArrowUpRight, ArrowDownRight, Minus,
+  type LucideIcon,
 } from 'lucide-react';
 
+// Brand accent — same teal used across the sign-in / auth screens.
+const BRAND_TEAL = '#00BAAD';
+
 const CASE_TYPE_COLORS = [
-  'hsl(var(--primary))',
-  'hsl(var(--secondary))',
+  BRAND_TEAL,
+  'hsl(var(--kutlwano-blue))',
   'hsl(var(--kutlwano-purple))',
   'hsl(var(--kutlwano-gold))',
   'hsl(var(--info))',
@@ -17,20 +21,26 @@ const CASE_TYPE_COLORS = [
   'hsl(var(--warning))',
 ];
 
-const CASE_TYPE_BG_CLASSES = [
-  'bg-primary',
-  'bg-secondary',
-  'bg-kutlwano-purple',
-  'bg-kutlwano-gold',
-  'bg-info',
-  'bg-success',
-  'bg-warning',
-];
-
 const currentYear = new Date().getFullYear();
 const lastYear = currentYear - 1;
 
-function YoYBadge({ current, previous }: { current: number; previous: number }) {
+/** Small uppercase, tracked-out label — the "eyebrow" motif used on /auth. */
+const Eyebrow = ({ children }: { children: React.ReactNode }) => (
+  <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#00BAAD]">
+    {children}
+  </div>
+);
+
+const YearBadge = () => (
+  <Badge
+    variant="outline"
+    className="rounded-none border-black/15 text-[10px] font-semibold uppercase tracking-wide text-black"
+  >
+    {lastYear} vs {currentYear}
+  </Badge>
+);
+
+const YoYBadge = React.memo(function YoYBadge({ current, previous }: { current: number; previous: number }) {
   if (previous === 0 && current === 0) return <Minus className="h-3 w-3 text-muted-foreground" />;
   if (previous === 0) return <ArrowUpRight className="h-3 w-3 text-success" />;
   const pctChange = Math.round(((current - previous) / previous) * 100);
@@ -41,131 +51,213 @@ function YoYBadge({ current, previous }: { current: number; previous: number }) 
       {isUp ? '+' : ''}{pctChange}%
     </span>
   );
+});
+
+interface StatCardData {
+  label: string;
+  value: number;
+  prevValue: number | null;
+  icon: LucideIcon;
 }
+
+/** One KPI tile. Memoized so a hover/re-render elsewhere doesn't reflow the whole grid. */
+const StatCard = React.memo(function StatCard({ stat, loading }: { stat: StatCardData; loading: boolean }) {
+  const Icon = stat.icon;
+  return (
+    <Card className="rounded-none border-black/10 shadow-none transition-colors hover:border-[#00BAAD]/40">
+      <CardContent className="px-3 pb-3 pt-3 md:px-4">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="rounded-full bg-black/5 p-1.5 md:p-2">
+            <Icon className="h-4 w-4 text-black" style={{ color: BRAND_TEAL }} />
+          </div>
+          {stat.prevValue !== null && !loading && (
+            <YoYBadge current={stat.value} previous={stat.prevValue} />
+          )}
+          {stat.prevValue === null && <TrendingUp className="h-3 w-3 text-success" />}
+        </div>
+        <p className="text-xl font-bold tabular-nums text-black md:text-2xl">
+          {loading ? '–' : stat.value}
+        </p>
+        <p className="text-[11px] leading-tight text-slate-500">{stat.label}</p>
+        {stat.prevValue !== null && !loading && (
+          <p className="mt-0.5 text-[10px] text-slate-400">
+            {lastYear}: {stat.prevValue}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+});
+
+interface ProvincialRowData {
+  name: string;
+  cases: number;
+  casesLastYear: number;
+}
+
+/** One province row in the distribution chart, isolated so re-renders stay cheap. */
+const ProvincialRow = React.memo(function ProvincialRow({ prov, maxCases }: { prov: ProvincialRowData; maxCases: number }) {
+  const pctChange = prov.casesLastYear > 0
+    ? Math.round(((prov.cases - prov.casesLastYear) / prov.casesLastYear) * 100)
+    : null;
+
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <span className="truncate text-xs text-slate-500 sm:w-28">{prov.name}</span>
+        <div className="flex flex-wrap items-center gap-2 text-[10px] sm:gap-3">
+          <span className="text-slate-500">
+            {lastYear}: <span className="font-medium text-black">{prov.casesLastYear}</span>
+          </span>
+          <span className="text-slate-500">
+            {currentYear}: <span className="font-medium" style={{ color: BRAND_TEAL }}>{prov.cases}</span>
+          </span>
+          {pctChange !== null && (
+            <span className={`font-semibold ${prov.cases >= prov.casesLastYear ? 'text-success' : 'text-destructive'}`}>
+              {prov.cases >= prov.casesLastYear ? '+' : ''}{pctChange}%
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="h-3 flex-1 overflow-hidden rounded-full bg-black/5">
+        <div
+          className="h-full rounded-full bg-black/20 transition-all duration-700"
+          style={{ width: `${Math.max((prov.casesLastYear / maxCases) * 100, 3)}%` }}
+        />
+      </div>
+      <div className="h-3 flex-1 overflow-hidden rounded-full bg-black/5">
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${Math.max((prov.cases / maxCases) * 100, 3)}%`, backgroundColor: BRAND_TEAL }}
+        />
+      </div>
+    </div>
+  );
+});
+
+interface CaseTypeRowData {
+  type: string;
+  count: number;
+  countLastYear: number;
+}
+
+/** One case-type row in the breakdown chart, isolated for the same reason as ProvincialRow. */
+const CaseTypeRow = React.memo(function CaseTypeRow({ ct, maxCount, color }: { ct: CaseTypeRowData; maxCount: number; color: string }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: color }} />
+          <span className="truncate text-xs font-medium text-black">{ct.type}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-[10px] sm:gap-3">
+          <span className="text-slate-500">{lastYear}: <span className="font-medium text-black">{ct.countLastYear}</span></span>
+          <span className="text-slate-500">{currentYear}: <span className="font-medium" style={{ color: BRAND_TEAL }}>{ct.count}</span></span>
+          {ct.countLastYear > 0 && <YoYBadge current={ct.count} previous={ct.countLastYear} />}
+        </div>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-black/5">
+        <div
+          className="h-full rounded-full bg-black/20 transition-all duration-700"
+          style={{ width: `${Math.max((ct.countLastYear / maxCount) * 100, 2)}%` }}
+        />
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-black/5">
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${Math.max((ct.count / maxCount) * 100, 2)}%`, backgroundColor: color }}
+        />
+      </div>
+    </div>
+  );
+});
 
 const AdminOperationsDashboard: React.FC = () => {
   const { stats, loading } = useDashboardStats();
 
-  const statCards = [
-    { label: 'Active Cases', value: stats.totalClaimants, prevValue: null, icon: Users, color: 'text-primary', bg: 'bg-primary/10' },
-    { label: 'Appointments', value: stats.totalAppointments, prevValue: stats.totalAppointmentsLastYear, icon: Calendar, color: 'text-secondary', bg: 'bg-secondary/10' },
-    { label: 'Pending Reports', value: stats.pendingReports, prevValue: stats.pendingReportsLastYear, icon: Clock, color: 'text-warning', bg: 'bg-warning/10' },
-    { label: 'In Progress', value: stats.reportsInProgress, prevValue: stats.reportsInProgressLastYear, icon: FileText, color: 'text-info', bg: 'bg-info/10' },
-    { label: 'Reports Out', value: stats.reportsTakenOut, prevValue: stats.reportsTakenOutLastYear, icon: FileSignature, color: 'text-kutlwano-purple', bg: 'bg-kutlwano-purple/10' },
-    { label: 'Completed', value: stats.completedAssessments, prevValue: stats.completedAssessmentsLastYear, icon: CheckCircle2, color: 'text-success', bg: 'bg-success/10' },
-  ];
+  const statCards: StatCardData[] = useMemo(() => [
+    { label: 'Active Cases', value: stats.totalClaimants, prevValue: null, icon: Users },
+    { label: 'Appointments', value: stats.totalAppointments, prevValue: stats.totalAppointmentsLastYear, icon: Calendar },
+    { label: 'Pending Reports', value: stats.pendingReports, prevValue: stats.pendingReportsLastYear, icon: Clock },
+    { label: 'In Progress', value: stats.reportsInProgress, prevValue: stats.reportsInProgressLastYear, icon: FileText },
+    { label: 'Reports Out', value: stats.reportsTakenOut, prevValue: stats.reportsTakenOutLastYear, icon: FileSignature },
+    { label: 'Completed', value: stats.completedAssessments, prevValue: stats.completedAssessmentsLastYear, icon: CheckCircle2 },
+  ], [stats]);
 
-  const totalCaseTypes = stats.caseTypeData.reduce((s, c) => s + c.count, 0);
-  const totalCaseTypesLastYear = stats.caseTypeData.reduce((s, c) => s + c.countLastYear, 0);
+  // Compute each chart's scale once per data change instead of once per row
+  // (the previous version recomputed this inside every row's render).
+  const maxProvincialCases = useMemo(() => {
+    if (stats.provincialData.length === 0) return 1;
+    return Math.max(...stats.provincialData.map((p) => Math.max(p.cases, p.casesLastYear))) || 1;
+  }, [stats.provincialData]);
+
+  const maxCaseTypeCount = useMemo(() => {
+    if (stats.caseTypeData.length === 0) return 1;
+    return Math.max(...stats.caseTypeData.map((c) => Math.max(c.count, c.countLastYear))) || 1;
+  }, [stats.caseTypeData]);
+
+  const totalCaseTypes = useMemo(
+    () => stats.caseTypeData.reduce((s, c) => s + c.count, 0),
+    [stats.caseTypeData]
+  );
+  const totalCaseTypesLastYear = useMemo(
+    () => stats.caseTypeData.reduce((s, c) => s + c.countLastYear, 0),
+    [stats.caseTypeData]
+  );
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      {/* Header — mirrors the /auth eyebrow + bold black heading pattern */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground">Operations Dashboard</h1>
-          <p className="text-xs md:text-sm text-muted-foreground">Live case load overview and operational metrics</p>
+          <Eyebrow>Operations</Eyebrow>
+          <h1 className="mt-1 text-xl font-bold text-black md:text-2xl">Operations Dashboard</h1>
+          <p className="text-xs text-slate-500 md:text-sm">Live case load overview and operational metrics</p>
         </div>
-        <Badge variant="outline" className="text-xs self-start sm:self-auto">
-          {lastYear} vs {currentYear}
-        </Badge>
+        <YearBadge />
       </div>
 
       {/* KPI Cards with YoY */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-6">
         {statCards.map((stat) => (
-          <Card key={stat.label} className="border-border/50">
-            <CardContent className="pt-3 pb-3 px-3 md:px-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className={`p-1.5 md:p-2 rounded-lg ${stat.bg}`}>
-                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                </div>
-                {stat.prevValue !== null && !loading && (
-                  <YoYBadge current={stat.value} previous={stat.prevValue} />
-                )}
-                {stat.prevValue === null && <TrendingUp className="h-3 w-3 text-success" />}
-              </div>
-              <p className={`text-xl md:text-2xl font-bold ${stat.color} tabular-nums`}>
-                {loading ? '–' : stat.value}
-              </p>
-              <p className="text-[11px] text-muted-foreground leading-tight">{stat.label}</p>
-              {stat.prevValue !== null && !loading && (
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  {lastYear}: {stat.prevValue}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+          <StatCard key={stat.label} stat={stat} loading={loading} />
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        {/* Provincial Bar Chart - LIVE DATA with Year Comparison */}
-        <Card className="border-border/50">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 md:gap-6">
+        {/* Provincial Bar Chart — live data with year comparison */}
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />
+            <CardTitle className="flex items-center gap-2 text-base text-black">
+              <BarChart3 className="h-4 w-4" style={{ color: BRAND_TEAL }} />
               Provincial Case Distribution
-              <Badge variant="outline" className="ml-auto text-[10px]">
-                {lastYear} vs {currentYear}
-              </Badge>
+              <span className="ml-auto">
+                <Badge variant="outline" className="rounded-none border-black/15 text-[10px] text-black">
+                  {lastYear} vs {currentYear}
+                </Badge>
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <p className="text-sm text-slate-500">Loading...</p>
             ) : stats.provincialData.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No provincial data available</p>
+              <p className="text-sm text-slate-500">No provincial data available</p>
             ) : (
               <>
                 <div className="space-y-3">
-                  {stats.provincialData.map((prov) => {
-                    const maxCases = Math.max(
-                      ...stats.provincialData.map(p => Math.max(p.cases, p.casesLastYear))
-                    ) || 1;
-                    return (
-                      <div key={prov.name} className="space-y-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                          <span className="text-xs text-muted-foreground sm:w-28 truncate">{prov.name}</span>
-                          <div className="flex items-center gap-2 sm:gap-3 text-[10px] flex-wrap">
-                            <span className="text-muted-foreground">
-                              {lastYear}: <span className="font-medium text-foreground">{prov.casesLastYear}</span>
-                            </span>
-                            <span className="text-muted-foreground">
-                              {currentYear}: <span className="font-medium text-primary">{prov.cases}</span>
-                            </span>
-                            {prov.casesLastYear > 0 && (
-                              <span className={`font-semibold ${prov.cases >= prov.casesLastYear ? 'text-success' : 'text-destructive'}`}>
-                                {prov.cases >= prov.casesLastYear ? '+' : ''}{Math.round(((prov.cases - prov.casesLastYear) / prov.casesLastYear) * 100)}%
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        {/* Last year bar */}
-                        <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
-                          <div
-                            className="h-full bg-muted-foreground/30 rounded-full transition-all duration-700"
-                            style={{ width: `${Math.max((prov.casesLastYear / maxCases) * 100, 3)}%` }}
-                          />
-                        </div>
-                        {/* Current year bar */}
-                        <div className="flex-1 bg-muted rounded-full h-3 overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-700"
-                            style={{ width: `${Math.max((prov.cases / maxCases) * 100, 3)}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {stats.provincialData.map((prov) => (
+                    <ProvincialRow key={prov.name} prov={prov} maxCases={maxProvincialCases} />
+                  ))}
                 </div>
-                <div className="flex items-center gap-4 mt-4 justify-center border-t border-border/50 pt-3">
+                <div className="mt-4 flex items-center justify-center gap-4 border-t border-black/10 pt-3">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-sm bg-muted-foreground/30" />
-                    <span className="text-[10px] text-muted-foreground">{lastYear}</span>
+                    <div className="h-3 w-3 rounded-sm bg-black/20" />
+                    <span className="text-[10px] text-slate-500">{lastYear}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-sm bg-gradient-to-r from-primary to-secondary" />
-                    <span className="text-[10px] text-muted-foreground">{currentYear}</span>
+                    <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: BRAND_TEAL }} />
+                    <span className="text-[10px] text-slate-500">{currentYear}</span>
                   </div>
                 </div>
               </>
@@ -174,89 +266,62 @@ const AdminOperationsDashboard: React.FC = () => {
         </Card>
 
         {/* Case Type Breakdown with YoY comparison */}
-        <Card className="border-border/50">
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4 text-secondary" />
+            <CardTitle className="flex items-center gap-2 text-base text-black">
+              <FileText className="h-4 w-4" style={{ color: BRAND_TEAL }} />
               Case Type Breakdown
-              <Badge variant="outline" className="ml-auto text-[10px]">
-                {lastYear} vs {currentYear}
-              </Badge>
+              <span className="ml-auto">
+                <Badge variant="outline" className="rounded-none border-black/15 text-[10px] text-black">
+                  {lastYear} vs {currentYear}
+                </Badge>
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <p className="text-sm text-slate-500">Loading...</p>
             ) : stats.caseTypeData.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No case type data available</p>
+              <p className="text-sm text-slate-500">No case type data available</p>
             ) : (
               <div className="space-y-4">
                 {/* Summary totals */}
-                <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+                <div className="flex items-center justify-between bg-black/[0.03] p-3">
                   <div className="text-center">
-                    <p className="text-lg font-bold text-foreground">{totalCaseTypes}</p>
-                    <p className="text-[10px] text-muted-foreground">{currentYear} Total</p>
+                    <p className="text-lg font-bold text-black">{totalCaseTypes}</p>
+                    <p className="text-[10px] text-slate-500">{currentYear} Total</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-lg font-bold text-muted-foreground">{totalCaseTypesLastYear}</p>
-                    <p className="text-[10px] text-muted-foreground">{lastYear} Total</p>
+                    <p className="text-lg font-bold text-slate-400">{totalCaseTypesLastYear}</p>
+                    <p className="text-[10px] text-slate-500">{lastYear} Total</p>
                   </div>
                   <div className="text-center">
                     <YoYBadge current={totalCaseTypes} previous={totalCaseTypesLastYear} />
-                    <p className="text-[10px] text-muted-foreground">Change</p>
+                    <p className="text-[10px] text-slate-500">Change</p>
                   </div>
                 </div>
 
                 {/* Case type rows */}
-                <div className="space-y-3 max-h-64 overflow-y-auto">
-                  {stats.caseTypeData.map((ct, i) => {
-                    const maxCount = Math.max(...stats.caseTypeData.map(c => Math.max(c.count, c.countLastYear))) || 1;
-                    return (
-                      <div key={ct.type} className="space-y-1">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${CASE_TYPE_BG_CLASSES[i % CASE_TYPE_BG_CLASSES.length]}`} />
-                            <span className="text-xs font-medium text-foreground truncate">{ct.type}</span>
-                          </div>
-                          <div className="flex items-center gap-2 sm:gap-3 text-[10px] flex-wrap">
-                            <span className="text-muted-foreground">{lastYear}: <span className="font-medium">{ct.countLastYear}</span></span>
-                            <span className="text-muted-foreground">{currentYear}: <span className="font-medium text-primary">{ct.count}</span></span>
-                            {ct.countLastYear > 0 && (
-                              <YoYBadge current={ct.count} previous={ct.countLastYear} />
-                            )}
-                          </div>
-                        </div>
-                        {/* Last year bar */}
-                        <div className="bg-muted rounded-full h-2 overflow-hidden">
-                          <div
-                            className="h-full bg-muted-foreground/30 rounded-full transition-all duration-700"
-                            style={{ width: `${Math.max((ct.countLastYear / maxCount) * 100, 2)}%` }}
-                          />
-                        </div>
-                        {/* Current year bar */}
-                        <div className="bg-muted rounded-full h-2 overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all duration-700"
-                            style={{
-                              width: `${Math.max((ct.count / maxCount) * 100, 2)}%`,
-                              backgroundColor: CASE_TYPE_COLORS[i % CASE_TYPE_COLORS.length],
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="max-h-64 space-y-3 overflow-y-auto">
+                  {stats.caseTypeData.map((ct, i) => (
+                    <CaseTypeRow
+                      key={ct.type}
+                      ct={ct}
+                      maxCount={maxCaseTypeCount}
+                      color={CASE_TYPE_COLORS[i % CASE_TYPE_COLORS.length]}
+                    />
+                  ))}
                 </div>
 
                 {/* Legend */}
-                <div className="flex items-center gap-4 justify-center border-t border-border/50 pt-3">
+                <div className="flex items-center justify-center gap-4 border-t border-black/10 pt-3">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-sm bg-muted-foreground/30" />
-                    <span className="text-[10px] text-muted-foreground">{lastYear}</span>
+                    <div className="h-3 w-3 rounded-sm bg-black/20" />
+                    <span className="text-[10px] text-slate-500">{lastYear}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-sm bg-primary" />
-                    <span className="text-[10px] text-muted-foreground">{currentYear}</span>
+                    <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: BRAND_TEAL }} />
+                    <span className="text-[10px] text-slate-500">{currentYear}</span>
                   </div>
                 </div>
               </div>
@@ -265,17 +330,19 @@ const AdminOperationsDashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Alerts - LIVE DATA */}
+      {/* Alerts — live data */}
       {stats.overdueReports > 0 && (
-        <Card className="border-warning/30 bg-warning/5">
-          <CardContent className="py-3 px-4 flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-warning flex-shrink-0" />
+        <Card className="rounded-none border-warning/30 bg-warning/5 shadow-none">
+          <CardContent className="flex items-center gap-3 px-4 py-3">
+            <AlertTriangle className="h-5 w-5 flex-shrink-0 text-warning" />
             <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">
+              <p className="text-sm font-medium text-black">
                 {stats.overdueReports} report{stats.overdueReports !== 1 ? 's' : ''} overdue — Expert responses pending for more than 30 days
               </p>
             </div>
-            <Badge variant="outline" className="border-warning/50 text-warning">Action Required</Badge>
+            <Badge variant="outline" className="rounded-none border-warning/50 text-warning">
+              Action Required
+            </Badge>
           </CardContent>
         </Card>
       )}
