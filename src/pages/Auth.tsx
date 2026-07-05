@@ -262,7 +262,7 @@ const Auth = () => {
                       ref={emailInputRef}
                       type="email"
                       autoComplete="email"
-                      placeholder="you@firm.co.za"
+                      placeholder="...@kutlwanoassociate.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="h-12 rounded-none border-black/15 bg-white pl-11 text-black placeholder:text-slate-500 focus-visible:ring-[#00BAAD]"
@@ -347,7 +347,7 @@ const Auth = () => {
                       ref={emailInputRef}
                       type="email"
                       autoComplete="email"
-                      placeholder="you@firm.co.za"
+                      placeholder="...@kutlwanoassociate.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="h-12 rounded-none border-black/15 bg-white pl-11 text-black placeholder:text-slate-500 focus-visible:ring-[#00BAAD]"
