@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 
 interface BrandedPageLoaderProps {
-  /** Status text shown under the logo, e.g. "Loading access…", "Verifying secure access…" */
+  /** Status text shown under the spinner, e.g. "Loading access…", "Verifying secure access…" */
   message?: string;
   /** Full viewport height (route-level guards) vs a shorter inline block (lazy chunk loads). */
   fullScreen?: boolean;
@@ -9,13 +9,18 @@ interface BrandedPageLoaderProps {
 }
 
 /**
- * Shared full-page loading screen.
+ * Shared in-app loading indicator, used while the app is silently checking
+ * auth/permissions (ProtectedRoute, PermissionProtectedRoute, MFARequiredGuard,
+ * portal layouts).
  *
- * Visually matches the pre-React splash screen in index.html (#app-splash):
- * the same teal-to-white brand gradient, logo ring, title styling and
- * spinner — so the "checking access" screens users see right after signing
- * in or moving between portals feel like one continuous, branded experience
- * instead of a plain generic spinner.
+ * Deliberately kept light and quick — NOT a copy of the one-time full brand
+ * splash in index.html (#app-splash). That splash is a one-off "welcome"
+ * screen shown once before React mounts. This component can appear many
+ * times per session (every login, every portal switch), so making it a
+ * second full-gradient takeover made it look like the app was reloading
+ * from scratch each time. This version uses the same brand teal for the
+ * spinner only, on the app's normal background, so it reads as a brief
+ * in-app check rather than a duplicate boot screen.
  */
 const BrandedPageLoader = ({
   message = 'Loading…',
@@ -26,22 +31,15 @@ const BrandedPageLoader = ({
     role="status"
     aria-label={message}
     className={cn(
-      'flex w-full flex-col items-center justify-center gap-5 bg-[linear-gradient(135deg,#00BAAD_0%,#4fd8ce_45%,#ffffff_100%)] px-4 text-center',
+      'flex w-full flex-col items-center justify-center gap-3 bg-background px-4 text-center',
       fullScreen ? 'min-h-screen' : 'min-h-[50vh]',
       className
     )}
   >
-    <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white/25 shadow-[0_20px_60px_rgba(0,0,0,0.22),inset_0_0_0_2px_rgba(255,255,255,0.5)] backdrop-blur-md">
-      <img
-        src="/lovable-uploads/logo-icon-192.png"
-        alt="Kutlwano & Associate"
-        className="h-14 w-14 object-contain drop-shadow-md"
-      />
-    </div>
-    <p className="text-xs font-semibold uppercase tracking-[0.25em] text-white drop-shadow-sm">
+    <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-[#00BAAD]/20 border-t-[#00BAAD]" />
+    <p className="text-xs font-medium uppercase tracking-[0.2em] text-muted-foreground">
       {message}
     </p>
-    <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-white/35 border-t-white" />
   </div>
 );
 
