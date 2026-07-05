@@ -25,6 +25,9 @@
     <meta name="apple-mobile-web-app-title" content="Medico-Legal Pro" />
     <link rel="apple-touch-icon" href="/lovable-uploads/icon-maskable-1024.png" />
 
+    <!-- Preload the splash logo so it's ready the instant the splash paints, no pop-in -->
+    <link rel="preload" as="image" href="/lovable-uploads/logo-icon-192.png" />
+
     <link rel="icon" type="image/x-icon" href="https://storage.googleapis.com/gpt-engineer-file-uploads/GgfjkqALqUYnkdIcpfWWP8KgnXF3/uploads/1758050853809-Mobius.png" />
 
     <style>
@@ -41,10 +44,12 @@
         background: linear-gradient(135deg, #00BAAD 0%, #4fd8ce 45%, #ffffff 100%);
         color: #ffffff;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        transition: opacity 400ms ease;
+        transition: opacity 450ms ease-out, transform 450ms ease-out;
+        will-change: opacity, transform;
       }
       #app-splash.splash-hidden {
         opacity: 0;
+        transform: scale(1.03);
         pointer-events: none;
       }
       #app-splash .splash-logo-ring {
@@ -116,7 +121,7 @@
 
     <div id="app-splash" role="status" aria-label="Loading Medico-Legal Pro">
       <div class="splash-logo-ring">
-        <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" />
+        <img src="/lovable-uploads/logo-icon-192.png" alt="Kutlwano & Associate" />
       </div>
       <div class="splash-title">Medico-Legal Pro</div>
       <div class="splash-sub">Kutlwano &amp; Associate</div>
@@ -124,23 +129,35 @@
     </div>
 
     <script>
-      // Hide the splash once React mounts. Fallback timeout keeps it from sticking.
+      // Hide the splash the instant React mounts anything into #root.
+      // Uses a MutationObserver instead of polling, so there's no added
+      // delay (setInterval polling could add up to 100ms of lag on top of
+      // the real load time). A timeout fallback still guards against the
+      // splash ever getting stuck if something goes wrong.
       (function () {
+        var hidden = false;
         var hide = function () {
+          if (hidden) return;
+          hidden = true;
           var el = document.getElementById('app-splash');
           if (!el) return;
           el.classList.add('splash-hidden');
           window.setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 500);
         };
-        var check = function () {
-          var root = document.getElementById('root');
-          if (root && root.childElementCount > 0) { hide(); return true; }
-          return false;
-        };
-        var interval = window.setInterval(function () {
-          if (check()) window.clearInterval(interval);
-        }, 100);
-        window.setTimeout(function () { window.clearInterval(interval); hide(); }, 6000);
+        var root = document.getElementById('root');
+        if (root && root.childElementCount > 0) {
+          hide();
+        } else if (root && 'MutationObserver' in window) {
+          var observer = new MutationObserver(function () {
+            if (root.childElementCount > 0) {
+              observer.disconnect();
+              hide();
+            }
+          });
+          observer.observe(root, { childList: true });
+        }
+        // Safety net: never let the splash get stuck if mounting fails.
+        window.setTimeout(hide, 6000);
       })();
     </script>
 
