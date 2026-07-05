@@ -129,13 +129,24 @@
     </div>
 
     <script>
-      // Hide the splash the instant React mounts anything into #root.
-      // Uses a MutationObserver instead of polling, so there's no added
-      // delay (setInterval polling could add up to 100ms of lag on top of
-      // the real load time). A timeout fallback still guards against the
-      // splash ever getting stuck if something goes wrong.
+      // Hide the splash once React has mounted the app, with a small
+      // minimum-visible-time floor so the welcome branding always registers
+      // even on a very fast/cached load. This never adds delay beyond real
+      // load time: if the app takes longer than MIN_DISPLAY_MS to mount,
+      // the splash hides the instant it's ready, no extra wait added.
+      //
+      // Uses a MutationObserver (not polling) to detect the app mounting,
+      // so there's no unnecessary lag on top of the real load time either.
+      //
+      // This element is removed from the DOM entirely after its one
+      // appearance, so it structurally cannot reappear later in the
+      // session (e.g. after signing in) — only a full page reload
+      // recreates it, which is the correct "welcome to the app" moment.
       (function () {
+        var MIN_DISPLAY_MS = 900;
+        var startedAt = Date.now();
         var hidden = false;
+
         var hide = function () {
           if (hidden) return;
           hidden = true;
@@ -144,18 +155,29 @@
           el.classList.add('splash-hidden');
           window.setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 500);
         };
+
+        var hideAfterMinimum = function () {
+          var remaining = MIN_DISPLAY_MS - (Date.now() - startedAt);
+          if (remaining > 0) {
+            window.setTimeout(hide, remaining);
+          } else {
+            hide();
+          }
+        };
+
         var root = document.getElementById('root');
         if (root && root.childElementCount > 0) {
-          hide();
+          hideAfterMinimum();
         } else if (root && 'MutationObserver' in window) {
           var observer = new MutationObserver(function () {
             if (root.childElementCount > 0) {
               observer.disconnect();
-              hide();
+              hideAfterMinimum();
             }
           });
           observer.observe(root, { childList: true });
         }
+
         // Safety net: never let the splash get stuck if mounting fails.
         window.setTimeout(hide, 6000);
       })();
