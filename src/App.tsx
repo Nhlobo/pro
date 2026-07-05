@@ -9,7 +9,6 @@ import { SecurityProvider } from "@/components/SecurityProvider";
 import { AppointmentSyncProvider } from "@/contexts/AppointmentSyncContext";
 import { ConfirmDialogProvider } from "@/hooks/useConfirm";
 import { HelmetProvider } from "react-helmet-async";
-import NetworkStatus from "@/components/NetworkStatus";
 import { ActivityTrackerMount } from "@/hooks/useActivityTracker";
 import { OfflineRedirectGuard } from "@/hooks/useOfflineRedirect";
 import IdleLogoutGuard from "@/components/IdleLogoutGuard";
@@ -168,7 +167,6 @@ const App = () => (
             <ConfirmDialogProvider>
               <Toaster />
               <Sonner />
-              <NetworkStatus />
               <BrowserRouter>
               <ActivityTrackerMount />
               <OfflineRedirectGuard />
