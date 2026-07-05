@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { ShieldAlert, Loader2 } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import MFASetup from '@/components/MFASetup';
+import BrandedPageLoader from '@/components/BrandedPageLoader';
 
 interface MFARequiredGuardProps {
   children: React.ReactNode;
@@ -61,14 +62,7 @@ export const MFARequiredGuard: React.FC<MFARequiredGuardProps> = ({ children, ro
   }, []);
 
   if (checking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-primary" />
-          <p className="text-sm text-muted-foreground">Verifying secure access…</p>
-        </div>
-      </div>
-    );
+    return <BrandedPageLoader message="Verifying secure access…" />;
   }
 
   if (mfaSatisfied) return <>{children}</>;
