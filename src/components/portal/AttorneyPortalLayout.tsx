@@ -26,6 +26,7 @@ import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
 import { ATTORNEY_TOUR, ATTORNEY_TOUR_KEY } from '@/config/tours';
 import { ATTORNEY_PAGE_TOURS } from '@/config/pageTours';
 import MFARequiredGuard from '@/components/MFARequiredGuard';
+import BrandedPageLoader from '@/components/BrandedPageLoader';
 
 interface AttorneyPortalLayoutProps {
   children: React.ReactNode;
@@ -94,11 +95,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
   // }, [loading, isReferringAttorney, navigate]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <BrandedPageLoader message="Loading…" />;
   }
 
   return (
