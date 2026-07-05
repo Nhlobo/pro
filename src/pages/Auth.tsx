@@ -190,31 +190,38 @@ const Auth = () => {
   const isResetDisabled = resetLoading || !email.trim();
 
   return (
-    <div className="min-h-screen bg-[#F7F5EE]">
+    <div className="min-h-screen w-full bg-[#F7F5EE]">
       <Helmet>
         <title>Sign In - Medico-Legal Pro</title>
         <meta name="description" content="Sign in to access the Medico-Legal Pro portal — Kutlwano & Associate." />
       </Helmet>
 
-      <div className="mx-auto grid min-h-screen w-full max-w-6xl grid-cols-1 lg:grid-cols-2">
-        {/* Left brand panel */}
-        <aside className="hidden flex-col justify-between gradient-nav p-10 text-white lg:flex">
-          <div className="flex items-center gap-3">
-            <img src={logoSrc} alt="Kutlwano & Associate" className="h-12 w-12" />
+      <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-2">
+        {/* Left brand panel — full-bleed teal→white gradient */}
+        <aside className="relative hidden flex-col justify-between overflow-hidden gradient-nav p-10 text-white lg:flex">
+          <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+
+          <div className="relative flex items-center gap-3">
+            <div className="rounded-full bg-white/15 p-2 ring-2 ring-white/30 backdrop-blur">
+              <img src={logoSrc} alt="Kutlwano & Associate" className="h-12 w-12 object-contain" />
+            </div>
             <div>
               <div className="text-lg font-bold tracking-wide">Medico-Legal Pro</div>
               <div className="text-xs text-white/80">Kutlwano &amp; Associate</div>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h1 className="text-4xl font-bold leading-tight">We touch a file.<br />We change lives.</h1>
-            <p className="max-w-sm text-sm text-white/85">
+          <div className="relative space-y-4">
+            <h1 className="text-4xl font-bold leading-tight xl:text-5xl">
+              We touch a file.<br />We change lives.
+            </h1>
+            <p className="max-w-md text-sm text-white/85 xl:text-base">
               Sign in with your authorised staff account to access your assigned workspace and manage medico-legal cases.
             </p>
           </div>
 
-          <div className="text-xs text-white/70">
+          <div className="relative text-xs text-white/70">
             © {new Date().getFullYear()} Kutlwano &amp; Associate (Pty) Ltd
           </div>
         </aside>
@@ -223,7 +230,9 @@ const Auth = () => {
         <main className="flex items-center justify-center bg-white p-6 sm:p-10">
           <div className="w-full max-w-md">
             <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
-              <img src={logoSrc} alt="Kutlwano & Associate" className="h-12 w-12" />
+              <div className="rounded-full bg-gradient-to-br from-[#00BAAD] to-white p-2 ring-2 ring-[#00BAAD]/40 shadow-lg">
+                <img src={logoSrc} alt="Kutlwano & Associate" className="h-14 w-14 object-contain" />
+              </div>
               <div className="text-center">
                 <div className="text-lg font-bold">Medico-Legal Pro</div>
                 <div className="text-xs text-slate-500">Kutlwano &amp; Associate</div>
@@ -303,10 +312,10 @@ const Auth = () => {
                     Forgot Password?
                   </button>
                   <Link
-                    to="/contact"
+                    to="/help"
                     className="truncate text-left font-semibold text-black hover:text-[#00BAAD] hover:underline sm:text-right"
                   >
-                    Forgot email?
+                    Need help?
                   </Link>
                 </div>
 
@@ -380,7 +389,7 @@ const Auth = () => {
                 <span>|</span>
                 <Link to="/terms" className="hover:text-[#00BAAD]">Terms</Link>
                 <span>|</span>
-                <Link to="/contact" className="hover:text-[#00BAAD]">Help</Link>
+                <Link to="/help" className="hover:text-[#00BAAD]">Help</Link>
               </div>
             </div>
           </div>

@@ -3,22 +3,25 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { SecurityProvider } from "@/components/SecurityProvider";
 import { AppointmentSyncProvider } from "@/contexts/AppointmentSyncContext";
 import { ConfirmDialogProvider } from "@/hooks/useConfirm";
 import { HelmetProvider } from "react-helmet-async";
-import GlobalRefreshButton from "@/components/GlobalRefreshButton";
+import NetworkStatus from "@/components/NetworkStatus";
 import { ActivityTrackerMount } from "@/hooks/useActivityTracker";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
 
 // Eager: top-level entry points + portal layouts (small, always needed when in portal)
-import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Offline from "./pages/Offline";
+import Privacy from "./pages/legal/Privacy";
+import Terms from "./pages/legal/Terms";
+import Help from "./pages/legal/Help";
 import AdminPortalLayout from "./components/portal/AdminPortalLayout";
 import ExpertPortalLayout from "./components/portal/ExpertPortalLayout";
 
@@ -163,13 +166,17 @@ const App = () => (
             <ConfirmDialogProvider>
               <Toaster />
               <Sonner />
-              <GlobalRefreshButton />
+              <NetworkStatus />
               <BrowserRouter>
               <ActivityTrackerMount />
               <Suspense fallback={<RouteFallback />}>
               <Routes>
-                <Route path="/" element={<Landing />} />
+                <Route path="/" element={<Navigate to="/auth" replace />} />
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/help" element={<Help />} />
+                <Route path="/offline" element={<Offline />} />
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
                 <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
                 <Route path="/Expertzone/case-access" element={<ExpertCaseAccess />} />
