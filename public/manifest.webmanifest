@@ -10,16 +10,41 @@
   "theme_color": "#00BAAD",
   "icons": [
     {
-      "src": "/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png",
+      "src": "/lovable-uploads/logo-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png",
+      "src": "/lovable-uploads/logo-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/lovable-uploads/logo-icon-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/lovable-uploads/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/lovable-uploads/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/lovable-uploads/icon-maskable-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
+
