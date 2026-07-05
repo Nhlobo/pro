@@ -55,6 +55,7 @@ const navigationGroups: NavGroup[] = getNavigationGroups();
 
 import SalesConsultantDeleteGuard from './SalesConsultantDeleteGuard';
 import InternalChatWidget from '@/components/internalChat/InternalChatWidget';
+import BrandedPageLoader from '@/components/BrandedPageLoader';
 
 export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }) => {
   const location = useLocation();
@@ -100,11 +101,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   }, [loading, userRole, isSalesConsultant, isAllowedForSC, isAdminOnlyRoute, navigate]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
-      </div>
-    );
+    return <BrandedPageLoader message="Loading…" />;
   }
 
   const visibleGroups = navigationGroups
