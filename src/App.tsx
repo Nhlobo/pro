@@ -20,6 +20,7 @@ import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/Gl
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Offline from "./pages/Offline";
+import ResetPassword from "./pages/ResetPassword";
 import Privacy from "./pages/legal/Privacy";
 import Terms from "./pages/legal/Terms";
 import Help from "./pages/legal/Help";
@@ -179,6 +180,7 @@ const App = () => (
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/help" element={<Help />} />
                 <Route path="/offline" element={<Offline />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
                 <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
                 <Route path="/Expertzone/case-access" element={<ExpertCaseAccess />} />
