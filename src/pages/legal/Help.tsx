@@ -13,17 +13,17 @@ const Help = () => (
 
     <div className="not-prose mt-6 grid gap-4 sm:grid-cols-2">
       <a
-        href="tel:0110276077"
+        href="tel:0100234042"
         className="flex items-start gap-3 border border-black/10 bg-white p-4 no-underline transition hover:border-[#00BAAD]"
       >
         <Phone className="mt-1 h-5 w-5 text-[#00BAAD]" />
         <div>
           <div className="text-sm font-semibold text-black">Support line</div>
-          <div className="text-sm text-slate-600">011 027 6077</div>
+          <div className="text-sm text-slate-600">010 023 4042</div>
         </div>
       </a>
       <a
-        href="tel:0100234042"
+        href="tel:010 023 4042"
         className="flex items-start gap-3 border border-black/10 bg-white p-4 no-underline transition hover:border-[#00BAAD]"
       >
         <Phone className="mt-1 h-5 w-5 text-[#00BAAD]" />
