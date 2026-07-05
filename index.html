@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Kutlwano &amp; Associate - Medico Legal Management System</title>
-    <meta name="description" content="Professional medico-legal case management system for law firms and medical experts. Streamline your legal practice with comprehensive tools.">
+    <title>Medico-Legal Pro — Kutlwano &amp; Associate</title>
+    <meta name="description" content="Sign in to Medico-Legal Pro — professional medico-legal case management by Kutlwano & Associate." />
     <meta name="author" content="Kutlwano & Associate (Pty) Ltd" />
-    <meta name="keywords" content="medico legal, case management, legal software, medical experts, law firm management, Kutlwano">
+    <meta name="keywords" content="medico legal, case management, legal software, medical experts, Kutlwano" />
 
-    <meta property="og:title" content="Kutlwano & Associate - Medico Legal Management System" />
-    <meta property="og:description" content="Professional medico-legal case management system for law firms and medical experts. Streamline your legal practice with comprehensive tools." />
+    <meta property="og:title" content="Medico-Legal Pro — Kutlwano & Associate" />
+    <meta property="og:description" content="Sign in to Medico-Legal Pro — professional medico-legal case management by Kutlwano & Associate." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" />
 
@@ -19,17 +19,131 @@
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0A9BE0" />
+    <meta name="theme-color" content="#00BAAD" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Medico-Legal Pro" />
     <link rel="apple-touch-icon" href="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" />
 
-    <link rel="icon" type="image/x-icon" href="https://storage.googleapis.com/gpt-engineer-file-uploads/GgfjkqALqUYnkdIcpfWWP8KgnXF3/uploads/1758050853809-Mobius.png">
-</head>
+    <link rel="icon" type="image/x-icon" href="https://storage.googleapis.com/gpt-engineer-file-uploads/GgfjkqALqUYnkdIcpfWWP8KgnXF3/uploads/1758050853809-Mobius.png" />
+
+    <style>
+      /* Splash screen — full-bleed brand gradient shown until the React app mounts. */
+      #app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        background: linear-gradient(135deg, #00BAAD 0%, #4fd8ce 45%, #ffffff 100%);
+        color: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        transition: opacity 400ms ease;
+      }
+      #app-splash.splash-hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #app-splash .splash-logo-ring {
+        width: 132px;
+        height: 132px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.22);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.22), inset 0 0 0 2px rgba(255, 255, 255, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        animation: splash-pulse 2.4s ease-in-out infinite;
+      }
+      #app-splash .splash-logo-ring img {
+        width: 96px;
+        height: 96px;
+        object-fit: contain;
+        filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.25));
+      }
+      #app-splash .splash-title {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-shadow: 0 1px 12px rgba(0, 0, 0, 0.18);
+      }
+      #app-splash .splash-sub {
+        margin-top: -14px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+        color: rgba(255, 255, 255, 0.85);
+      }
+      #app-splash .splash-spinner {
+        width: 26px;
+        height: 26px;
+        border-radius: 999px;
+        border: 3px solid rgba(255, 255, 255, 0.35);
+        border-top-color: #ffffff;
+        animation: splash-spin 0.9s linear infinite;
+      }
+      @keyframes splash-pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+      }
+      @keyframes splash-spin {
+        to { transform: rotate(360deg); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #app-splash .splash-logo-ring,
+        #app-splash .splash-spinner { animation: none; }
+      }
+      /* Hide Lovable edit badge if it appears on this deployment. */
+      #lovable-badge,
+      [id^="lovable-badge"],
+      a[href*="lovable.dev"][class*="badge"],
+      div[class*="lovable-badge"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+    </style>
+  </head>
 
   <body>
     <div id="root"></div>
+
+    <div id="app-splash" role="status" aria-label="Loading Medico-Legal Pro">
+      <div class="splash-logo-ring">
+        <img src="/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" alt="Kutlwano & Associate" />
+      </div>
+      <div class="splash-title">Medico-Legal Pro</div>
+      <div class="splash-sub">Kutlwano &amp; Associate</div>
+      <div class="splash-spinner"></div>
+    </div>
+
+    <script>
+      // Hide the splash once React mounts. Fallback timeout keeps it from sticking.
+      (function () {
+        var hide = function () {
+          var el = document.getElementById('app-splash');
+          if (!el) return;
+          el.classList.add('splash-hidden');
+          window.setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 500);
+        };
+        var check = function () {
+          var root = document.getElementById('root');
+          if (root && root.childElementCount > 0) { hide(); return true; }
+          return false;
+        };
+        var interval = window.setInterval(function () {
+          if (check()) window.clearInterval(interval);
+        }, 100);
+        window.setTimeout(function () { window.clearInterval(interval); hide(); }, 6000);
+      })();
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
