@@ -1,14 +1,32 @@
 # Render.com Blueprint.
 # Connect repo at https://dashboard.render.com/blueprints
+#
+# Deployed as a Static Site, not a Docker web service. This app is a pure
+# client-side SPA (all backend calls go straight to Supabase from the
+# browser), so it doesn't need a running server — and Static Sites on
+# Render never spin down / sleep, even on the free plan. That avoids the
+# ~1 minute cold-start + Render's own "waking up" interstitial page that
+# free-tier Web Services show.
 services:
   - type: web
     name: medico-legal-pro
-    runtime: docker
-    plan: starter
+    runtime: static
+    plan: free
     region: frankfurt
-    dockerfilePath: ./Dockerfile
-    healthCheckPath: /healthz
+    buildCommand: npm ci --legacy-peer-deps && npm run build
+    staticPublishPath: ./dist
     autoDeploy: true
+    routes:
+      # SPA fallback: any path not matching a real static file goes to
+      # index.html so React Router can handle client-side routing
+      # (deep links like /expert-portal won't 404 on refresh).
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
     envVars:
       - key: VITE_SUPABASE_URL
         sync: false
@@ -16,3 +34,5 @@ services:
         sync: false
       - key: VITE_SUPABASE_PROJECT_ID
         sync: false
+
+
