@@ -21,7 +21,12 @@ export const getDashboardPathForRole = (
       return '/attorney-portal';
     case 'medical_expert':
       return '/expert-portal';
-    default:
-      return '/';
+// AFTER
+default:
+  // admin / employee / sales_consultant / unknown all land on the
+  // main dashboard. This must never be '/' — root is a hard redirect
+  // to /auth (see App.tsx) — or a fresh login bounces back to sign-in.
+  return '/dashboard';
+  
   }
 };
