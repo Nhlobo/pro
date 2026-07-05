@@ -1,5 +1,6 @@
 import LegalPageLayout from './LegalPageLayout';
-import { Mail, Phone, MessageSquare } from 'lucide-react';
+import LegalSectionCard from './LegalSectionCard';
+import { Mail, Phone, MessageSquare, LogIn, MailCheck, ShieldAlert, WifiOff } from 'lucide-react';
 
 const Help = () => (
   <LegalPageLayout
@@ -44,24 +45,29 @@ const Help = () => (
     </div>
 
     <h2>Common issues</h2>
-    <ul>
-      <li>
-        <strong>Can&rsquo;t sign in:</strong> confirm Caps Lock is off, then use
-        &ldquo;Forgot Password?&rdquo; on the sign-in page to reset your password.
-      </li>
-      <li>
-        <strong>Email not confirmed:</strong> after signing in you will be prompted to resend
-        the confirmation link.
-      </li>
-      <li>
-        <strong>Access not authorised:</strong> your account may be pending role assignment —
-        contact your administrator.
-      </li>
-      <li>
-        <strong>Slow or blank screens:</strong> check your internet connection. If you are
-        offline you will see a red banner at the top of the screen.
-      </li>
-    </ul>
+    <div className="not-prose grid gap-4">
+      <LegalSectionCard number={1} title="Can't sign in" icon={LogIn}>
+        <p>
+          Confirm Caps Lock is off, then use &ldquo;Forgot Password?&rdquo; on the sign-in page
+          to reset your password.
+        </p>
+      </LegalSectionCard>
+
+      <LegalSectionCard number={2} title="Email not confirmed" icon={MailCheck}>
+        <p>After signing in you will be prompted to resend the confirmation link.</p>
+      </LegalSectionCard>
+
+      <LegalSectionCard number={3} title="Access not authorised" icon={ShieldAlert}>
+        <p>Your account may be pending role assignment — contact your administrator.</p>
+      </LegalSectionCard>
+
+      <LegalSectionCard number={4} title="Slow or blank screens" icon={WifiOff}>
+        <p>
+          Check your internet connection. If you are offline you will see a red banner at the top
+          of the screen.
+        </p>
+      </LegalSectionCard>
+    </div>
 
     <div className="not-prose mt-6 flex items-start gap-3 border border-black/10 bg-[#F7F5EE] p-4">
       <MessageSquare className="mt-1 h-5 w-5 text-black" />
