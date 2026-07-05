@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -9,7 +9,12 @@ interface LegalPageLayoutProps {
   children: ReactNode;
 }
 
-const LegalPageLayout = ({ title, description, children }: LegalPageLayoutProps) => (
+const LegalPageLayout = ({ title, description, children }: LegalPageLayoutProps) => {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  return (
   <div className="min-h-screen w-full bg-[#F7F5EE]">
     <Helmet>
       <title>{title} — Medico-Legal Pro</title>
@@ -48,6 +53,7 @@ const LegalPageLayout = ({ title, description, children }: LegalPageLayoutProps)
       </div>
     </main>
   </div>
-);
+  );
+};
 
 export default LegalPageLayout;
