@@ -22,6 +22,7 @@ import WorkflowAlertsCard from "@/components/dashboard/WorkflowAlertsCard";
 import HelpSupportCard from "@/components/dashboard/HelpSupportCard";
 import AttorneyDashboardView from "@/components/dashboard/AttorneyDashboardView";
 import { toast } from "sonner";
+import BrandedPageLoader from "@/components/BrandedPageLoader";
 
 const Index = () => {
   const { user, signOut } = useAuth();
@@ -62,11 +63,31 @@ const Index = () => {
     }
   };
 
+  // Still figuring out the user's role — show a loader, not a guess.
+  if (loading) {
+    return (
+      <ProtectedRoute>
+        <BrandedPageLoader message="Loading…" />
+      </ProtectedRoute>
+    );
+  }
+
   // If user is a referring attorney, show restricted dashboard
-  if (!loading && referringAttorney) {
+  if (referringAttorney) {
     return (
       <ProtectedRoute>
         <AttorneyDashboardView user={user ?? null} profile={userProfile} onSignOut={signOut} />
+      </ProtectedRoute>
+    );
+  }
+
+  // Admins are being redirected to /admin by the effect above — show a
+  // loader instead of the generic dashboard while that navigation happens,
+  // so it never has a chance to flash on screen first.
+  if (admin) {
+    return (
+      <ProtectedRoute>
+        <BrandedPageLoader message="Loading…" />
       </ProtectedRoute>
     );
   }
