@@ -2,7 +2,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import ProtectedRoute from "@/components/ProtectedRoute";
 import { useAppointmentNotifications } from "@/hooks/useAppointmentNotifications";
 import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
@@ -64,36 +63,27 @@ const Index = () => {
   };
 
   // Still figuring out the user's role — show a loader, not a guess.
+  // (Permissions are now shared app-wide via PermissionsProvider, so this
+  // will already be resolved by the time ProtectedRoute — which wraps this
+  // page in App.tsx — has finished its own check. This is just a safety net
+  // for the rare case this state is still settling.)
   if (loading) {
-    return (
-      <ProtectedRoute>
-        <BrandedPageLoader message="Loading…" />
-      </ProtectedRoute>
-    );
+    return <BrandedPageLoader message="Loading…" />;
   }
 
   // If user is a referring attorney, show restricted dashboard
   if (referringAttorney) {
-    return (
-      <ProtectedRoute>
-        <AttorneyDashboardView user={user ?? null} profile={userProfile} onSignOut={signOut} />
-      </ProtectedRoute>
-    );
+    return <AttorneyDashboardView user={user ?? null} profile={userProfile} onSignOut={signOut} />;
   }
 
   // Admins are being redirected to /admin by the effect above — show a
   // loader instead of the generic dashboard while that navigation happens,
   // so it never has a chance to flash on screen first.
   if (admin) {
-    return (
-      <ProtectedRoute>
-        <BrandedPageLoader message="Loading…" />
-      </ProtectedRoute>
-    );
+    return <BrandedPageLoader message="Loading…" />;
   }
 
   return (
-    <ProtectedRoute>
       <div className="min-h-screen bg-background">
         <Helmet>
           <title>Dashboard - Medico-Legal Assessment System</title>
@@ -159,7 +149,6 @@ const Index = () => {
 
         <CompanyFooter />
       </div>
-    </ProtectedRoute>
   );
 };
 
