@@ -25,6 +25,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         localStorage.removeItem(key);
       }
     });
+    try {
+      Object.keys(sessionStorage).forEach((key) => {
+        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    } catch {
+      /* sessionStorage may be unavailable in some contexts */
+    }
   };
 
   const resendConfirmation = async () => {
