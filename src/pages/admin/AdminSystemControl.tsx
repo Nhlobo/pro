@@ -21,44 +21,44 @@ const AdminSystemControl: React.FC = () => {
       </div>
 
       <Tabs defaultValue="users" className="w-full">
-        <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:overflow-visible sm:px-0">
-          <TabsList className="grid w-max min-w-full grid-cols-5 gap-1 sm:w-full sm:max-w-3xl sm:gap-0">
-            <TabsTrigger value="users" className="flex items-center gap-1.5 whitespace-nowrap px-2.5 text-xs sm:px-3">
-              <UserCog className="h-3.5 w-3.5 shrink-0" />
+        <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:overflow-visible sm:px-0">
+          <TabsList className="flex w-max min-w-full gap-1 sm:grid sm:w-full sm:grid-cols-5 sm:gap-0 sm:max-w-3xl">
+            <TabsTrigger value="users" className="flex shrink-0 items-center gap-1.5 text-xs">
+              <UserCog className="h-3.5 w-3.5" />
               Per-User
             </TabsTrigger>
-            <TabsTrigger value="visibility" className="flex items-center gap-1.5 whitespace-nowrap px-2.5 text-xs sm:px-3">
-              <Eye className="h-3.5 w-3.5 shrink-0" />
+            <TabsTrigger value="visibility" className="flex shrink-0 items-center gap-1.5 text-xs">
+              <Eye className="h-3.5 w-3.5" />
               Visibility
             </TabsTrigger>
-            <TabsTrigger value="workflow" className="flex items-center gap-1.5 whitespace-nowrap px-2.5 text-xs sm:px-3">
-              <GitBranch className="h-3.5 w-3.5 shrink-0" />
+            <TabsTrigger value="workflow" className="flex shrink-0 items-center gap-1.5 text-xs">
+              <GitBranch className="h-3.5 w-3.5" />
               Workflow
             </TabsTrigger>
-            <TabsTrigger value="data" className="flex items-center gap-1.5 whitespace-nowrap px-2.5 text-xs sm:px-3">
-              <Database className="h-3.5 w-3.5 shrink-0" />
+            <TabsTrigger value="data" className="flex shrink-0 items-center gap-1.5 text-xs">
+              <Database className="h-3.5 w-3.5" />
               Data
             </TabsTrigger>
-            <TabsTrigger value="health" className="flex items-center gap-1.5 whitespace-nowrap px-2.5 text-xs sm:px-3">
-              <Activity className="h-3.5 w-3.5 shrink-0" />
+            <TabsTrigger value="health" className="flex shrink-0 items-center gap-1.5 text-xs">
+              <Activity className="h-3.5 w-3.5" />
               Health
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <TabsContent value="users" className="overflow-x-hidden">
+        <TabsContent value="users">
           <UserControlTab />
         </TabsContent>
-        <TabsContent value="visibility" className="overflow-x-hidden">
+        <TabsContent value="visibility">
           <VisibilityControlTab />
         </TabsContent>
-        <TabsContent value="workflow" className="overflow-x-hidden">
+        <TabsContent value="workflow">
           <WorkflowControlTab />
         </TabsContent>
-        <TabsContent value="data" className="overflow-x-hidden">
+        <TabsContent value="data">
           <DataControlTab />
         </TabsContent>
-        <TabsContent value="health" className="overflow-x-hidden">
+        <TabsContent value="health">
           <SystemHealthTab />
         </TabsContent>
       </Tabs>
