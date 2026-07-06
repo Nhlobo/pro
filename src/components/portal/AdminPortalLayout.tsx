@@ -40,6 +40,8 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 
+const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
+
 interface AdminPortalLayoutProps {
   children: React.ReactNode;
 }
@@ -124,7 +126,6 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
       {isSalesConsultant() && <SalesConsultantDeleteGuard />}
       <RouteFirstVisitTour routes={ADMIN_PAGE_TOURS} />
 
-
       {/* Mobile backdrop */}
       {mobileOpen && (
         <div
@@ -138,7 +139,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
       <aside
         data-tour="admin-sidebar"
         className={cn(
-          "fixed left-0 top-0 z-40 h-screen border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-all duration-300",
+          "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden gradient-nav text-white shadow-xl transition-all duration-300",
           // Width
           sidebarCollapsed ? "w-16" : "w-64",
           // Mobile: slide in/out; Desktop: always visible
@@ -146,15 +147,19 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
           "lg:translate-x-0"
         )}
       >
-        <div className="flex h-full flex-col">
+        {/* Ambient glow accents to match the auth brand panel */}
+        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
+
+        <div className="relative flex h-full min-h-0 flex-col">
           {/* Logo */}
-          <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
+          <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-white/15 px-4">
             {!sidebarCollapsed && (
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
-                  <span className="text-sidebar-primary-foreground font-bold text-sm">K&A</span>
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 p-1 ring-2 ring-white/30">
+                  <img src={logoSrc} alt="Kutlwano & Associate" className="h-full w-full object-contain" />
                 </div>
-                <span className="font-semibold text-sm">Admin Portal</span>
+                <span className="truncate font-semibold text-sm">Admin Portal</span>
               </div>
             )}
             <Button
@@ -168,7 +173,10 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
                   setSidebarCollapsed(!sidebarCollapsed);
                 }
               }}
-              className="h-8 w-8 text-sidebar-foreground hover:bg-sidebar-accent"
+              className={cn(
+                "h-8 w-8 shrink-0 text-white/90 hover:bg-white/15 hover:text-white",
+                sidebarCollapsed && "mx-auto"
+              )}
               aria-label="Toggle sidebar"
             >
               {sidebarCollapsed ? <Menu className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -176,13 +184,13 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
           </div>
 
           {/* Navigation */}
-          <ScrollArea className="flex-1 py-2">
+          <ScrollArea className="min-h-0 flex-1 py-2">
             {visibleGroups.map((group) => (
-              <Collapsible key={group.label} defaultOpen className="px-2 mb-1">
+              <Collapsible key={group.label} defaultOpen className="mb-1 px-2">
                 {!sidebarCollapsed && (
-                  <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-1.5 text-[10px] uppercase tracking-wider text-sidebar-foreground/50 font-semibold hover:text-sidebar-foreground/70">
-                    {group.label}
-                    <ChevronDown className="h-3 w-3" />
+                  <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/60 hover:text-white/85">
+                    <span className="truncate">{group.label}</span>
+                    <ChevronDown className="h-3 w-3 shrink-0" />
                   </CollapsibleTrigger>
                 )}
                 <CollapsibleContent>
@@ -196,14 +204,14 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
                           className={cn(
                             "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                             isActive
-                              ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground",
+                              ? "bg-white text-[#0F7A9C] shadow-sm"
+                              : "text-white/80 hover:bg-white/15 hover:text-white",
                             sidebarCollapsed && "justify-center px-2"
                           )}
                           title={sidebarCollapsed ? item.title : undefined}
                         >
                           <item.icon className="h-4 w-4 flex-shrink-0" />
-                          {!sidebarCollapsed && <span>{item.title}</span>}
+                          {!sidebarCollapsed && <span className="truncate">{item.title}</span>}
                         </Link>
                       );
                     })}
@@ -214,18 +222,18 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
           </ScrollArea>
 
           {/* User section */}
-          <div className="border-t border-sidebar-border p-3">
+          <div className="shrink-0 border-t border-white/15 p-3">
             <div className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
               sidebarCollapsed && "justify-center px-2"
             )}>
-              <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15">
                 <User className="h-4 w-4" />
               </div>
               {!sidebarCollapsed && (
-                <div className="flex-1 overflow-hidden">
-                  <p className="text-xs font-medium truncate">{user?.email}</p>
-                  <p className="text-[10px] text-sidebar-foreground/60">{roleLabel}</p>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <p className="truncate text-xs font-medium">{user?.email}</p>
+                  <p className="truncate text-[10px] text-white/70">{roleLabel}</p>
                 </div>
               )}
             </div>
@@ -233,7 +241,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
               variant="ghost"
               size={sidebarCollapsed ? "icon" : "default"}
               className={cn(
-                "w-full mt-1 text-sidebar-foreground/70 hover:text-destructive hover:bg-sidebar-accent/50",
+                "mt-1 w-full text-white/80 hover:bg-white/15 hover:text-white",
                 sidebarCollapsed && "px-2"
               )}
               onClick={() => signOut()}
@@ -260,12 +268,12 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
         <a href="#main-content" className="skip-link">Skip to main content</a>
 
         {/* Top bar */}
-        <header className="sticky top-0 z-30 h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center px-3 sm:px-4 lg:px-6 gap-2 sm:gap-4">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-card/80 px-3 backdrop-blur-sm sm:gap-3 sm:px-4 lg:px-6">
           {/* Mobile hamburger */}
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden h-11 w-11 shrink-0"
+            className="h-11 w-11 shrink-0 lg:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
             aria-expanded={mobileOpen}
@@ -274,26 +282,29 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
             <Menu className="h-5 w-5" />
           </Button>
 
-          <div className="flex-1 min-w-0">
-            <div className="relative w-full max-w-sm" data-tour="global-search">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <div className="min-w-0 flex-1">
+            <div className="relative w-full max-w-xs sm:max-w-sm" data-tour="global-search">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <label htmlFor="admin-global-search" className="sr-only">Search</label>
               <input
                 id="admin-global-search"
                 type="search"
                 placeholder="Search…"
-                className="w-full pl-9 pr-3 h-10 text-sm bg-muted/50 border border-border rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="h-10 w-full rounded-lg border border-border bg-muted/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               />
             </div>
           </div>
-          <div className="hidden sm:block">
-            <TourLauncher steps={ADMIN_TOUR} storageKey={ADMIN_TOUR_KEY} compact />
+
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <div className="hidden sm:block">
+              <TourLauncher steps={ADMIN_TOUR} storageKey={ADMIN_TOUR_KEY} compact />
+            </div>
+            <div data-tour="portal-switcher" className="hidden md:block"><PortalSwitcher /></div>
+            <div data-tour="notifications"><NotificationCenter /></div>
           </div>
-          <div data-tour="portal-switcher" className="hidden md:block"><PortalSwitcher /></div>
-          <div data-tour="notifications"><NotificationCenter /></div>
         </header>
 
-        <div className="p-3 sm:p-4 lg:p-6">{children}</div>
+        <div className="min-w-0 p-3 sm:p-4 lg:p-6">{children}</div>
       </main>
       <InternalChatWidget />
     </div>
