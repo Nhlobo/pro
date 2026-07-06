@@ -10,7 +10,10 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    // Use sessionStorage so the auth token is dropped when the tab / installed
+    // PWA is fully closed. This forces re-sign-in on next launch while still
+    // surviving page refreshes and in-tab navigations.
+    storage: sessionStorage,
     persistSession: true,
     autoRefreshToken: true,
   }
