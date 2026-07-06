@@ -65,22 +65,22 @@ const MyProfile: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="h-14 w-14 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
               <User className="h-7 w-7 text-primary" />
             </div>
-            <div className="flex-1">
-              <CardTitle className="text-xl">{loading ? '…' : fullName}</CardTitle>
-              <CardDescription className="flex items-center gap-2 mt-1">
-                <Mail className="h-3.5 w-3.5" />
-                {profile?.email || user?.email}
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-xl truncate">{loading ? '…' : fullName}</CardTitle>
+              <CardDescription className="flex items-center gap-2 mt-1 min-w-0">
+                <Mail className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">{profile?.email || user?.email}</span>
               </CardDescription>
             </div>
-            <Badge variant="secondary" className="text-sm">{roleLabel}</Badge>
+            <Badge variant="secondary" className="text-sm shrink-0">{roleLabel}</Badge>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground text-xs uppercase tracking-wider">Position</p>
               <p className="font-medium">{profile?.position || '—'}</p>
@@ -109,13 +109,13 @@ const MyProfile: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-3">
           {(isSalesConsultant() ? SALES_CONSULTANT_ACCESS : SALES_CONSULTANT_ACCESS).map((item) => (
-            <div key={item.label} className="flex items-start gap-3 p-3 rounded-lg border bg-card">
+            <div key={item.label} className="flex flex-wrap items-start gap-3 p-3 rounded-lg border bg-card">
               <item.icon className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-              <div className="flex-1">
+              <div className="flex-1 min-w-[160px]">
                 <p className="font-medium text-sm">{item.label}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
               </div>
-              <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50">Granted</Badge>
+              <Badge variant="outline" className="shrink-0 text-emerald-700 border-emerald-300 bg-emerald-50">Granted</Badge>
             </div>
           ))}
         </CardContent>
