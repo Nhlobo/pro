@@ -208,7 +208,7 @@ const SalesPerformanceReports: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="brand-legal-theme space-y-4 md:space-y-6">
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -406,7 +406,7 @@ const SalesPerformanceReports: React.FC = () => {
       </Card>
 
       <Dialog open={!!previewReport} onOpenChange={(open) => !open && setPreviewReport(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="brand-legal-theme max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
@@ -422,7 +422,7 @@ const SalesPerformanceReports: React.FC = () => {
       </Dialog>
 
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
-        <DialogContent className="max-w-6xl max-h-[92vh] overflow-hidden flex flex-col">
+        <DialogContent className="brand-legal-theme max-w-6xl max-h-[92vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Pencil className="h-4 w-4" /> Edit {draftPeriod} email drafts
