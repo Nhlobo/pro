@@ -80,7 +80,7 @@ const MyProfile: React.FC = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground text-xs uppercase tracking-wider">Position</p>
               <p className="font-medium">{profile?.position || '—'}</p>
@@ -109,9 +109,9 @@ const MyProfile: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-3">
           {(isSalesConsultant() ? SALES_CONSULTANT_ACCESS : SALES_CONSULTANT_ACCESS).map((item) => (
-            <div key={item.label} className="flex flex-wrap items-start gap-3 p-3 rounded-lg border bg-card">
+            <div key={item.label} className="flex flex-wrap sm:flex-nowrap items-start gap-3 p-3 rounded-lg border bg-card">
               <item.icon className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-              <div className="flex-1 min-w-[160px]">
+              <div className="flex-1 min-w-[140px]">
                 <p className="font-medium text-sm">{item.label}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
               </div>
