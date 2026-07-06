@@ -573,28 +573,28 @@ const UserManagement: React.FC = () => {
         <div className="container mx-auto max-w-7xl">
           {/* Header */}
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-lg">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-lg shrink-0">
                   <Users className="h-6 w-6 text-white" />
                 </div>
-                <div>
-                  <h1 className="text-3xl font-bold text-foreground">User Management</h1>
-                  <p className="text-muted-foreground">Manage user roles and permissions</p>
+                <div className="min-w-0">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground truncate">User Management</h1>
+                  <p className="text-muted-foreground text-sm sm:text-base truncate">Manage user roles and permissions</p>
                 </div>
               </div>
               <Button 
                 onClick={() => navigate('/dashboard')}
                 variant="outline"
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 shrink-0"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Back to Dashboard
               </Button>
             </div>
             
-            <div className="flex items-center gap-4">
-              <div className="flex-1 max-w-md">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex-1 min-w-[200px] max-w-md">
                 <Label htmlFor="search">Search Users</Label>
                 <Input
                   id="search"
@@ -604,7 +604,7 @@ const UserManagement: React.FC = () => {
                   className="mt-1"
                 />
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <Badge variant="secondary" className="bg-kutlwano-blue/10 text-kutlwano-blue">
                   {users.length} Total Users
                 </Badge>
@@ -632,8 +632,8 @@ const UserManagement: React.FC = () => {
             <CardContent className="p-4">
               <div className="flex flex-col gap-4">
                 {/* Top Row: View Mode, Sort, and Filter Toggle */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-4">
                     {/* View Mode Toggle */}
                     <div className="flex items-center gap-2">
                       <Label className="text-sm font-medium">View:</Label>
@@ -682,7 +682,7 @@ const UserManagement: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {/* Filter Toggle */}
                     <Button
                       variant="outline"
@@ -716,7 +716,7 @@ const UserManagement: React.FC = () => {
 
                 {/* Filters Row (Collapsible) */}
                 {showFilters && (
-                  <div className="flex items-center gap-4 pt-2 border-t">
+                  <div className="flex flex-wrap items-center gap-4 pt-2 border-t">
                     <div className="flex items-center gap-2">
                       <Label className="text-sm font-medium">Role:</Label>
                       <Select value={filterRole} onValueChange={setFilterRole}>
@@ -748,7 +748,7 @@ const UserManagement: React.FC = () => {
                     </div>
 
                     {/* Active Filters Display */}
-                    <div className="flex items-center gap-2 ml-auto">
+                    <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                       {searchTerm && (
                         <Badge variant="secondary" className="text-xs">
                           Search: {searchTerm}
@@ -778,17 +778,17 @@ const UserManagement: React.FC = () => {
               {filteredUsers.map((user) => (
               <Card key={user.id} className="hover:shadow-lg transition-shadow border-border/50">
                 <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 rounded-full">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 rounded-full shrink-0">
                         {user.role === 'admin' ? (
                           <Shield className="h-5 w-5 text-kutlwano-blue" />
                         ) : (
                           <UserCheck className="h-5 w-5 text-muted-foreground" />
                         )}
                       </div>
-                      <div>
-                        <CardTitle className="text-lg">
+                      <div className="min-w-0">
+                        <CardTitle className="text-lg break-words">
                           {user.first_name && user.last_name 
                             ? `${user.first_name} ${user.last_name}`
                             : 'No Name Set'
@@ -799,7 +799,7 @@ const UserManagement: React.FC = () => {
                             </span>
                           )}
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="break-words">
                           {user.email}
                           {user.user_type === 'admin' && (
                            <span className="text-xs text-kutlwano-blue font-medium ml-2">
@@ -821,7 +821,7 @@ const UserManagement: React.FC = () => {
                     </div>
                     <Badge 
                       variant={user.user_type === 'admin' ? 'default' : 'secondary'}
-                      className={user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : ''}
+                      className={(user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : '') + ' shrink-0'}
                     >
                           {user.user_type === 'admin' ? 'Administrator' : 
                        user.user_type === 'employee' ? 'Company Employee' :
@@ -918,17 +918,17 @@ const UserManagement: React.FC = () => {
               {filteredUsers.map((user) => (
                 <Card key={user.id} className="hover:shadow-md transition-shadow border-border/50">
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="p-2 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 rounded-full">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className="p-2 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 rounded-full shrink-0">
                           {user.role === 'admin' ? (
                             <Shield className="h-5 w-5 text-kutlwano-blue" />
                           ) : (
                             <UserCheck className="h-5 w-5 text-muted-foreground" />
                           )}
                         </div>
-                        <div>
-                          <h3 className="font-semibold">
+                        <div className="min-w-0">
+                          <h3 className="font-semibold break-words">
                             {user.first_name && user.last_name 
                               ? `${user.first_name} ${user.last_name}`
                               : 'No Name Set'
@@ -939,14 +939,14 @@ const UserManagement: React.FC = () => {
                               </span>
                             )}
                           </h3>
-                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                          <p className="text-sm text-muted-foreground break-words">{user.email}</p>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
                         <Badge 
                           variant={user.user_type === 'admin' ? 'default' : 'secondary'}
-                          className={user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : ''}
+                          className={(user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : '') + ' shrink-0'}
                         >
                           {user.user_type === 'admin' ? 'Administrator' : 
                            user.user_type === 'employee' ? 'Company Employee' :
@@ -954,7 +954,7 @@ const UserManagement: React.FC = () => {
                            user.role || 'user'}
                          </Badge>
                         
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
                           <Button 
                             onClick={() => handleUserSelect(user)}
                             size="sm"
@@ -1228,7 +1228,7 @@ const UserManagement: React.FC = () => {
 
               {/* Action Buttons */}
               {selectedUser && (
-                <div className="sticky bottom-0 z-10 flex justify-between items-center pt-4 border-t mt-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                <div className="sticky bottom-0 z-10 flex flex-wrap justify-between items-center gap-2 pt-4 border-t mt-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
                   <Button
                     variant="outline"
                     size="sm"
@@ -1241,7 +1241,7 @@ const UserManagement: React.FC = () => {
                     <Settings className="h-4 w-4 mr-2" />
                     Edit Full Profile
                   </Button>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       size="sm"
