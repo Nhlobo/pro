@@ -100,7 +100,7 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
         {tiers.map((tier) => (
           <Card
             key={tier.key}
-            className={`border-border/50 cursor-pointer transition-all hover:shadow-md ${selectedTier === tier.key ? tier.activeColor + ' shadow-md' : ''}`}
+            className={`rounded-none border-black/10 shadow-none cursor-pointer transition-all hover:shadow-md ${selectedTier === tier.key ? tier.activeColor + ' shadow-md' : ''}`}
             onClick={() => setSelectedTier(selectedTier === tier.key ? 'all' : tier.key)}
           >
             <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">

@@ -305,7 +305,7 @@ const AdminHeatmap: React.FC = () => {
                 ? 'text-destructive'
                 : 'text-muted-foreground';
           return (
-            <Card key={prov.name} className={`border-border/50 ${prov.status === 'critical' ? 'ring-2 ring-destructive/30' : ''}`}>
+            <Card key={prov.name} className={`rounded-none border-black/10 shadow-none ${prov.status === 'critical' ? 'ring-2 ring-destructive/30' : ''}`}>
               <CardContent className="pt-4 pb-3 px-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
