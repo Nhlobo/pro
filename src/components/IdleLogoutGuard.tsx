@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Clock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
   AlertDialog,
@@ -88,18 +89,33 @@ const IdleLogoutGuard = () => {
 
   return (
     <AlertDialog open={warningOpen}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Are you still working?</AlertDialogTitle>
-          <AlertDialogDescription>
+      <AlertDialogContent className="w-full max-w-md rounded-none border-none bg-white p-8 text-center shadow-2xl">
+        <AlertDialogHeader className="items-center text-center sm:text-center">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-black/5">
+            <Clock className="h-8 w-8 text-black" />
+          </div>
+          <AlertDialogTitle className="text-2xl font-bold text-black">
+            Are you still working?
+          </AlertDialogTitle>
+          <AlertDialogDescription className="mt-2 text-sm text-slate-600">
             You&rsquo;ve been inactive for a while. For your security, you&rsquo;ll be signed out
-            in <span className="font-semibold text-foreground">{secondsLeft}s</span> unless you
+            in <span className="font-semibold text-black">{secondsLeft}s</span> unless you
             confirm you&rsquo;re still here.
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={logoutNow}>Log out</AlertDialogCancel>
-          <AlertDialogAction onClick={stayActive}>Yes, I&rsquo;m still here</AlertDialogAction>
+        <AlertDialogFooter className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <AlertDialogAction
+            onClick={stayActive}
+            className="h-11 rounded-none bg-black font-semibold uppercase tracking-wide text-white hover:bg-black/85"
+          >
+            Yes, I&rsquo;m still here
+          </AlertDialogAction>
+          <AlertDialogCancel
+            onClick={logoutNow}
+            className="mt-0 h-11 rounded-none border border-black/15 font-semibold uppercase tracking-wide text-black hover:bg-black/5"
+          >
+            Log out
+          </AlertDialogCancel>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
