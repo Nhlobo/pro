@@ -882,7 +882,7 @@ const UserManagement: React.FC = () => {
                           Delete User
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent>
+                      <AlertDialogContent className="brand-legal-theme">
                         <AlertDialogHeader>
                           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                           <AlertDialogDescription>
@@ -993,7 +993,7 @@ const UserManagement: React.FC = () => {
 
           {/* Add User Dialog */}
           <Dialog open={isAddUserModalOpen} onOpenChange={setIsAddUserModalOpen}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="brand-legal-theme max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <UserPlus className="h-5 w-5 text-kutlwano-blue" />
@@ -1148,7 +1148,7 @@ const UserManagement: React.FC = () => {
 
           {/* User Management Dialog */}
           <Dialog open={isManageModalOpen} onOpenChange={setIsManageModalOpen}>
-            <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogContent className="brand-legal-theme max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
               <DialogHeader className="pb-3">
                 <DialogTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-kutlwano-blue" />
@@ -1279,7 +1279,7 @@ const UserManagement: React.FC = () => {
 
           {/* Change Password Dialog */}
           <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="brand-legal-theme max-w-md">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Key className="h-5 w-5 text-kutlwano-blue" />
@@ -1355,7 +1355,7 @@ const UserManagement: React.FC = () => {
 
           {/* Password Display Dialog */}
           <Dialog open={showPasswordDialog} onOpenChange={handleClosePasswordDialog}>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="brand-legal-theme sm:max-w-md">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <Key className="h-5 w-5" />
@@ -1435,7 +1435,7 @@ const UserManagement: React.FC = () => {
 
           {/* Link Attorney Dialog */}
           <Dialog open={isLinkAttorneyOpen} onOpenChange={setIsLinkAttorneyOpen}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="brand-legal-theme max-w-md">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <UserCheck className="h-5 w-5 text-kutlwano-blue" />
