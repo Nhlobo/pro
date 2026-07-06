@@ -56,7 +56,7 @@ const VisibilityControlTab: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 mt-4">
+    <div className="space-y-4 md:space-y-6 mt-4">
       {/* Feature Flags */}
       <Card>
         <CardHeader className="pb-3">

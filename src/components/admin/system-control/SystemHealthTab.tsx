@@ -77,7 +77,7 @@ const StatCard: React.FC<{
       </CardTitle>
     </CardHeader>
     <CardContent>
-      <div className="text-2xl font-bold text-foreground">{primary}</div>
+      <div className="text-xl md:text-2xl font-bold text-foreground">{primary}</div>
       {secondary && <p className="text-xs text-muted-foreground mt-1">{secondary}</p>}
     </CardContent>
   </Card>
@@ -211,7 +211,7 @@ const SystemHealthTab: React.FC = () => {
   }, [snapshot, realtimeStatus]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
           <div>

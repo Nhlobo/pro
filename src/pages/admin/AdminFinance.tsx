@@ -267,10 +267,10 @@ const AdminFinance: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Finance & Payments</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Finance & Payments</h1>
           <p className="text-sm text-muted-foreground">Bidirectional payment sync: Assessments ↔ AOD ↔ Short-term Agreements</p>
         </div>
         <Button
@@ -285,7 +285,7 @@ const AdminFinance: React.FC = () => {
         </Button>
       </div>
 
-      <Card className="border-border/50">
+      <Card className="rounded-none border-black/10 shadow-none">
         <CardContent className="pt-4">
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
@@ -318,45 +318,45 @@ const AdminFinance: React.FC = () => {
 
       {/* Financial Summary */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="border-border/50">
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardContent className="pt-4 pb-3 px-4">
             <RandSign className="h-5 w-5 text-primary mb-2" />
-            <p className="text-2xl font-bold text-foreground">R{(totalValue / 1000).toFixed(0)}k</p>
+            <p className="text-xl md:text-2xl font-bold text-foreground">R{(totalValue / 1000).toFixed(0)}k</p>
             <p className="text-[11px] text-muted-foreground">Total Contract Value</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50">
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardContent className="pt-4 pb-3 px-4">
             <CheckCircle2 className="h-5 w-5 text-green-600 mb-2" />
             <p className="text-2xl font-bold text-green-600">R{(totalPaid / 1000).toFixed(0)}k</p>
             <p className="text-[11px] text-muted-foreground">Total Payments Received</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50">
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardContent className="pt-4 pb-3 px-4">
             <Clock className="h-5 w-5 text-blue-500 mb-2" />
             <p className="text-2xl font-bold text-blue-500">R{(totalDiscount / 1000).toFixed(1)}k</p>
             <p className="text-[11px] text-muted-foreground">Discount Applied</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50">
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardContent className="pt-4 pb-3 px-4">
             <AlertCircle className="h-5 w-5 text-orange-500 mb-2" />
             <p className="text-2xl font-bold text-orange-500">R{(outstanding / 1000).toFixed(0)}k</p>
             <p className="text-[11px] text-muted-foreground">Outstanding Balance</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50">
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardContent className="pt-4 pb-3 px-4">
             <Users className="h-5 w-5 text-primary mb-2" />
-            <p className="text-2xl font-bold text-foreground">{filteredConsolidatedAttorneys.length}</p>
+            <p className="text-xl md:text-2xl font-bold text-foreground">{filteredConsolidatedAttorneys.length}</p>
             <p className="text-[11px] text-muted-foreground">Long-Term Attorneys</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Long-Term AOD – Consolidated by Referring Attorney */}
-      <Card className="border-border/50">
+      <Card className="rounded-none border-black/10 shadow-none">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">Long-Term AOD – Referring Attorney Debts</CardTitle>
@@ -386,7 +386,7 @@ const AdminFinance: React.FC = () => {
                 ) : filteredConsolidatedAttorneys.length === 0 ? (
                   <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">No long-term AOD agreements</td></tr>
                 ) : filteredConsolidatedAttorneys.map((att) => (
-                  <tr key={att.attorneyId} className="border-b border-border/50 hover:bg-muted/20">
+                  <tr key={att.attorneyId} className="border-b rounded-none border-black/10 shadow-none hover:bg-muted/20">
                     <td className="py-3 px-4 font-medium text-foreground">{att.attorneyName}</td>
                     <td className="py-3 px-4 text-center">
                       <Badge variant="outline" className="text-[10px]">{att.aodCount}</Badge>
@@ -440,7 +440,7 @@ const AdminFinance: React.FC = () => {
       </Card>
 
       {/* Short-term Agreements Table */}
-      <Card className="border-border/50">
+      <Card className="rounded-none border-black/10 shadow-none">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
             <CardTitle className="text-base">Short-term Agreements</CardTitle>
@@ -476,7 +476,7 @@ const AdminFinance: React.FC = () => {
                   const referringAttorneyName = doc.referring_attorneys?.name || doc.debtor_law_firm_name || '–';
 
                   return (
-                    <tr key={doc.id} className="border-b border-border/50 hover:bg-muted/20">
+                    <tr key={doc.id} className="border-b rounded-none border-black/10 shadow-none hover:bg-muted/20">
                       <td className="py-3 px-4 font-medium text-foreground">
                         {referringAttorneyName}
                       </td>

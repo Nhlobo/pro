@@ -819,7 +819,7 @@ const AdminReportingDashboard: React.FC = () => {
           { label: 'In Progress', value: metrics.inProgress, icon: Clock, color: 'text-amber-600' },
           { label: 'Outstanding', value: metrics.outstanding, icon: AlertTriangle, color: 'text-rose-600' },
         ].map((k) => (
-          <Card key={k.label} className="border-border/50">
+          <Card key={k.label} className="rounded-none border-black/10 shadow-none">
             <CardContent className="pt-3 pb-3 px-3 md:px-4">
               <k.icon className={`h-4 w-4 mb-2 ${k.color}`} />
               <p className="text-xl md:text-2xl font-bold text-foreground tabular-nums">{k.value}</p>
@@ -841,7 +841,7 @@ const AdminReportingDashboard: React.FC = () => {
         </div>
 
         <TabsContent value="active" className="space-y-3">
-          <Card className="border-border/50">
+          <Card className="rounded-none border-black/10 shadow-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">
                 Active Referring Attorneys · Matters since 1 Jan 2025
@@ -889,7 +889,7 @@ const AdminReportingDashboard: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="attorney" className="space-y-3">
-          <Card className="border-border/50">
+          <Card className="rounded-none border-black/10 shadow-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">
                 Per-Attorney Report {attorneyFilter !== 'all' ? `· ${attorneyFilter}` : ''} · {periodLabel}
@@ -905,7 +905,7 @@ const AdminReportingDashboard: React.FC = () => {
                 <p className="text-sm text-muted-foreground">No claimants for this attorney in {periodLabel}.</p>
               )}
               {attorneyFilter !== 'all' && grouped.length > 0 && (
-                <div className="rounded-md border border-border/50 overflow-hidden">
+                <div className="rounded-md border rounded-none border-black/10 shadow-none overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -957,7 +957,7 @@ const AdminReportingDashboard: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="claimants" className="space-y-3">
-          <Card className="border-border/50">
+          <Card className="rounded-none border-black/10 shadow-none">
             <CardHeader className="pb-2"><CardTitle className="text-base">Claimants in {periodLabel}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               <div className="relative">
@@ -1000,7 +1000,7 @@ const AdminReportingDashboard: React.FC = () => {
                 const subOut = g.items.length - subSubmitted - subProgress;
                 return (
                   <Collapsible key={g.id} open={isOpen} onOpenChange={(o) => setOpenClaimants((s) => ({ ...s, [g.id]: o }))}>
-                    <div className="rounded-md border border-border/50 hover:bg-muted/40 transition">
+                    <div className="rounded-md border rounded-none border-black/10 shadow-none hover:bg-muted/40 transition">
                     <CollapsibleTrigger className="w-full">
                       <div className="flex items-center justify-between p-3">
                         <div className="flex items-center gap-3 text-left">
@@ -1050,7 +1050,7 @@ const AdminReportingDashboard: React.FC = () => {
                       );
                     })()}
                     <CollapsibleContent>
-                      <div className="border-t border-border/50">
+                      <div className="border-t rounded-none border-black/10 shadow-none">
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -1089,14 +1089,14 @@ const AdminReportingDashboard: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="reports">
-          <Card className="border-border/50">
+          <Card className="rounded-none border-black/10 shadow-none">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Reports available to send to a Referring Attorney</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {REPORT_TYPES.map((rt) => (
-                  <div key={rt.id} className="flex items-start justify-between p-3 rounded-md border border-border/50 hover:bg-muted/30">
+                  <div key={rt.id} className="flex items-start justify-between p-3 rounded-md border rounded-none border-black/10 shadow-none hover:bg-muted/30">
                     <div className="flex gap-3">
                       <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center">
                         <rt.icon className="h-4 w-4 text-primary" />
@@ -1118,7 +1118,7 @@ const AdminReportingDashboard: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="summary">
-          <Card className="border-border/50">
+          <Card className="rounded-none border-black/10 shadow-none">
             <CardHeader className="pb-2"><CardTitle className="text-base">Summary / Comments</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <Textarea

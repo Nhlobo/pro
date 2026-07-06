@@ -58,7 +58,7 @@ const WorkflowControlTab: React.FC = () => {
   const paymentDeadlines = getVal('deadline_payment_days');
 
   return (
-    <div className="space-y-6 mt-4">
+    <div className="space-y-4 md:space-y-6 mt-4">
       {/* Approval Workflows */}
       <Card>
         <CardHeader className="pb-3">

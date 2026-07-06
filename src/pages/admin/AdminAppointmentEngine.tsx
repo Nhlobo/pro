@@ -27,7 +27,7 @@ const AdminAppointmentEngine: React.FC = () => {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Appointment Engine</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">Appointment Engine</h1>
         <p className="text-sm text-muted-foreground">
           Scheduling & assessments — {today}
         </p>

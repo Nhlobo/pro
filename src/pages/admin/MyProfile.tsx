@@ -57,9 +57,9 @@ const MyProfile: React.FC = () => {
     : userRole || 'User';
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-4 md:space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">My Profile</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">My Profile</h1>
         <p className="text-sm text-muted-foreground">Your role, access scope and restrictions.</p>
       </div>
 

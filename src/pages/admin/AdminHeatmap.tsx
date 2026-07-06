@@ -215,7 +215,7 @@ const AdminHeatmap: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
         <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-1">
           <Home className="h-4 w-4" /> Back to Home
@@ -223,7 +223,7 @@ const AdminHeatmap: React.FC = () => {
       </div>
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">National Availability Heatmap</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">National Availability Heatmap</h1>
           <p className="text-sm text-muted-foreground">Real-time expert availability vs appointment demand (last 12 months)</p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -233,7 +233,7 @@ const AdminHeatmap: React.FC = () => {
       </div>
 
       {/* Section visibility toggle bar */}
-      <Card className="border-border/50">
+      <Card className="rounded-none border-black/10 shadow-none">
         <CardContent className="py-2 px-3 flex flex-wrap items-center gap-2">
           <span className="text-xs text-muted-foreground mr-1">Show / Hide:</span>
           {SECTION_KEYS.map((key) => (
@@ -264,7 +264,7 @@ const AdminHeatmap: React.FC = () => {
           { key: 'both', label: 'Both (RAF & Med Neg)', count: totalBoth, cls: 'border-success text-success' },
         ];
         return (
-          <Card className="border-border/50">
+          <Card className="rounded-none border-black/10 shadow-none">
             <CardContent className="py-3 px-3 flex flex-wrap items-center gap-2">
               <span className="text-xs text-muted-foreground mr-1">Filter by matter type:</span>
               {filters.map(f => (
@@ -305,7 +305,7 @@ const AdminHeatmap: React.FC = () => {
                 ? 'text-destructive'
                 : 'text-muted-foreground';
           return (
-            <Card key={prov.name} className={`border-border/50 ${prov.status === 'critical' ? 'ring-2 ring-destructive/30' : ''}`}>
+            <Card key={prov.name} className={`rounded-none border-black/10 shadow-none ${prov.status === 'critical' ? 'ring-2 ring-destructive/30' : ''}`}>
               <CardContent className="pt-4 pb-3 px-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">

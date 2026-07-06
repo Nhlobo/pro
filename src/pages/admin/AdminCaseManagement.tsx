@@ -38,19 +38,19 @@ const AdminCaseManagement: React.FC = () => {
   const trialReadiness = Math.floor(Math.random() * 30 + 55);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Case Management</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">Case Management</h1>
         <p className="text-sm text-muted-foreground">Stage tracking, trial readiness, and expert panel status</p>
       </div>
 
       {/* Stage Pipeline */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stages.map((stage) => (
-          <Card key={stage.name} className="border-border/50">
+          <Card key={stage.name} className="rounded-none border-black/10 shadow-none">
             <CardContent className="pt-4 pb-3 px-4">
               <div className={`w-2 h-2 rounded-full ${stage.color} mb-2`} />
-              <p className="text-2xl font-bold text-foreground">{stage.count}</p>
+              <p className="text-xl md:text-2xl font-bold text-foreground">{stage.count}</p>
               <p className="text-[11px] text-muted-foreground">{stage.name}</p>
             </CardContent>
           </Card>
@@ -58,7 +58,7 @@ const AdminCaseManagement: React.FC = () => {
       </div>
 
       {/* Trial Readiness Overview */}
-      <Card className="border-border/50">
+      <Card className="rounded-none border-black/10 shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Scale className="h-4 w-4 text-primary" />
@@ -90,7 +90,7 @@ const AdminCaseManagement: React.FC = () => {
       </Card>
 
       {/* Cases Table */}
-      <Card className="border-border/50">
+      <Card className="rounded-none border-black/10 shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Active Cases</CardTitle>
         </CardHeader>
@@ -111,7 +111,7 @@ const AdminCaseManagement: React.FC = () => {
                 {loading ? (
                   <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">Loading cases...</td></tr>
                 ) : assessments.slice(0, 15).map((a) => (
-                  <tr key={a.appointment_id} className="border-b border-border/50 hover:bg-muted/20">
+                  <tr key={a.appointment_id} className="border-b rounded-none border-black/10 shadow-none hover:bg-muted/20">
                     <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{a.claimant_auto_id}</td>
                     <td className="py-3 px-4 font-medium text-foreground">{a.claimant_name}</td>
                     <td className="py-3 px-4 text-muted-foreground">{a.expert_name}</td>
