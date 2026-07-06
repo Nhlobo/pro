@@ -155,7 +155,7 @@ const ExpertFeeReviewApprovals: React.FC = () => {
   };
 
   return (
-    <Card className="border-border/50">
+    <Card className="rounded-none border-black/10 shadow-none">
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle className="text-base flex items-center gap-2">

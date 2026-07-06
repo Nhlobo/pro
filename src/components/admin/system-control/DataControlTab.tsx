@@ -64,7 +64,7 @@ const DataControlTab: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 mt-4">
+    <div className="space-y-4 md:space-y-6 mt-4">
       {/* Record Locks */}
       <Card>
         <CardHeader className="pb-3">

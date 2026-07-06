@@ -18,27 +18,27 @@ const AdminTrialReadiness: React.FC = () => {
   const readinessRate = Math.round((readyCases / totalCases) * 100);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Trial Readiness Dashboard</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">Trial Readiness Dashboard</h1>
         <p className="text-sm text-muted-foreground">Expert requirements vs reports submitted</p>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-4">
-        <Card className="border-border/50">
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardContent className="pt-4 pb-3 px-4 text-center">
             <p className="text-3xl font-bold text-primary">{readinessRate}%</p>
             <p className="text-xs text-muted-foreground">Overall Readiness</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50">
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardContent className="pt-4 pb-3 px-4 text-center">
             <p className="text-3xl font-bold text-success">{readyCases}</p>
             <p className="text-xs text-muted-foreground">Trial Ready</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50">
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardContent className="pt-4 pb-3 px-4 text-center">
             <p className="text-3xl font-bold text-warning">{totalCases - readyCases}</p>
             <p className="text-xs text-muted-foreground">Reports Pending</p>
@@ -47,7 +47,7 @@ const AdminTrialReadiness: React.FC = () => {
       </div>
 
       {/* Case List */}
-      <Card className="border-border/50">
+      <Card className="rounded-none border-black/10 shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Scale className="h-4 w-4 text-primary" />
@@ -67,7 +67,7 @@ const AdminTrialReadiness: React.FC = () => {
             </thead>
             <tbody>
               {mockCases.map(c => (
-                <tr key={c.id} className="border-b border-border/50 hover:bg-muted/20">
+                <tr key={c.id} className="border-b rounded-none border-black/10 shadow-none hover:bg-muted/20">
                   <td className="py-3 px-4 font-mono text-xs text-muted-foreground">{c.id}</td>
                   <td className="py-3 px-4 font-medium text-foreground">{c.claimant}</td>
                   <td className="py-3 px-4 text-muted-foreground">{c.expert}</td>

@@ -15,9 +15,9 @@ const AdminAnalytics: React.FC = () => {
   const maxVal = Math.max(...monthlyData.map(m => m.cases));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Operational Analytics</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">Operational Analytics</h1>
         <p className="text-sm text-muted-foreground">Monthly volume trends and performance metrics</p>
       </div>
 
@@ -29,10 +29,10 @@ const AdminAnalytics: React.FC = () => {
           { label: 'Active Attorneys', value: '67', icon: Users, trend: '+5' },
           { label: 'Completion Rate', value: '87%', icon: TrendingUp, trend: '+4%' },
         ].map(kpi => (
-          <Card key={kpi.label} className="border-border/50">
+          <Card key={kpi.label} className="rounded-none border-black/10 shadow-none">
             <CardContent className="pt-4 pb-3 px-4">
               <kpi.icon className="h-4 w-4 text-primary mb-2" />
-              <p className="text-2xl font-bold text-foreground">{kpi.value}</p>
+              <p className="text-xl md:text-2xl font-bold text-foreground">{kpi.value}</p>
               <div className="flex items-center gap-2">
                 <p className="text-[11px] text-muted-foreground">{kpi.label}</p>
                 <span className="text-[10px] text-success font-medium">{kpi.trend}</span>
@@ -43,7 +43,7 @@ const AdminAnalytics: React.FC = () => {
       </div>
 
       {/* Monthly Volume Chart */}
-      <Card className="border-border/50">
+      <Card className="rounded-none border-black/10 shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-primary" />

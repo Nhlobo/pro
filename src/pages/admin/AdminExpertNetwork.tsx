@@ -153,10 +153,10 @@ const AdminExpertNetwork: React.FC = () => {
     });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Expert Network</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Expert Network</h1>
           <p className="text-sm text-muted-foreground">Performance scores, availability, and discipline breakdown</p>
         </div>
         <Badge className="bg-secondary/10 text-secondary">{experts.length} Experts</Badge>
@@ -188,9 +188,9 @@ const AdminExpertNetwork: React.FC = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-6 mt-4">
+        <TabsContent value="overview" className="space-y-4 md:space-y-6 mt-4">
           {/* Discipline Breakdown - All Grouped */}
-          <Card className="border-border/50">
+          <Card className="rounded-none border-black/10 shadow-none">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -248,7 +248,7 @@ const AdminExpertNetwork: React.FC = () => {
                             <p className="text-base font-bold text-foreground">{data.count}</p>
                             <p className="text-[10px] text-muted-foreground truncate" title={type}>{type}</p>
                             {isExpanded && (
-                              <div className="mt-2 pt-2 border-t border-border/50 space-y-1 max-h-32 overflow-y-auto">
+                              <div className="mt-2 pt-2 border-t rounded-none border-black/10 shadow-none space-y-1 max-h-32 overflow-y-auto">
                                 {data.experts.map((ex: any) => (
                                   <p key={ex.id} className="text-[10px] text-foreground truncate">
                                     {ex.first_name} {ex.last_name}
@@ -306,7 +306,7 @@ const AdminExpertNetwork: React.FC = () => {
           </div>
 
           {/* Expert List */}
-          <Card className="border-border/50">
+          <Card className="rounded-none border-black/10 shadow-none">
             <CardContent className="p-0">
               <div className="w-full overflow-x-auto">
                 <table className="w-full text-xs table-fixed">
@@ -339,7 +339,7 @@ const AdminExpertNetwork: React.FC = () => {
                       const score = Math.floor(Math.random() * 25 + 75);
                       const fee = Number(e.consultation_fees || 0);
                       return (
-                        <tr key={e.id} className="border-b border-border/50 hover:bg-muted/20 align-top">
+                        <tr key={e.id} className="border-b rounded-none border-black/10 shadow-none hover:bg-muted/20 align-top">
                           <td className="py-2 px-2">
                             <div className="flex items-start gap-1.5">
                               <Stethoscope className="h-3.5 w-3.5 text-secondary mt-0.5 shrink-0" />

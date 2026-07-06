@@ -595,7 +595,7 @@ const PermissionAuditHistory: React.FC<{ userId: string }> = ({ userId }) => {
             return (
               <li
                 key={l.id}
-                className="text-[11px] flex items-start gap-2 p-2 rounded bg-muted/30 border border-border/50"
+                className="text-[11px] flex items-start gap-2 p-2 rounded bg-muted/30 border rounded-none border-black/10 shadow-none"
               >
                 <Badge
                   variant={newV ? 'default' : 'secondary'}

@@ -76,19 +76,19 @@ const DailyScheduleModule: React.FC = () => {
   return (
     <div className="space-y-4 mt-2">
       <div className="grid grid-cols-3 gap-4">
-        <Card className="border-border/50">
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardContent className="pt-4 pb-3 px-4 text-center">
             <p className="text-3xl font-bold text-primary">{schedule.length}</p>
             <p className="text-xs text-muted-foreground">Today's Appointments</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50">
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardContent className="pt-4 pb-3 px-4 text-center">
             <p className="text-3xl font-bold text-success">{confirmed}</p>
             <p className="text-xs text-muted-foreground">Confirmed / Scheduled</p>
           </CardContent>
         </Card>
-        <Card className="border-border/50">
+        <Card className="rounded-none border-black/10 shadow-none">
           <CardContent className="pt-4 pb-3 px-4 text-center">
             <p className="text-3xl font-bold text-warning">{needsAttention}</p>
             <p className="text-xs text-muted-foreground">Needs Attention</p>
@@ -96,7 +96,7 @@ const DailyScheduleModule: React.FC = () => {
         </Card>
       </div>
 
-      <Card className="border-border/50">
+      <Card className="rounded-none border-black/10 shadow-none">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Calendar className="h-4 w-4 text-primary" />

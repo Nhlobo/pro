@@ -667,10 +667,10 @@ const AdminDocumentVault: React.FC = () => {
   const allowedUploadTypes = isAdminOrEmployee ? ADMIN_UPLOAD_TYPES : ATTORNEY_UPLOAD_TYPES;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Secure Document Vault</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Secure Document Vault</h1>
           <p className="text-sm text-muted-foreground">Role-based document storage with approval control</p>
         </div>
         <div className="flex items-center gap-2">
@@ -694,7 +694,7 @@ const AdminDocumentVault: React.FC = () => {
           { label: 'Declined', value: stats.declined, icon: XCircle, color: 'text-destructive' },
           ...(isAdminOrEmployee ? [{ label: 'Expert Documents', value: stats.experts, icon: Shield, color: 'text-primary' }] : []),
         ].map(s => (
-          <Card key={s.label} className="border-border/50">
+          <Card key={s.label} className="rounded-none border-black/10 shadow-none">
             <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
               <s.icon className={`h-5 w-5 ${s.color}`} />
               <div>
@@ -789,7 +789,7 @@ const AdminDocumentVault: React.FC = () => {
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-4">
-          <Card className="border-border/50">
+          <Card className="rounded-none border-black/10 shadow-none">
             <CardContent className="p-0">
               {loading ? (
                 <div className="text-center py-12 text-muted-foreground">Loading documents...</div>

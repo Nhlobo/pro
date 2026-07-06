@@ -95,7 +95,7 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
   });
 
   return (
-    <div className="space-y-6 mt-2">
+    <div className="space-y-4 md:space-y-6 mt-2">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {tiers.map((tier) => (
           <Card
@@ -160,7 +160,7 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
             }}
           />
 
-          <Card className="border-border/50">
+          <Card className="rounded-none border-black/10 shadow-none">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -182,7 +182,7 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
                     ) : filtered.slice(0, 50).map((a) => {
                       const badge = tierBadge(a.tier);
                       return (
-                        <tr key={a.id} className="border-b border-border/50 hover:bg-muted/20">
+                        <tr key={a.id} className="border-b rounded-none border-black/10 shadow-none hover:bg-muted/20">
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
                               <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -277,7 +277,7 @@ const AdminAttorneyCRM: React.FC = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Attorney CRM</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">Attorney CRM</h1>
           <p className="text-sm text-muted-foreground">Attorneys, claimants, outreach & pitchlog management</p>
         </div>
         {closedDealsCount > 0 && (
