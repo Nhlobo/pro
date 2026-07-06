@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -23,7 +23,59 @@ export interface UserProfile {
   referring_attorney_id: string | null;
 }
 
-export const usePermissions = () => {
+export interface PermissionsContextValue {
+  permissions: Permission[];
+  userRole: string | null;
+  loading: boolean;
+  hasPermission: (permissionName: string) => boolean;
+  canAccessData: (dataType: 'attorney' | 'claimant' | 'appointment' | 'document', ownerId?: string) => boolean;
+  getAccessDenialMessage: (context?: string) => string;
+  isAdmin: () => boolean;
+  isReferringAttorney: () => boolean;
+  isEmployee: () => boolean;
+  isSalesConsultant: () => boolean;
+  isMedicalExpert: () => boolean;
+  grantPermission: (userId: string, permissionName: string) => Promise<boolean>;
+  revokePermission: (userId: string, permissionName: string) => Promise<boolean>;
+  getAllUsers: () => Promise<UserProfile[]>;
+  getUserPermissions: (userId: string) => Promise<Permission[]>;
+  updateUserRole: (userId: string, newRole: string) => Promise<boolean>;
+  resendEmailConfirmation: (email: string) => Promise<{ success: boolean; message?: string }>;
+  refetch: () => Promise<void>;
+  refreshAuth: () => Promise<void>;
+}
+
+const PermissionsContext = createContext<PermissionsContextValue | undefined>(undefined);
+
+/**
+ * Fetches the current user's role + permissions ONCE per session and shares
+ * the result app-wide via context.
+ *
+ * Previously `usePermissions` did this fetch independently in every
+ * component that called it (ProtectedRoute, PermissionProtectedRoute, page
+ * components, etc). Since those components are often nested on the same
+ * route (e.g. ProtectedRoute > PermissionProtectedRoute > Page), that meant
+ * 2-3 redundant round-trips to Supabase back-to-back on every navigation,
+ * each rendering its own full-screen loading spinner — i.e. the "spinner
+ * after the loading spinner" effect. Centralizing the fetch here fixes that
+ * everywhere at once, with no change needed to any of the ~40 call sites:
+ * they all still just call `usePermissions()` and get the same shape back.
+ */
+export const PermissionsProvider = ({ children }: { children: ReactNode }) => {
+  const value = usePermissionsState();
+  return <PermissionsContext.Provider value={value}>{children}</PermissionsContext.Provider>;
+};
+
+export const usePermissions = (): PermissionsContextValue => {
+  const ctx = useContext(PermissionsContext);
+  if (!ctx) {
+    throw new Error('usePermissions must be used within a <PermissionsProvider>');
+  }
+  return ctx;
+};
+
+// Internal: the original hook logic, now used exactly once by PermissionsProvider.
+const usePermissionsState = (): PermissionsContextValue => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [permissions, setPermissions] = useState<Permission[]>([]);
