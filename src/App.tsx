@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { PermissionsProvider } from "@/hooks/usePermissions";
 import { SecurityProvider } from "@/components/SecurityProvider";
 import { AppointmentSyncProvider } from "@/contexts/AppointmentSyncContext";
 import { ConfirmDialogProvider } from "@/hooks/useConfirm";
@@ -163,6 +164,7 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
+          <PermissionsProvider>
           <SecurityProvider>
           <AppointmentSyncProvider>
             <ConfirmDialogProvider>
@@ -299,6 +301,7 @@ const App = () => (
             </ConfirmDialogProvider>
           </AppointmentSyncProvider>
         </SecurityProvider>
+          </PermissionsProvider>
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
