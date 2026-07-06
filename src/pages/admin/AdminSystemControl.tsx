@@ -9,7 +9,7 @@ import SystemHealthTab from '@/components/admin/system-control/SystemHealthTab';
 
 const AdminSystemControl: React.FC = () => {
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="brand-legal-theme space-y-4 md:space-y-6">
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
           <Settings className="h-6 w-6 text-primary" />
