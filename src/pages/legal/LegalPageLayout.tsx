@@ -22,16 +22,16 @@ const LegalPageLayout = ({ title, description, children }: LegalPageLayoutProps)
     </Helmet>
 
     <header className="gradient-nav text-white">
-      <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-6 sm:px-6">
-        <div>
+      <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-6 sm:flex-nowrap sm:px-6">
+        <div className="min-w-0">
           <div className="text-xs uppercase tracking-[0.25em] text-white/80">
             Medico-Legal Pro
           </div>
-          <h1 className="mt-1 text-2xl font-bold sm:text-3xl">{title}</h1>
+          <h1 className="mt-1 break-words text-2xl font-bold sm:text-3xl">{title}</h1>
         </div>
         <Link
           to="/auth"
-          className="inline-flex items-center gap-2 border border-white/30 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white backdrop-blur transition hover:bg-white/20 sm:text-sm"
+          className="inline-flex shrink-0 items-center gap-2 border border-white/30 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white backdrop-blur transition hover:bg-white/20 sm:text-sm"
         >
           <ArrowLeft className="h-4 w-4" /> Back to sign in
         </Link>
