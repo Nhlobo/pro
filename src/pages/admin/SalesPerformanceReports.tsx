@@ -474,7 +474,7 @@ const SalesPerformanceReports: React.FC = () => {
                 </div>
                 <iframe
                   srcDoc={editorVariant === 'performer' ? drafts.performer : drafts.underPerformer}
-                  className="w-full h-[68vh] bg-white"
+                  className="w-full h-[420px] lg:h-[68vh] bg-white"
                   title="Live email preview"
                 />
               </div>
