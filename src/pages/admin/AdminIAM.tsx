@@ -1,13 +1,17 @@
 import React from 'react';
 import UserManagement from '@/pages/UserManagement';
+import AdminPageHeader from '@/components/portal/AdminPageHeader';
+import { ShieldCheck } from 'lucide-react';
 
 const AdminIAM: React.FC = () => {
   return (
     <div className="brand-legal-theme space-y-4 md:space-y-6">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-foreground">Access & Identity Management</h1>
-        <p className="text-sm text-muted-foreground">Role-based permissions and user administration</p>
-      </div>
+      <AdminPageHeader
+        title="Access & Identity Management"
+        description="Role-based permissions and user administration"
+        icon={ShieldCheck}
+        color="orange"
+      />
       <UserManagement />
     </div>
   );
