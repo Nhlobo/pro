@@ -255,7 +255,7 @@ const SalesPerformanceReports: React.FC = () => {
                 </div>
                 <iframe
                   srcDoc={drafts.underPerformer}
-                  className="w-full h-[560px] bg-white"
+                  className="w-full h-[420px] sm:h-[560px] bg-white"
                   title="Under-performer draft preview"
                 />
               </div>
