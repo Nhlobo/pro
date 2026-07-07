@@ -211,15 +211,15 @@ const SalesPerformanceReports: React.FC = () => {
     <div className="brand-legal-theme space-y-4 md:space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-primary" /> Email Draft Templates</CardTitle>
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle className="flex items-center gap-2 flex-wrap"><Mail className="h-5 w-5 text-primary shrink-0" /> Email Draft Templates</CardTitle>
               <CardDescription>
                 Preview the exact email layouts sent to sales consultants. Use these drafts to refine wording, tone, and structure before the next scheduled send.
                 Weekly reports go out every <strong>Monday 09:00 SAST</strong>; monthly reports go out on the <strong>last day of the month at 18:00 SAST</strong>.
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 -mx-1 px-1 overflow-x-auto lg:overflow-visible">
               <Tabs value={draftPeriod} onValueChange={(v) => setDraftPeriod(v as 'weekly' | 'monthly')}>
                 <TabsList>
                   <TabsTrigger value="weekly">Weekly draft</TabsTrigger>
@@ -255,7 +255,7 @@ const SalesPerformanceReports: React.FC = () => {
                 </div>
                 <iframe
                   srcDoc={drafts.underPerformer}
-                  className="w-full h-[560px] bg-white"
+                  className="w-full h-[420px] sm:h-[560px] bg-white"
                   title="Under-performer draft preview"
                 />
               </div>
@@ -269,7 +269,7 @@ const SalesPerformanceReports: React.FC = () => {
                 </div>
                 <iframe
                   srcDoc={drafts.performer}
-                  className="w-full h-[560px] bg-white"
+                  className="w-full h-[420px] sm:h-[560px] bg-white"
                   title="Performer draft preview"
                 />
               </div>
@@ -349,7 +349,7 @@ const SalesPerformanceReports: React.FC = () => {
             </Button>
           </div>
 
-          <div className="border rounded-lg">
+          <div className="border rounded-lg overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -429,11 +429,13 @@ const SalesPerformanceReports: React.FC = () => {
             </DialogTitle>
           </DialogHeader>
           <Tabs value={editorVariant} onValueChange={(v) => setEditorVariant(v as DraftVariant)} className="flex-1 overflow-hidden flex flex-col">
-            <TabsList className="self-start">
-              <TabsTrigger value="underPerformer"><TrendingDown className="h-3.5 w-3.5 mr-1 text-red-600" />Under-performing</TabsTrigger>
-              <TabsTrigger value="performer"><TrendingUp className="h-3.5 w-3.5 mr-1 text-emerald-600" />Performing</TabsTrigger>
-            </TabsList>
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-hidden mt-3">
+            <div className="-mx-1 overflow-x-auto px-1">
+              <TabsList className="self-start">
+                <TabsTrigger value="underPerformer"><TrendingDown className="h-3.5 w-3.5 mr-1 text-red-600" />Under-performing</TabsTrigger>
+                <TabsTrigger value="performer"><TrendingUp className="h-3.5 w-3.5 mr-1 text-emerald-600" />Performing</TabsTrigger>
+              </TabsList>
+            </div>
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-auto lg:overflow-hidden mt-3">
               <div className="overflow-auto pr-2 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">
@@ -472,7 +474,7 @@ const SalesPerformanceReports: React.FC = () => {
                 </div>
                 <iframe
                   srcDoc={editorVariant === 'performer' ? drafts.performer : drafts.underPerformer}
-                  className="w-full h-[68vh] bg-white"
+                  className="w-full h-[420px] lg:h-[68vh] bg-white"
                   title="Live email preview"
                 />
               </div>

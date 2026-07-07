@@ -128,7 +128,7 @@ const UserControlTab: React.FC = () => {
                           <p className="text-sm font-medium truncate">{fullName(u)}</p>
                           <p className="text-xs text-muted-foreground truncate">{u.email}</p>
                         </div>
-                        <div className="flex items-center gap-1.5 mr-3">
+                        <div className="hidden sm:flex items-center gap-1.5 mr-3 shrink-0">
                           {u.role && (
                             <Badge variant="default" className="text-[10px] capitalize">
                               <ShieldCheck className="h-3 w-3 mr-1" />
