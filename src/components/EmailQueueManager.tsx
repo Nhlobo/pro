@@ -144,7 +144,7 @@ export const EmailQueueManager = () => {
   return (
     <>
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4 mb-6">
         <Card className="border-border/50">
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-2">
@@ -202,26 +202,28 @@ export const EmailQueueManager = () => {
 
       {/* Status Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="all" className="gap-1">
-            <Inbox className="h-3.5 w-3.5" /> All
-          </TabsTrigger>
-          <TabsTrigger value="unattended" className="gap-1">
-            <EyeOff className="h-3.5 w-3.5" /> Unattended
-            {stats.unattended > 0 && (
-              <Badge className="ml-1 h-5 px-1.5 bg-amber-500 text-white text-xs">{stats.unattended}</Badge>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="read" className="gap-1">
-            <Eye className="h-3.5 w-3.5" /> Read
-          </TabsTrigger>
-          <TabsTrigger value="forwarded" className="gap-1">
-            <ArrowUpRight className="h-3.5 w-3.5" /> Forwarded
-          </TabsTrigger>
-          <TabsTrigger value="sent" className="gap-1">
-            <Send className="h-3.5 w-3.5" /> Delivered
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-1 px-1 mb-4">
+          <TabsList className="w-max">
+            <TabsTrigger value="all" className="gap-1">
+              <Inbox className="h-3.5 w-3.5" /> All
+            </TabsTrigger>
+            <TabsTrigger value="unattended" className="gap-1">
+              <EyeOff className="h-3.5 w-3.5" /> Unattended
+              {stats.unattended > 0 && (
+                <Badge className="ml-1 h-5 px-1.5 bg-amber-500 text-white text-xs">{stats.unattended}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="read" className="gap-1">
+              <Eye className="h-3.5 w-3.5" /> Read
+            </TabsTrigger>
+            <TabsTrigger value="forwarded" className="gap-1">
+              <ArrowUpRight className="h-3.5 w-3.5" /> Forwarded
+            </TabsTrigger>
+            <TabsTrigger value="sent" className="gap-1">
+              <Send className="h-3.5 w-3.5" /> Delivered
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {["all", "unattended", "read", "forwarded", "sent"].map((tab) => (
           <TabsContent key={tab} value={tab}>
@@ -343,9 +345,9 @@ export const EmailQueueManager = () => {
 
       {/* Email Preview Dialog */}
       <Dialog open={!!previewEmail} onOpenChange={() => setPreviewEmail(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
               Email Preview
               {previewEmail && getStatusBadge(previewEmail.status)}
               {previewEmail && getAttendanceBadge(previewEmail)}
@@ -353,7 +355,7 @@ export const EmailQueueManager = () => {
           </DialogHeader>
           {previewEmail && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm border rounded-lg p-4 bg-muted/30">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm border rounded-lg p-4 bg-muted/30">
                 <div>
                   <span className="font-medium text-muted-foreground">To:</span>{" "}
                   {previewEmail.recipient_name
@@ -375,7 +377,7 @@ export const EmailQueueManager = () => {
                     : format(new Date(previewEmail.created_at), "PPpp")}
                 </div>
                 {previewEmail.forwarded_to && (
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <span className="font-medium text-muted-foreground">Forwarded to:</span>{" "}
                     {previewEmail.forwarded_to}
                     {previewEmail.forward_notes && (
@@ -384,13 +386,13 @@ export const EmailQueueManager = () => {
                   </div>
                 )}
                 {previewEmail.metadata?.cc_addresses?.length > 0 && (
-                  <div className="col-span-2">
+                  <div className="sm:col-span-2">
                     <span className="font-medium text-muted-foreground">CC:</span>{" "}
                     {previewEmail.metadata.cc_addresses.join(", ")}
                   </div>
                 )}
                 {previewEmail.error_message && (
-                  <div className="col-span-2 flex items-start gap-2 text-red-600">
+                  <div className="sm:col-span-2 flex items-start gap-2 text-red-600">
                     <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                     <span>{previewEmail.error_message}</span>
                   </div>
