@@ -16,6 +16,7 @@ import IdleLogoutGuard from "@/components/IdleLogoutGuard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
+import BrandedPageLoader from "@/components/BrandedPageLoader";
 
 // Eager: top-level entry points + portal layouts (small, always needed when in portal)
 import Auth from "./pages/Auth";
@@ -150,11 +151,16 @@ const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
-const RouteFallback = () => (
-  <div className="min-h-[50vh] flex items-center justify-center text-sm text-muted-foreground">
-    <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" aria-label="Loading" />
-  </div>
-);
+// Shown by <Suspense> while a lazy-loaded route's JS chunk is downloading.
+// Intentionally reuses BrandedPageLoader (the same teal spinner shown by
+// ProtectedRoute/PermissionProtectedRoute/portal layouts while auth &
+// permissions are checked) instead of a separate generic spinner.
+// Previously this rendered its own plain blue spinner, so a sign-in
+// (which does a full page reload) would flash blue → teal → page as
+// different loading stages took over. Keeping this as a real Suspense
+// fallback (not removing it) is required — it's what prevents a blank
+// screen while the chunk downloads; only its appearance changed.
+const RouteFallback = () => <BrandedPageLoader fullScreen={false} />;
 
 installGlobalErrorHandlers();
 
