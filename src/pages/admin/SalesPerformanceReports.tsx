@@ -211,15 +211,15 @@ const SalesPerformanceReports: React.FC = () => {
     <div className="brand-legal-theme space-y-4 md:space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <CardTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-primary" /> Email Draft Templates</CardTitle>
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle className="flex items-center gap-2 flex-wrap"><Mail className="h-5 w-5 text-primary shrink-0" /> Email Draft Templates</CardTitle>
               <CardDescription>
                 Preview the exact email layouts sent to sales consultants. Use these drafts to refine wording, tone, and structure before the next scheduled send.
                 Weekly reports go out every <strong>Monday 09:00 SAST</strong>; monthly reports go out on the <strong>last day of the month at 18:00 SAST</strong>.
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 -mx-1 px-1 overflow-x-auto lg:overflow-visible">
               <Tabs value={draftPeriod} onValueChange={(v) => setDraftPeriod(v as 'weekly' | 'monthly')}>
                 <TabsList>
                   <TabsTrigger value="weekly">Weekly draft</TabsTrigger>
