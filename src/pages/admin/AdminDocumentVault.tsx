@@ -668,12 +668,12 @@ const AdminDocumentVault: React.FC = () => {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-foreground">Secure Document Vault</h1>
           <p className="text-sm text-muted-foreground">Role-based document storage with approval control</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" size="sm" onClick={fetchDocuments} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
             Refresh
@@ -686,7 +686,7 @@ const AdminDocumentVault: React.FC = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
         {[
           { label: 'Total Documents', value: stats.total, icon: FileText, color: 'text-primary' },
           { label: 'Pending Review', value: stats.pending, icon: Clock, color: 'text-warning' },
@@ -735,7 +735,7 @@ const AdminDocumentVault: React.FC = () => {
           />
         </div>
         <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-full sm:w-44">
             <Filter className="h-3.5 w-3.5 mr-1" />
             <SelectValue placeholder="Document Type" />
           </SelectTrigger>
@@ -745,7 +745,7 @@ const AdminDocumentVault: React.FC = () => {
           </SelectContent>
         </Select>
         <Select value={expertFilter} onValueChange={setExpertFilter}>
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-full sm:w-52">
             <Filter className="h-3.5 w-3.5 mr-1" />
             <SelectValue placeholder="Expert" />
           </SelectTrigger>
@@ -757,7 +757,7 @@ const AdminDocumentVault: React.FC = () => {
           </SelectContent>
         </Select>
         <Select value={expertTypeFilter} onValueChange={setExpertTypeFilter}>
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-full sm:w-52">
             <Filter className="h-3.5 w-3.5 mr-1" />
             <SelectValue placeholder="Expert Type" />
           </SelectTrigger>
@@ -772,21 +772,23 @@ const AdminDocumentVault: React.FC = () => {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
-          {isAdminOrEmployee && (
-            <TabsTrigger value="pending" className="text-warning">
-              Pending ({stats.pending})
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="approved">Approved ({stats.approved})</TabsTrigger>
-          {isAdminOrEmployee && (
-            <TabsTrigger value="declined">Declined ({stats.declined})</TabsTrigger>
-          )}
-          {isAdminOrEmployee && (
-            <TabsTrigger value="experts">Experts ({stats.experts})</TabsTrigger>
-          )}
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <TabsList className="w-max">
+            <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
+            {isAdminOrEmployee && (
+              <TabsTrigger value="pending" className="text-warning">
+                Pending ({stats.pending})
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="approved">Approved ({stats.approved})</TabsTrigger>
+            {isAdminOrEmployee && (
+              <TabsTrigger value="declined">Declined ({stats.declined})</TabsTrigger>
+            )}
+            {isAdminOrEmployee && (
+              <TabsTrigger value="experts">Experts ({stats.experts})</TabsTrigger>
+            )}
+          </TabsList>
+        </div>
 
         <TabsContent value={activeTab} className="mt-4">
           <Card className="rounded-none border-black/10 shadow-none">
@@ -1016,7 +1018,7 @@ const AdminDocumentVault: React.FC = () => {
                   </Select>
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex flex-wrap gap-4">
                   <label className="flex items-center gap-2 text-sm cursor-pointer">
                     <input
                       type="checkbox"
@@ -1124,16 +1126,16 @@ const AdminDocumentVault: React.FC = () => {
       </Dialog>
       {/* Document Preview Dialog */}
       <Dialog open={previewDialogOpen} onOpenChange={(open) => { setPreviewDialogOpen(open); if (!open) { setPreviewUrl(null); setSelectedDoc(null); } }}>
-        <DialogContent className="max-w-5xl max-h-[90vh]">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-primary" />
               Document Preview
             </DialogTitle>
-            <DialogDescription className="flex items-center justify-between">
-              <span>{selectedDoc?.file_name}</span>
+            <DialogDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <span className="truncate">{selectedDoc?.file_name}</span>
               {selectedDoc && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {getStatusBadge(selectedDoc.approval_status)}
                   <Badge variant="secondary" className="text-[10px]">{selectedDoc.document_type}</Badge>
                 </div>
@@ -1203,7 +1205,7 @@ const AdminDocumentVault: React.FC = () => {
             )}
           </div>
 
-          <DialogFooter className="flex gap-2">
+          <DialogFooter className="flex flex-wrap gap-2">
             {selectedDoc && (
               <Button variant="outline" size="sm" onClick={() => selectedDoc && handleDownload(selectedDoc)}>
                 <Download className="h-4 w-4 mr-2" />
