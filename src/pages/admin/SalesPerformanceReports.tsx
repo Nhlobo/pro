@@ -429,11 +429,13 @@ const SalesPerformanceReports: React.FC = () => {
             </DialogTitle>
           </DialogHeader>
           <Tabs value={editorVariant} onValueChange={(v) => setEditorVariant(v as DraftVariant)} className="flex-1 overflow-hidden flex flex-col">
-            <TabsList className="self-start">
-              <TabsTrigger value="underPerformer"><TrendingDown className="h-3.5 w-3.5 mr-1 text-red-600" />Under-performing</TabsTrigger>
-              <TabsTrigger value="performer"><TrendingUp className="h-3.5 w-3.5 mr-1 text-emerald-600" />Performing</TabsTrigger>
-            </TabsList>
-            <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-hidden mt-3">
+            <div className="-mx-1 overflow-x-auto px-1">
+              <TabsList className="self-start">
+                <TabsTrigger value="underPerformer"><TrendingDown className="h-3.5 w-3.5 mr-1 text-red-600" />Under-performing</TabsTrigger>
+                <TabsTrigger value="performer"><TrendingUp className="h-3.5 w-3.5 mr-1 text-emerald-600" />Performing</TabsTrigger>
+              </TabsList>
+            </div>
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-auto lg:overflow-hidden mt-3">
               <div className="overflow-auto pr-2 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">
