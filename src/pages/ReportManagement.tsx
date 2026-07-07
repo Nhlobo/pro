@@ -662,7 +662,7 @@ const ReportManagement: React.FC = () => {
                     Upload, track versions, manage deliveries, and review medico-legal reports
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Button variant="default" size="sm" onClick={runManualSync} disabled={syncRunning || loading}>
                     <Activity className={`h-4 w-4 mr-1 ${syncRunning ? "animate-pulse" : ""}`} />
                     {syncRunning ? "Syncing…" : "Sync Reports"}
@@ -679,7 +679,7 @@ const ReportManagement: React.FC = () => {
 
         <main className="container mx-auto px-4 py-6 space-y-6">
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
             {[
               { label: "Total Reports", value: stats.total, icon: FileText, color: "text-primary" },
               { label: "Pending", value: stats.pending, icon: Clock, color: "text-muted-foreground" },
@@ -717,7 +717,7 @@ const ReportManagement: React.FC = () => {
                   />
                 </div>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[180px]">
+                  <SelectTrigger className="w-full md:w-[180px]">
                     <Filter className="h-4 w-4 mr-2" />
                     <SelectValue placeholder="Filter status" />
                   </SelectTrigger>
