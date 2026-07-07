@@ -917,32 +917,33 @@ const UserManagement: React.FC = () => {
             /* Users List */
             <div className="space-y-4">
               {filteredUsers.map((user) => (
-                <Card key={user.id} className="hover:shadow-md transition-shadow border-border/50">
-                  <CardContent className="p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-4 min-w-0">
-                        <div className="p-2 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 rounded-full shrink-0">
+                <Card key={user.id} className="hover:shadow-md transition-shadow border-border/50 min-w-0 overflow-hidden">
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3 min-w-0">
+                      <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+                        <div className="p-1.5 sm:p-2 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 rounded-full shrink-0">
                           {user.role === 'admin' ? (
-                            <Shield className="h-5 w-5 text-kutlwano-blue" />
+                            <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-kutlwano-blue" />
                           ) : (
-                            <UserCheck className="h-5 w-5 text-muted-foreground" />
+                            <UserCheck className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                           )}
                         </div>
-                        <div className="min-w-0">
-                          <h3 className="font-semibold break-words">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold break-words text-sm sm:text-base">
                             {user.first_name && user.last_name 
                               ? `${user.first_name} ${user.last_name}`
                               : 'No Name Set'
                             }
                             {user.user_type === 'employee' && user.position && (
-                              <span className="text-sm text-muted-foreground font-normal ml-2">
+                              <span className="text-xs sm:text-sm text-muted-foreground font-normal ml-2">
                                 ({user.position})
                               </span>
                             )}
                           </h3>
-                          <p className="text-sm text-muted-foreground break-words">{user.email}</p>
+                          <p className="text-xs sm:text-sm text-muted-foreground break-all">{user.email}</p>
                         </div>
                       </div>
+                      
                       
                       <div className="flex flex-wrap items-center gap-3">
                         <Badge 
