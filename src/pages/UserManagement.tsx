@@ -775,32 +775,32 @@ const UserManagement: React.FC = () => {
           {/* Users Display */}
           {viewMode === 'grid' ? (
             /* Users Grid */
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
               {filteredUsers.map((user) => (
-              <Card key={user.id} className="hover:shadow-lg transition-shadow border-border/50">
-                <CardHeader>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="p-2 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 rounded-full shrink-0">
+              <Card key={user.id} className="hover:shadow-lg transition-shadow border-border/50 min-w-0 overflow-hidden">
+                <CardHeader className="p-3 sm:p-4 md:p-6">
+                  <div className="flex flex-wrap items-start justify-between gap-2 min-w-0">
+                    <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
+                      <div className="p-1.5 sm:p-2 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 rounded-full shrink-0">
                         {user.role === 'admin' ? (
-                          <Shield className="h-5 w-5 text-kutlwano-blue" />
+                          <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-kutlwano-blue" />
                         ) : (
-                          <UserCheck className="h-5 w-5 text-muted-foreground" />
+                          <UserCheck className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <CardTitle className="text-lg break-words">
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="text-sm sm:text-base md:text-lg break-words">
                           {user.first_name && user.last_name 
                             ? `${user.first_name} ${user.last_name}`
                             : 'No Name Set'
                           }
                           {user.user_type === 'employee' && user.position && (
-                            <span className="text-sm text-muted-foreground font-normal">
+                            <span className="text-xs sm:text-sm text-muted-foreground font-normal">
                               {' '}({user.position})
                             </span>
                           )}
                         </CardTitle>
-                        <CardDescription className="break-words">
+                        <CardDescription className="break-all text-xs sm:text-sm">
                           {user.email}
                           {user.user_type === 'admin' && (
                            <span className="text-xs text-kutlwano-blue font-medium ml-2">
@@ -822,7 +822,7 @@ const UserManagement: React.FC = () => {
                     </div>
                     <Badge 
                       variant={user.user_type === 'admin' ? 'default' : 'secondary'}
-                      className={(user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : '') + ' shrink-0'}
+                      className={(user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : '') + ' shrink-0 text-[10px] sm:text-xs max-w-full truncate'}
                     >
                           {user.user_type === 'admin' ? 'Administrator' : 
                        user.user_type === 'employee' ? 'Company Employee' :
@@ -831,7 +831,7 @@ const UserManagement: React.FC = () => {
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 sm:p-4 md:p-6 pt-0 sm:pt-0 md:pt-0">
                   <div className="space-y-2">
                     <Button 
                       onClick={() => handleUserSelect(user)}
