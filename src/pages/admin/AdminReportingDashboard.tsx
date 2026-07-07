@@ -811,7 +811,7 @@ const AdminReportingDashboard: React.FC = () => {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {[
           { label: 'Total Claimants Assessed', value: metrics.totalClaimants, icon: Users, color: 'text-primary' },
           { label: 'Total Assessments', value: metrics.totalAssessments, icon: Briefcase, color: 'text-foreground' },
@@ -1002,15 +1002,15 @@ const AdminReportingDashboard: React.FC = () => {
                   <Collapsible key={g.id} open={isOpen} onOpenChange={(o) => setOpenClaimants((s) => ({ ...s, [g.id]: o }))}>
                     <div className="rounded-md border rounded-none border-black/10 shadow-none hover:bg-muted/40 transition">
                     <CollapsibleTrigger className="w-full">
-                      <div className="flex items-center justify-between p-3">
-                        <div className="flex items-center gap-3 text-left">
-                          <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-0' : '-rotate-90'}`} />
-                          <div>
-                            <p className="font-medium text-sm">{g.name} <span className="text-muted-foreground">({g.auto_id})</span></p>
-                            <p className="text-xs text-muted-foreground">{g.attorney ?? 'No attorney'} · {g.items.length} assessment{g.items.length > 1 ? 's' : ''}</p>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3">
+                        <div className="flex items-center gap-3 text-left min-w-0">
+                          <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform ${isOpen ? 'rotate-0' : '-rotate-90'}`} />
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{g.name} <span className="text-muted-foreground">({g.auto_id})</span></p>
+                            <p className="text-xs text-muted-foreground truncate">{g.attorney ?? 'No attorney'} · {g.items.length} assessment{g.items.length > 1 ? 's' : ''}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <Badge variant="outline" className="text-emerald-700 border-emerald-300">Submitted: {subSubmitted}</Badge>
                           <Badge variant="outline" className="text-amber-700 border-amber-300">In progress: {subProgress}</Badge>
                           <Badge variant="outline" className="text-rose-700 border-rose-300">Outstanding: {subOut}</Badge>
