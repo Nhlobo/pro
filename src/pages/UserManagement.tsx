@@ -569,8 +569,9 @@ const UserManagement: React.FC = () => {
         <meta name="description" content="Manage user roles and permissions for the medico-legal management system" />
       </Helmet>
 
-      <div className="min-h-screen bg-gradient-to-br from-kutlwano-blue/5 to-kutlwano-teal/5 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-kutlwano-blue/5 to-kutlwano-teal/5 p-3 sm:p-4 md:p-6">
         <div className="container mx-auto max-w-7xl">
+
           {/* Header */}
           <div className="mb-8">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
