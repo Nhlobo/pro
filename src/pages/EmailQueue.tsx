@@ -7,7 +7,7 @@ const EmailQueue = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
+    <div className="brand-legal-theme container mx-auto py-8 space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3">
           <Mail className="h-8 w-8 text-primary flex-shrink-0" />
