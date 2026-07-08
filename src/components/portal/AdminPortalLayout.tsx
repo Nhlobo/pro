@@ -50,10 +50,24 @@ interface AdminPortalLayoutProps {
 type NavItem = { title: string; href: string; icon: any; roles?: string[] };
 type NavGroup = { label: string; items: NavItem[] };
 
-import { getNavigationGroups } from '@/config/adminModules';
+import { getNavigationGroups, ADMIN_MODULES } from '@/config/adminModules';
 import { useFunctionPermissionIndexCheck } from '@/hooks/useFunctionPermissionIndexCheck';
 
 const navigationGroups: NavGroup[] = getNavigationGroups();
+
+const PAGE_TITLE_BY_PATH: Record<string, string> = ADMIN_MODULES.reduce(
+  (acc, m) => ({ ...acc, [m.href]: m.title }),
+  {} as Record<string, string>
+);
+
+function resolvePageTitle(pathname: string): string {
+  if (PAGE_TITLE_BY_PATH[pathname]) return PAGE_TITLE_BY_PATH[pathname];
+  // Longest-prefix match for nested routes
+  const match = Object.keys(PAGE_TITLE_BY_PATH)
+    .filter((href) => href !== '/admin' && pathname.startsWith(href + '/'))
+    .sort((a, b) => b.length - a.length)[0];
+  return match ? PAGE_TITLE_BY_PATH[match] : 'Admin';
+}
 
 import SalesConsultantDeleteGuard from './SalesConsultantDeleteGuard';
 import InternalChatWidget from '@/components/internalChat/InternalChatWidget';
