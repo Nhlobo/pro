@@ -57,6 +57,7 @@ import {
   AlertDialogContent,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * "Home" screens for each portal — the natural entry point a user lands on
@@ -124,8 +125,25 @@ export function ExitConfirmationGuard() {
       // @capacitor/app not installed, or not running natively — it's a web/PWA build.
     }
     // Web/PWA: nothing can force-close a browser tab. Rather than bounce
-    // through history (which is what caused the loop), just show a clear,
-    // final "you've left the app" screen.
+    // through history (which is what caused the loop), show a clear, final
+    // "you've left the app" screen — and actually end the session while
+    // we're at it. Without this, the 15-minute IdleLogoutGuard keeps running
+    // in the background (it only checks whether a user is logged in, not
+    // whether this screen is showing) and would silently sign the user out
+    // behind this overlay later. We call Supabase directly instead of the
+    // shared signOut() helper because that helper hard-redirects the page
+    // to /auth immediately, which would blow away this screen before it
+    // ever rendered.
+    try {
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith("supabase.auth.") || key.includes("sb-")) {
+          localStorage.removeItem(key);
+        }
+      });
+      await supabase.auth.signOut({ scope: "global" });
+    } catch {
+      // Best-effort — still show the exited screen either way.
+    }
     setPromptOpen(false);
     setExited(true);
   }, []);
@@ -186,12 +204,13 @@ export function ExitConfirmationGuard() {
     };
   }, [openExitPrompt, exited]);
 
-  // Escape hatch: if a user ends up on the terminal "exited" screen by
-  // mistake (web/PWA only — native truly quits so this never renders there),
-  // let them jump straight back into the app.
+  // Escape hatch if a user ends up on the terminal "exited" screen by
+  // mistake (web/PWA only — native truly quits so this never renders there).
+  // The session was ended when they exited, so this goes to login, not
+  // straight back into a protected page.
   const handleReopen = useCallback(() => {
     setExited(false);
-    navigate("/dashboard", { replace: true });
+    navigate("/auth", { replace: true });
   }, [navigate]);
 
   return (
@@ -236,11 +255,11 @@ export function ExitConfirmationGuard() {
               onClick={handleReopen}
             >
               <RotateCcw className="h-4 w-4" />
-              Reopen app
+              Log in again
             </Button>
           </div>
         </div>
       )}
     </>
   );
-        }
+}
