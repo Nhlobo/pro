@@ -13,6 +13,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { ActivityTrackerMount } from "@/hooks/useActivityTracker";
 import { OfflineRedirectGuard } from "@/hooks/useOfflineRedirect";
 import IdleLogoutGuard from "@/components/IdleLogoutGuard";
+import { ExitConfirmationGuard } from "@/hooks/useExitConfirmation";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
@@ -180,6 +181,7 @@ const App = () => (
               <ActivityTrackerMount />
               <OfflineRedirectGuard />
               <IdleLogoutGuard />
+              <ExitConfirmationGuard />
               <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/" element={<Navigate to="/auth" replace />} />
