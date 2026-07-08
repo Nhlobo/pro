@@ -221,34 +221,31 @@ export function ExitConfirmationGuard() {
 
   return (
     <>
-      {/* Styled to match the Offline card and the 15-min inactivity card
-          exactly, so all three "system state" overlays feel like one family:
-          rounded-full black/5 icon circle, bold black title, slate-600 body
-          copy, and h-11 rounded-none uppercase-tracking-wide buttons. */}
       <AlertDialog open={promptOpen} onOpenChange={(o) => !o && handleStay()}>
-        <AlertDialogContent className="w-full max-w-md rounded-none border-none bg-white p-8 text-center shadow-2xl">
-          <AlertDialogHeader className="items-center text-center sm:text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-black/5">
-              <DoorOpen className="h-8 w-8 text-black" />
+        <AlertDialogContent className="w-full max-w-xs rounded-none border-none bg-white p-5 shadow-2xl sm:max-w-sm">
+          <AlertDialogHeader className="flex-row items-center gap-3 space-y-0 text-left sm:text-left">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5">
+              <DoorOpen className="h-4 w-4 text-black" />
             </div>
-            <AlertDialogTitle className="text-2xl font-bold text-black">
-              Exit app?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="mt-2 text-sm text-slate-600">
-              You&rsquo;re about to close Kutlwano &amp; Associate. Any unsaved changes on this
-              screen may be lost.
-            </AlertDialogDescription>
+            <div>
+              <AlertDialogTitle className="text-base font-bold text-black">
+                Exit app?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="mt-0.5 text-xs text-slate-600">
+                Unsaved changes on this screen may be lost.
+              </AlertDialogDescription>
+            </div>
           </AlertDialogHeader>
-          <AlertDialogFooter className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <AlertDialogFooter className="mt-4 flex-row justify-end gap-2">
             <AlertDialogAction
               onClick={handleStay}
-              className="h-11 rounded-none bg-black font-semibold uppercase tracking-wide text-white hover:bg-black/85"
+              className="h-8 rounded-none bg-black px-3 text-xs font-semibold uppercase tracking-wide text-white hover:bg-black/85"
             >
               Stay
             </AlertDialogAction>
             <AlertDialogCancel
               onClick={handleExit}
-              className="mt-0 h-11 rounded-none border border-black/15 font-semibold uppercase tracking-wide text-black hover:bg-black/5"
+              className="mt-0 h-8 rounded-none border border-black/15 px-3 text-xs font-semibold uppercase tracking-wide text-black hover:bg-black/5"
             >
               Exit
             </AlertDialogCancel>
@@ -257,25 +254,22 @@ export function ExitConfirmationGuard() {
       </AlertDialog>
 
       {exited && (
-        <div className="fixed inset-0 z-[999] flex min-h-screen w-full items-center justify-center gradient-nav p-6">
-          <div className="w-full max-w-md bg-white p-8 text-center shadow-2xl">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-black/5">
-              <DoorOpen className="h-8 w-8 text-black" />
+        <div className="fixed inset-0 z-[999] flex items-center justify-center gradient-nav p-4">
+          <div className="flex w-full max-w-xs items-center gap-3 bg-white p-5 shadow-2xl sm:max-w-sm">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5">
+              <DoorOpen className="h-4 w-4 text-black" />
             </div>
-            <h1 className="text-2xl font-bold text-black">
-              You&rsquo;ve exited Kutlwano &amp; Associate
-            </h1>
-            <p className="mt-2 text-sm text-slate-600">
-              You can close this tab or app now.
-            </p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <Button
-                onClick={handleReopen}
-                className="h-11 rounded-none bg-black font-semibold uppercase tracking-wide text-white hover:bg-black/85"
-              >
-                <RotateCcw className="mr-2 h-4 w-4" /> Log in again
-              </Button>
+            <div className="flex-1">
+              <h1 className="text-sm font-bold text-black">You&rsquo;ve exited</h1>
+              <p className="mt-0.5 text-xs text-slate-600">You can close this tab now.</p>
             </div>
+            <Button
+              onClick={handleReopen}
+              size="sm"
+              className="h-8 shrink-0 rounded-none bg-black px-3 text-xs font-semibold uppercase tracking-wide text-white hover:bg-black/85"
+            >
+              <RotateCcw className="mr-1 h-3 w-3" /> Log in
+            </Button>
           </div>
         </div>
       )}
