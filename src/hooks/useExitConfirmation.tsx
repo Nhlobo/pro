@@ -51,10 +51,16 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LogOut, RotateCcw } from "lucide-react";
+import { DoorOpen, RotateCcw } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -215,48 +221,61 @@ export function ExitConfirmationGuard() {
 
   return (
     <>
+      {/* Styled to match the Offline card and the 15-min inactivity card
+          exactly, so all three "system state" overlays feel like one family:
+          rounded-full black/5 icon circle, bold black title, slate-600 body
+          copy, and h-11 rounded-none uppercase-tracking-wide buttons. */}
       <AlertDialog open={promptOpen} onOpenChange={(o) => !o && handleStay()}>
-        <AlertDialogContent className="max-w-sm gap-0 overflow-hidden rounded-none border-0 p-0">
-          <div className="gradient-nav px-6 py-5">
-            <h2 className="text-lg font-semibold text-white">Exit app?</h2>
-          </div>
-          <div className="px-6 py-5">
-            <p className="text-sm text-muted-foreground">
-              You're about to close Kutlwano &amp; Associate. Any unsaved changes on this screen may be lost.
-            </p>
-          </div>
-          <div className="flex flex-col-reverse gap-2 border-t px-6 py-4 sm:flex-row sm:justify-end sm:gap-3">
-            <Button variant="outline" className="rounded-none" onClick={handleStay}>
+        <AlertDialogContent className="w-full max-w-md rounded-none border-none bg-white p-8 text-center shadow-2xl">
+          <AlertDialogHeader className="items-center text-center sm:text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-black/5">
+              <DoorOpen className="h-8 w-8 text-black" />
+            </div>
+            <AlertDialogTitle className="text-2xl font-bold text-black">
+              Exit app?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="mt-2 text-sm text-slate-600">
+              You&rsquo;re about to close Kutlwano &amp; Associate. Any unsaved changes on this
+              screen may be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <AlertDialogAction
+              onClick={handleStay}
+              className="h-11 rounded-none bg-black font-semibold uppercase tracking-wide text-white hover:bg-black/85"
+            >
               Stay
-            </Button>
-            <Button
-              className="rounded-none bg-[hsl(var(--kutlwano-teal))] text-white hover:bg-[hsl(var(--kutlwano-teal))]/90"
+            </AlertDialogAction>
+            <AlertDialogCancel
               onClick={handleExit}
+              className="mt-0 h-11 rounded-none border border-black/15 font-semibold uppercase tracking-wide text-black hover:bg-black/5"
             >
               Exit
-            </Button>
-          </div>
+            </AlertDialogCancel>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {exited && (
-        <div className="gradient-nav fixed inset-0 z-[999] flex items-center justify-center p-6">
-          <div className="w-full max-w-sm rounded-none border-0 bg-white p-8 text-center shadow-xl">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-none bg-[hsl(var(--kutlwano-teal))]/10">
-              <LogOut className="h-6 w-6 text-[hsl(var(--kutlwano-teal))]" />
+        <div className="fixed inset-0 z-[999] flex min-h-screen w-full items-center justify-center gradient-nav p-6">
+          <div className="w-full max-w-md bg-white p-8 text-center shadow-2xl">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-black/5">
+              <DoorOpen className="h-8 w-8 text-black" />
             </div>
-            <h2 className="text-lg font-semibold text-black">You've exited Kutlwano &amp; Associate</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <h1 className="text-2xl font-bold text-black">
+              You&rsquo;ve exited Kutlwano &amp; Associate
+            </h1>
+            <p className="mt-2 text-sm text-slate-600">
               You can close this tab or app now.
             </p>
-            <Button
-              variant="outline"
-              className="mt-6 w-full rounded-none"
-              onClick={handleReopen}
-            >
-              <RotateCcw className="h-4 w-4" />
-              Log in again
-            </Button>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+              <Button
+                onClick={handleReopen}
+                className="h-11 rounded-none bg-black font-semibold uppercase tracking-wide text-white hover:bg-black/85"
+              >
+                <RotateCcw className="mr-2 h-4 w-4" /> Log in again
+              </Button>
+            </div>
           </div>
         </div>
       )}
