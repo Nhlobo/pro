@@ -378,7 +378,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
           </header>
         )}
 
-        <div className="min-w-0 p-3 sm:p-4 lg:p-6">{children}</div>
+        <div className="enterprise-admin min-w-0 p-3 sm:p-4 lg:p-6">{children}</div>
       </main>
       <InternalChatWidget />
     </div>
