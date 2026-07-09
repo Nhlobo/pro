@@ -1,60 +1,35 @@
+// src/components/portal/AdminPageHeader.tsx
 import React from 'react';
 import type { LucideIcon } from 'lucide-react';
 
-type HeaderColor =
-  | 'orange'
-  | 'blue'
-  | 'green'
-  | 'purple'
-  | 'red'
-  | 'teal'
-  | 'yellow'
-  | 'pink'
-  | 'gray';
+const BRAND_TEAL = '#00BAAD';
 
 interface AdminPageHeaderProps {
   title: string;
   description?: string;
   icon?: LucideIcon;
-  color?: HeaderColor;
+  /** Retained for backward compatibility with existing call sites; no longer
+   *  changes the visual style — every Admin Portal header now shares the
+   *  same flat black/white/teal treatment. */
+  color?: string;
   actions?: React.ReactNode;
 }
 
-const COLOR_CLASSES: Record<HeaderColor, string> = {
-  orange: 'bg-orange-100 text-orange-600',
-  blue: 'bg-blue-100 text-blue-600',
-  green: 'bg-green-100 text-green-600',
-  purple: 'bg-purple-100 text-purple-600',
-  red: 'bg-red-100 text-red-600',
-  teal: 'bg-teal-100 text-teal-600',
-  yellow: 'bg-yellow-100 text-yellow-700',
-  pink: 'bg-pink-100 text-pink-600',
-  gray: 'bg-gray-100 text-gray-600',
-};
-
-const AdminPageHeader: React.FC<AdminPageHeaderProps> = ({
-  title,
-  description,
-  icon: Icon,
-  color = 'blue',
-  actions,
-}) => {
+const AdminPageHeader: React.FC<AdminPageHeaderProps> = ({ title, description, icon: Icon, actions }) => {
   return (
-    <div className="flex items-center justify-between gap-4 flex-wrap">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
         {Icon && (
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${COLOR_CLASSES[color]}`}>
-            <Icon className="h-5 w-5" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/5">
+            <Icon className="h-5 w-5" style={{ color: BRAND_TEAL }} />
           </div>
         )}
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground">{title}</h1>
-          {description && (
-            <p className="text-sm text-muted-foreground">{description}</p>
-          )}
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-bold text-black md:text-2xl">{title}</h1>
+          {description && <p className="text-xs text-slate-500 md:text-sm">{description}</p>}
         </div>
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 };
