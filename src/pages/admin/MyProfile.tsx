@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { User, Shield, Calendar, Ban, CheckCircle2, Mail, Briefcase } from "lucide-react";
+import { User, Shield, Calendar, Ban, CheckCircle2, Mail, Briefcase, IdCard, LockKeyhole } from "lucide-react";
 
 import { RandSign } from "@/components/icons/RandSign";
 interface ProfileRow {
@@ -57,90 +57,116 @@ const MyProfile: React.FC = () => {
     : userRole || 'User';
 
   return (
-    <div className="space-y-4 md:space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-foreground">My Profile</h1>
-        <p className="text-sm text-muted-foreground">Your role, access scope and restrictions.</p>
+    <div className="mx-auto max-w-6xl space-y-5 md:space-y-6">
+      <section className="relative overflow-hidden rounded-3xl border border-black/10 bg-white p-5 shadow-[0_22px_70px_-52px_rgba(0,0,0,0.65)] md:p-7">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[#00BAAD]/10 blur-3xl" />
+        <div className="relative grid gap-6 lg:grid-cols-[1.3fr_0.7fr] lg:items-end">
+          <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-3xl border border-black/10 bg-black text-white shadow-lg">
+              <User className="h-9 w-9" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#00BAAD]">Identity & Access</div>
+              <h1 className="mt-2 break-words text-3xl font-black tracking-tight text-black md:text-4xl">{loading ? 'Loading profile…' : fullName}</h1>
+              <p className="mt-2 flex min-w-0 items-center gap-2 text-sm text-neutral-600">
+                <Mail className="h-4 w-4 shrink-0 text-[#00BAAD]" />
+                <span className="truncate">{profile?.email || user?.email}</span>
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="rounded-2xl border border-black/10 bg-neutral-50 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-500">Current Role</p>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <p className="font-bold text-black">{roleLabel}</p>
+                <Badge className="bg-black text-white hover:bg-black">Active</Badge>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-black/10 bg-white p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-500">Position</p>
+              <p className="mt-2 font-bold text-black">{profile?.position || 'Not specified'}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
+        <Card className="rounded-3xl border-black/10 bg-white shadow-[0_18px_60px_-48px_rgba(0,0,0,0.65)]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg text-black">
+              <IdCard className="h-5 w-5 text-[#00BAAD]" />
+              Profile Details
+            </CardTitle>
+            <CardDescription>Core staff information connected to this account.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            {[
+              ['First name', profile?.first_name || '—'],
+              ['Last name', profile?.last_name || '—'],
+              ['User type', profile?.user_type || '—'],
+              ['Account email', profile?.email || user?.email || '—'],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-2xl border border-black/10 bg-neutral-50 p-4">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-500">{label}</p>
+                <p className="mt-1 break-words text-sm font-semibold text-black">{value}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-3xl border-black/10 bg-white shadow-[0_18px_60px_-48px_rgba(0,0,0,0.65)]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg text-black">
+              <CheckCircle2 className="h-5 w-5 text-[#00BAAD]" />
+              Modules You Can Access
+            </CardTitle>
+            <CardDescription>
+              {isSalesConsultant()
+                ? 'Your sales consultant workspace is intentionally focused on operational modules.'
+                : isAdmin()
+                  ? 'You have full administrator access to the Admin Portal modules.'
+                  : 'Your staff access scope is shown below.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            {(isSalesConsultant() ? SALES_CONSULTANT_ACCESS : SALES_CONSULTANT_ACCESS).map((item) => (
+              <div key={item.label} className="flex min-w-0 items-start gap-3 rounded-2xl border border-black/10 bg-white p-4 transition-colors hover:border-[#00BAAD]/40">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#00BAAD]/10 text-[#00BAAD]">
+                  <item.icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-black">{item.label}</p>
+                    <Badge variant="outline" className="border-[#00BAAD]/30 bg-[#00BAAD]/10 text-[#007f76]">Granted</Badge>
+                  </div>
+                  <p className="mt-1 text-xs leading-5 text-neutral-600">{item.description}</p>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="h-14 w-14 shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="h-7 w-7 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <CardTitle className="text-xl truncate">{loading ? '…' : fullName}</CardTitle>
-              <CardDescription className="flex items-center gap-2 mt-1 min-w-0">
-                <Mail className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{profile?.email || user?.email}</span>
-              </CardDescription>
-            </div>
-            <Badge variant="secondary" className="text-sm shrink-0">{roleLabel}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground text-xs uppercase tracking-wider">Position</p>
-              <p className="font-medium">{profile?.position || '—'}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-xs uppercase tracking-wider">User Type</p>
-              <p className="font-medium capitalize">{profile?.user_type || '—'}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            Modules You Can Access
-          </CardTitle>
-          <CardDescription>
-            {isSalesConsultant()
-              ? 'As a Sales Consultant your access is limited to the modules below.'
-              : isAdmin()
-                ? 'You have full administrator access to all modules.'
-                : 'Your access scope is shown below.'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {(isSalesConsultant() ? SALES_CONSULTANT_ACCESS : SALES_CONSULTANT_ACCESS).map((item) => (
-            <div key={item.label} className="flex flex-wrap sm:flex-nowrap items-start gap-3 p-3 rounded-lg border bg-card">
-              <item.icon className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-              <div className="flex-1 min-w-[140px]">
-                <p className="font-medium text-sm">{item.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
-              </div>
-              <Badge variant="outline" className="shrink-0 text-emerald-700 border-emerald-300 bg-emerald-50">Granted</Badge>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
       {isSalesConsultant() && (
-        <Card className="border-destructive/30 bg-destructive/5">
+        <Card className="rounded-3xl border-black/10 bg-black text-white shadow-[0_22px_70px_-52px_rgba(0,0,0,0.75)]">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base text-destructive">
-              <Ban className="h-4 w-4" />
-              Restrictions
+            <CardTitle className="flex items-center gap-2 text-lg text-white">
+              <LockKeyhole className="h-5 w-5 text-[#00BAAD]" />
+              Guardrails & Restrictions
             </CardTitle>
-            <CardDescription>Actions you are not permitted to perform.</CardDescription>
+            <CardDescription className="text-white/65">Actions unavailable for your current role.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2 text-sm">
+            <ul className="grid gap-3 md:grid-cols-3">
               {RESTRICTIONS.map((r) => (
-                <li key={r} className="flex items-start gap-2">
-                  <Ban className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+                <li key={r} className="flex items-start gap-2 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/85">
+                  <Ban className="mt-0.5 h-4 w-4 shrink-0 text-[#00BAAD]" />
                   <span>{r}</span>
                 </li>
               ))}
             </ul>
-            <Separator className="my-4" />
-            <p className="text-xs text-muted-foreground">
+            <Separator className="my-5 bg-white/10" />
+            <p className="text-xs text-white/60">
               If you need expanded access, contact your Medico-Legal Manager or Administrator.
             </p>
           </CardContent>
