@@ -1,42 +1,49 @@
-import React, { useState } from 'react';
+// src/pages/admin/AdminSupportHub.tsx
+import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HeadsetIcon, Megaphone, HelpCircle } from 'lucide-react';
 import AdminTicketManager from '@/components/support/AdminTicketManager';
 import AdminAnnouncementManager from '@/components/support/AdminAnnouncementManager';
 import AdminFAQManager from '@/components/support/AdminFAQManager';
+import { AdminPage, AdminHeader } from '@/components/admin/ui/AdminUI';
 
 const AdminSupportHub: React.FC = () => {
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-foreground">Support & Communications Hub</h1>
-        <p className="text-xs md:text-sm text-muted-foreground">Manage tickets, announcements, and FAQ for experts and attorneys</p>
-      </div>
+    <AdminPage>
+      <AdminHeader
+        eyebrow="Support"
+        title="Support & Communications Hub"
+        description="Manage tickets, announcements, and FAQ for experts and attorneys"
+      />
 
       <Tabs defaultValue="tickets" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="tickets" className="gap-1.5 sm:gap-2 text-xs sm:text-sm px-1.5 sm:px-3">
-            <HeadsetIcon className="h-4 w-4 flex-shrink-0" /> <span className="truncate">Tickets</span>
-          </TabsTrigger>
-          <TabsTrigger value="announcements" className="gap-1.5 sm:gap-2 text-xs sm:text-sm px-1.5 sm:px-3">
-            <Megaphone className="h-4 w-4 flex-shrink-0" /> <span className="truncate">Announcements</span>
-          </TabsTrigger>
-          <TabsTrigger value="faq" className="gap-1.5 sm:gap-2 text-xs sm:text-sm px-1.5 sm:px-3">
-            <HelpCircle className="h-4 w-4 flex-shrink-0" /> <span className="truncate">FAQ</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0">
+          <TabsList className="flex h-auto w-max min-w-full gap-1 rounded-none border border-black/10 bg-white p-1 sm:w-full sm:max-w-md">
+            <TabsTrigger value="tickets" className="flex shrink-0 items-center gap-1.5 rounded-none px-3 py-2 text-xs data-[state=active]:bg-black data-[state=active]:text-white sm:text-sm">
+              <HeadsetIcon className="h-4 w-4 flex-shrink-0" /> <span>Tickets</span>
+            </TabsTrigger>
+            <TabsTrigger value="announcements" className="flex shrink-0 items-center gap-1.5 rounded-none px-3 py-2 text-xs data-[state=active]:bg-black data-[state=active]:text-white sm:text-sm">
+              <Megaphone className="h-4 w-4 flex-shrink-0" /> <span>Announcements</span>
+            </TabsTrigger>
+            <TabsTrigger value="faq" className="flex shrink-0 items-center gap-1.5 rounded-none px-3 py-2 text-xs data-[state=active]:bg-black data-[state=active]:text-white sm:text-sm">
+              <HelpCircle className="h-4 w-4 flex-shrink-0" /> <span>FAQ</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        <TabsContent value="tickets">
-          <AdminTicketManager />
-        </TabsContent>
-        <TabsContent value="announcements">
-          <AdminAnnouncementManager />
-        </TabsContent>
-        <TabsContent value="faq">
-          <AdminFAQManager />
-        </TabsContent>
+        <div className="mt-4">
+          <TabsContent value="tickets">
+            <AdminTicketManager />
+          </TabsContent>
+          <TabsContent value="announcements">
+            <AdminAnnouncementManager />
+          </TabsContent>
+          <TabsContent value="faq">
+            <AdminFAQManager />
+          </TabsContent>
+        </div>
       </Tabs>
-    </div>
+    </AdminPage>
   );
 };
 
