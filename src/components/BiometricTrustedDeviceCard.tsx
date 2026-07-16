@@ -11,12 +11,14 @@ import {
 } from '@/components/admin/ui/AdminUI';
 import {
   canOpenBiometricSettingsDirectly,
+  clearTrustedDevice,
   detectDevicePlatform,
   enrollTrustedDevice,
   fetchServerDevices,
   getManualBiometricSetupInstructions,
   isTrustedDeviceEnrolled,
   openBiometricDeviceSettings,
+  removeTrustedDevice,
   revokeServerDevice,
   ServerTrustedDevice,
 } from '@/utils/trustedDevice';
@@ -29,7 +31,21 @@ export const BiometricTrustedDeviceCard = () => {
   // a settings redirect + retry instead of a one-shot toast the user can't act on.
   const [needsDeviceSetup, setNeedsDeviceSetup] = useState(false);
 
-  const load = async () => { if (user?.id) setDevices(await fetchServerDevices(user.id)); };
+  const load = async () => {
+    if (!user?.id) return;
+    const serverDevices = await fetchServerDevices(user.id);
+    setDevices(serverDevices);
+    // Self-heal: if the server has no active (non-revoked) device for this user but this
+    // browser still thinks it's enrolled, the local flag is stale (e.g. it was revoked
+    // from this card, from another device, or by an admin). Left alone, the lock screen
+    // would keep showing "Unlock with biometrics" and fail every time with a confusing
+    // "No enrolled biometric devices for this account" error. Clear it so the UI falls
+    // back to offering enrollment again instead of a dead-end unlock button.
+    const hasActiveServerDevice = serverDevices.some((d) => !d.revoked_at);
+    if (!hasActiveServerDevice && user.email && isTrustedDeviceEnrolled(user.email)) {
+      clearTrustedDevice();
+    }
+  };
   useEffect(() => { load(); }, [user?.id]);
 
   const enroll = async () => {
@@ -45,7 +61,13 @@ export const BiometricTrustedDeviceCard = () => {
     setBusy(false);
   };
 
-  const revoke = async (id: string) => { setBusy(true); await revokeServerDevice(id, 'Revoked by user'); await load(); setBusy(false); };
+  const revoke = async (id: string, credentialId: string) => {
+    setBusy(true);
+    await revokeServerDevice(id, 'Revoked by user');
+    removeTrustedDevice(credentialId);
+    await load();
+    setBusy(false);
+  };
 
   const platform = detectDevicePlatform();
   const canDeepLink = canOpenBiometricSettingsDirectly();
@@ -142,7 +164,7 @@ export const BiometricTrustedDeviceCard = () => {
                     variant="outline"
                     size="sm"
                     className="rounded-none border-destructive/40 text-destructive hover:bg-destructive/10"
-                    onClick={() => revoke(d.id)}
+                    onClick={() => revoke(d.id, d.credential_id)}
                     disabled={busy}
                   >
                     <Trash2 className="mr-1 h-3.5 w-3.5" />
