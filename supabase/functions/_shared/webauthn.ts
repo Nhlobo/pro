@@ -1,58 +1,99 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { generateRegistrationOptions, verifyRegistrationResponse } from "https://esm.sh/@simplewebauthn/server@13?target=deno";
-import { BadRequest, Conflict, jsonResponse, MethodNotAllowed, withErrorHandler } from "../_shared/errors.ts";
-import { RP_NAME, bytesToBase64, consumeChallenge, getClients, requireUser, resolveRelyingParty, storeChallenge } from "../_shared/webauthn.ts";
+// Shared helpers for the webauthn-register and webauthn-authenticate Edge Functions.
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { BadRequest, Unauthorized } from "./errors.ts";
 
-serve(withErrorHandler(async (req) => {
-  if (req.method !== "POST") throw MethodNotAllowed();
-  const body = await req.json();
-  const { userClient, adminClient } = getClients(req);
-  const user = await requireUser(userClient);
-  const { origin, rpID } = resolveRelyingParty(req);
+export const RP_NAME = "Medico-Legal Assessment";
 
-  if (body.action === "options") {
-    const { data: devices } = await adminClient.from("trusted_devices").select("credential_id, transports").eq("user_id", user.id).is("revoked_at", null);
-    const options = await generateRegistrationOptions({
-      rpName: RP_NAME,
-      rpID,
-      userID: new TextEncoder().encode(user.id),
-      userName: user.email ?? user.id,
-      userDisplayName: user.email ?? user.id,
-      timeout: 60000,
-      attestationType: "none",
-      authenticatorSelection: { residentKey: "preferred", userVerification: "required", authenticatorAttachment: "platform" },
-      excludeCredentials: (devices ?? []).map((d) => ({ id: d.credential_id, transports: d.transports ?? [] })),
-    });
-    await storeChallenge(adminClient, user.id, "register", options.challenge);
-    return jsonResponse({ options });
+export function getClients(req: Request): { userClient: SupabaseClient; adminClient: SupabaseClient } {
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+  const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+    global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  return { userClient, adminClient };
+}
+
+export async function requireUser(userClient: SupabaseClient) {
+  const { data, error } = await userClient.auth.getUser();
+  if (error || !data?.user) throw Unauthorized("You must be signed in to use biometric sign-in.");
+  return data.user;
+}
+
+export function resolveRelyingParty(req: Request): { rpID: string; origin: string } {
+  const rpID = Deno.env.get("WEBAUTHN_RP_ID") ?? "localhost";
+  const configuredOrigins = (Deno.env.get("WEBAUTHN_ORIGIN") ?? "http://localhost:5173")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  const requestOrigin = req.headers.get("Origin");
+  const origin = requestOrigin && configuredOrigins.includes(requestOrigin)
+    ? requestOrigin
+    : configuredOrigins[0];
+
+  return { rpID, origin };
+}
+
+const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+
+export async function storeChallenge(
+  adminClient: SupabaseClient,
+  userId: string,
+  purpose: string,
+  challenge: string,
+) {
+  await adminClient.from("trusted_device_challenges").delete().eq("user_id", userId).eq("purpose", purpose);
+  const { error } = await adminClient.from("trusted_device_challenges").insert({
+    user_id: userId,
+    purpose,
+    challenge,
+    expires_at: new Date(Date.now() + CHALLENGE_TTL_MS).toISOString(),
+  });
+  if (error) throw error;
+}
+
+export async function consumeChallenge(
+  adminClient: SupabaseClient,
+  userId: string,
+  purpose: string,
+): Promise<string> {
+  const { data, error } = await adminClient
+    .from("trusted_device_challenges")
+    .select("id, challenge, expires_at")
+    .eq("user_id", userId)
+    .eq("purpose", purpose)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw BadRequest("No pending biometric request found. Please try again.");
+
+  await adminClient.from("trusted_device_challenges").delete().eq("id", data.id);
+
+  if (new Date(data.expires_at).getTime() < Date.now()) {
+    throw BadRequest("This biometric request expired. Please try again.");
   }
 
-  if (body.action === "verify") {
-    const expectedChallenge = await consumeChallenge(adminClient, user.id, "register");
-    const result = await verifyRegistrationResponse({ response: body.response, expectedChallenge, expectedOrigin: origin, expectedRPID: rpID, requireUserVerification: true });
-    if (!result.verified || !result.registrationInfo) throw BadRequest("Biometric registration could not be verified.");
-    const { credential } = result.registrationInfo;
+  return data.challenge;
+}
 
-    const { data: existing } = await adminClient.from("trusted_devices").select("id").eq("credential_id", credential.id).is("revoked_at", null).maybeSingle();
-    if (existing) throw Conflict("This authenticator is already registered.");
+export function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
 
-    const label = typeof body.label === "string" && body.label.trim() ? body.label.trim().slice(0, 100) : "Trusted device";
-    const { data: device, error } = await adminClient.from("trusted_devices").insert({
-      user_id: user.id,
-      credential_id: credential.id,
-      public_key: bytesToBase64(credential.publicKey),
-      sign_count: credential.counter ?? 0,
-      transports: credential.transports ?? [],
-      device_label: label,
-      user_agent: typeof body.userAgent === "string" ? body.userAgent : req.headers.get("User-Agent"),
-      platform: typeof body.platform === "string" ? body.platform : null,
-    }).select("id").single();
-    if (error) throw error;
-
-    await adminClient.from("trusted_device_events").insert({ device_id: device.id, user_id: user.id, event_type: "registered", user_agent: req.headers.get("User-Agent"), metadata: {} });
-
-    return jsonResponse({ verified: true, credentialId: credential.id, label });
-  }
-
-  throw BadRequest("Unknown biometric registration action.");
-}));
+export function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+           }
