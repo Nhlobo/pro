@@ -31,8 +31,8 @@ export const BiometricLockGate = ({ children }: { children: React.ReactNode }) =
 
   const unlock = async () => {
     setError('');
-    const ok = await verifyTrustedDevice(user?.email);
-    if (ok) { markUnlocked(); setLocked(false); } else setError('Biometric unlock was cancelled or failed. You can retry or sign in with your password instead.');
+    const result = await verifyTrustedDevice(user?.email);
+    if (result.verified) { markUnlocked(); setLocked(false); } else setError(result.error || 'Biometric unlock was cancelled or failed. You can retry or sign in with your password instead.');
   };
   const password = async () => { clearTrustedDevice(); await supabase.auth.signOut({ scope: 'local' }); navigate('/auth', { replace: true }); };
 
