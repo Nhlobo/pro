@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      trusted_devices: {
+        Row: { id: string; user_id: string; credential_id: string; public_key: string; sign_count: number; transports: string[]; device_label: string; user_agent: string | null; platform: string | null; last_used_at: string | null; revoked_at: string | null; revoked_by: string | null; revoked_reason: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; user_id: string; credential_id: string; public_key: string; sign_count?: number; transports?: string[]; device_label?: string; user_agent?: string | null; platform?: string | null; last_used_at?: string | null; revoked_at?: string | null; revoked_by?: string | null; revoked_reason?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; user_id?: string; credential_id?: string; public_key?: string; sign_count?: number; transports?: string[]; device_label?: string; user_agent?: string | null; platform?: string | null; last_used_at?: string | null; revoked_at?: string | null; revoked_by?: string | null; revoked_reason?: string | null; created_at?: string; updated_at?: string }
+        Relationships: []
+      }
+      trusted_device_events: {
+        Row: { id: string; device_id: string | null; user_id: string; event_type: string; user_agent: string | null; metadata: Json; created_at: string }
+        Insert: { id?: string; device_id?: string | null; user_id: string; event_type: string; user_agent?: string | null; metadata?: Json; created_at?: string }
+        Update: { id?: string; device_id?: string | null; user_id?: string; event_type?: string; user_agent?: string | null; metadata?: Json; created_at?: string }
+        Relationships: []
+      }
+      trusted_device_challenges: {
+        Row: { id: string; user_id: string; purpose: string; challenge: string; expires_at: string; created_at: string }
+        Insert: { id?: string; user_id: string; purpose: string; challenge: string; expires_at: string; created_at?: string }
+        Update: { id?: string; user_id?: string; purpose?: string; challenge?: string; expires_at?: string; created_at?: string }
+        Relationships: []
+      }
       account_activations: {
         Row: {
           consumed_at: string | null

@@ -5,6 +5,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Shield, Calendar, Ban, CheckCircle2, Mail, Briefcase } from 'lucide-react';
 import { RandSign } from '@/components/icons/RandSign';
+import { BiometricTrustedDeviceCard } from '@/components/BiometricTrustedDeviceCard';
 import {
   AdminPage,
   AdminHeader,
@@ -104,6 +105,8 @@ const MyProfile: React.FC = () => {
           </div>
         </AdminCardBody>
       </AdminCard>
+
+      <BiometricTrustedDeviceCard />
 
       {/* Access */}
       <AdminCard>
