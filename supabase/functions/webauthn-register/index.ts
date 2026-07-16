@@ -1,36 +1,153 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { generateRegistrationOptions, verifyRegistrationResponse } from "https://esm.sh/@simplewebauthn/server@13?target=deno";
-import { BadRequest, jsonResponse, MethodNotAllowed, withErrorHandler } from "../_shared/errors.ts";
-import { bytesToBase64, getClients, requireUser, resolveRelyingParty, storeChallenge, consumeChallenge } from "../_shared/webauthn.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
-serve(withErrorHandler(async (req) => {
-  if (req.method !== "POST") throw MethodNotAllowed();
-  const body = await req.json();
-  const { userClient, adminClient } = getClients(req);
-  const user = await requireUser(userClient);
-  const { origin, rpID } = resolveRelyingParty(req);
-  if (body.action === "options") {
-    const { data: devices } = await adminClient.from("trusted_devices").select("credential_id, transports").eq("user_id", user.id).is("revoked_at", null);
-    const options = await generateRegistrationOptions({
-      rpName: "Kutlwano Associate", rpID, userID: new TextEncoder().encode(user.id), userName: user.email ?? user.id,
-      attestationType: "none", authenticatorSelection: { residentKey: "preferred", userVerification: "required", authenticatorAttachment: "platform" }, supportedAlgorithmIDs: [-7, -257],
-      excludeCredentials: (devices ?? []).map((d) => ({ id: d.credential_id, transports: d.transports ?? [] })),
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+} from "npm:@simplewebauthn/server";
+
+import {
+  createChallenge,
+  consumeChallenge,
+  getUserCredentials,
+  saveCredential,
+  writeAuditEvent,
+} from "../_shared/database.ts";
+
+import {
+  getAuthenticatedUser,
+  json,
+  corsHeaders,
+} from "../_shared/supabase.ts";
+
+import {
+  RP_ID,
+  RP_NAME,
+  ORIGIN,
+} from "../_shared/webauthn.ts";
+
+serve(async (req) => {
+
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      headers: corsHeaders,
     });
-    await storeChallenge(adminClient, user.id, "register", options.challenge);
-    return jsonResponse({ options });
   }
-  if (body.action === "verify") {
-    const expectedChallenge = await consumeChallenge(adminClient, user.id, "register");
-    const result = await verifyRegistrationResponse({ response: body.response, expectedChallenge, expectedOrigin: origin, expectedRPID: rpID, requireUserVerification: true });
-    if (!result.verified || !result.registrationInfo) throw BadRequest("Biometric registration could not be verified.");
-    const credential = result.registrationInfo.credential;
-    const label = body.label || "Trusted device";
-    const { data: device, error } = await adminClient.from("trusted_devices").upsert({
-      user_id: user.id, credential_id: credential.id, public_key: bytesToBase64(credential.publicKey), sign_count: credential.counter, transports: credential.transports ?? [], device_label: label, user_agent: body.userAgent ?? null, platform: body.platform ?? null, revoked_at: null, revoked_by: null, revoked_reason: null,
-    }, { onConflict: "credential_id" }).select("id").single();
-    if (error) throw BadRequest("Unable to save trusted device.", error);
-    await adminClient.from("trusted_device_events").insert({ device_id: device.id, user_id: user.id, event_type: "enrolled", user_agent: body.userAgent ?? null, metadata: { platform: body.platform ?? null } });
-    return jsonResponse({ verified: true, credentialId: credential.id, label });
+
+  try {
+
+    const user = await getAuthenticatedUser(req);
+
+    const body = await req.json();
+
+    switch (body.action) {
+
+      case "options":
+        return await registrationOptions(user);
+
+      case "verify":
+        return await verifyRegistration(user, body);
+
+      default:
+        return json(
+          {
+            success: false,
+            error: "Unknown action",
+          },
+          400,
+        );
+    }
+
+  } catch (e) {
+
+    console.error(e);
+
+    return json(
+      {
+        success: false,
+        error: e instanceof Error
+          ? e.message
+          : "Unexpected server error",
+      },
+      500,
+    );
   }
-  throw BadRequest("Unknown biometric registration action.");
-}));
+
+});
+
+async function registrationOptions(user: any) {
+
+  const credentials =
+    await getUserCredentials(user.id);
+
+  const options =
+    await generateRegistrationOptions({
+
+      rpName: RP_NAME,
+
+      rpID: RP_ID,
+
+      userName: user.email,
+
+      userID: user.id,
+
+      attestationType: "none",
+
+      authenticatorSelection: {
+
+        residentKey: "preferred",
+
+        userVerification: "preferred",
+
+        authenticatorAttachment: "platform",
+
+      },
+
+      excludeCredentials:
+
+        credentials.map((credential) => ({
+
+          id: credential.credential_id,
+
+          transports:
+
+            credential.transports ?? undefined,
+
+        })),
+
+      supportedAlgorithmIDs: [
+
+        -7,
+
+        -257,
+
+      ],
+
+    });
+
+  await createChallenge(
+
+    user.id,
+
+    options.challenge,
+
+    "registration",
+
+    new Date(
+      Date.now() + 5 * 60 * 1000,
+    ).toISOString(),
+
+  );
+
+  return json({
+
+    success: true,
+
+    data: {
+
+      options,
+
+    },
+
+  });
+
+      }
