@@ -65,9 +65,70 @@ export async function getBiometricSupportStatus(): Promise<{ status: BiometricSu
 
 const SUPPORT_STATUS_MESSAGES: Record<Exclude<BiometricSupportStatus, 'available'>, string> = {
   'no-webauthn-api': 'This browser does not support biometric sign-in (WebAuthn is unavailable).',
-  'no-platform-authenticator': 'No fingerprint or face unlock is set up on this device. Add one in your phone\'s lock screen/biometric settings, then try again.',
+  'no-platform-authenticator': 'No fingerprint, face unlock, or screen lock is set up on this device yet. Set one up in your device settings, then come back and try again.',
   'check-failed': 'The browser blocked the biometric check on this page (this can happen in an embedded preview or restricted context).',
 };
+
+export type DevicePlatform = 'android' | 'ios' | 'other';
+
+/**
+ * Best-effort detection of the OS platform from the user agent, used only to decide
+ * which settings deep link (if any) is safe to offer.
+ *
+ * @returns 'android', 'ios', or 'other'
+ */
+export function detectDevicePlatform(): DevicePlatform {
+  const ua = navigator.userAgent || '';
+  if (/android/i.test(ua)) return 'android';
+  if (/iphone|ipad|ipod/i.test(ua)) return 'ios';
+  return 'other';
+}
+
+/**
+ * Whether we can attempt to deep-link directly into the device's biometric/lock-screen
+ * settings. Only Android's `intent://` scheme is reliably honored by mobile browsers;
+ * there is no equivalent public API on iOS or desktop, so those platforms fall back to
+ * manual instructions instead of a link.
+ *
+ * @returns `true` only on Android
+ */
+export function canOpenBiometricSettingsDirectly(): boolean {
+  return detectDevicePlatform() === 'android';
+}
+
+/**
+ * Best-effort manual instructions for enabling a screen lock / biometric, shown when
+ * we can't (or the deep link fails to) open settings directly.
+ *
+ * @param platform - The device platform to tailor instructions for
+ * @returns A short human-readable instruction string
+ */
+export function getManualBiometricSetupInstructions(platform: DevicePlatform): string {
+  if (platform === 'ios') return 'Go to Settings > Face ID & Passcode (or Touch ID & Passcode) and set one up.';
+  if (platform === 'android') return "Go to Settings > Security (sometimes under 'Security & privacy' or 'Biometrics') and set up a fingerprint, face unlock, or PIN.";
+  return "Open your device's Settings app and set up a fingerprint, face unlock, or screen lock, then return to this page.";
+}
+
+/**
+ * Attempts to open the device's Security settings screen. This is a best-effort,
+ * Android-only mechanism using the `intent://` scheme — there is no browser API to open
+ * OS settings on any platform, so this is not guaranteed to work on every browser/OS
+ * version and should always be paired with manual instructions as a fallback.
+ *
+ * @returns `true` if the deep link was attempted (Android only), `false` otherwise
+ */
+export function openBiometricDeviceSettings(): boolean {
+  if (!canOpenBiometricSettingsDirectly()) return false;
+  try {
+    // Launches Android's system Security settings screen, where fingerprint/face
+    // enrollment lives. Falls back silently (no-op) if the OS/browser rejects it.
+    window.location.href = 'intent:#Intent;action=android.settings.SECURITY_SETTINGS;end';
+    return true;
+  } catch (e) {
+    console.warn('failed to open platform biometric settings', e);
+    return false;
+  }
+}
 
 /**
  * Determines whether the current environment supports biometric authentication.
@@ -121,10 +182,10 @@ export const getDismissedKey = (email: string) => `${DISMISS_PREFIX}${emailKey(e
  * @param label - Optional display label for the trusted device
  * @returns `{ ok: true }` if enrollment succeeds, otherwise `{ ok: false, error }` with a display-safe reason
  */
-export async function enrollTrustedDevice({ userEmail, label }: { userId: string; userEmail: string; userName?: string; label?: string }): Promise<{ ok: boolean; error?: string }> {
+export async function enrollTrustedDevice({ userEmail, label }: { userId: string; userEmail: string; userName?: string; label?: string }): Promise<{ ok: boolean; error?: string; status?: BiometricSupportStatus }> {
   try {
     const support = await getBiometricSupportStatus();
-    if (support.status !== 'available') return { ok: false, error: SUPPORT_STATUS_MESSAGES[support.status] };
+    if (support.status !== 'available') return { ok: false, error: SUPPORT_STATUS_MESSAGES[support.status], status: support.status };
     const optionsResult = await supabase.functions.invoke('webauthn-register', { body: { action: 'options' } });
     if (optionsResult.error) throw optionsResult.error;
     const { options } = unwrap<{ options: any }>(optionsResult.data);
@@ -148,10 +209,10 @@ export async function enrollTrustedDevice({ userEmail, label }: { userId: string
  *
  * @returns `{ verified: true }` on success, otherwise `{ verified: false, error }` with a display-safe reason.
  */
-export async function verifyTrustedDevice(userEmail?: string): Promise<{ verified: boolean; error?: string }> {
+export async function verifyTrustedDevice(userEmail?: string): Promise<{ verified: boolean; error?: string; status?: BiometricSupportStatus }> {
   try {
     const support = await getBiometricSupportStatus();
-    if (support.status !== 'available') return { verified: false, error: SUPPORT_STATUS_MESSAGES[support.status] };
+    if (support.status !== 'available') return { verified: false, error: SUPPORT_STATUS_MESSAGES[support.status], status: support.status };
     const optionsResult = await supabase.functions.invoke('webauthn-authenticate', { body: { action: 'options' } });
     if (optionsResult.error) throw optionsResult.error;
     const { options } = unwrap<{ options: any }>(optionsResult.data);
