@@ -116,3 +116,9 @@ verify_jwt = false  # Access code validated in code
 
 [functions.remind-pending-payment-approvals]
 verify_jwt = false  # Called by pg_cron
+
+[functions.webauthn-register]
+verify_jwt = true
+
+[functions.webauthn-authenticate]
+verify_jwt = true
