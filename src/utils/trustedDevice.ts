@@ -13,6 +13,37 @@ const write = (items: LocalDevice[]) => { try { localStorage.setItem(STORAGE_KEY
 const emailKey = (email?: string | null) => (email || '').trim().toLowerCase();
 const unwrap = <T>(value: any): T => (value?.success && value?.data ? value.data : value) as T;
 
+const WEBAUTHN_ERROR_MESSAGES: Record<string, string> = {
+  NotAllowedError: 'Biometric prompt was cancelled or timed out.',
+  SecurityError: 'This page is not a secure/allowed origin for biometric enrollment.',
+  InvalidStateError: 'This authenticator is already registered.',
+  NotSupportedError: 'Biometric authentication is not supported on this device or browser.',
+  AbortError: 'Biometric request was aborted.',
+};
+
+/**
+ * Extracts a human-readable message from a WebAuthn or Supabase function error.
+ *
+ * @param e - The thrown error
+ * @returns A message safe to display to the user
+ */
+async function describeError(e: unknown): Promise<string> {
+  try {
+    if (e && typeof e === 'object' && 'name' in e && (e as any).name in WEBAUTHN_ERROR_MESSAGES) {
+      return WEBAUTHN_ERROR_MESSAGES[(e as any).name as string];
+    }
+    const ctx = (e as any)?.context;
+    if (ctx && typeof ctx.json === 'function') {
+      const body = await ctx.json().catch(() => null);
+      if (body?.error?.message) return body.error.message as string;
+    }
+    if (e instanceof Error && e.message) return e.message;
+  } catch {
+    // fall through to generic message
+  }
+  return 'Something went wrong. Please try again.';
+}
+
 /**
  * Determines whether the current environment supports biometric authentication.
  *
@@ -63,11 +94,11 @@ export const getDismissedKey = (email: string) => `${DISMISS_PREFIX}${emailKey(e
  *
  * @param userEmail - Email address associated with the trusted device
  * @param label - Optional display label for the trusted device
- * @returns `true` if enrollment succeeds, `false` otherwise
+ * @returns `{ ok: true }` if enrollment succeeds, otherwise `{ ok: false, error }` with a display-safe reason
  */
-export async function enrollTrustedDevice({ userEmail, label }: { userId: string; userEmail: string; userName?: string; label?: string }) {
+export async function enrollTrustedDevice({ userEmail, label }: { userId: string; userEmail: string; userName?: string; label?: string }): Promise<{ ok: boolean; error?: string }> {
   try {
-    if (!await isBiometricSupported()) return false;
+    if (!await isBiometricSupported()) return { ok: false, error: 'This device or browser does not support biometric authentication.' };
     const optionsResult = await supabase.functions.invoke('webauthn-register', { body: { action: 'options' } });
     if (optionsResult.error) throw optionsResult.error;
     const { options } = unwrap<{ options: any }>(optionsResult.data);
@@ -75,21 +106,25 @@ export async function enrollTrustedDevice({ userEmail, label }: { userId: string
     const verifyResult = await supabase.functions.invoke('webauthn-register', { body: { action: 'verify', response, label, userAgent: navigator.userAgent, platform: navigator.platform } });
     if (verifyResult.error) throw verifyResult.error;
     const verified = unwrap<{ verified: boolean; credentialId: string; label: string }>(verifyResult.data);
-    if (!verified.verified) return false;
+    if (!verified.verified) return { ok: false, error: 'Biometric registration could not be verified.' };
     const without = read().filter((d) => d.credentialId !== verified.credentialId && emailKey(d.userEmail) !== emailKey(userEmail));
     write([...without, { userEmail, credentialId: verified.credentialId, label: verified.label, enrolledAt: new Date().toISOString() }]);
-    return true;
-  } catch (e) { console.warn('trusted device enrollment failed', e); return false; }
+    return { ok: true };
+  } catch (e) {
+    const error = await describeError(e);
+    console.warn('trusted device enrollment failed', e);
+    return { ok: false, error };
+  }
 }
 
 /**
  * Verifies the current user with a trusted biometric device and records a successful unlock.
  *
- * @returns `true` if verification succeeds, `false` otherwise.
+ * @returns `{ verified: true }` on success, otherwise `{ verified: false, error }` with a display-safe reason.
  */
-export async function verifyTrustedDevice(userEmail?: string) {
+export async function verifyTrustedDevice(userEmail?: string): Promise<{ verified: boolean; error?: string }> {
   try {
-    if (!await isBiometricSupported()) return false;
+    if (!await isBiometricSupported()) return { verified: false, error: 'This device or browser does not support biometric authentication.' };
     const optionsResult = await supabase.functions.invoke('webauthn-authenticate', { body: { action: 'options' } });
     if (optionsResult.error) throw optionsResult.error;
     const { options } = unwrap<{ options: any }>(optionsResult.data);
@@ -98,8 +133,12 @@ export async function verifyTrustedDevice(userEmail?: string) {
     if (verifyResult.error) throw verifyResult.error;
     const verified = unwrap<{ verified: boolean }>(verifyResult.data).verified;
     if (verified) markUnlocked();
-    return verified;
-  } catch (e) { console.warn('trusted device verification failed', e); if (userEmail) return false; return false; }
+    return { verified };
+  } catch (e) {
+    const error = await describeError(e);
+    console.warn('trusted device verification failed', e);
+    return { verified: false, error };
+  }
 }
 /**
  * Records the current time as the latest trusted-device unlock.
