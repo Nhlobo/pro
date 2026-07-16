@@ -44,12 +44,37 @@ async function describeError(e: unknown): Promise<string> {
   return 'Something went wrong. Please try again.';
 }
 
+export type BiometricSupportStatus = 'available' | 'no-webauthn-api' | 'no-platform-authenticator' | 'check-failed';
+
+/**
+ * Checks biometric support and distinguishes *why* it's unavailable, so failures
+ * can be surfaced with a precise reason instead of a single generic message.
+ *
+ * @returns The support status plus the raw error when the check itself threw.
+ */
+export async function getBiometricSupportStatus(): Promise<{ status: BiometricSupportStatus; error?: unknown }> {
+  if (typeof PublicKeyCredential === 'undefined') return { status: 'no-webauthn-api' };
+  try {
+    const available = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+    return { status: available ? 'available' : 'no-platform-authenticator' };
+  } catch (e) {
+    console.warn('biometric support check failed', e);
+    return { status: 'check-failed', error: e };
+  }
+}
+
+const SUPPORT_STATUS_MESSAGES: Record<Exclude<BiometricSupportStatus, 'available'>, string> = {
+  'no-webauthn-api': 'This browser does not support biometric sign-in (WebAuthn is unavailable).',
+  'no-platform-authenticator': 'No fingerprint or face unlock is set up on this device. Add one in your phone\'s lock screen/biometric settings, then try again.',
+  'check-failed': 'The browser blocked the biometric check on this page (this can happen in an embedded preview or restricted context).',
+};
+
 /**
  * Determines whether the current environment supports biometric authentication.
  *
  * @returns `true` if a user-verifying platform authenticator is available, `false` otherwise.
  */
-export async function isBiometricSupported() { try { return typeof PublicKeyCredential !== 'undefined' && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch (e) { console.warn('biometric support check failed', e); return false; } }
+export async function isBiometricSupported() { return (await getBiometricSupportStatus()).status === 'available'; }
 /**
  * Lists locally cached trusted devices, optionally filtered by user email.
  *
@@ -98,7 +123,8 @@ export const getDismissedKey = (email: string) => `${DISMISS_PREFIX}${emailKey(e
  */
 export async function enrollTrustedDevice({ userEmail, label }: { userId: string; userEmail: string; userName?: string; label?: string }): Promise<{ ok: boolean; error?: string }> {
   try {
-    if (!await isBiometricSupported()) return { ok: false, error: 'This device or browser does not support biometric authentication.' };
+    const support = await getBiometricSupportStatus();
+    if (support.status !== 'available') return { ok: false, error: SUPPORT_STATUS_MESSAGES[support.status] };
     const optionsResult = await supabase.functions.invoke('webauthn-register', { body: { action: 'options' } });
     if (optionsResult.error) throw optionsResult.error;
     const { options } = unwrap<{ options: any }>(optionsResult.data);
@@ -124,7 +150,8 @@ export async function enrollTrustedDevice({ userEmail, label }: { userId: string
  */
 export async function verifyTrustedDevice(userEmail?: string): Promise<{ verified: boolean; error?: string }> {
   try {
-    if (!await isBiometricSupported()) return { verified: false, error: 'This device or browser does not support biometric authentication.' };
+    const support = await getBiometricSupportStatus();
+    if (support.status !== 'available') return { verified: false, error: SUPPORT_STATUS_MESSAGES[support.status] };
     const optionsResult = await supabase.functions.invoke('webauthn-authenticate', { body: { action: 'options' } });
     if (optionsResult.error) throw optionsResult.error;
     const { options } = unwrap<{ options: any }>(optionsResult.data);
