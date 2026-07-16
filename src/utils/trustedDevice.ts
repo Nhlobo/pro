@@ -121,8 +121,15 @@ export function openBiometricDeviceSettings(): boolean {
   if (!canOpenBiometricSettingsDirectly()) return false;
   try {
     // Launches Android's system Security settings screen, where fingerprint/face
-    // enrollment lives. Falls back silently (no-op) if the OS/browser rejects it.
-    window.location.href = 'intent:#Intent;action=android.settings.SECURITY_SETTINGS;end';
+    // enrollment lives. NOTE: this requires the `intent://` scheme (double slash) —
+    // Chrome/WebView only recognizes the Intent syntax in that exact form. A single
+    // `intent:` with no `//` is not a registered scheme, so the browser just tries to
+    // navigate to it as a normal (invalid) URL and does nothing — no error, no prompt,
+    // it simply fails silently. `S.browser_fallback_url` gives Android somewhere to go
+    // if no app resolves the intent (e.g. some OEM security-settings skins), instead of
+    // that same silent no-op.
+    const fallback = encodeURIComponent(window.location.href);
+    window.location.href = `intent://#Intent;action=android.settings.SECURITY_SETTINGS;S.browser_fallback_url=${fallback};end`;
     return true;
   } catch (e) {
     console.warn('failed to open platform biometric settings', e);
