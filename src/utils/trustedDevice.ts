@@ -27,6 +27,11 @@ const WEBAUTHN_ERROR_MESSAGES: Record<string, string> = {
  * @param e - The thrown error
  * @returns A message safe to display to the user
  */
+function getErrorStatus(e: unknown): number | null {
+  const ctx = (e as any)?.context;
+  return ctx && typeof ctx.status === 'number' ? ctx.status : null;
+}
+
 async function describeError(e: unknown): Promise<string> {
   try {
     if (e && typeof e === 'object' && 'name' in e && (e as any).name in WEBAUTHN_ERROR_MESSAGES) {
@@ -158,24 +163,6 @@ export function listTrustedDevices(userEmail?: string) { try { const key = email
  */
 export function isTrustedDeviceEnrolled(userEmail?: string) { return listTrustedDevices(userEmail).length > 0; }
 /**
- * Reconciles the local "enrolled" cache against the server's trusted_devices table.
- * Fixes the case where localStorage says a device is trusted but the server has no
- * matching (non-revoked) row for the account — e.g. after a DB reset, a revoke, or
- * testing against a different backend. Without this, the UI shows the unlock screen
- * for a device the server has never heard of, and verifyTrustedDevice() fails with
- * "No enrolled biometric devices for this account."
- *
- * @param userId - The authenticated user's id, used to query server devices
- * @param userEmail - The authenticated user's email, used to filter the local cache
- * @returns `true` if the local cache was cleared due to a mismatch, `false` otherwise
- */
-export async function reconcileTrustedDeviceState(userId: string, userEmail: string): Promise<boolean> {
-  if (!isTrustedDeviceEnrolled(userEmail)) return false;
-  const serverDevices = await fetchServerDevices(userId);
-  if (serverDevices.length === 0) { clearTrustedDevice(); return true; }
-  return false;
-}
-/**
  * Retrieves the email address associated with the first locally enrolled device.
  *
  * @returns The enrolled email address, or `null` when no device is cached.
@@ -239,7 +226,17 @@ export async function verifyTrustedDevice(userEmail?: string): Promise<{ verifie
     const support = await getBiometricSupportStatus();
     if (support.status !== 'available') return { verified: false, error: SUPPORT_STATUS_MESSAGES[support.status], status: support.status };
     const optionsResult = await supabase.functions.invoke('webauthn-authenticate', { body: { action: 'options' } });
-    if (optionsResult.error) throw optionsResult.error;
+    if (optionsResult.error) {
+      if (getErrorStatus(optionsResult.error) === 404) {
+        // This browser's local cache says it's enrolled, but the server has no active
+        // device on record (revoked, or never actually completed). Clear the stale local
+        // flag so the app stops showing a lock screen with no way through, and let the
+        // person re-enroll instead.
+        clearTrustedDevice();
+        return { verified: false, error: 'This device is no longer trusted. Please sign in with your password and enable biometric sign-in again.' };
+      }
+      throw optionsResult.error;
+    }
     const { options } = unwrap<{ options: any }>(optionsResult.data);
     const response = await startAuthentication({ optionsJSON: options });
     const verifyResult = await supabase.functions.invoke('webauthn-authenticate', { body: { action: 'verify', response } });
