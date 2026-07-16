@@ -158,6 +158,24 @@ export function listTrustedDevices(userEmail?: string) { try { const key = email
  */
 export function isTrustedDeviceEnrolled(userEmail?: string) { return listTrustedDevices(userEmail).length > 0; }
 /**
+ * Reconciles the local "enrolled" cache against the server's trusted_devices table.
+ * Fixes the case where localStorage says a device is trusted but the server has no
+ * matching (non-revoked) row for the account — e.g. after a DB reset, a revoke, or
+ * testing against a different backend. Without this, the UI shows the unlock screen
+ * for a device the server has never heard of, and verifyTrustedDevice() fails with
+ * "No enrolled biometric devices for this account."
+ *
+ * @param userId - The authenticated user's id, used to query server devices
+ * @param userEmail - The authenticated user's email, used to filter the local cache
+ * @returns `true` if the local cache was cleared due to a mismatch, `false` otherwise
+ */
+export async function reconcileTrustedDeviceState(userId: string, userEmail: string): Promise<boolean> {
+  if (!isTrustedDeviceEnrolled(userEmail)) return false;
+  const serverDevices = await fetchServerDevices(userId);
+  if (serverDevices.length === 0) { clearTrustedDevice(); return true; }
+  return false;
+}
+/**
  * Retrieves the email address associated with the first locally enrolled device.
  *
  * @returns The enrolled email address, or `null` when no device is cached.
