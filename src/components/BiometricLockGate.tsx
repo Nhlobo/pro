@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { clearTrustedDevice, getEnrolledEmail, getLastUnlockAgeMs, isBiometricSupported, isTrustedDeviceEnrolled, markUnlocked, reconcileTrustedDeviceState, verifyTrustedDevice } from '@/utils/trustedDevice';
+import { clearTrustedDevice, getEnrolledEmail, getLastUnlockAgeMs, isBiometricSupported, isTrustedDeviceEnrolled, markUnlocked, verifyTrustedDevice } from '@/utils/trustedDevice';
 
 export const BiometricLockGate = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -22,10 +22,6 @@ export const BiometricLockGate = ({ children }: { children: React.ReactNode }) =
       if (!await isBiometricSupported()) { if (active) { setLocked(false); setChecking(false); } return; }
       const enrolledEmail = getEnrolledEmail();
       if (enrolledEmail && enrolledEmail.toLowerCase() !== user.email.toLowerCase()) clearTrustedDevice();
-      // Clears a stale local "enrolled" flag left over when the server has no matching
-      // trusted_devices row (DB reset, revoke, different backend, etc.), so we don't lock
-      // the user out behind an unlock screen that can never succeed.
-      await reconcileTrustedDeviceState(user.id, user.email);
       const recentlyUnlocked = (getLastUnlockAgeMs() ?? Infinity) < 8 * 60 * 60 * 1000;
       if (active) { setLocked(isTrustedDeviceEnrolled(user.email) && !recentlyUnlocked); setChecking(false); }
     };
@@ -36,7 +32,9 @@ export const BiometricLockGate = ({ children }: { children: React.ReactNode }) =
   const unlock = async () => {
     setError('');
     const result = await verifyTrustedDevice(user?.email);
-    if (result.verified) { markUnlocked(); setLocked(false); } else setError(result.error || 'Biometric unlock was cancelled or failed. You can retry or sign in with your password instead.');
+    if (result.verified) { markUnlocked(); setLocked(false); return; }
+    setError(result.error || 'Biometric unlock was cancelled or failed. You can retry or sign in with your password instead.');
+    if (user?.email && !isTrustedDeviceEnrolled(user.email)) setLocked(false);
   };
   const password = async () => { clearTrustedDevice(); await supabase.auth.signOut({ scope: 'local' }); navigate('/auth', { replace: true }); };
 
