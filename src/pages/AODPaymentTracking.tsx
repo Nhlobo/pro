@@ -102,6 +102,17 @@ export default function AODPaymentTracking() {
   // Per-assessment allocation for Quick Payment
   const [allocations, setAllocations] = useState<Record<string, number>>({});
   const [syncPaymentId, setSyncPaymentId] = useState<string | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmDialogTitle, setConfirmDialogTitle] = useState("");
+  const [confirmDialogDescription, setConfirmDialogDescription] = useState("");
+  const [confirmDialogAction, setConfirmDialogAction] = useState<(() => void) | null>(null);
+
+  const openConfirmationDialog = (title: string, description: string, action: () => void) => {
+    setConfirmDialogTitle(title);
+    setConfirmDialogDescription(description);
+    setConfirmDialogAction(() => action);
+    setConfirmDialogOpen(true);
+  };
 
   useEffect(() => {
     fetchDocumentAndPayments();
@@ -555,7 +566,7 @@ export default function AODPaymentTracking() {
   const initialDeposit = document?.deposit_amount || 0;
 
   // Quick regular payment handler
-  const handleQuickPayment = async () => {
+  const handleQuickPayment = async (skipUnallocatedConfirmation = false) => {
     const amount = parseFloat(quickAmount);
     const reports = parseInt(quickReports) || 0;
 
@@ -578,11 +589,15 @@ export default function AODPaymentTracking() {
       );
       return;
     }
-    if (totalAllocated > 0 && remainingUnallocated > 0.0001) {
-      const ok = window.confirm(
-        `You have allocated R${totalAllocated.toLocaleString()} of R${amount.toLocaleString()}. R${remainingUnallocated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} will remain unallocated. Continue?`
+    if (!skipUnallocatedConfirmation && totalAllocated > 0 && remainingUnallocated > 0.0001) {
+      openConfirmationDialog(
+        "Proceed with unallocated amount?",
+        `You have allocated R${totalAllocated.toLocaleString()} of R${amount.toLocaleString()}. R${remainingUnallocated.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} will remain unallocated. Continue?`,
+        () => {
+          void handleQuickPayment(true);
+        }
       );
-      if (!ok) return;
+      return;
     }
 
 
@@ -1106,8 +1121,14 @@ export default function AODPaymentTracking() {
                       return;
                     }
                     if (totalReportsAgreed > 0 && projectedQuickTotal < totalReportsAgreed) {
-                      const ok = window.confirm(`Reports Taken Out will be ${projectedQuickTotal}/${totalReportsAgreed} after this payment. ${totalReportsAgreed - projectedQuickTotal} report(s) will remain unallocated. Continue?`);
-                      if (!ok) return;
+                      openConfirmationDialog(
+                        "Proceed with unallocated reports?",
+                        `Reports Taken Out will be ${projectedQuickTotal}/${totalReportsAgreed} after this payment. ${totalReportsAgreed - projectedQuickTotal} report(s) will remain unallocated. Continue?`,
+                        () => {
+                          void handleQuickPayment();
+                        }
+                      );
+                      return;
                     }
                     handleQuickPayment();
                   }}
@@ -1527,8 +1548,14 @@ export default function AODPaymentTracking() {
                           return;
                         }
                         if (totalReportsAgreed > 0 && paymentType !== 'deposit' && projectedFormTotal < totalReportsAgreed) {
-                          const ok = window.confirm(`Reports Taken Out will be ${projectedFormTotal}/${totalReportsAgreed} after saving. ${totalReportsAgreed - projectedFormTotal} report(s) will remain unallocated. Continue?`);
-                          if (!ok) return;
+                          openConfirmationDialog(
+                            "Proceed with unallocated reports?",
+                            `Reports Taken Out will be ${projectedFormTotal}/${totalReportsAgreed} after saving. ${totalReportsAgreed - projectedFormTotal} report(s) will remain unallocated. Continue?`,
+                            () => {
+                              editingPayment ? handleUpdatePayment() : handleAddPayment();
+                            }
+                          );
+                          return;
                         }
                         editingPayment ? handleUpdatePayment() : handleAddPayment();
                       }}
@@ -1641,6 +1668,33 @@ export default function AODPaymentTracking() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={confirmDialogOpen}
+        onOpenChange={(open) => {
+          setConfirmDialogOpen(open);
+          if (!open) setConfirmDialogAction(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialogTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDialogDescription}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const action = confirmDialogAction;
+                setConfirmDialogAction(null);
+                action?.();
+              }}
+            >
+              Continue
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

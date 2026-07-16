@@ -194,7 +194,7 @@ export const getDismissedKey = (email: string) => `${DISMISS_PREFIX}${emailKey(e
  * @param label - Optional display label for the trusted device
  * @returns `{ ok: true }` if enrollment succeeds, otherwise `{ ok: false, error }` with a display-safe reason
  */
-export async function enrollTrustedDevice({ userEmail, label }: { userId: string; userEmail: string; userName?: string; label?: string }): Promise<{ ok: boolean; error?: string; status?: BiometricSupportStatus }> {
+export async function enrollTrustedDevice({ userId, userEmail, label }: { userId: string; userEmail: string; userName?: string; label?: string }): Promise<{ ok: boolean; error?: string; status?: BiometricSupportStatus }> {
   try {
     const support = await getBiometricSupportStatus();
     if (support.status !== 'available') return { ok: false, error: SUPPORT_STATUS_MESSAGES[support.status], status: support.status };
@@ -206,6 +206,26 @@ export async function enrollTrustedDevice({ userEmail, label }: { userId: string
     if (verifyResult.error) throw verifyResult.error;
     const verified = unwrap<{ verified: boolean; credentialId: string; label: string }>(verifyResult.data);
     if (!verified.verified) return { ok: false, error: 'Biometric registration could not be verified.' };
+
+    // Do not mark this browser as enrolled until the server-side trusted-device
+    // record is visible. Otherwise a failed/partial enrollment leaves localStorage
+    // saying "enabled" while the authenticate function correctly responds with
+    // "No enrolled biometric devices for this account" on the next unlock attempt.
+    const { data: savedDevice, error: savedDeviceError } = await supabase
+      .from('trusted_devices' as any)
+      .select('id')
+      .eq('user_id', userId)
+      .eq('credential_id', verified.credentialId)
+      .is('revoked_at', null)
+      .maybeSingle();
+    if (savedDeviceError || !savedDevice) {
+      clearTrustedDevice();
+      return {
+        ok: false,
+        error: 'Biometric registration finished in the browser, but the trusted device was not saved on the server. Please try again or contact support.',
+      };
+    }
+
     const without = read().filter((d) => d.credentialId !== verified.credentialId && emailKey(d.userEmail) !== emailKey(userEmail));
     write([...without, { userEmail, credentialId: verified.credentialId, label: verified.label, enrolledAt: new Date().toISOString() }]);
     return { ok: true };
