@@ -1,18 +1,17 @@
 import React from 'react';
 import UserManagement from '@/pages/UserManagement';
-import AdminPageHeader from '@/components/portal/AdminPageHeader';
-import { ShieldCheck } from 'lucide-react';
 
+// The Admin Portal top bar already renders this page's title and a
+// "Back to Operations Dashboard" control (see AdminPortalLayout), so this
+// screen no longer renders its own duplicate page header — that used to
+// stack a second title ("Access & Identity Management") above
+// UserManagement's own header ("All Users") plus a second, differently
+// -targeted "Dashboard" button. `embedded` tells UserManagement to drop
+// that redundant button and let the portal chrome own back-navigation.
 const AdminIAM: React.FC = () => {
   return (
-    <div className="brand-legal-theme space-y-4 md:space-y-6">
-      <AdminPageHeader
-        title="Access & Identity Management"
-        description="Role-based permissions and user administration"
-        icon={ShieldCheck}
-        color="orange"
-      />
-      <UserManagement />
+    <div className="brand-legal-theme">
+      <UserManagement embedded />
     </div>
   );
 };
