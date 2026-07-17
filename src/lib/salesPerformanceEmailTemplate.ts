@@ -253,9 +253,16 @@ export function buildSalesPerformanceEmailHtml(opts: SalesPerfTemplateOpts) {
 
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#1f2937;background:#ffffff;">
-    <div style="background:#0f766e;color:#ffffff;padding:24px;text-align:center;">
-      <h1 style="margin:0;font-size:22px;font-weight:700;">${escapeHtml(headerTitle)}</h1>
-      <p style="margin:6px 0 0;font-size:14px;opacity:0.9;">${escapeHtml(headerTagline)}</p>
+    <div style="background-color:#12a99a;background-image:linear-gradient(135deg,#0a95eb,#18bfa0);color:#ffffff;padding:22px 24px;text-align:center;border-radius:0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 10px;border-collapse:collapse;">
+        <tr>
+          <td style="text-align:center;vertical-align:middle;">
+            <img src="https://kamedico-legal.lovable.app/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png" width="40" height="40" alt="Kutlwano &amp; Associate" style="display:block;width:40px;height:40px;object-fit:contain;border:0;outline:none;" />
+          </td>
+        </tr>
+      </table>
+      <h1 style="margin:0;font-size:20px;font-weight:700;letter-spacing:0.01em;">${escapeHtml(headerTitle)}</h1>
+      <p style="margin:4px 0 0;font-size:13px;color:#ffffff;opacity:0.9;">${escapeHtml(headerTagline)}</p>
     </div>
 
     <div style="padding:24px;">
@@ -461,4 +468,4 @@ export function getSampleDrafts(
   });
 
   return { performer, underPerformer };
-}
+    }
