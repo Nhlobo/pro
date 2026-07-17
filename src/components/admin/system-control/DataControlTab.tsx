@@ -1,18 +1,32 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Database, Lock, Unlock, Search, Archive, Trash2, FileDown, Clock, Shield, Eye } from 'lucide-react';
+import { Lock, Unlock, Search, Archive, Clock, Eye } from 'lucide-react';
 import { useSystemSettings, useRecordLocks } from '@/hooks/useSystemSettings';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import {
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminPill,
+  AdminEmptyState,
+  AdminLoadingState,
+} from '@/components/admin/ui/AdminUI';
+
+const flatInput = 'rounded-none border-black/15';
+
+type PillTone = 'neutral' | 'teal' | 'success' | 'warning' | 'destructive';
+const ACTION_TONE: Record<string, PillTone> = {
+  DELETE: 'destructive',
+  INSERT: 'success',
+  UPDATE: 'teal',
+};
 
 const DataControlTab: React.FC = () => {
   const { settings, isLoading: settingsLoading, updateSetting } = useSystemSettings('data');
@@ -60,27 +74,30 @@ const DataControlTab: React.FC = () => {
   const isLoading = settingsLoading || locksLoading;
 
   if (isLoading) {
-    return <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
+    return (
+      <AdminCard className="mt-4">
+        <AdminLoadingState label="Loading data controls…" />
+      </AdminCard>
+    );
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 mt-4">
+    <div className="mt-4 space-y-4 md:space-y-6">
       {/* Record Locks */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Lock className="h-4 w-4 text-destructive" />
-            Record Locks
-          </CardTitle>
-          <CardDescription className="text-xs">Prevent edits to specific records</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <AdminCard>
+        <AdminCardHeader
+          icon={Lock}
+          title="Record Locks"
+          description="Prevent edits to specific records"
+          actions={<AdminPill tone={locks.length ? 'destructive' : 'neutral'}>{locks.length} active</AdminPill>}
+        />
+        <AdminCardBody className="space-y-4">
           {/* Lock Form */}
-          <div className="flex flex-wrap gap-3 items-end p-3 rounded-lg bg-muted/30 border border-border">
+          <div className="flex flex-wrap items-end gap-3 border border-black/10 bg-black/[0.02] p-3">
             <div className="space-y-1">
-              <Label className="text-xs">Table</Label>
+              <Label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Table</Label>
               <Select value={lockTable} onValueChange={setLockTable}>
-                <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className={`h-9 w-40 ${flatInput}`}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="appointments">Appointments</SelectItem>
                   <SelectItem value="claimants">Claimants</SelectItem>
@@ -92,150 +109,145 @@ const DataControlTab: React.FC = () => {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Record ID</Label>
-              <Input className="w-64 h-9" placeholder="Paste record UUID" value={lockRecordId} onChange={e => setLockRecordId(e.target.value)} />
+              <Label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Record ID</Label>
+              <Input className={`h-9 w-64 ${flatInput}`} placeholder="Paste record UUID" value={lockRecordId} onChange={e => setLockRecordId(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Reason</Label>
-              <Input className="w-48 h-9" placeholder="Lock reason" value={lockReason} onChange={e => setLockReason(e.target.value)} />
+              <Label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Reason</Label>
+              <Input className={`h-9 w-48 ${flatInput}`} placeholder="Lock reason" value={lockReason} onChange={e => setLockReason(e.target.value)} />
             </div>
-            <Button size="sm" variant="destructive" onClick={handleLock}>
-              <Lock className="h-3.5 w-3.5 mr-1" /> Lock
+            <Button size="sm" variant="destructive" className="rounded-none" onClick={handleLock}>
+              <Lock className="mr-1 h-3.5 w-3.5" /> Lock
             </Button>
           </div>
 
-          {/* Active Locks */}
+          {/* Active Locks — card rows, not a table, so this reads fine on any width */}
           {locks.length > 0 ? (
-            <ScrollArea className="h-48">
-              <div className="space-y-2">
-                {locks.map(lock => (
-                  <div key={lock.id} className="flex items-center justify-between p-2 rounded border border-border">
-                    <div className="flex items-center gap-2">
-                      <Lock className="h-3.5 w-3.5 text-destructive" />
-                      <div>
-                        <p className="text-xs font-medium">{lock.table_name} / {lock.record_id.substring(0, 8)}...</p>
-                        <p className="text-[10px] text-muted-foreground">{lock.lock_reason} • {format(new Date(lock.locked_at), 'dd MMM yyyy HH:mm')}</p>
-                      </div>
+            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+              {locks.map(lock => (
+                <div key={lock.id} className="flex items-center justify-between gap-3 border border-black/10 p-2.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Lock className="h-3.5 w-3.5 shrink-0 text-destructive" />
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-black">
+                        {lock.table_name} / {lock.record_id.substring(0, 8)}…
+                      </p>
+                      <p className="truncate text-[10px] text-slate-500">
+                        {lock.lock_reason} · {format(new Date(lock.locked_at), 'dd MMM yyyy HH:mm')}
+                      </p>
                     </div>
-                    <Button size="sm" variant="ghost" onClick={() => unlockRecord.mutate(lock.id)}>
-                      <Unlock className="h-3.5 w-3.5 mr-1" /> Unlock
-                    </Button>
                   </div>
-                ))}
-              </div>
-            </ScrollArea>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="shrink-0 rounded-none hover:bg-black/5"
+                    onClick={() => unlockRecord.mutate(lock.id)}
+                  >
+                    <Unlock className="mr-1 h-3.5 w-3.5" /> Unlock
+                  </Button>
+                </div>
+              ))}
+            </div>
           ) : (
-            <p className="text-xs text-muted-foreground text-center py-4">No active record locks</p>
+            <AdminEmptyState icon={Lock} title="No active record locks" />
           )}
-        </CardContent>
-      </Card>
+        </AdminCardBody>
+      </AdminCard>
 
       {/* Data Access Audit */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Eye className="h-4 w-4 text-primary" />
-            Data Access Audit
-          </CardTitle>
-          <CardDescription className="text-xs">Recent data access and modification trail</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-3 relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+      <AdminCard>
+        <AdminCardHeader
+          icon={Eye}
+          title="Data Access Audit"
+          description="Recent data access and modification trail"
+        />
+        <AdminCardBody>
+          <div className="relative mb-3">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
-              placeholder="Search by email, table, or action..."
-              className="pl-9 h-9"
+              placeholder="Search by email, table, or action…"
+              className={`h-9 pl-8 ${flatInput}`}
               value={auditSearch}
               onChange={e => setAuditSearch(e.target.value)}
             />
           </div>
-          <ScrollArea className="h-64">
+          <div className="max-h-64 overflow-y-auto">
             {auditLoading ? (
-              <div className="text-center py-8 text-sm text-muted-foreground">Loading...</div>
+              <AdminLoadingState label="Loading audit logs…" />
             ) : auditLogs.length > 0 ? (
-              <div className="space-y-1">
+              <div className="divide-y divide-black/10">
                 {auditLogs.map((log: any) => (
-                  <div key={log.id} className="flex items-center justify-between p-2 rounded hover:bg-muted/30 text-xs">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Badge variant={log.action_type === 'DELETE' ? 'destructive' : log.action_type === 'INSERT' ? 'default' : 'secondary'} className="text-[10px] shrink-0">
+                  <div key={log.id} className="flex items-center justify-between gap-2 py-2 text-xs">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <AdminPill tone={ACTION_TONE[log.action_type] || 'neutral'} className="shrink-0">
                         {log.action_type}
-                      </Badge>
-                      <span className="font-medium truncate">{log.table_name}</span>
-                      <span className="text-muted-foreground truncate">{log.user_email || 'system'}</span>
+                      </AdminPill>
+                      <span className="truncate font-medium text-black">{log.table_name}</span>
+                      <span className="truncate text-slate-500">{log.user_email || 'system'}</span>
                     </div>
-                    <span className="text-muted-foreground shrink-0 ml-2">
+                    <span className="shrink-0 text-slate-400">
                       {format(new Date(log.created_at), 'dd MMM HH:mm')}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-center py-8 text-sm text-muted-foreground">No audit logs found</p>
+              <AdminEmptyState icon={Eye} title="No audit logs found" />
             )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
+          </div>
+        </AdminCardBody>
+      </AdminCard>
 
       {/* Data Retention & Archive */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary" />
-              Data Retention
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <AdminCard>
+          <AdminCardHeader icon={Clock} title="Data Retention" />
+          <AdminCardBody className="space-y-2">
             {[
               { key: 'audit_logs', label: 'Audit Logs' },
               { key: 'proofreading', label: 'Proofreading History' },
               { key: 'expired_tokens', label: 'Expired Tokens' },
             ].map(({ key, label }) => (
-              <div key={key} className="flex items-center justify-between p-2 rounded border border-border">
-                <span className="text-sm">{label}</span>
-                <div className="flex items-center gap-1">
+              <div key={key} className="flex items-center justify-between border border-black/10 p-2.5">
+                <span className="text-sm text-black">{label}</span>
+                <div className="flex items-center gap-1.5">
                   <Input
                     type="number"
-                    className="w-20 h-8 text-right"
+                    className={`h-8 w-20 text-right ${flatInput}`}
                     value={retentionPolicy?.[key] || 0}
                     onChange={e => updateSetting.mutate({ key: 'data_retention_days', value: { ...retentionPolicy, [key]: parseInt(e.target.value) || 0 } })}
                   />
-                  <span className="text-xs text-muted-foreground">days</span>
+                  <span className="text-xs text-slate-500">days</span>
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </AdminCardBody>
+        </AdminCard>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Archive className="h-4 w-4 text-primary" />
-              Archive Policy
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between p-3 rounded border border-border">
-              <span className="text-sm">Auto-archive old records</span>
+        <AdminCard>
+          <AdminCardHeader icon={Archive} title="Archive Policy" />
+          <AdminCardBody className="space-y-2">
+            <div className="flex items-center justify-between border border-black/10 p-3">
+              <span className="text-sm text-black">Auto-archive old records</span>
               <Switch
                 checked={archivePolicy?.auto_archive === true}
                 onCheckedChange={(v) => updateSetting.mutate({ key: 'data_archive_policy', value: { ...archivePolicy, auto_archive: v } })}
               />
             </div>
-            <div className="flex items-center justify-between p-3 rounded border border-border">
-              <span className="text-sm">Archive after</span>
-              <div className="flex items-center gap-1">
+            <div className="flex items-center justify-between border border-black/10 p-3">
+              <span className="text-sm text-black">Archive after</span>
+              <div className="flex items-center gap-1.5">
                 <Input
                   type="number"
-                  className="w-20 h-8 text-right"
+                  className={`h-8 w-20 text-right ${flatInput}`}
                   value={archivePolicy?.archive_after_months || 12}
-                  onChange={e => updateSetting.mutate({ key: 'data_archive_policy', value: { ...archivePolicy, archive_after_months: parseInt(e.target.value) || 12 } })}
+                  onChange={(e) => updateSetting.mutate({ key: 'data_archive_policy', value: { ...archivePolicy, archive_after_months: parseInt(e.target.value) || 12 } })}
                 />
-                <span className="text-xs text-muted-foreground">months</span>
+                <span className="text-xs text-slate-500">months</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </AdminCardBody>
+        </AdminCard>
       </div>
     </div>
   );
