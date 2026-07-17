@@ -6,7 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+// Every "popup" on this page is a docked side panel, not a centered modal —
+// Sheet is the same Radix dialog primitive under the hood, so behaviour,
+// focus-trapping and state wiring are unchanged; only the presentation
+// (slide-in from the edge, anchored to the page) differs. Aliased to the
+// old Dialog* names so the JSX below stays identical.
+import {
+  Sheet as Dialog,
+  SheetContent as DialogContent,
+  SheetDescription as DialogDescription,
+  SheetHeader as DialogHeader,
+  SheetTitle as DialogTitle,
+} from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   DropdownMenu,
@@ -15,7 +26,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import {
   Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail,
@@ -57,7 +67,17 @@ const USER_TYPE_TONE: Record<string, 'teal' | 'success' | 'neutral'> = {
   referring_attorney: 'neutral',
 };
 
-const UserManagement: React.FC = () => {
+interface UserManagementProps {
+  /** True when rendered inside the Admin Portal (e.g. AdminIAM at /admin/iam),
+   *  where the portal's top bar already shows this page's title and a
+   *  "Back to Operations Dashboard" control. Hides this component's own
+   *  duplicate Dashboard button so there's exactly one way back, not two
+   *  that point to different places. Standalone use at /user-management
+   *  (outside the portal chrome) keeps the button. */
+  embedded?: boolean;
+}
+
+const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => {
   const navigate = useNavigate();
   const { isAdmin, loading, userRole, getAllUsers, getUserPermissions, updateUserRole, grantPermission, revokePermission, resendEmailConfirmation } = usePermissions();
   const { referringAttorneys, loading: referringAttorneysLoading } = useSecureReferringAttorneys();
@@ -378,7 +398,8 @@ const UserManagement: React.FC = () => {
       }
       toast.error(result.message || "Failed to send email confirmation");
     }
-  };
+
+    };
 
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
@@ -601,15 +622,17 @@ const UserManagement: React.FC = () => {
           icon={Users}
           actions={
             <>
-              <Button
-                onClick={() => navigate('/dashboard')}
-                variant="outline"
-                size="sm"
-                className="rounded-none border-black/15 text-black hover:bg-black/5"
-              >
-                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-                Dashboard
-              </Button>
+              {!embedded && (
+                <Button
+                  onClick={() => navigate('/dashboard')}
+                  variant="outline"
+                  size="sm"
+                  className="rounded-none border-black/15 text-black hover:bg-black/5"
+                >
+                  <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+                  Dashboard
+                </Button>
+              )}
               <Button
                 onClick={() => setIsAddUserModalOpen(true)}
                 size="sm"
@@ -967,37 +990,44 @@ const UserManagement: React.FC = () => {
           )}
         </AdminCard>
 
-        {/* Shared delete confirmation — one dialog reused by every row/card instead of one per user. */}
-        <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
-          <AlertDialogContent className="brand-legal-theme rounded-none border-black/10">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
+        {/* Shared delete confirmation — one panel reused by every row/card instead of one per user. */}
+        <Dialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+          <DialogContent side="right" className="brand-legal-theme flex h-full w-full flex-col rounded-none border-black/10 p-0 shadow-none sm:max-w-md">
+            <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
+              <DialogTitle className="flex items-center gap-2 text-base font-bold text-destructive">
+                <AlertTriangle className="h-4 w-4" />
+                Are you absolutely sure?
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
                 This action will permanently delete the user account for{' '}
-                <strong>{userToDelete?.email}</strong> and remove all their data from our servers.
+                <strong className="text-black">{userToDelete?.email}</strong> and remove all their data from our servers.
                 <br /><br />
-                <strong>Note:</strong> After deletion, the email address <strong>{userToDelete?.email}</strong> will be available
-                for reuse and can be registered again if needed (e.g., if this user was deleted by mistake).
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setUserToDelete(null)}>
+                <strong className="text-black">Note:</strong> After deletion, the email address <strong className="text-black">{userToDelete?.email}</strong> will
+                be available for reuse and can be registered again if needed (e.g., if this user was deleted by mistake).
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-auto flex gap-2 border-t border-black/10 px-5 py-4">
+              <Button
+                variant="outline"
+                onClick={() => setUserToDelete(null)}
+                className="flex-1 rounded-none border-black/15 text-black hover:bg-black/5"
+              >
                 Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
+              </Button>
+              <Button
                 onClick={handleDeleteUser}
                 disabled={isDeletingUser}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                className="flex-1 rounded-none bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {isDeletingUser ? 'Deleting...' : 'Delete User'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
-          {/* Add User Dialog */}
+          {/* Add User panel */}
           <Dialog open={isAddUserModalOpen} onOpenChange={setIsAddUserModalOpen}>
-            <DialogContent className="brand-legal-theme max-h-[90vh] max-w-2xl overflow-y-auto rounded-none border-black/10 p-0 shadow-none">
+            <DialogContent side="right" className="brand-legal-theme flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-xl">
               <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
                 <DialogTitle className="flex items-center gap-2 text-base font-bold text-black">
                   <UserPlus className="h-4 w-4" style={{ color: BRAND_TEAL }} />
@@ -1156,9 +1186,9 @@ const UserManagement: React.FC = () => {
             </DialogContent>
           </Dialog>
 
-          {/* User Management Dialog */}
+        {/* Manage User panel */}
           <Dialog open={isManageModalOpen} onOpenChange={setIsManageModalOpen}>
-            <DialogContent className="brand-legal-theme flex max-h-[85vh] max-w-4xl flex-col overflow-hidden rounded-none border-black/10 p-0 shadow-none">
+            <DialogContent side="right" className="brand-legal-theme flex h-full w-full flex-col overflow-hidden rounded-none border-black/10 p-0 shadow-none sm:max-w-2xl lg:max-w-4xl">
               <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
                 <DialogTitle className="flex items-center gap-2 text-base font-bold text-black">
                   <Shield className="h-4 w-4" style={{ color: BRAND_TEAL }} />
@@ -1290,9 +1320,9 @@ const UserManagement: React.FC = () => {
             onProfileUpdated={fetchUsers}
           />
 
-          {/* Change Password Dialog */}
+          {/* Change Password panel */}
           <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
-            <DialogContent className="brand-legal-theme max-w-md rounded-none border-black/10 p-0 shadow-none">
+            <DialogContent side="right" className="brand-legal-theme flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-md">
               <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
                 <DialogTitle className="flex items-center gap-2 text-base font-bold text-black">
                   <Key className="h-4 w-4" style={{ color: BRAND_TEAL }} />
@@ -1367,9 +1397,9 @@ const UserManagement: React.FC = () => {
             </DialogContent>
           </Dialog>
 
-          {/* Password Display Dialog */}
+          {/* Password Display panel */}
           <Dialog open={showPasswordDialog} onOpenChange={handleClosePasswordDialog}>
-            <DialogContent className="brand-legal-theme rounded-none border-black/10 p-0 shadow-none sm:max-w-md">
+            <DialogContent side="right" className="brand-legal-theme flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-md">
               <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
                 <DialogTitle className="flex items-center gap-2 text-base font-bold text-black">
                   <Key className="h-4 w-4" style={{ color: BRAND_TEAL }} />
@@ -1440,7 +1470,7 @@ const UserManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-black/10 px-5 py-4">
+              <div className="mt-auto flex justify-end gap-2 border-t border-black/10 px-5 py-4">
                 <Button
                   onClick={handleClosePasswordDialog}
                   className="rounded-none text-white hover:opacity-90"
@@ -1452,9 +1482,9 @@ const UserManagement: React.FC = () => {
             </DialogContent>
           </Dialog>
 
-          {/* Link Attorney Dialog */}
+          {/* Link Attorney panel */}
           <Dialog open={isLinkAttorneyOpen} onOpenChange={setIsLinkAttorneyOpen}>
-            <DialogContent className="brand-legal-theme max-w-md rounded-none border-black/10 p-0 shadow-none">
+            <DialogContent side="right" className="brand-legal-theme flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-md">
               <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
                 <DialogTitle className="flex items-center gap-2 text-base font-bold text-black">
                   <Link2 className="h-4 w-4" style={{ color: BRAND_TEAL }} />
