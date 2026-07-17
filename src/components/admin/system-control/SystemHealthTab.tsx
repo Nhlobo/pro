@@ -1,9 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Activity,
   Database,
@@ -13,7 +10,6 @@ import {
   Wifi,
   WifiOff,
   AlertTriangle,
-  CheckCircle2,
   Clock,
   Gauge,
 } from 'lucide-react';
@@ -21,8 +17,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import {
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminPill,
+  AdminEmptyState,
+} from '@/components/admin/ui/AdminUI';
 
 type Status = 'healthy' | 'degraded' | 'down' | 'unknown';
+type PillTone = 'neutral' | 'teal' | 'success' | 'warning' | 'destructive';
 
 interface HealthSnapshot {
   dbLatencyMs: number | null;
@@ -43,44 +47,40 @@ interface HealthSnapshot {
 
 const REFRESH_INTERVAL_MS = 30_000;
 
-const statusColor: Record<Status, string> = {
-  healthy: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30',
-  degraded: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30',
-  down: 'bg-destructive/15 text-destructive border-destructive/30',
-  unknown: 'bg-muted text-muted-foreground border-border',
+const STATUS_TONE: Record<Status, PillTone> = {
+  healthy: 'success',
+  degraded: 'warning',
+  down: 'destructive',
+  unknown: 'neutral',
 };
 
 const StatusBadge: React.FC<{ status: Status; label?: string }> = ({ status, label }) => (
-  <Badge variant="outline" className={cn('capitalize', statusColor[status])}>
-    {status === 'healthy' && <CheckCircle2 className="h-3 w-3 mr-1" />}
-    {status === 'degraded' && <AlertTriangle className="h-3 w-3 mr-1" />}
-    {status === 'down' && <AlertTriangle className="h-3 w-3 mr-1" />}
+  <AdminPill tone={STATUS_TONE[status]} className="capitalize">
+    {status !== 'healthy' && <AlertTriangle className="h-3 w-3" />}
     {label ?? status}
-  </Badge>
+  </AdminPill>
 );
 
-const StatCard: React.FC<{
+const HealthStatCard: React.FC<{
   title: string;
   icon: React.ReactNode;
   status: Status;
   primary: React.ReactNode;
   secondary?: React.ReactNode;
 }> = ({ title, icon, status, primary, secondary }) => (
-  <Card>
-    <CardHeader className="pb-2">
-      <CardTitle className="text-sm font-medium flex items-center justify-between">
-        <span className="flex items-center gap-2 text-muted-foreground">
+  <AdminCard className="transition-colors hover:border-black/25">
+    <div className="p-4">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
           {icon}
           {title}
         </span>
         <StatusBadge status={status} />
-      </CardTitle>
-    </CardHeader>
-    <CardContent>
-      <div className="text-xl md:text-2xl font-bold text-foreground">{primary}</div>
-      {secondary && <p className="text-xs text-muted-foreground mt-1">{secondary}</p>}
-    </CardContent>
-  </Card>
+      </div>
+      <p className="text-xl font-bold tabular-nums text-black md:text-2xl">{primary}</p>
+      {secondary && <p className="mt-1 text-xs text-slate-500">{secondary}</p>}
+    </div>
+  </AdminCard>
 );
 
 const SystemHealthTab: React.FC = () => {
@@ -211,130 +211,124 @@ const SystemHealthTab: React.FC = () => {
   }, [snapshot, realtimeStatus]);
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-          <div>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" />
-              System Health & Uptime
-            </CardTitle>
-            <p className="text-sm text-muted-foreground mt-1">
-              Live signals from the database, auth, realtime, email queue and webhooks.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <StatusBadge status={overall} label={`Overall: ${overall}`} />
-            <Button variant="outline" size="sm" onClick={probeHealth} disabled={loading}>
-              <RefreshCw className={cn('h-4 w-4 mr-1.5', loading && 'animate-spin')} />
-              Refresh
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {snapshot && (
-            <p className="text-xs text-muted-foreground">
-              Last checked {formatDistanceToNow(new Date(snapshot.takenAt), { addSuffix: true })} ·
-              auto-refresh every {REFRESH_INTERVAL_MS / 1000}s
-            </p>
-          )}
-          {error && (
-            <p className="text-xs text-destructive mt-2 flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" /> {error}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+    <div className="mt-4 space-y-4 md:space-y-6">
+      <AdminCard>
+        <AdminCardHeader
+          icon={Activity}
+          title="System Health & Uptime"
+          description="Live signals from the database, auth, realtime, email queue and webhooks."
+          actions={
+            <div className="flex items-center gap-2">
+              <StatusBadge status={overall} label={`Overall: ${overall}`} />
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-none border-black/15 text-black hover:bg-black/5"
+                onClick={probeHealth}
+                disabled={loading}
+              >
+                <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', loading && 'animate-spin')} />
+                Refresh
+              </Button>
+            </div>
+          }
+        />
+        {(snapshot || error) && (
+          <AdminCardBody className="pt-3">
+            {snapshot && (
+              <p className="text-xs text-slate-500">
+                Last checked {formatDistanceToNow(new Date(snapshot.takenAt), { addSuffix: true })} · auto-refresh
+                every {REFRESH_INTERVAL_MS / 1000}s
+              </p>
+            )}
+            {error && (
+              <p className="mt-2 flex items-center gap-1 text-xs text-destructive">
+                <AlertTriangle className="h-3 w-3" /> {error}
+              </p>
+            )}
+          </AdminCardBody>
+        )}
+      </AdminCard>
 
       {loading && !snapshot ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-32" />
+            <Skeleton key={i} className="h-32 rounded-none" />
           ))}
         </div>
       ) : snapshot ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <StatCard
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <HealthStatCard
               title="Database"
-              icon={<Database className="h-4 w-4" />}
+              icon={<Database className="h-3.5 w-3.5" />}
               status={snapshot.dbStatus}
               primary={snapshot.dbLatencyMs !== null ? `${snapshot.dbLatencyMs} ms` : '—'}
               secondary="Round-trip latency to Supabase Postgres"
             />
-            <StatCard
+            <HealthStatCard
               title="Authentication"
-              icon={<Gauge className="h-4 w-4" />}
+              icon={<Gauge className="h-3.5 w-3.5" />}
               status={snapshot.authStatus}
               primary={snapshot.authLatencyMs !== null ? `${snapshot.authLatencyMs} ms` : '—'}
               secondary="Session check latency"
             />
-            <StatCard
+            <HealthStatCard
               title="Realtime Sync"
-              icon={isConnected ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+              icon={isConnected ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
               status={realtimeStatus}
               primary={isConnected ? 'Connected' : 'Disconnected'}
               secondary={lastSyncedTable ? `Last event: ${lastSyncedTable}` : 'No events yet'}
             />
-            <StatCard
+            <HealthStatCard
               title="Email Queue"
-              icon={<Mail className="h-4 w-4" />}
+              icon={<Mail className="h-3.5 w-3.5" />}
               status={snapshot.emailStatus}
               primary={`${snapshot.emailSent24h} sent / ${snapshot.emailFailed24h} failed`}
               secondary={`${snapshot.emailPending} pending · last 24h`}
             />
-            <StatCard
+            <HealthStatCard
               title="Webhooks"
-              icon={<Webhook className="h-4 w-4" />}
+              icon={<Webhook className="h-3.5 w-3.5" />}
               status={snapshot.webhookStatus}
               primary={`${snapshot.webhookTotal24h} fired`}
               secondary={`${snapshot.webhookFailures24h} failed · last 24h`}
             />
-            <StatCard
+            <HealthStatCard
               title="Activity"
-              icon={<Clock className="h-4 w-4" />}
+              icon={<Clock className="h-3.5 w-3.5" />}
               status="healthy"
               primary={`${snapshot.auditEvents1h}`}
               secondary="Audit events in the last hour"
             />
           </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                Recent incidents
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+          <AdminCard>
+            <AdminCardHeader icon={AlertTriangle} title="Recent Incidents" />
+            <AdminCardBody>
               {snapshot.recentErrors.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No email or webhook failures in the last 24 hours. 🎉
-                </p>
+                <AdminEmptyState
+                  icon={Activity}
+                  title="All clear"
+                  description="No email or webhook failures in the last 24 hours."
+                />
               ) : (
-                <ScrollArea className="h-64 pr-3">
-                  <ul className="space-y-2">
-                    {snapshot.recentErrors.map((err, i) => (
-                      <li
-                        key={i}
-                        className="text-sm border border-border rounded-md p-3 bg-muted/30"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-foreground">{err.source}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(err.created_at), { addSuffix: true })}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1 break-words">
-                          {err.message}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                </ScrollArea>
+                <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+                  {snapshot.recentErrors.map((err, i) => (
+                    <div key={i} className="border border-black/10 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-black">{err.source}</span>
+                        <span className="shrink-0 text-xs text-slate-400">
+                          {formatDistanceToNow(new Date(err.created_at), { addSuffix: true })}
+                        </span>
+                      </div>
+                      <p className="mt-1 break-words text-xs text-slate-500">{err.message}</p>
+                    </div>
+                  ))}
+                </div>
               )}
-            </CardContent>
-          </Card>
+            </AdminCardBody>
+          </AdminCard>
         </>
       ) : null}
     </div>
