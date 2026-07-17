@@ -2,40 +2,60 @@ import React, { useState, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { usePermissions, UserProfile, Permission } from '@/hooks/usePermissions';
 import { useSecureReferringAttorneys } from '@/hooks/useSecureReferringAttorneys';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
-import { Checkbox } from '@/components/ui/checkbox';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Trash2, Key, Copy, AlertTriangle, Shuffle, Grid3X3, List, Filter, SortAsc, SortDesc, X } from 'lucide-react';
+import {
+  Users, Shield, Settings, UserCheck, UserX, UserPlus, Eye, EyeOff, ArrowLeft, Mail,
+  Trash2, Key, Copy, AlertTriangle, Shuffle, LayoutGrid, Rows3, Search, SortAsc, SortDesc,
+  X, MoreHorizontal, Link2, ChevronRight, Briefcase, ShieldCheck,
+} from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import EmployeeNotificationSettings from '@/components/EmployeeNotificationSettings';
 import FunctionPermissionsManager from '@/components/FunctionPermissionsManager';
 import { EmailConfigurationAlert } from '@/components/EmailConfigurationAlert';
 import EditProfileDialog from '@/components/EditProfileDialog';
+import {
+  AdminPage,
+  AdminHeader,
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminStatCard,
+  AdminPill,
+  AdminEmptyState,
+  AdminLoadingState,
+  BRAND_TEAL,
+} from '@/components/admin/ui/AdminUI';
 
+/** Flat, rounded-none active/inactive treatment shared with every other admin screen. */
+const flatToggle =
+  'rounded-none border-black/15 text-black hover:bg-black/5 data-[state=on]:bg-black data-[state=on]:text-white';
 
-const AVAILABLE_PERMISSIONS = [
-  'manage_claimants',
-  'manage_attorneys',
-  'manage_experts',
-  'manage_appointments',
-  'view_reports',
-  'manage_documents',
-  'view_analytics',
-  'manage_leads',
-  'case_management',
-  'attorney_pitchlog'
-];
+const USER_TYPE_LABEL: Record<string, string> = {
+  admin: 'Administrator',
+  employee: 'Company Employee',
+  referring_attorney: 'Referring Attorney',
+};
 
+const USER_TYPE_TONE: Record<string, 'teal' | 'success' | 'neutral'> = {
+  admin: 'teal',
+  employee: 'success',
+  referring_attorney: 'neutral',
+};
 
 const UserManagement: React.FC = () => {
   const navigate = useNavigate();
@@ -223,6 +243,10 @@ const UserManagement: React.FC = () => {
   };
 
   const hasActiveFilters = searchTerm || filterRole !== 'all' || filterUserType !== 'all' || sortBy !== 'name' || sortOrder !== 'asc';
+
+  const adminCount = users.filter(u => u.user_type === 'admin').length;
+  const employeeCount = users.filter(u => u.user_type === 'employee').length;
+  const attorneyCount = users.filter(u => u.user_type === 'referring_attorney').length;
 
   const hasPermission = (permissionName: string): boolean => {
     return userPermissions.some(p => p.permission_name === permissionName && p.granted);
@@ -552,8 +576,8 @@ const UserManagement: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-kutlwano-blue"></div>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <AdminLoadingState label="Loading user directory…" />
       </div>
     );
   }
@@ -569,444 +593,422 @@ const UserManagement: React.FC = () => {
         <meta name="description" content="Manage user roles and permissions for the medico-legal management system" />
       </Helmet>
 
-      <div className="min-h-screen bg-gradient-to-br from-kutlwano-blue/5 to-kutlwano-teal/5 p-3 sm:p-4 md:p-6">
-        <div className="container mx-auto max-w-7xl">
-
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal rounded-lg shrink-0">
-                  <Users className="h-6 w-6 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground truncate">User Management</h1>
-                  <p className="text-muted-foreground text-sm sm:text-base truncate">Manage user roles and permissions</p>
-                </div>
-              </div>
-              <Button 
+      <AdminPage className="brand-legal-theme max-w-7xl">
+        <AdminHeader
+          eyebrow="Directory"
+          title="All Users"
+          description="Manage roles, permissions and account access across the platform."
+          icon={Users}
+          actions={
+            <>
+              <Button
                 onClick={() => navigate('/dashboard')}
                 variant="outline"
-                className="flex items-center gap-2 shrink-0"
+                size="sm"
+                className="rounded-none border-black/15 text-black hover:bg-black/5"
               >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Dashboard
+                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+                Dashboard
               </Button>
-            </div>
-            
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex-1 min-w-[200px] max-w-md">
-                <Label htmlFor="search">Search Users</Label>
-                <Input
-                  id="search"
-                  placeholder="Search by name or email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="mt-1"
-                />
+              <Button
+                onClick={() => setIsAddUserModalOpen(true)}
+                size="sm"
+                className="rounded-none text-white hover:opacity-90"
+                style={{ backgroundColor: BRAND_TEAL }}
+              >
+                <UserPlus className="mr-1.5 h-3.5 w-3.5" />
+                Add User
+              </Button>
+            </>
+          }
+        />
+
+        <EmailConfigurationAlert
+          isVisible={showEmailConfigAlert}
+          onDismiss={() => setShowEmailConfigAlert(false)}
+        />
+
+        {/* Directory at a glance — the numbers a manager checks first, before drilling into any single record. */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <AdminStatCard label="Total Users" value={users.length} icon={Users} />
+          <AdminStatCard label="Administrators" value={adminCount} icon={ShieldCheck} />
+          <AdminStatCard label="Company Employees" value={employeeCount} icon={UserCheck} />
+          <AdminStatCard label="Referring Attorneys" value={attorneyCount} icon={Briefcase} />
+        </div>
+
+        {/* Search, filter & sort */}
+        <AdminCard>
+          <AdminCardHeader
+            icon={Search}
+            title="Search & Filter"
+            description="Narrow the directory below."
+            actions={<AdminPill tone="neutral">{filteredUsers.length} of {users.length} users</AdminPill>}
+          />
+          <AdminCardBody className="space-y-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="lg:col-span-2">
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  Search users
+                </label>
+                <div className="relative mt-1">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    id="search"
+                    placeholder="Search by name or email…"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="rounded-none pl-8"
+                  />
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge variant="secondary" className="bg-kutlwano-blue/10 text-kutlwano-blue">
-                  {users.length} Total Users
-                </Badge>
-                <Button 
-                  onClick={() => setIsAddUserModalOpen(true)}
-                  className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
-                >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add User
-                </Button>
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Role</label>
+                <Select value={filterRole} onValueChange={setFilterRole}>
+                  <SelectTrigger className="mt-1 rounded-none"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Roles</SelectItem>
+                    <SelectItem value="admin">Administrator</SelectItem>
+                    <SelectItem value="employee">Company Employee</SelectItem>
+                    <SelectItem value="user">User</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">User Type</label>
+                <Select value={filterUserType} onValueChange={setFilterUserType}>
+                  <SelectTrigger className="mt-1 rounded-none"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="employee">Employee</SelectItem>
+                    <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </div>
-          
-          {/* Email Configuration Alert */}
-          <div className="mb-6">
-            <EmailConfigurationAlert 
-              isVisible={showEmailConfigAlert}
-              onDismiss={() => setShowEmailConfigAlert(false)}
-            />
-          </div>
 
-          {/* Browser Bar */}
-          <Card className="mb-6 border-border/50">
-            <CardContent className="p-4">
-              <div className="flex flex-col gap-4">
-                {/* Top Row: View Mode, Sort, and Filter Toggle */}
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-4">
-                    {/* View Mode Toggle */}
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm font-medium">View:</Label>
-                      <div className="flex border rounded-lg p-1">
-                        <Button
-                          variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                          size="sm"
-                          onClick={() => setViewMode('grid')}
-                          className="h-7 px-3"
-                        >
-                          <Grid3X3 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant={viewMode === 'list' ? 'default' : 'ghost'}
-                          size="sm"
-                          onClick={() => setViewMode('list')}
-                          className="h-7 px-3"
-                        >
-                          <List className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Sort Options */}
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm font-medium">Sort by:</Label>
-                      <Select value={sortBy} onValueChange={(value: 'name' | 'email' | 'role') => setSortBy(value)}>
-                        <SelectTrigger className="w-32 h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="name">Name</SelectItem>
-                          <SelectItem value="email">Email</SelectItem>
-                          <SelectItem value="role">Role</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                        className="h-8 px-2"
-                      >
-                        {sortOrder === 'asc' ? <SortAsc className="h-4 w-4" /> : <SortDesc className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    {/* Filter Toggle */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowFilters(!showFilters)}
-                      className="h-8 px-3"
-                    >
-                      <Filter className="h-4 w-4 mr-1" />
-                      Filters
-                    </Button>
-
-                    {/* Clear Filters */}
-                    {hasActiveFilters && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearAllFilters}
-                        className="h-8 px-3 text-red-600 hover:text-red-700"
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Clear
-                      </Button>
-                    )}
-
-                    {/* Results Count */}
-                    <Badge variant="outline" className="bg-muted">
-                      {filteredUsers.length} of {users.length} users
-                    </Badge>
-                  </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-black/10 pt-3">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Sort</Label>
+                  <Select value={sortBy} onValueChange={(value: 'name' | 'email' | 'role') => setSortBy(value)}>
+                    <SelectTrigger className="h-8 w-28 rounded-none"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="name">Name</SelectItem>
+                      <SelectItem value="email">Email</SelectItem>
+                      <SelectItem value="role">Role</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="h-8 rounded-none border-black/15 px-2 text-black hover:bg-black/5"
+                  >
+                    {sortOrder === 'asc' ? <SortAsc className="h-3.5 w-3.5" /> : <SortDesc className="h-3.5 w-3.5" />}
+                  </Button>
                 </div>
 
-                {/* Filters Row (Collapsible) */}
-                {showFilters && (
-                  <div className="flex flex-wrap items-center gap-4 pt-2 border-t">
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm font-medium">Role:</Label>
-                      <Select value={filterRole} onValueChange={setFilterRole}>
-                        <SelectTrigger className="w-32 h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Roles</SelectItem>
-                          <SelectItem value="admin">Administrator</SelectItem>
-                          <SelectItem value="employee">Company Employee</SelectItem>
-                          <SelectItem value="user">User</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Label className="text-sm font-medium">User Type:</Label>
-                      <Select value={filterUserType} onValueChange={setFilterUserType}>
-                        <SelectTrigger className="w-40 h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All Types</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="employee">Employee</SelectItem>
-                          <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Active Filters Display */}
-                    <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
-                      {searchTerm && (
-                        <Badge variant="secondary" className="text-xs">
-                          Search: {searchTerm}
-                        </Badge>
-                      )}
-                      {filterRole !== 'all' && (
-                        <Badge variant="secondary" className="text-xs">
-                          Role: {filterRole}
-                        </Badge>
-                      )}
-                      {filterUserType !== 'all' && (
-                        <Badge variant="secondary" className="text-xs">
-                          Type: {filterUserType.replace('_', ' ')}
-                        </Badge>
-                      )}
-                    </div>
+                <div className="flex items-center gap-2">
+                  <Label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">View</Label>
+                  <div className="flex border border-black/15">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('list')}
+                      className={`flex h-8 w-8 items-center justify-center transition-colors ${viewMode === 'list' ? 'bg-black text-white' : 'text-slate-500 hover:bg-black/5'}`}
+                      title="Table view"
+                    >
+                      <Rows3 className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('grid')}
+                      className={`flex h-8 w-8 items-center justify-center border-l border-black/15 transition-colors ${viewMode === 'grid' ? 'bg-black text-white' : 'text-slate-500 hover:bg-black/5'}`}
+                      title="Card view"
+                    >
+                      <LayoutGrid className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                )}
+                </div>
               </div>
-            </CardContent>
-          </Card>
 
-          {/* Users Display */}
-          {viewMode === 'grid' ? (
-            /* Users Grid */
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+              {hasActiveFilters ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAllFilters}
+                  className="rounded-none text-destructive hover:bg-destructive/5 hover:text-destructive"
+                >
+                  <X className="mr-1 h-3.5 w-3.5" />
+                  Clear filters
+                </Button>
+              ) : null}
+            </div>
+          </AdminCardBody>
+        </AdminCard>
+
+        {/* Directory */}
+        <AdminCard>
+          <AdminCardHeader
+            icon={Users}
+            title="Users"
+            description={searchTerm || hasActiveFilters ? 'Filtered results from the directory.' : 'Everyone with access to this platform.'}
+          />
+
+          {filteredUsers.length === 0 ? (
+            <AdminEmptyState
+              icon={UserX}
+              title="No users found"
+              description={searchTerm ? 'No users match your search criteria.' : 'No users available to manage.'}
+            />
+          ) : viewMode === 'list' ? (
+            <>
+              {/* Desktop / tablet-landscape table */}
+              <div className="hidden overflow-x-auto lg:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-black/10 hover:bg-transparent">
+                      <TableHead>User</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.map((user) => (
+                      <TableRow key={user.id} className="border-black/10">
+                        <TableCell>
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                              style={{ backgroundColor: BRAND_TEAL }}
+                            >
+                              {(user.first_name?.[0] || user.email?.[0] || 'U').toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-black">
+                                {user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : 'No Name Set'}
+                                {user.user_type === 'employee' && user.position && (
+                                  <span className="font-normal text-slate-400"> · {user.position}</span>
+                                )}
+                              </p>
+                              <p className="truncate text-xs text-slate-500">{user.email}</p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <AdminPill tone={USER_TYPE_TONE[user.user_type] || 'neutral'}>
+                            {USER_TYPE_LABEL[user.user_type] || user.user_type || 'User'}
+                          </AdminPill>
+                        </TableCell>
+                        <TableCell className="text-sm capitalize text-slate-600">{(user.role || 'user').replace(/_/g, ' ')}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Button
+                              onClick={() => handleUserSelect(user)}
+                              size="sm"
+                              variant="outline"
+                              className="rounded-none border-black/15 text-black hover:bg-black/5"
+                            >
+                              <Settings className="mr-1.5 h-3.5 w-3.5" />
+                              Manage
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button size="sm" variant="ghost" className="rounded-none hover:bg-black/5">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="rounded-none border-black/10">
+                                <DropdownMenuItem onClick={() => handleEditProfileOpen(user)}>
+                                  <Settings className="mr-2 h-3.5 w-3.5" /> Edit Profile
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleLinkAttorneyOpen(user)}>
+                                  <Link2 className="mr-2 h-3.5 w-3.5" /> Link Attorney
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleResendEmailConfirmation(user)}>
+                                  <Mail className="mr-2 h-3.5 w-3.5" /> Resend Email Confirmation
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setUserToChangePassword(user);
+                                    setIsChangePasswordOpen(true);
+                                  }}
+                                >
+                                  <Key className="mr-2 h-3.5 w-3.5" /> Change Password
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setUserToDelete(user)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete User
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile / tablet-portrait card list — same data, no horizontal scroll. */}
+              <div className="divide-y divide-black/10 lg:hidden">
+                {filteredUsers.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => handleUserSelect(user)}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.03]"
+                  >
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                      style={{ backgroundColor: BRAND_TEAL }}
+                    >
+                      {(user.first_name?.[0] || user.email?.[0] || 'U').toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-black">
+                        {user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : 'No Name Set'}
+                      </p>
+                      <p className="truncate text-xs text-slate-500">{user.email}</p>
+                    </div>
+                    <AdminPill tone={USER_TYPE_TONE[user.user_type] || 'neutral'} className="shrink-0">
+                      {USER_TYPE_LABEL[user.user_type] || user.user_type || 'User'}
+                    </AdminPill>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            /* Card grid view */
+            <AdminCardBody className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {filteredUsers.map((user) => (
-              <Card key={user.id} className="hover:shadow-lg transition-shadow border-border/50 min-w-0 overflow-hidden">
-                <CardHeader className="p-3 sm:p-4 md:p-6">
-                  <div className="flex flex-wrap items-start justify-between gap-2 min-w-0">
-                    <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
-                      <div className="p-1.5 sm:p-2 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 rounded-full shrink-0">
-                        {user.role === 'admin' ? (
-                          <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-kutlwano-blue" />
-                        ) : (
-                          <UserCheck className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                        )}
+                <div key={user.id} className="flex min-w-0 flex-col gap-3 border border-black/10 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                        style={{ backgroundColor: BRAND_TEAL }}
+                      >
+                        {(user.first_name?.[0] || user.email?.[0] || 'U').toUpperCase()}
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <CardTitle className="text-sm sm:text-base md:text-lg break-words">
-                          {user.first_name && user.last_name 
-                            ? `${user.first_name} ${user.last_name}`
-                            : 'No Name Set'
-                          }
-                          {user.user_type === 'employee' && user.position && (
-                            <span className="text-xs sm:text-sm text-muted-foreground font-normal">
-                              {' '}({user.position})
-                            </span>
-                          )}
-                        </CardTitle>
-                        <CardDescription className="break-all text-xs sm:text-sm">
-                          {user.email}
-                          {user.user_type === 'admin' && (
-                           <span className="text-xs text-kutlwano-blue font-medium ml-2">
-                               • Administrator
-                             </span>
-                          )}
-                          {user.user_type === 'referring_attorney' && (
-                            <span className="text-xs text-kutlwano-teal font-medium ml-2">
-                              • Referring Attorney
-                            </span>
-                          )}
-                          {user.user_type === 'employee' && (
-                            <span className="text-xs text-gray-600 font-medium ml-2">
-                              • Company Employee
-                            </span>
-                          )}
-                        </CardDescription>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-black">
+                          {user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : 'No Name Set'}
+                        </p>
+                        <p className="truncate text-xs text-slate-500">{user.email}</p>
                       </div>
                     </div>
-                    <Badge 
-                      variant={user.user_type === 'admin' ? 'default' : 'secondary'}
-                      className={(user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : '') + ' shrink-0 text-[10px] sm:text-xs max-w-full truncate'}
-                    >
-                          {user.user_type === 'admin' ? 'Administrator' : 
-                       user.user_type === 'employee' ? 'Company Employee' :
-                       user.user_type === 'referring_attorney' ? 'Attorney' : 
-                       user.role || 'user'}
-                    </Badge>
+                    <AdminPill tone={USER_TYPE_TONE[user.user_type] || 'neutral'} className="shrink-0">
+                      {USER_TYPE_LABEL[user.user_type] || user.user_type || 'User'}
+                    </AdminPill>
                   </div>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4 md:p-6 pt-0 sm:pt-0 md:pt-0">
-                  <div className="space-y-2">
-                    <Button 
+
+                  {user.user_type === 'employee' && user.position && (
+                    <p className="text-xs text-slate-500">{user.position}</p>
+                  )}
+
+                  <div className="mt-auto grid grid-cols-2 gap-2 border-t border-black/10 pt-3">
+                    <Button
                       onClick={() => handleUserSelect(user)}
-                      className="w-full"
                       variant="outline"
+                      size="sm"
+                      className="col-span-2 rounded-none border-black/15 text-black hover:bg-black/5"
                     >
-                      <Settings className="h-4 w-4 mr-2" />
+                      <Settings className="mr-1.5 h-3.5 w-3.5" />
                       Manage Permissions
                     </Button>
-                    <Button 
+                    <Button
                       onClick={() => handleEditProfileOpen(user)}
-                      className="w-full"
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
+                      className="rounded-none text-xs hover:bg-black/5"
                     >
-                      <Settings className="h-4 w-4 mr-2" />
                       Edit Profile
                     </Button>
-                    <Button 
-                      onClick={() => handleResendEmailConfirmation(user)}
-                      className="w-full"
-                      variant="outline"
-                      size="sm"
-                    >
-                      <Mail className="h-4 w-4 mr-2" />
-                      Resend Email Confirmation
-                    </Button>
-                    <Button 
+                    <Button
                       onClick={() => {
                         setUserToChangePassword(user);
                         setIsChangePasswordOpen(true);
                       }}
-                      className="w-full"
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
+                      className="rounded-none text-xs hover:bg-black/5"
                     >
-                      <Key className="h-4 w-4 mr-2" />
-                      Change Password
+                      <Key className="mr-1 h-3 w-3" />
+                      Password
                     </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button 
-                          variant="destructive"
-                          size="sm"
-                          className="w-full"
-                          onClick={() => setUserToDelete(user)}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete User
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="brand-legal-theme">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action will permanently delete the user account for{' '}
-                            <strong>{user.email}</strong> and remove all their data from our servers.
-                            <br /><br />
-                            <strong>Note:</strong> After deletion, the email address <strong>{user.email}</strong> will be available 
-                            for reuse and can be registered again if needed (e.g., if this user was deleted by mistake).
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel onClick={() => setUserToDelete(null)}>
-                            Cancel
-                          </AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={handleDeleteUser}
-                            disabled={isDeletingUser}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            {isDeletingUser ? 'Deleting...' : 'Delete User'}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <Button
+                      onClick={() => handleLinkAttorneyOpen(user)}
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-none text-xs hover:bg-black/5"
+                    >
+                      <Link2 className="mr-1 h-3 w-3" />
+                      Link Attorney
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-none text-xs text-destructive hover:bg-destructive/5 hover:text-destructive"
+                      onClick={() => setUserToDelete(user)}
+                    >
+                      <Trash2 className="mr-1 h-3 w-3" />
+                      Delete
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-            </div>
-          ) : (
-            /* Users List */
-            <div className="space-y-4">
-              {filteredUsers.map((user) => (
-                <Card key={user.id} className="hover:shadow-md transition-shadow border-border/50 min-w-0 overflow-hidden">
-                  <CardContent className="p-3 sm:p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3 min-w-0">
-                      <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
-                        <div className="p-1.5 sm:p-2 bg-gradient-to-r from-kutlwano-blue/10 to-kutlwano-teal/10 rounded-full shrink-0">
-                          {user.role === 'admin' ? (
-                            <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-kutlwano-blue" />
-                          ) : (
-                            <UserCheck className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="font-semibold break-words text-sm sm:text-base">
-                            {user.first_name && user.last_name 
-                              ? `${user.first_name} ${user.last_name}`
-                              : 'No Name Set'
-                            }
-                            {user.user_type === 'employee' && user.position && (
-                              <span className="text-xs sm:text-sm text-muted-foreground font-normal ml-2">
-                                ({user.position})
-                              </span>
-                            )}
-                          </h3>
-                          <p className="text-xs sm:text-sm text-muted-foreground break-all">{user.email}</p>
-                        </div>
-                      </div>
-                      
-                      
-                      <div className="flex flex-wrap items-center gap-3">
-                        <Badge 
-                          variant={user.user_type === 'admin' ? 'default' : 'secondary'}
-                          className={(user.user_type === 'admin' ? 'bg-kutlwano-blue text-white' : user.user_type === 'referring_attorney' ? 'bg-kutlwano-teal text-white' : '') + ' shrink-0'}
-                        >
-                          {user.user_type === 'admin' ? 'Administrator' : 
-                           user.user_type === 'employee' ? 'Company Employee' :
-                           user.user_type === 'referring_attorney' ? 'Attorney' : 
-                           user.role || 'user'}
-                         </Badge>
-                        
-                        <div className="flex flex-wrap gap-2">
-                          <Button 
-                            onClick={() => handleUserSelect(user)}
-                            size="sm"
-                            variant="outline"
-                          >
-                            <Settings className="h-4 w-4 mr-1" />
-                            Manage
-                          </Button>
-                          <Button 
-                            onClick={() => handleEditProfileOpen(user)}
-                            size="sm"
-                            variant="outline"
-                          >
-                            Edit Profile
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                </div>
               ))}
-            </div>
+            </AdminCardBody>
           )}
+        </AdminCard>
 
-          {filteredUsers.length === 0 && (
-            <Card className="text-center py-12">
-              <CardContent>
-                <UserX className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-foreground mb-2">No Users Found</h3>
-                <p className="text-muted-foreground">
-                  {searchTerm ? 'No users match your search criteria.' : 'No users available to manage.'}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+        {/* Shared delete confirmation — one dialog reused by every row/card instead of one per user. */}
+        <AlertDialog open={!!userToDelete} onOpenChange={(open) => !open && setUserToDelete(null)}>
+          <AlertDialogContent className="brand-legal-theme rounded-none border-black/10">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action will permanently delete the user account for{' '}
+                <strong>{userToDelete?.email}</strong> and remove all their data from our servers.
+                <br /><br />
+                <strong>Note:</strong> After deletion, the email address <strong>{userToDelete?.email}</strong> will be available
+                for reuse and can be registered again if needed (e.g., if this user was deleted by mistake).
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setUserToDelete(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteUser}
+                disabled={isDeletingUser}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {isDeletingUser ? 'Deleting...' : 'Delete User'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
           {/* Add User Dialog */}
           <Dialog open={isAddUserModalOpen} onOpenChange={setIsAddUserModalOpen}>
-            <DialogContent className="brand-legal-theme max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <UserPlus className="h-5 w-5 text-kutlwano-blue" />
+            <DialogContent className="brand-legal-theme max-h-[90vh] max-w-2xl overflow-y-auto rounded-none border-black/10 p-0 shadow-none">
+              <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
+                <DialogTitle className="flex items-center gap-2 text-base font-bold text-black">
+                  <UserPlus className="h-4 w-4" style={{ color: BRAND_TEAL }} />
                   Add New User
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-xs text-slate-500">
                   Create a new user account with email, password, and permissions
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-6">
+              <div className="space-y-6 px-5 py-5">
                 {/* Basic Information */}
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -1017,6 +1019,7 @@ const UserManagement: React.FC = () => {
                         placeholder="First name"
                         value={newUserForm.firstName}
                         onChange={(e) => setNewUserForm(prev => ({ ...prev, firstName: e.target.value }))}
+                        className="mt-1 rounded-none"
                       />
                     </div>
                     <div>
@@ -1026,6 +1029,7 @@ const UserManagement: React.FC = () => {
                         placeholder="Last name"
                         value={newUserForm.lastName}
                         onChange={(e) => setNewUserForm(prev => ({ ...prev, lastName: e.target.value }))}
+                        className="mt-1 rounded-none"
                       />
                     </div>
                   </div>
@@ -1038,24 +1042,26 @@ const UserManagement: React.FC = () => {
                       placeholder="user@example.com"
                       value={newUserForm.email}
                       onChange={(e) => setNewUserForm(prev => ({ ...prev, email: e.target.value }))}
+                      className="mt-1 rounded-none"
                     />
                   </div>
 
                   <div>
                     <Label htmlFor="password">Password</Label>
-                    <div className="relative">
+                    <div className="relative mt-1">
                       <Input
                         id="password"
                         type={showPassword ? "text" : "password"}
                         placeholder="Minimum 8 characters"
                         value={newUserForm.password}
                         onChange={(e) => setNewUserForm(prev => ({ ...prev, password: e.target.value }))}
+                        className="rounded-none"
                       />
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        className="absolute right-0 top-0 h-full rounded-none px-3 py-2 hover:bg-transparent"
                         onClick={() => setShowPassword(!showPassword)}
                       >
                         {showPassword ? (
@@ -1066,7 +1072,7 @@ const UserManagement: React.FC = () => {
                       </Button>
                     </div>
                     {newUserForm.password && newUserForm.password.length < 8 && (
-                      <p className="text-sm text-destructive mt-1">
+                      <p className="mt-1 text-xs text-destructive">
                         Password must be at least 8 characters long
                       </p>
                     )}
@@ -1074,7 +1080,7 @@ const UserManagement: React.FC = () => {
 
                   <div>
                     <Label>User Type</Label>
-                    <div className="mt-1 p-2 bg-muted rounded-md text-sm text-muted-foreground">
+                    <div className="mt-1 border border-black/10 bg-black/[0.02] p-2 text-sm text-slate-500">
                       Company Employee
                     </div>
                   </div>
@@ -1082,7 +1088,7 @@ const UserManagement: React.FC = () => {
                   <div>
                     <Label>Position</Label>
                     <Select value={newUserForm.position} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, position: value }))}>
-                      <SelectTrigger>
+                      <SelectTrigger className="mt-1 rounded-none">
                         <SelectValue placeholder="Select position" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1097,7 +1103,7 @@ const UserManagement: React.FC = () => {
 
                   <div>
                     <Label>System Role</Label>
-                    <div className="mt-1 p-2 bg-muted rounded-md text-sm text-muted-foreground">
+                    <div className="mt-1 border border-black/10 bg-black/[0.02] p-2 text-sm text-slate-500">
                       {newUserForm.position === 'Sales Consultant' 
                         ? 'Sales Consultant (Attorney Pitchlog, Attorney Management & Claimant access only)' 
                         : 'Employee (Full system access)'}
@@ -1105,14 +1111,14 @@ const UserManagement: React.FC = () => {
                   </div>
                  </div>
 
-                 <Separator />
+                 <div className="h-px bg-black/10" />
 
                  {/* Module access notice — set after creation in Manage */}
                 {newUserForm.role !== 'admin' && newUserForm.userType !== 'employee' && (
-                  <div className="rounded-lg border border-dashed p-4 bg-muted/30">
-                    <Label className="text-base font-semibold">Admin Portal Module Access</Label>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      After the user is created, open <strong>Manage</strong> to allocate Admin Portal modules
+                  <div className="border border-dashed border-black/15 bg-black/[0.02] p-4">
+                    <Label className="text-sm font-semibold text-black">Admin Portal Module Access</Label>
+                    <p className="mt-1 text-xs text-slate-500">
+                      After the user is created, open <strong className="text-black">Manage</strong> to allocate Admin Portal modules
                       (Attorney CRM, Case Management, Expert Network, Availability Heatmap, Support Hub,
                       Report Management, Reporting System, Document Vault, Finance & Payments, Appointment Engine, etc.)
                       or apply a one-click role preset.
@@ -1121,25 +1127,27 @@ const UserManagement: React.FC = () => {
                 )}
 
                 {(newUserForm.role === 'admin' || newUserForm.userType === 'employee') && (
-                  <div className="bg-kutlwano-blue/5 p-4 rounded-lg">
-                    <p className="text-sm text-muted-foreground">
+                  <div className="border border-black/10 p-4" style={{ backgroundColor: `${BRAND_TEAL}0D` }}>
+                    <p className="text-xs text-slate-600">
                       {newUserForm.role === 'admin' ? 'Administrator' : 'Company Employee'} users automatically have full system access including creating, editing, deleting, and approving records across all modules.
                     </p>
                   </div>
                 )}
 
-                <div className="flex justify-end gap-3 pt-4">
+                <div className="flex justify-end gap-2 border-t border-black/10 pt-4">
                   <Button 
                     variant="outline" 
                     onClick={() => setIsAddUserModalOpen(false)}
                     disabled={isCreatingUser}
+                    className="rounded-none border-black/15 text-black hover:bg-black/5"
                   >
                     Cancel
                   </Button>
                   <Button 
                     onClick={handleCreateUser}
                     disabled={isCreatingUser || !newUserForm.email || !newUserForm.password || !newUserForm.position}
-                    className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
+                    className="rounded-none text-white hover:opacity-90"
+                    style={{ backgroundColor: BRAND_TEAL }}
                   >
                     {isCreatingUser ? 'Creating...' : 'Create User'}
                   </Button>
@@ -1150,32 +1158,32 @@ const UserManagement: React.FC = () => {
 
           {/* User Management Dialog */}
           <Dialog open={isManageModalOpen} onOpenChange={setIsManageModalOpen}>
-            <DialogContent className="brand-legal-theme max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
-              <DialogHeader className="pb-3">
-                <DialogTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-kutlwano-blue" />
+            <DialogContent className="brand-legal-theme flex max-h-[85vh] max-w-4xl flex-col overflow-hidden rounded-none border-black/10 p-0 shadow-none">
+              <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
+                <DialogTitle className="flex items-center gap-2 text-base font-bold text-black">
+                  <Shield className="h-4 w-4" style={{ color: BRAND_TEAL }} />
                   Manage User: {selectedUser?.first_name} {selectedUser?.last_name}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-xs text-slate-500">
                   Update user role and manage individual permissions
                 </DialogDescription>
               </DialogHeader>
 
               {selectedUser && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto pr-2 flex-1 min-h-0">
+                <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto px-5 pt-4 lg:grid-cols-3">
                   {/* Left Column - User Info & Role */}
                   <div className="space-y-4">
                     {/* User Info */}
-                    <div className="bg-gradient-to-r from-kutlwano-blue/5 to-kutlwano-teal/5 p-3 rounded-lg">
-                      <p className="font-medium text-sm">{selectedUser.email}</p>
-                      <p className="text-xs text-muted-foreground">ID: {selectedUser.id.slice(0, 8)}...</p>
+                    <div className="border border-black/10 bg-black/[0.02] p-3">
+                      <p className="text-sm font-medium text-black">{selectedUser.email}</p>
+                      <p className="text-xs text-slate-500">ID: {selectedUser.id.slice(0, 8)}...</p>
                     </div>
 
                     {/* Role Management */}
                     <div>
-                      <Label className="text-sm font-semibold">User Role</Label>
+                      <Label className="text-sm font-semibold text-black">User Role</Label>
                       <Select value={selectedUser.role || 'user'} onValueChange={handleRoleUpdate}>
-                        <SelectTrigger className="mt-1 h-8">
+                        <SelectTrigger className="mt-1 h-8 rounded-none">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -1189,11 +1197,11 @@ const UserManagement: React.FC = () => {
                           <SelectItem value="admin">Administrator (full access)</SelectItem>
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="mt-1 text-xs text-slate-500">
                         Only Admin and Company Employee receive full admin access. All others are restricted to their role-specific portal.
                       </p>
                       {pendingRole !== null && (
-                        <p className="text-xs text-primary mt-1 font-medium">Role changed — click Update to save</p>
+                        <p className="mt-1 text-xs font-medium" style={{ color: BRAND_TEAL }}>Role changed — click Update to save</p>
                       )}
                     </div>
 
@@ -1201,8 +1209,8 @@ const UserManagement: React.FC = () => {
 
                   {/* Right Column - Admin Portal Module Access (mirrors sidebar) */}
                   <div className="lg:col-span-2">
-                    <Label className="text-sm font-semibold">Admin Portal Module Access</Label>
-                    <p className="text-xs text-muted-foreground mb-3">
+                    <Label className="text-sm font-semibold text-black">Admin Portal Module Access</Label>
+                    <p className="mb-3 text-xs text-slate-500">
                       Toggle modules to match the Admin Portal sidebar. Use a preset for quick role allocation.
                     </p>
                     <div className="h-full">
@@ -1220,9 +1228,9 @@ const UserManagement: React.FC = () => {
 
               {/* Pending Changes Indicator */}
               {selectedUser && hasPendingChanges && (
-                <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-md mt-3">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                  <p className="text-xs text-amber-700">
+                <div className="mx-5 mt-3 flex items-center gap-2 border border-warning/40 bg-warning/5 px-3 py-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+                  <p className="text-xs text-warning">
                     You have unsaved changes ({pendingRole ? 'role' : ''}{pendingRole && Object.keys(pendingPermissions).length > 0 ? ', ' : ''}{Object.keys(pendingPermissions).length > 0 ? `${Object.keys(pendingPermissions).length} permission(s)` : ''}). Click <strong>Update</strong> to save.
                   </p>
                 </div>
@@ -1230,30 +1238,33 @@ const UserManagement: React.FC = () => {
 
               {/* Action Buttons */}
               {selectedUser && (
-                <div className="sticky bottom-0 z-10 flex flex-wrap justify-between items-center gap-2 pt-4 border-t mt-4 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                <div className="sticky bottom-0 z-10 mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-black/10 bg-white/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/80">
                   <Button
                     variant="outline"
                     size="sm"
+                    className="rounded-none border-black/15 text-black hover:bg-black/5"
                     onClick={() => {
                       setUserToEditProfile(selectedUser);
                       setIsEditProfileOpen(true);
                       setIsManageModalOpen(false);
                     }}
                   >
-                    <Settings className="h-4 w-4 mr-2" />
+                    <Settings className="mr-2 h-4 w-4" />
                     Edit Full Profile
                   </Button>
                   <div className="flex flex-wrap gap-2">
                     <Button
                       variant="outline"
                       size="sm"
+                      className="rounded-none border-black/15 text-black hover:bg-black/5"
                       onClick={() => setIsManageModalOpen(false)}
                     >
                       Cancel
                     </Button>
                     <Button
                       size="sm"
-                      className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
+                      className="rounded-none text-white hover:opacity-90"
+                      style={{ backgroundColor: BRAND_TEAL }}
                       onClick={handleSaveAllChanges}
                       disabled={!hasPendingChanges || isSavingPermissions || fnPending.saving}
                     >
@@ -1281,21 +1292,21 @@ const UserManagement: React.FC = () => {
 
           {/* Change Password Dialog */}
           <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
-            <DialogContent className="brand-legal-theme max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Key className="h-5 w-5 text-kutlwano-blue" />
+            <DialogContent className="brand-legal-theme max-w-md rounded-none border-black/10 p-0 shadow-none">
+              <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
+                <DialogTitle className="flex items-center gap-2 text-base font-bold text-black">
+                  <Key className="h-4 w-4" style={{ color: BRAND_TEAL }} />
                   Change User Password
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-xs text-slate-500">
                   Set a new password for {userToChangePassword?.email}
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4">
+              <div className="space-y-4 px-5 py-5">
                 <div>
                   <Label htmlFor="newPassword">New Password</Label>
-                  <div className="flex gap-2">
+                  <div className="mt-1 flex gap-2">
                     <div className="relative flex-1">
                       <Input
                         id="newPassword"
@@ -1303,13 +1314,13 @@ const UserManagement: React.FC = () => {
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         placeholder="Enter new password (min 8 characters)"
-                        className="pr-10"
+                        className="rounded-none pr-10"
                       />
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="absolute right-0 top-0 h-full px-3"
+                        className="absolute right-0 top-0 h-full rounded-none px-3"
                         onClick={() => setShowPassword(!showPassword)}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -1321,17 +1332,17 @@ const UserManagement: React.FC = () => {
                       size="icon"
                       onClick={handleAutoGeneratePassword}
                       title="Auto-generate secure password"
-                      className="border-kutlwano-blue/20 hover:bg-kutlwano-blue/5"
+                      className="rounded-none border-black/15 hover:bg-black/5"
                     >
                       <Shuffle className="h-4 w-4" />
                     </Button>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Password must be at least 8 characters long. Click <Shuffle className="inline h-3 w-3 mx-1" /> to auto-generate a secure password.
+                  <p className="mt-1 text-xs text-slate-500">
+                    Password must be at least 8 characters long. Click <Shuffle className="mx-1 inline h-3 w-3" /> to auto-generate a secure password.
                   </p>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 border-t border-black/10 pt-4">
                   <Button
                     onClick={() => {
                       setIsChangePasswordOpen(false);
@@ -1339,14 +1350,15 @@ const UserManagement: React.FC = () => {
                       setNewPassword('');
                     }}
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 rounded-none border-black/15 text-black hover:bg-black/5"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleChangePassword}
                     disabled={isChangingPassword || !newPassword || newPassword.length < 8}
-                    className="flex-1 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
+                    className="flex-1 rounded-none text-white hover:opacity-90"
+                    style={{ backgroundColor: BRAND_TEAL }}
                   >
                     {isChangingPassword ? 'Changing...' : 'Change Password'}
                   </Button>
@@ -1357,47 +1369,47 @@ const UserManagement: React.FC = () => {
 
           {/* Password Display Dialog */}
           <Dialog open={showPasswordDialog} onOpenChange={handleClosePasswordDialog}>
-            <DialogContent className="brand-legal-theme sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Key className="h-5 w-5" />
+            <DialogContent className="brand-legal-theme rounded-none border-black/10 p-0 shadow-none sm:max-w-md">
+              <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
+                <DialogTitle className="flex items-center gap-2 text-base font-bold text-black">
+                  <Key className="h-4 w-4" style={{ color: BRAND_TEAL }} />
                   Password {passwordAction === "created" ? "Created" : "Changed"}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-xs text-slate-500">
                   The password has been successfully {passwordAction}. Please copy it and share it securely with the user.
                 </DialogDescription>
               </DialogHeader>
-              
-              <div className="space-y-4">
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <div className="flex items-center gap-2 text-amber-800 mb-2">
+
+              <div className="space-y-4 px-5 py-5">
+                <div className="border border-warning/40 bg-warning/5 p-4">
+                  <div className="mb-2 flex items-center gap-2 text-warning">
                     <AlertTriangle className="h-4 w-4" />
-                    <span className="font-medium text-sm">Security Notice</span>
+                    <span className="text-sm font-medium">Security Notice</span>
                   </div>
-                  <p className="text-sm text-amber-700">
+                  <p className="text-xs text-warning">
                     This password will only be shown once. Make sure to copy it and share it securely with the user.
                   </p>
                 </div>
 
                 {/* Created User Summary */}
                 {passwordAction === "created" && createdUserSummary && (
-                  <div className="p-4 bg-muted rounded-lg space-y-2">
-                    <h4 className="font-semibold text-sm text-foreground">User Details</h4>
+                  <div className="space-y-2 border border-black/10 bg-black/[0.02] p-4">
+                    <h4 className="text-sm font-semibold text-black">User Details</h4>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                      <span className="text-muted-foreground">Name:</span>
-                      <span className="font-medium">{createdUserSummary.firstName} {createdUserSummary.lastName}</span>
-                      <span className="text-muted-foreground">Email:</span>
-                      <span className="font-medium">{createdUserSummary.email}</span>
-                      <span className="text-muted-foreground">User Type:</span>
-                      <span className="font-medium">
+                      <span className="text-slate-500">Name:</span>
+                      <span className="font-medium text-black">{createdUserSummary.firstName} {createdUserSummary.lastName}</span>
+                      <span className="text-slate-500">Email:</span>
+                      <span className="font-medium text-black">{createdUserSummary.email}</span>
+                      <span className="text-slate-500">User Type:</span>
+                      <span className="font-medium text-black">
                         {createdUserSummary.userType === 'employee' ? 'Company Employee' : 
                          createdUserSummary.userType === 'admin' ? 'Administrator' : 
                          createdUserSummary.userType}
                       </span>
-                      <span className="text-muted-foreground">Position:</span>
-                      <span className="font-medium">{createdUserSummary.position || 'Not set'}</span>
-                      <span className="text-muted-foreground">System Role:</span>
-                      <span className="font-medium">
+                      <span className="text-slate-500">Position:</span>
+                      <span className="font-medium text-black">{createdUserSummary.position || 'Not set'}</span>
+                      <span className="text-slate-500">System Role:</span>
+                      <span className="font-medium text-black">
                         {createdUserSummary.position === 'Sales Consultant' 
                           ? 'Sales Consultant' 
                           : 'Employee (Full Access)'}
@@ -1414,12 +1426,13 @@ const UserManagement: React.FC = () => {
                       type="text"
                       value={displayPassword}
                       readOnly
-                      className="font-mono bg-muted"
+                      className="rounded-none bg-black/[0.02] font-mono"
                     />
                     <Button 
                       onClick={copyPasswordToClipboard}
                       variant="outline"
                       size="icon"
+                      className="rounded-none border-black/15 hover:bg-black/5"
                     >
                       <Copy className="h-4 w-4" />
                     </Button>
@@ -1427,8 +1440,12 @@ const UserManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 mt-6">
-                <Button onClick={handleClosePasswordDialog} className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white">
+              <div className="flex justify-end gap-2 border-t border-black/10 px-5 py-4">
+                <Button
+                  onClick={handleClosePasswordDialog}
+                  className="rounded-none text-white hover:opacity-90"
+                  style={{ backgroundColor: BRAND_TEAL }}
+                >
                   I've Copied the Password
                 </Button>
               </div>
@@ -1437,35 +1454,35 @@ const UserManagement: React.FC = () => {
 
           {/* Link Attorney Dialog */}
           <Dialog open={isLinkAttorneyOpen} onOpenChange={setIsLinkAttorneyOpen}>
-            <DialogContent className="brand-legal-theme max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <UserCheck className="h-5 w-5 text-kutlwano-blue" />
+            <DialogContent className="brand-legal-theme max-w-md rounded-none border-black/10 p-0 shadow-none">
+              <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
+                <DialogTitle className="flex items-center gap-2 text-base font-bold text-black">
+                  <Link2 className="h-4 w-4" style={{ color: BRAND_TEAL }} />
                   Link Referring Attorney
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-xs text-slate-500">
                   Associate {userToLinkAttorney?.email} with a referring attorney to enable appointment creation
                   {userToLinkAttorney?.user_type === 'admin' && (
-                    <span className="block mt-1 text-kutlwano-blue font-medium">
+                    <span className="mt-1 block font-medium" style={{ color: BRAND_TEAL }}>
                       Administrator Account
                     </span>
                   )}
                   {userToLinkAttorney?.user_type === 'employee' && (
-                    <span className="block mt-1 text-gray-600 font-medium">
+                    <span className="mt-1 block font-medium text-slate-600">
                       Employee Account
                     </span>
                   )}
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4">
+              <div className="space-y-4 px-5 py-5">
                 <div>
                   <Label htmlFor="selectAttorney">Select Referring Attorney</Label>
                   <Select
                     value={selectedAttorneyId}
                     onValueChange={setSelectedAttorneyId}
                   >
-                    <SelectTrigger id="selectAttorney">
+                    <SelectTrigger id="selectAttorney" className="mt-1 rounded-none">
                       <SelectValue placeholder="Choose a referring attorney" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1483,13 +1500,13 @@ const UserManagement: React.FC = () => {
                     </SelectContent>
                   </Select>
                   {selectedAttorneyId && (
-                    <p className="text-sm text-muted-foreground mt-2">
+                    <p className="mt-2 text-xs text-slate-500">
                       This user will be linked to the selected referring attorney for appointment creation.
                     </p>
                   )}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 border-t border-black/10 pt-4">
                   <Button
                     onClick={() => {
                       setIsLinkAttorneyOpen(false);
@@ -1497,14 +1514,15 @@ const UserManagement: React.FC = () => {
                       setSelectedAttorneyId('');
                     }}
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 rounded-none border-black/15 text-black hover:bg-black/5"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleLinkAttorney}
                     disabled={isLinkingAttorney || !selectedAttorneyId || referringAttorneysLoading}
-                    className="flex-1 bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal text-white"
+                    className="flex-1 rounded-none text-white hover:opacity-90"
+                    style={{ backgroundColor: BRAND_TEAL }}
                   >
                     {isLinkingAttorney ? 'Linking...' : 'Link Attorney'}
                   </Button>
@@ -1513,28 +1531,11 @@ const UserManagement: React.FC = () => {
             </DialogContent>
           </Dialog>
 
-          {/* Employee Notification Settings */}
-          <EmployeeNotificationSettings />
-
-        </div>
-      </div>
+        {/* Employee Notification Settings */}
+        <EmployeeNotificationSettings />
+      </AdminPage>
     </>
   );
-};
-
-const getPermissionDescription = (permission: string): string => {
-  const descriptions: Record<string, string> = {
-    manage_claimants: 'Create, edit, and manage claimant records',
-    manage_attorneys: 'Manage referring attorney information',
-    manage_experts: 'Add and manage medical expert profiles',
-    manage_appointments: 'Schedule and manage appointments',
-    view_reports: 'Access and view system reports',
-    manage_documents: 'Upload and manage documents',
-    view_analytics: 'Access analytics and statistics',
-    manage_leads: 'Manage lead generation and tracking',
-    case_management: 'Access case management features and reports'
-  };
-  return descriptions[permission] || 'System permission';
 };
 
 export default UserManagement;
