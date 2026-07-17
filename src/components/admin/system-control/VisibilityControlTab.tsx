@@ -1,10 +1,15 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Eye, EyeOff, Shield, Users, Briefcase, Stethoscope, FileText, Mail, Brain, BarChart3 } from 'lucide-react';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
+import {
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminPill,
+  AdminLoadingState,
+  BRAND_TEAL,
+} from '@/components/admin/ui/AdminUI';
 
 const featureFlagConfig = [
   { key: 'feature_attorney_portal', label: 'Attorney Portal', icon: Briefcase, desc: 'Allow attorneys to access their portal' },
@@ -49,97 +54,100 @@ const VisibilityControlTab: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
+      <AdminCard className="mt-4">
+        <AdminLoadingState label="Loading visibility settings…" />
+      </AdminCard>
     );
   }
 
+  const enabledFeatureCount = featureFlagConfig.filter(
+    ({ key }) => getSettingValue(key)?.enabled !== false
+  ).length;
+
   return (
-    <div className="space-y-4 md:space-y-6 mt-4">
+    <div className="mt-4 space-y-4 md:space-y-6">
       {/* Feature Flags */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Shield className="h-4 w-4 text-primary" />
-            Feature Flags
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Enable or disable major system features globally
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <AdminCard>
+        <AdminCardHeader
+          icon={Shield}
+          title="Feature Flags"
+          description="Enable or disable major system features globally"
+          actions={
+            <AdminPill tone="teal">
+              {enabledFeatureCount}/{featureFlagConfig.length} enabled
+            </AdminPill>
+          }
+        />
+        <AdminCardBody>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {featureFlagConfig.map(({ key, label, icon: Icon, desc }) => {
               const val = getSettingValue(key);
               const enabled = val?.enabled !== false;
               return (
-                <div key={key} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-1.5 rounded-md ${enabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                      <Icon className="h-4 w-4" />
+                <div
+                  key={key}
+                  className="flex items-center justify-between gap-3 border border-black/10 p-3 transition-colors hover:border-black/25"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                      style={{
+                        backgroundColor: enabled ? `${BRAND_TEAL}1A` : 'rgba(0,0,0,0.05)',
+                        color: enabled ? BRAND_TEAL : undefined,
+                      }}
+                    >
+                      <Icon className={`h-4 w-4 ${enabled ? '' : 'text-slate-400'}`} style={enabled ? { color: BRAND_TEAL } : undefined} />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{label}</p>
-                      <p className="text-xs text-muted-foreground">{desc}</p>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-black">{label}</p>
+                      <p className="truncate text-xs text-slate-500">{desc}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={enabled ? 'default' : 'secondary'} className="text-[10px]">
-                      {enabled ? 'ON' : 'OFF'}
-                    </Badge>
-                    <Switch
-                      checked={enabled}
-                      onCheckedChange={(checked) => handleFeatureToggle(key, checked)}
-                    />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <AdminPill tone={enabled ? 'teal' : 'neutral'}>{enabled ? 'ON' : 'OFF'}</AdminPill>
+                    <Switch checked={enabled} onCheckedChange={(checked) => handleFeatureToggle(key, checked)} />
                   </div>
                 </div>
               );
             })}
           </div>
-        </CardContent>
-      </Card>
+        </AdminCardBody>
+      </AdminCard>
 
       {/* Data Visibility Rules */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Eye className="h-4 w-4 text-primary" />
-            Data Visibility Rules
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Control which sensitive data fields are visible to different user roles
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {visibilityConfig.map(({ key, label, fields }) => {
-              const val = getSettingValue(key);
-              return (
-                <div key={key} className="p-4 rounded-lg border border-border">
-                  <h4 className="text-sm font-medium mb-3">{label}</h4>
-                  <div className="flex flex-wrap gap-4">
-                    {fields.map(({ field, label: fieldLabel }) => (
-                      <div key={field} className="flex items-center gap-2">
-                        {val?.[field] ? (
-                          <Eye className="h-3.5 w-3.5 text-primary" />
-                        ) : (
-                          <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                        <span className="text-xs">{fieldLabel}</span>
-                        <Switch
-                          checked={val?.[field] === true}
-                          onCheckedChange={(checked) => handleVisibilityToggle(key, field, checked)}
-                        />
-                      </div>
-                    ))}
-                  </div>
+      <AdminCard>
+        <AdminCardHeader
+          icon={Eye}
+          title="Data Visibility Rules"
+          description="Control which sensitive data fields are visible to different user roles"
+        />
+        <AdminCardBody className="space-y-3">
+          {visibilityConfig.map(({ key, label, fields }) => {
+            const val = getSettingValue(key);
+            return (
+              <div key={key} className="border border-black/10 p-4">
+                <h4 className="mb-3 text-sm font-semibold text-black">{label}</h4>
+                <div className="flex flex-wrap gap-x-6 gap-y-3">
+                  {fields.map(({ field, label: fieldLabel }) => (
+                    <div key={field} className="flex items-center gap-2">
+                      {val?.[field] ? (
+                        <Eye className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} />
+                      ) : (
+                        <EyeOff className="h-3.5 w-3.5 text-slate-400" />
+                      )}
+                      <span className="text-xs text-slate-600">{fieldLabel}</span>
+                      <Switch
+                        checked={val?.[field] === true}
+                        onCheckedChange={(checked) => handleVisibilityToggle(key, field, checked)}
+                      />
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+            );
+          })}
+        </AdminCardBody>
+      </AdminCard>
     </div>
   );
 };
