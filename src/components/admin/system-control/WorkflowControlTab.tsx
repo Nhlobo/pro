@@ -1,16 +1,35 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GitBranch, CheckCircle, Clock, Mail, AlertTriangle, Shield, Save } from 'lucide-react';
+import { CheckCircle, Clock, Mail, Shield } from 'lucide-react';
 import { useSystemSettings } from '@/hooks/useSystemSettings';
-import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import {
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminSectionLabel,
+  AdminLoadingState,
+  BRAND_TEAL,
+} from '@/components/admin/ui/AdminUI';
+
+const flatInput = 'rounded-none border-black/15';
+
+/** Shared row treatment for every toggle line inside a workflow card. */
+const ToggleRow: React.FC<{ label: string; checked: boolean; onCheckedChange: (v: boolean) => void }> = ({
+  label,
+  checked,
+  onCheckedChange,
+}) => (
+  <div className="flex items-center justify-between gap-3 border border-black/10 px-3 py-2.5">
+    <span className="text-xs text-slate-600">{label}</span>
+    <Switch checked={checked} onCheckedChange={onCheckedChange} />
+  </div>
+);
 
 const WorkflowControlTab: React.FC = () => {
   const { settings, isLoading, updateSetting } = useSystemSettings('workflow');
@@ -28,15 +47,15 @@ const WorkflowControlTab: React.FC = () => {
       return;
     }
     try {
-      const statusField = overrideTable === 'appointments' ? 'case_status' : 
-                          overrideTable === 'expert_reports' ? 'report_status' : 
+      const statusField = overrideTable === 'appointments' ? 'case_status' :
+                          overrideTable === 'expert_reports' ? 'report_status' :
                           'payment_status';
-      
+
       const { error } = await supabase
         .from(overrideTable as any)
         .update({ [statusField]: overrideStatus, updated_at: new Date().toISOString() } as any)
         .eq('id', overrideRecordId);
-      
+
       if (error) throw error;
       toast.success(`Status overridden to "${overrideStatus}"`);
       setOverrideRecordId('');
@@ -47,7 +66,11 @@ const WorkflowControlTab: React.FC = () => {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
+    return (
+      <AdminCard className="mt-4">
+        <AdminLoadingState label="Loading workflow settings…" />
+      </AdminCard>
+    );
   }
 
   const reportApproval = getVal('workflow_report_approval');
@@ -58,86 +81,69 @@ const WorkflowControlTab: React.FC = () => {
   const paymentDeadlines = getVal('deadline_payment_days');
 
   return (
-    <div className="space-y-4 md:space-y-6 mt-4">
-      {/* Approval Workflows */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <CheckCircle className="h-4 w-4 text-primary" />
-            Approval Workflows
-          </CardTitle>
-          <CardDescription className="text-xs">Configure which actions require approval</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Report Approval */}
-            <div className="p-4 rounded-lg border border-border space-y-3">
-              <h4 className="text-sm font-medium">Report Approval</h4>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Require approval</span>
-                <Switch
-                  checked={reportApproval?.require_approval !== false}
-                  onCheckedChange={(v) => updateSetting.mutate({ key: 'workflow_report_approval', value: { ...reportApproval, require_approval: v } })}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Auto-approve admin uploads</span>
-                <Switch
-                  checked={reportApproval?.auto_approve_admin !== false}
-                  onCheckedChange={(v) => updateSetting.mutate({ key: 'workflow_report_approval', value: { ...reportApproval, auto_approve_admin: v } })}
-                />
-              </div>
-            </div>
+    <div className="mt-4 space-y-4 md:space-y-6">
+      {/* Approval Workflows — three focused cards instead of one crowded grid */}
+      <div>
+        <AdminSectionLabel>Approval Workflows</AdminSectionLabel>
+        <div className="mt-3 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <AdminCard>
+            <AdminCardHeader icon={CheckCircle} title="Report Approval" />
+            <AdminCardBody className="space-y-2">
+              <ToggleRow
+                label="Require approval"
+                checked={reportApproval?.require_approval !== false}
+                onCheckedChange={(v) => updateSetting.mutate({ key: 'workflow_report_approval', value: { ...reportApproval, require_approval: v } })}
+              />
+              <ToggleRow
+                label="Auto-approve admin uploads"
+                checked={reportApproval?.auto_approve_admin !== false}
+                onCheckedChange={(v) => updateSetting.mutate({ key: 'workflow_report_approval', value: { ...reportApproval, auto_approve_admin: v } })}
+              />
+            </AdminCardBody>
+          </AdminCard>
 
-            {/* Document Approval */}
-            <div className="p-4 rounded-lg border border-border space-y-3">
-              <h4 className="text-sm font-medium">Document Approval</h4>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Require approval</span>
-                <Switch
-                  checked={docApproval?.require_approval !== false}
-                  onCheckedChange={(v) => updateSetting.mutate({ key: 'workflow_document_approval', value: { ...docApproval, require_approval: v } })}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Auto-approve internal</span>
-                <Switch
-                  checked={docApproval?.auto_approve_internal !== false}
-                  onCheckedChange={(v) => updateSetting.mutate({ key: 'workflow_document_approval', value: { ...docApproval, auto_approve_internal: v } })}
-                />
-              </div>
-            </div>
+          <AdminCard>
+            <AdminCardHeader icon={CheckCircle} title="Document Approval" />
+            <AdminCardBody className="space-y-2">
+              <ToggleRow
+                label="Require approval"
+                checked={docApproval?.require_approval !== false}
+                onCheckedChange={(v) => updateSetting.mutate({ key: 'workflow_document_approval', value: { ...docApproval, require_approval: v } })}
+              />
+              <ToggleRow
+                label="Auto-approve internal"
+                checked={docApproval?.auto_approve_internal !== false}
+                onCheckedChange={(v) => updateSetting.mutate({ key: 'workflow_document_approval', value: { ...docApproval, auto_approve_internal: v } })}
+              />
+            </AdminCardBody>
+          </AdminCard>
 
-            {/* Payment Approval */}
-            <div className="p-4 rounded-lg border border-border space-y-3">
-              <h4 className="text-sm font-medium">Payment Recording</h4>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Require approval</span>
-                <Switch
-                  checked={paymentApproval?.require_approval === true}
-                  onCheckedChange={(v) => updateSetting.mutate({ key: 'workflow_payment_approval', value: { ...paymentApproval, require_approval: v } })}
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          <AdminCard>
+            <AdminCardHeader icon={CheckCircle} title="Payment Recording" />
+            <AdminCardBody className="space-y-2">
+              <ToggleRow
+                label="Require approval"
+                checked={paymentApproval?.require_approval === true}
+                onCheckedChange={(v) => updateSetting.mutate({ key: 'workflow_payment_approval', value: { ...paymentApproval, require_approval: v } })}
+              />
+            </AdminCardBody>
+          </AdminCard>
+        </div>
+      </div>
 
       {/* Status Override */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Shield className="h-4 w-4 text-destructive" />
-            Status Override
-          </CardTitle>
-          <CardDescription className="text-xs">Force-change record statuses (admin only)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-3 items-end">
+      <AdminCard>
+        <AdminCardHeader
+          icon={Shield}
+          title="Status Override"
+          description="Force-change record statuses (admin only)"
+        />
+        <AdminCardBody>
+          <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">Table</Label>
+              <Label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Table</Label>
               <Select value={overrideTable} onValueChange={setOverrideTable}>
-                <SelectTrigger className="w-40 h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className={`h-9 w-40 ${flatInput}`}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="appointments">Appointments</SelectItem>
                   <SelectItem value="expert_reports">Expert Reports</SelectItem>
@@ -146,102 +152,90 @@ const WorkflowControlTab: React.FC = () => {
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Record ID</Label>
-              <Input className="w-64 h-9" placeholder="Paste record UUID" value={overrideRecordId} onChange={e => setOverrideRecordId(e.target.value)} />
+              <Label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Record ID</Label>
+              <Input className={`h-9 w-64 ${flatInput}`} placeholder="Paste record UUID" value={overrideRecordId} onChange={e => setOverrideRecordId(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">New Status</Label>
-              <Input className="w-40 h-9" placeholder="e.g. completed" value={overrideStatus} onChange={e => setOverrideStatus(e.target.value)} />
+              <Label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">New Status</Label>
+              <Input className={`h-9 w-40 ${flatInput}`} placeholder="e.g. completed" value={overrideStatus} onChange={e => setOverrideStatus(e.target.value)} />
             </div>
-            <Button size="sm" variant="destructive" onClick={handleStatusOverride}>
-              <Shield className="h-3.5 w-3.5 mr-1" /> Override
+            <Button size="sm" variant="destructive" className="rounded-none" onClick={handleStatusOverride}>
+              <Shield className="mr-1 h-3.5 w-3.5" /> Override
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </AdminCardBody>
+      </AdminCard>
 
       {/* Email Automation Rules */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Mail className="h-4 w-4 text-primary" />
-            Email Automation Rules
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-              <span className="text-sm">Send Confirmations</span>
+      <AdminCard>
+        <AdminCardHeader icon={Mail} title="Email Automation Rules" />
+        <AdminCardBody>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="flex items-center justify-between border border-black/10 p-3">
+              <span className="text-sm text-black">Send Confirmations</span>
               <Switch
                 checked={emailRules?.send_confirmation !== false}
                 onCheckedChange={(v) => updateSetting.mutate({ key: 'workflow_email_rules', value: { ...emailRules, send_confirmation: v } })}
               />
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-              <span className="text-sm">Send Reminders</span>
+            <div className="flex items-center justify-between border border-black/10 p-3">
+              <span className="text-sm text-black">Send Reminders</span>
               <Switch
                 checked={emailRules?.send_reminders !== false}
                 onCheckedChange={(v) => updateSetting.mutate({ key: 'workflow_email_rules', value: { ...emailRules, send_reminders: v } })}
               />
             </div>
-            <div className="flex items-center gap-2 p-3 rounded-lg border border-border">
-              <span className="text-sm">Reminder Days Before</span>
+            <div className="flex items-center gap-2 border border-black/10 p-3">
+              <span className="text-sm text-black">Reminder Days Before</span>
               <Input
                 type="number"
-                className="w-16 h-8"
+                className={`h-8 w-16 ${flatInput}`}
                 value={emailRules?.reminder_days || 2}
                 onChange={(e) => updateSetting.mutate({ key: 'workflow_email_rules', value: { ...emailRules, reminder_days: parseInt(e.target.value) || 2 } })}
               />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </AdminCardBody>
+      </AdminCard>
 
       {/* Deadline Management */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Clock className="h-4 w-4 text-primary" />
-            Deadline Thresholds
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Report Deadlines (days)</h4>
-              <div className="grid grid-cols-3 gap-2">
-                {['default', 'urgent', 'critical'].map(level => (
-                  <div key={level} className="space-y-1">
-                    <Label className="text-xs capitalize">{level}</Label>
-                    <Input
-                      type="number"
-                      className="h-8"
-                      value={reportDeadlines?.[level] || 0}
-                      onChange={e => updateSetting.mutate({ key: 'deadline_report_days', value: { ...reportDeadlines, [level]: parseInt(e.target.value) || 0 } })}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Payment Deadlines (days)</h4>
-              <div className="grid grid-cols-2 gap-2">
-                {['default', 'grace_period'].map(level => (
-                  <div key={level} className="space-y-1">
-                    <Label className="text-xs capitalize">{level.replace('_', ' ')}</Label>
-                    <Input
-                      type="number"
-                      className="h-8"
-                      value={paymentDeadlines?.[level] || 0}
-                      onChange={e => updateSetting.mutate({ key: 'deadline_payment_days', value: { ...paymentDeadlines, [level]: parseInt(e.target.value) || 0 } })}
-                    />
-                  </div>
-                ))}
-              </div>
+      <AdminCard>
+        <AdminCardHeader icon={Clock} title="Deadline Thresholds" />
+        <AdminCardBody className="space-y-5">
+          <div>
+            <AdminSectionLabel>Report Deadlines (days)</AdminSectionLabel>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {['default', 'urgent', 'critical'].map(level => (
+                <div key={level} className="space-y-1">
+                  <Label className="text-[11px] capitalize text-slate-500">{level}</Label>
+                  <Input
+                    type="number"
+                    className={`h-8 ${flatInput}`}
+                    value={reportDeadlines?.[level] || 0}
+                    onChange={e => updateSetting.mutate({ key: 'deadline_report_days', value: { ...reportDeadlines, [level]: parseInt(e.target.value) || 0 } })}
+                  />
+                </div>
+              ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <AdminSectionLabel>Payment Deadlines (days)</AdminSectionLabel>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {['default', 'grace_period'].map(level => (
+                <div key={level} className="space-y-1">
+                  <Label className="text-[11px] capitalize text-slate-500">{level.replace('_', ' ')}</Label>
+                  <Input
+                    type="number"
+                    className={`h-8 ${flatInput}`}
+                    value={paymentDeadlines?.[level] || 0}
+                    onChange={e => updateSetting.mutate({ key: 'deadline_payment_days', value: { ...paymentDeadlines, [level]: parseInt(e.target.value) || 0 } })}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </AdminCardBody>
+      </AdminCard>
     </div>
   );
 };
