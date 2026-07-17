@@ -1,10 +1,7 @@
 import React, { useMemo, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Accordion,
   AccordionContent,
@@ -17,6 +14,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useFunctionPermissions } from '@/hooks/useFunctionPermissions';
 import { toast } from 'sonner';
+import {
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminPill,
+  AdminEmptyState,
+  AdminLoadingState,
+  BRAND_TEAL,
+} from '@/components/admin/ui/AdminUI';
 
 interface UserRow {
   id: string;
@@ -74,36 +80,31 @@ const UserControlTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 mt-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <UserCog className="h-4 w-4 text-primary" />
-            Per-User Function Controls
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Enable or disable specific functions for each user. Changes take effect immediately.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <div className="mt-4 space-y-4">
+      <AdminCard>
+        <AdminCardHeader
+          icon={UserCog}
+          title="Per-User Function Controls"
+          description="Enable or disable specific functions for each user. Changes take effect immediately."
+          actions={<AdminPill tone="neutral">{filtered.length} user{filtered.length === 1 ? '' : 's'}</AdminPill>}
+        />
+        <AdminCardBody>
           <div className="relative mb-4">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
-              placeholder="Search by name, email, or role..."
+              placeholder="Search by name, email, or role…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8"
+              className="rounded-none border-black/15 pl-8"
             />
           </div>
 
           {usersLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            </div>
+            <AdminLoadingState label="Loading users…" />
           ) : filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">No users found.</p>
+            <AdminEmptyState icon={UserCog} title="No users found" />
           ) : (
-            <ScrollArea className="h-[60vh] pr-2">
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-2">
               <Accordion
                 type="single"
                 collapsible
@@ -115,30 +116,33 @@ const UserControlTab: React.FC = () => {
                   <AccordionItem
                     key={u.id}
                     value={u.id}
-                    className="border border-border rounded-lg px-3"
+                    className="border border-black/10 px-3"
                   >
-                    <AccordionTrigger className="hover:no-underline py-3">
-                      <div className="flex items-center gap-3 flex-1 text-left">
-                        <Avatar className="h-9 w-9">
-                          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                    <AccordionTrigger className="py-3 hover:no-underline">
+                      <div className="flex flex-1 items-center gap-3 text-left">
+                        <Avatar className="h-9 w-9 rounded-none">
+                          <AvatarFallback
+                            className="rounded-none text-xs"
+                            style={{ backgroundColor: `${BRAND_TEAL}1A`, color: BRAND_TEAL }}
+                          >
                             {initials(u)}
                           </AvatarFallback>
                         </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{fullName(u)}</p>
-                          <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-black">{fullName(u)}</p>
+                          <p className="truncate text-xs text-slate-500">{u.email}</p>
                         </div>
-                        <div className="hidden sm:flex items-center gap-1.5 mr-3 shrink-0">
+                        <div className="mr-3 hidden shrink-0 items-center gap-1.5 sm:flex">
                           {u.role && (
-                            <Badge variant="default" className="text-[10px] capitalize">
-                              <ShieldCheck className="h-3 w-3 mr-1" />
+                            <AdminPill tone="teal" className="capitalize">
+                              <ShieldCheck className="h-3 w-3" />
                               {u.role.replace(/_/g, ' ')}
-                            </Badge>
+                            </AdminPill>
                           )}
                           {u.user_type && u.user_type !== u.role && (
-                            <Badge variant="secondary" className="text-[10px] capitalize">
+                            <AdminPill tone="neutral" className="capitalize">
                               {u.user_type.replace(/_/g, ' ')}
-                            </Badge>
+                            </AdminPill>
                           )}
                         </div>
                       </div>
@@ -159,10 +163,10 @@ const UserControlTab: React.FC = () => {
                   </AccordionItem>
                 ))}
               </Accordion>
-            </ScrollArea>
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </AdminCardBody>
+      </AdminCard>
     </div>
   );
 };
@@ -412,17 +416,17 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-6">
-        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        <Loader2 className="h-5 w-5 animate-spin" style={{ color: BRAND_TEAL }} />
       </div>
     );
   }
 
   if (categories.length === 0) {
     return (
-      <div className="text-center py-6 space-y-3">
-        <p className="text-sm text-muted-foreground">No function permissions configured for this user.</p>
-        <Button size="sm" onClick={handleInitialize} disabled={mutating}>
-          <RefreshCw className="h-3.5 w-3.5 mr-2" />
+      <div className="space-y-3 py-6 text-center">
+        <p className="text-sm text-slate-500">No function permissions configured for this user.</p>
+        <Button size="sm" className="rounded-none" onClick={handleInitialize} disabled={mutating}>
+          <RefreshCw className="mr-2 h-3.5 w-3.5" />
           Initialize default permissions
         </Button>
       </div>
@@ -446,32 +450,35 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
   return (
     <div className="space-y-3 pb-2">
       {/* Sticky action bar */}
-      <div className="sticky top-0 z-10 -mx-1 px-1 py-2 bg-background/95 backdrop-blur border-b border-border flex flex-wrap items-center gap-2">
-        <Badge variant="outline" className="text-[10px]">
-          {enabledCount}/{totalCount} enabled
-        </Badge>
+      <div className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 border-b border-black/10 bg-white/95 px-1 py-2 backdrop-blur">
+        <AdminPill tone="neutral">{enabledCount}/{totalCount} enabled</AdminPill>
         {pendingCount > 0 && (
-          <Badge variant="default" className="text-[10px]">
-            {pendingCount} unsaved change{pendingCount === 1 ? '' : 's'}
-          </Badge>
+          <AdminPill tone="teal">{pendingCount} unsaved change{pendingCount === 1 ? '' : 's'}</AdminPill>
         )}
         <div className="ml-auto flex items-center gap-1.5">
-          <Button size="sm" variant="outline" onClick={() => setAll(true)} disabled={saving || mutating}>
+          <Button size="sm" variant="outline" className="rounded-none border-black/15 hover:bg-black/5" onClick={() => setAll(true)} disabled={saving || mutating}>
             Enable all
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setAll(false)} disabled={saving || mutating}>
+          <Button size="sm" variant="outline" className="rounded-none border-black/15 hover:bg-black/5" onClick={() => setAll(false)} disabled={saving || mutating}>
             Disable all
           </Button>
           <Button
             size="sm"
             variant="ghost"
+            className="rounded-none hover:bg-black/5"
             onClick={() => setPending({})}
             disabled={pendingCount === 0 || saving}
           >
             Reset
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={pendingCount === 0 || saving || mutating}>
-            {saving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null}
+          <Button
+            size="sm"
+            className="rounded-none text-white hover:opacity-90"
+            style={{ backgroundColor: BRAND_TEAL }}
+            onClick={handleSave}
+            disabled={pendingCount === 0 || saving || mutating}
+          >
+            {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
             Save changes
           </Button>
         </div>
@@ -480,16 +487,16 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
       {categories.map((cat) => {
         const fns = grouped[cat];
         return (
-          <div key={cat} className="rounded-md border border-border p-3 bg-muted/20">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <div key={cat} className="border border-black/10 bg-black/[0.02] p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                 {cat}
               </h4>
               <div className="flex items-center gap-1">
-                <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => setCategory(cat, true)} disabled={saving || mutating}>
+                <Button size="sm" variant="ghost" className="h-6 rounded-none px-2 text-[10px] hover:bg-black/5" onClick={() => setCategory(cat, true)} disabled={saving || mutating}>
                   Enable
                 </Button>
-                <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px]" onClick={() => setCategory(cat, false)} disabled={saving || mutating}>
+                <Button size="sm" variant="ghost" className="h-6 rounded-none px-2 text-[10px] hover:bg-black/5" onClick={() => setCategory(cat, false)} disabled={saving || mutating}>
                   Disable
                 </Button>
               </div>
@@ -501,20 +508,21 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
                 const mainChanged = keyOf(cat, fnName, null) in pending;
                 return (
                   <div key={fnName} className="space-y-2">
-                    <div className={`flex items-center justify-between p-2 rounded-md bg-background border ${mainChanged ? 'border-primary/60 ring-1 ring-primary/30' : 'border-border'}`}>
+                    <div
+                      className="flex items-center justify-between border bg-white p-2"
+                      style={mainChanged ? { borderColor: BRAND_TEAL } : { borderColor: 'rgba(0,0,0,0.1)' }}
+                    >
                       <div>
-                        <p className="text-sm font-medium">
+                        <p className="text-sm font-medium text-black">
                           {fnName}
-                          {mainChanged && <span className="ml-2 text-[10px] text-primary">(pending)</span>}
+                          {mainChanged && <span className="ml-2 text-[10px]" style={{ color: BRAND_TEAL }}>(pending)</span>}
                         </p>
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="text-[11px] text-slate-500">
                           {Object.keys(fn.subFunctions).length} sub-functions
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={mainVal ? 'default' : 'secondary'} className="text-[10px]">
-                          {mainVal ? 'Enabled' : 'Disabled'}
-                        </Badge>
+                        <AdminPill tone={mainVal ? 'teal' : 'neutral'}>{mainVal ? 'Enabled' : 'Disabled'}</AdminPill>
                         <Switch
                           checked={mainVal}
                           disabled={saving || mutating}
@@ -523,18 +531,19 @@ const UserPermissionsPanel: React.FC<PanelProps> = ({
                       </div>
                     </div>
                     {Object.keys(fn.subFunctions).length > 0 && (
-                      <div className="ml-4 grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                      <div className="ml-4 grid grid-cols-1 gap-1.5 md:grid-cols-2">
                         {Object.keys(fn.subFunctions).map((sub) => {
                           const subVal = currentValue(cat, fnName, sub);
                           const subChanged = keyOf(cat, fnName, sub) in pending;
                           return (
                             <div
                               key={sub}
-                              className={`flex items-center justify-between px-2 py-1.5 rounded border bg-background ${subChanged ? 'border-primary/60 ring-1 ring-primary/30' : 'border-border/60'}`}
+                              className="flex items-center justify-between border bg-white px-2 py-1.5"
+                              style={subChanged ? { borderColor: BRAND_TEAL } : { borderColor: 'rgba(0,0,0,0.08)' }}
                             >
-                              <span className="text-xs">
+                              <span className="text-xs text-slate-700">
                                 {sub}
-                                {subChanged && <span className="ml-1.5 text-[10px] text-primary">(pending)</span>}
+                                {subChanged && <span className="ml-1.5 text-[10px]" style={{ color: BRAND_TEAL }}>(pending)</span>}
                               </span>
                               <Switch
                                 checked={subVal}
@@ -576,38 +585,35 @@ const PermissionAuditHistory: React.FC<{ userId: string }> = ({ userId }) => {
   });
 
   return (
-    <div className="rounded-md border border-border p-3 bg-background">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+    <div className="border border-black/10 bg-white p-3">
+      <h4 className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
         <History className="h-3.5 w-3.5" />
         Permission Change History
       </h4>
       {isLoading ? (
         <div className="flex justify-center py-3">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <Loader2 className="h-4 w-4 animate-spin" style={{ color: BRAND_TEAL }} />
         </div>
       ) : logs.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-2">No changes recorded yet.</p>
+        <p className="py-2 text-xs text-slate-500">No changes recorded yet.</p>
       ) : (
-        <ul className="space-y-1.5 max-h-60 overflow-y-auto">
+        <ul className="max-h-60 space-y-1.5 overflow-y-auto">
           {logs.map((l: any) => {
             const oldV = (l.old_values as any)?.granted;
             const newV = (l.new_values as any)?.granted;
             return (
               <li
                 key={l.id}
-                className="text-[11px] flex items-start gap-2 p-2 rounded bg-muted/30 border rounded-none border-black/10 shadow-none"
+                className="flex items-start gap-2 border border-black/10 bg-black/[0.02] p-2 text-[11px]"
               >
-                <Badge
-                  variant={newV ? 'default' : 'secondary'}
-                  className="text-[9px] shrink-0 mt-0.5"
-                >
+                <AdminPill tone={newV ? 'teal' : 'neutral'} className="mt-0.5 shrink-0">
                   {oldV === null || oldV === undefined ? '—' : oldV ? 'ON' : 'OFF'}
                   {' → '}
                   {newV ? 'ON' : 'OFF'}
-                </Badge>
-                <div className="flex-1 min-w-0">
-                  <p className="text-foreground break-words">{l.description}</p>
-                  <p className="text-muted-foreground mt-0.5">
+                </AdminPill>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-black">{l.description}</p>
+                  <p className="mt-0.5 text-slate-500">
                     {new Date(l.created_at).toLocaleString('en-ZA', {
                       timeZone: 'Africa/Johannesburg',
                     })}
