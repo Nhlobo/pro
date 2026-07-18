@@ -1,28 +1,24 @@
+import { Mail } from "lucide-react";
 import { EmailQueueManager } from "@/components/EmailQueueManager";
-import { Button } from "@/components/ui/button";
-import { Mail, ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { AdminPage, AdminHeader } from "@/components/admin/ui/AdminUI";
 
+// This page is hosted inside the Admin Portal (see the /email-queue route
+// in App.tsx), so the portal's top bar already renders the page title and
+// the single "Back to Operations Dashboard" control. No second header or
+// second back button is rendered here — AdminHeader below only adds the
+// eyebrow/description row, matching every other Admin Portal screen
+// (Profile, Sales Performance, System Control, Access & IAM, Analytics).
 const EmailQueue = () => {
-  const navigate = useNavigate();
-
   return (
-    <div className="brand-legal-theme container mx-auto py-8 space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Mail className="h-8 w-8 text-primary flex-shrink-0" />
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Email History</h1>
-            <p className="text-muted-foreground">Monitor email delivery, track responses, and forward unattended emails</p>
-          </div>
-        </div>
-        <Button variant="outline" onClick={() => navigate('/admin')} className="flex items-center gap-2 self-start sm:self-auto">
-          <ArrowLeft className="h-4 w-4" /> Back to Dashboard
-        </Button>
-      </div>
-
+    <AdminPage className="brand-legal-theme max-w-7xl">
+      <AdminHeader
+        eyebrow="Communications"
+        title="Email History"
+        description="Monitor email delivery, track responses, and forward unattended emails."
+        icon={Mail}
+      />
       <EmailQueueManager />
-    </div>
+    </AdminPage>
   );
 };
 
