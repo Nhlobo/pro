@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,12 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import {
   FolderLock, FileText, Shield, Eye, Upload, Lock, Download, Search, RefreshCw,
-  CheckCircle2, XCircle, Clock, Filter, Trash2, MoreHorizontal, EyeOff, ExternalLink, ShieldCheck, AlertTriangle
+  CheckCircle2, XCircle, Clock, Filter, Trash2, EyeOff, ExternalLink, ShieldCheck,
+  Users, Scale, Stethoscope,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +19,28 @@ import { upsertExpertReport } from '@/utils/expertReports';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
+import {
+  AdminPage,
+  AdminHeader,
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminStatCard,
+  AdminPill,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminTabList,
+  AdminTabTrigger,
+} from '@/components/admin/ui/AdminUI';
+
+// ============================================================================
+// Business logic, data shapes, and Supabase access below are UNCHANGED from
+// the previous implementation. Only the presentational layer (the JSX in the
+// returned markup, plus small pure display helpers like getStatusBadge/
+// getAccessBadge) was redesigned to match the shared Admin Portal UI system
+// used across Finance, Expert Payment Planner, Appointment Engine, Email, and
+// System Control.
+// ============================================================================
 
 // Document types by role
 // Storage buckets to try when accessing files (order matters — most common first)
@@ -77,7 +96,6 @@ const getDocumentSource = (doc: DocumentRecord): string => {
   if (doc.file_path?.startsWith('reports/')) return 'System Report';
   return 'System';
 };
-
 
 const ACCESS_LEVELS = [
   { value: 'public', label: 'Public', desc: 'Visible to all' },
@@ -335,7 +353,7 @@ const AdminDocumentVault: React.FC = () => {
       // Auto-set visibility based on doc type
       let visibleToAttorney = uploadVisibleAttorney;
       let visibleToExpert = uploadVisibleExpert;
-      
+
       // Expert Reports: only Admin + Attorney can see (not experts)
       if (uploadDocType === 'Expert Report') {
         visibleToAttorney = true;
@@ -647,293 +665,399 @@ const AdminDocumentVault: React.FC = () => {
     }
   };
 
+  // ---- Pure display helpers (presentation only, using the shared AdminPill) ----
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'approved': return <Badge className="bg-success/10 text-success border-success/20 text-[10px]"><CheckCircle2 className="h-3 w-3 mr-1" />Approved</Badge>;
-      case 'declined': return <Badge className="bg-destructive/10 text-destructive border-destructive/20 text-[10px]"><XCircle className="h-3 w-3 mr-1" />Declined</Badge>;
-      default: return <Badge className="bg-warning/10 text-warning border-warning/20 text-[10px]"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
+      case 'approved':
+        return <AdminPill tone="success"><CheckCircle2 className="h-3 w-3" />Approved</AdminPill>;
+      case 'declined':
+        return <AdminPill tone="destructive"><XCircle className="h-3 w-3" />Declined</AdminPill>;
+      default:
+        return <AdminPill tone="warning"><Clock className="h-3 w-3" />Pending</AdminPill>;
     }
   };
 
   const getAccessBadge = (level: string) => {
     switch (level) {
-      case 'confidential': return <Badge variant="outline" className="text-destructive border-destructive/30 text-[10px]"><Lock className="h-3 w-3 mr-1" />Confidential</Badge>;
-      case 'restricted': return <Badge variant="outline" className="text-warning border-warning/30 text-[10px]"><Shield className="h-3 w-3 mr-1" />Restricted</Badge>;
-      case 'internal': return <Badge variant="outline" className="text-primary border-primary/30 text-[10px]"><Eye className="h-3 w-3 mr-1" />Internal</Badge>;
-      default: return <Badge variant="outline" className="text-muted-foreground text-[10px]">Public</Badge>;
+      case 'confidential':
+        return <AdminPill tone="destructive"><Lock className="h-3 w-3" />Confidential</AdminPill>;
+      case 'restricted':
+        return <AdminPill tone="warning"><Shield className="h-3 w-3" />Restricted</AdminPill>;
+      case 'internal':
+        return <AdminPill tone="teal"><Eye className="h-3 w-3" />Internal</AdminPill>;
+      default:
+        return <AdminPill tone="neutral">Public</AdminPill>;
     }
   };
 
   const allowedUploadTypes = isAdminOrEmployee ? ADMIN_UPLOAD_TYPES : ATTORNEY_UPLOAD_TYPES;
 
+  // Tab definitions — visibility depends on role, same "module switcher" pattern
+  // used on Finance / Appointment Engine / System Control.
+  const tabDefs = [
+    { value: 'all', label: 'All', badge: stats.total, show: true },
+    { value: 'pending', label: 'Pending', badge: stats.pending, show: isAdminOrEmployee },
+    { value: 'approved', label: 'Approved', badge: stats.approved, show: true },
+    { value: 'declined', label: 'Declined', badge: stats.declined, show: isAdminOrEmployee },
+    { value: 'experts', label: 'Experts', badge: stats.experts, show: isAdminOrEmployee },
+  ].filter(t => t.show);
+
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground">Secure Document Vault</h1>
-          <p className="text-sm text-muted-foreground">Role-based document storage with approval control</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" onClick={fetchDocuments} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button size="sm" onClick={() => setUploadDialogOpen(true)}>
-            <Upload className="h-4 w-4 mr-1" />
-            Upload Document
-          </Button>
-        </div>
-      </div>
+    <AdminPage className="max-w-7xl">
+      <AdminHeader
+        eyebrow="Documents"
+        title="Secure Document Vault"
+        description="Role-based document storage with approval control"
+        icon={FolderLock}
+        actions={
+          <>
+            <Button variant="outline" size="sm" className="rounded-none" onClick={fetchDocuments} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button size="sm" className="rounded-none" onClick={() => setUploadDialogOpen(true)}>
+              <Upload className="h-4 w-4 mr-1.5" />
+              Upload Document
+            </Button>
+          </>
+        }
+      />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
-        {[
-          { label: 'Total Documents', value: stats.total, icon: FileText, color: 'text-primary' },
-          { label: 'Pending Review', value: stats.pending, icon: Clock, color: 'text-warning' },
-          { label: 'Approved', value: stats.approved, icon: CheckCircle2, color: 'text-success' },
-          { label: 'Declined', value: stats.declined, icon: XCircle, color: 'text-destructive' },
-          ...(isAdminOrEmployee ? [{ label: 'Expert Documents', value: stats.experts, icon: Shield, color: 'text-primary' }] : []),
-        ].map(s => (
-          <Card key={s.label} className="rounded-none border-black/10 shadow-none">
-            <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
-              <s.icon className={`h-5 w-5 ${s.color}`} />
-              <div>
-                <p className="text-xl font-bold text-foreground">{s.value}</p>
-                <p className="text-[11px] text-muted-foreground">{s.label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+        <AdminStatCard label="Total Documents" value={stats.total} icon={FileText} loading={loading} />
+        <AdminStatCard label="Pending Review" value={stats.pending} icon={Clock} loading={loading} />
+        <AdminStatCard label="Approved" value={stats.approved} icon={CheckCircle2} loading={loading} />
+        <AdminStatCard label="Declined" value={stats.declined} icon={XCircle} loading={loading} />
+        {isAdminOrEmployee && (
+          <AdminStatCard label="Expert Documents" value={stats.experts} icon={Shield} loading={loading} />
+        )}
       </div>
 
       {/* POPIA Compliance Banner */}
       {isAdminOrEmployee && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="py-3 px-4 flex items-start gap-3">
-            <ShieldCheck className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-foreground">POPIA Compliance Active</p>
-              <p className="text-xs text-muted-foreground">
+        <AdminCard className="border-[#00BAAD]/25 bg-[#00BAAD]/5">
+          <AdminCardBody className="flex items-start gap-3 py-3">
+            <ShieldCheck className="h-5 w-5 shrink-0 mt-0.5" style={{ color: '#00BAAD' }} />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-black">POPIA Compliance Active</p>
+              <p className="text-xs text-slate-500">
                 All document access is logged per the Protection of Personal Information Act (POPIA).
                 Review documents before approving to ensure compliance with data protection requirements.
                 Personal information must be handled with care — only approve documents that meet POPIA standards.
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </AdminCardBody>
+        </AdminCard>
       )}
 
       {/* Search & Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by filename, claimant, attorney, expert, type..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-full sm:w-44">
-            <Filter className="h-3.5 w-3.5 mr-1" />
-            <SelectValue placeholder="Document Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            {ADMIN_UPLOAD_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={expertFilter} onValueChange={setExpertFilter}>
-          <SelectTrigger className="w-full sm:w-52">
-            <Filter className="h-3.5 w-3.5 mr-1" />
-            <SelectValue placeholder="Expert" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Experts</SelectItem>
-            {experts.map(e => (
-              <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={expertTypeFilter} onValueChange={setExpertTypeFilter}>
-          <SelectTrigger className="w-full sm:w-52">
-            <Filter className="h-3.5 w-3.5 mr-1" />
-            <SelectValue placeholder="Expert Type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Expert Types</SelectItem>
-            {expertTypes.map(t => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <AdminCard>
+        <AdminCardHeader icon={Filter} title="Search & Filters" description="Narrow down the document list below." />
+        <AdminCardBody>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="sm:col-span-2 lg:col-span-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Search</label>
+              <div className="relative mt-1">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  placeholder="Filename, claimant, attorney, expert…"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="rounded-none pl-8"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Document Type</label>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="mt-1 rounded-none"><SelectValue placeholder="Document Type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {ADMIN_UPLOAD_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Expert</label>
+              <Select value={expertFilter} onValueChange={setExpertFilter}>
+                <SelectTrigger className="mt-1 rounded-none"><SelectValue placeholder="Expert" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Experts</SelectItem>
+                  {experts.map(e => (
+                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Expert Type</label>
+              <Select value={expertTypeFilter} onValueChange={setExpertTypeFilter}>
+                <SelectTrigger className="mt-1 rounded-none"><SelectValue placeholder="Expert Type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Expert Types</SelectItem>
+                  {expertTypes.map(t => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </AdminCardBody>
+      </AdminCard>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="w-max">
-            <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
-            {isAdminOrEmployee && (
-              <TabsTrigger value="pending" className="text-warning">
-                Pending ({stats.pending})
-              </TabsTrigger>
-            )}
-            <TabsTrigger value="approved">Approved ({stats.approved})</TabsTrigger>
-            {isAdminOrEmployee && (
-              <TabsTrigger value="declined">Declined ({stats.declined})</TabsTrigger>
-            )}
-            {isAdminOrEmployee && (
-              <TabsTrigger value="experts">Experts ({stats.experts})</TabsTrigger>
-            )}
-          </TabsList>
-        </div>
+      {/* Tabs + document list */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <AdminTabList sticky columns={tabDefs.length}>
+          {tabDefs.map(t => (
+            <AdminTabTrigger key={t.value} value={t.value} label={t.label} badge={t.badge || undefined} center />
+          ))}
+        </AdminTabList>
 
-        <TabsContent value={activeTab} className="mt-4">
-          <Card className="rounded-none border-black/10 shadow-none">
-            <CardContent className="p-0">
+        <div className="mt-4">
+          <TabsContent value={activeTab} className="mt-0 focus-visible:outline-none">
+            <AdminCard>
+              <AdminCardHeader
+                icon={FileText}
+                title="Documents"
+                description={`${filteredDocs.length} document${filteredDocs.length === 1 ? '' : 's'}`}
+              />
               {loading ? (
-                <div className="text-center py-12 text-muted-foreground">Loading documents...</div>
+                <AdminLoadingState label="Loading documents…" />
               ) : filteredDocs.length === 0 ? (
-                <div className="text-center py-12">
-                  <FolderLock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">No documents found</p>
-                </div>
+                <AdminEmptyState
+                  icon={FolderLock}
+                  title="No documents found"
+                  description="Try adjusting your search or filters, or upload a new document."
+                />
               ) : (
-                <ScrollArea className="max-h-[600px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Document</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Source</TableHead>
-                        <TableHead>Claimant</TableHead>
-                        <TableHead>Attorney</TableHead>
-                        <TableHead>Expert</TableHead>
-                        <TableHead>Status</TableHead>
-                        {isAdminOrEmployee && <TableHead>Access</TableHead>}
-                        {isAdminOrEmployee && <TableHead>Visibility</TableHead>}
-                        <TableHead>Date</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredDocs.map(doc => (
-                        <TableRow key={doc.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                              <div>
-                                <p className="font-medium text-sm truncate max-w-[200px]">{doc.file_name}</p>
-                                {doc.file_size && (
-                                  <p className="text-[10px] text-muted-foreground">{(doc.file_size / 1024).toFixed(0)} KB</p>
-                                )}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className="text-[10px]">{getDocTypeLabel(doc.document_type)}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-[10px]">{getDocumentSource(doc)}</Badge>
-                          </TableCell>
-                          <TableCell className="text-sm">{doc.claimant_name || '—'}</TableCell>
-                          <TableCell className="text-sm">{doc.attorney_name || '—'}</TableCell>
-                          <TableCell>
-                            <div className="text-sm">{doc.expert_name || '—'}</div>
-                            {doc.expert_type && (
-                              <Badge variant="outline" className="text-[9px] text-primary border-primary/20 mt-0.5">
-                                {doc.expert_type}
-                              </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>{getStatusBadge(doc.approval_status)}</TableCell>
-                          {isAdminOrEmployee && <TableCell>{getAccessBadge(doc.access_level)}</TableCell>}
-                          {isAdminOrEmployee && (
+                <>
+                  {/* Desktop / wide-tablet table — avoids the column-overlap that a
+                      cramped table produces on narrower screens. */}
+                  <div className="hidden xl:block max-h-[65vh] overflow-auto">
+                    <Table className="text-xs [&_th]:h-9 [&_th]:px-3 [&_th]:py-1 [&_th]:text-[11px] [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle">
+                      <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
+                        <TableRow>
+                          <TableHead>Document</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Source</TableHead>
+                          <TableHead>Claimant</TableHead>
+                          <TableHead>Attorney</TableHead>
+                          <TableHead>Expert</TableHead>
+                          <TableHead>Status</TableHead>
+                          {isAdminOrEmployee && <TableHead>Access</TableHead>}
+                          {isAdminOrEmployee && <TableHead>Visibility</TableHead>}
+                          <TableHead>Date</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredDocs.map(doc => (
+                          <TableRow key={doc.id} className="hover:bg-black/[0.02]">
                             <TableCell>
-                              <div className="flex gap-1">
-                                {!doc.is_visible_to_attorney && (
-                                  <Badge variant="outline" className="text-[9px] text-destructive border-destructive/20">
-                                    <EyeOff className="h-2.5 w-2.5 mr-0.5" />Atty
-                                  </Badge>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <FileText className="h-4 w-4 shrink-0" style={{ color: '#00BAAD' }} />
+                                <div className="min-w-0">
+                                  <p className="font-medium truncate max-w-[180px] text-black" title={doc.file_name}>{doc.file_name}</p>
+                                  {doc.file_size && (
+                                    <p className="text-[10px] text-slate-400">{(doc.file_size / 1024).toFixed(0)} KB</p>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <AdminPill tone="neutral">{getDocTypeLabel(doc.document_type)}</AdminPill>
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap text-slate-500">{getDocumentSource(doc)}</TableCell>
+                            <TableCell className="max-w-[140px] truncate" title={doc.claimant_name || undefined}>{doc.claimant_name || '—'}</TableCell>
+                            <TableCell className="max-w-[140px] truncate" title={doc.attorney_name || undefined}>{doc.attorney_name || '—'}</TableCell>
+                            <TableCell>
+                              <div className="max-w-[140px] truncate">{doc.expert_name || '—'}</div>
+                              {doc.expert_type && (
+                                <AdminPill tone="teal" className="mt-1">{doc.expert_type}</AdminPill>
+                              )}
+                            </TableCell>
+                            <TableCell>{getStatusBadge(doc.approval_status)}</TableCell>
+                            {isAdminOrEmployee && <TableCell>{getAccessBadge(doc.access_level)}</TableCell>}
+                            {isAdminOrEmployee && (
+                              <TableCell>
+                                <div className="flex flex-wrap gap-1">
+                                  {!doc.is_visible_to_attorney && (
+                                    <AdminPill tone="destructive"><EyeOff className="h-2.5 w-2.5" />Atty</AdminPill>
+                                  )}
+                                  {!doc.is_visible_to_expert && (
+                                    <AdminPill tone="warning"><EyeOff className="h-2.5 w-2.5" />Expert</AdminPill>
+                                  )}
+                                  {doc.is_visible_to_attorney && doc.is_visible_to_expert && (
+                                    <span className="text-[10px] text-slate-400">All</span>
+                                  )}
+                                </div>
+                              </TableCell>
+                            )}
+                            <TableCell className="whitespace-nowrap text-slate-500">
+                              {format(parseISO(doc.created_at), 'dd MMM yyyy')}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center justify-end gap-1">
+                                {isAdminOrEmployee && (
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none hover:bg-black/5" style={{ color: '#00BAAD' }} onClick={() => handlePreview(doc)} title="View document">
+                                    <Eye className="h-3.5 w-3.5" />
+                                  </Button>
                                 )}
-                                {!doc.is_visible_to_expert && (
-                                  <Badge variant="outline" className="text-[9px] text-warning border-warning/20">
-                                    <EyeOff className="h-2.5 w-2.5 mr-0.5" />Expert
-                                  </Badge>
+                                {(!isAttorney || doc.document_type === 'Expert Report') && doc.approval_status === 'approved' && (
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none hover:bg-black/5" onClick={() => handleDownload(doc)} title="Download">
+                                    <Download className="h-3.5 w-3.5" />
+                                  </Button>
                                 )}
-                                {doc.is_visible_to_attorney && doc.is_visible_to_expert && (
-                                  <span className="text-[10px] text-muted-foreground">All</span>
+                                {isAdminOrEmployee && doc.approval_status === 'pending' && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 rounded-none text-success hover:bg-black/5"
+                                      onClick={() => { setSelectedDoc(doc); setReviewAction('approved'); setReviewDialogOpen(true); }}
+                                      title="Approve"
+                                    >
+                                      <CheckCircle2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 rounded-none text-destructive hover:bg-black/5"
+                                      onClick={() => { setSelectedDoc(doc); setReviewAction('declined'); setReviewDialogOpen(true); }}
+                                      title="Decline"
+                                    >
+                                      <XCircle className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                                {isAdmin && (
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none text-destructive hover:bg-black/5" onClick={() => handleDelete(doc)} title="Delete">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
                                 )}
                               </div>
                             </TableCell>
-                          )}
-                          <TableCell className="text-sm text-muted-foreground">
-                            {format(parseISO(doc.created_at), 'dd MMM yyyy')}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center justify-end gap-1">
-                              {/* View: admin/employee can preview before deciding */}
-                              {isAdminOrEmployee && (
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" onClick={() => handlePreview(doc)} title="View document">
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                              {/* Download: attorneys can only download Expert Reports */}
-                              {(!isAttorney || doc.document_type === 'Expert Report') && doc.approval_status === 'approved' && (
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDownload(doc)} title="Download">
-                                  <Download className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                              {/* Review: admin/employee only for pending docs */}
-                              {isAdminOrEmployee && doc.approval_status === 'pending' && (
-                                <>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-success"
-                                    onClick={() => { setSelectedDoc(doc); setReviewAction('approved'); setReviewDialogOpen(true); }}
-                                    title="Approve"
-                                  >
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7 text-destructive"
-                                    onClick={() => { setSelectedDoc(doc); setReviewAction('declined'); setReviewDialogOpen(true); }}
-                                    title="Decline"
-                                  >
-                                    <XCircle className="h-3.5 w-3.5" />
-                                  </Button>
-                                </>
-                              )}
-                              {/* Delete: admin only */}
-                              {isAdmin && (
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(doc)} title="Delete">
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Mobile / tablet card list — same data, no horizontal scroll and no
+                      cramped columns, so nothing overlaps on narrower screens. */}
+                  <div className="divide-y divide-black/10 xl:hidden max-h-[70vh] overflow-y-auto">
+                    {filteredDocs.map(doc => (
+                      <div key={doc.id} className="flex flex-col gap-3 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-start gap-2">
+                            <FileText className="h-4 w-4 shrink-0 mt-0.5" style={{ color: '#00BAAD' }} />
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-black" title={doc.file_name}>{doc.file_name}</p>
+                              <p className="mt-0.5 text-[11px] text-slate-500">
+                                {getDocumentSource(doc)} · {format(parseISO(doc.created_at), 'dd MMM yyyy')}
+                                {doc.file_size ? ` · ${(doc.file_size / 1024).toFixed(0)} KB` : ''}
+                              </p>
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-1">
+                            {getStatusBadge(doc.approval_status)}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5">
+                          <AdminPill tone="neutral">{getDocTypeLabel(doc.document_type)}</AdminPill>
+                          {isAdminOrEmployee && getAccessBadge(doc.access_level)}
+                          {doc.expert_type && <AdminPill tone="teal">{doc.expert_type}</AdminPill>}
+                          {isAdminOrEmployee && !doc.is_visible_to_attorney && (
+                            <AdminPill tone="destructive"><EyeOff className="h-2.5 w-2.5" />Hidden from attorney</AdminPill>
+                          )}
+                          {isAdminOrEmployee && !doc.is_visible_to_expert && (
+                            <AdminPill tone="warning"><EyeOff className="h-2.5 w-2.5" />Hidden from expert</AdminPill>
+                          )}
+                        </div>
+
+                        {(doc.claimant_name || doc.attorney_name || doc.expert_name) && (
+                          <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+                            {doc.claimant_name && (
+                              <div className="min-w-0">
+                                <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                  <Users className="h-3 w-3" />Claimant
+                                </p>
+                                <p className="mt-0.5 truncate text-black" title={doc.claimant_name}>{doc.claimant_name}</p>
+                              </div>
+                            )}
+                            {doc.attorney_name && (
+                              <div className="min-w-0">
+                                <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                  <Scale className="h-3 w-3" />Attorney
+                                </p>
+                                <p className="mt-0.5 truncate text-black" title={doc.attorney_name}>{doc.attorney_name}</p>
+                              </div>
+                            )}
+                            {doc.expert_name && (
+                              <div className="min-w-0">
+                                <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                  <Stethoscope className="h-3 w-3" />Expert
+                                </p>
+                                <p className="mt-0.5 truncate text-black" title={doc.expert_name}>{doc.expert_name}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex flex-wrap items-center justify-end gap-1.5 border-t border-black/5 pt-2">
+                          {isAdminOrEmployee && (
+                            <Button variant="outline" size="sm" className="rounded-none" style={{ color: '#00BAAD', borderColor: 'rgba(0,186,173,0.4)' }} onClick={() => handlePreview(doc)}>
+                              <Eye className="h-3.5 w-3.5 mr-1.5" />View
+                            </Button>
+                          )}
+                          {(!isAttorney || doc.document_type === 'Expert Report') && doc.approval_status === 'approved' && (
+                            <Button variant="outline" size="sm" className="rounded-none" onClick={() => handleDownload(doc)}>
+                              <Download className="h-3.5 w-3.5 mr-1.5" />Download
+                            </Button>
+                          )}
+                          {isAdminOrEmployee && doc.approval_status === 'pending' && (
+                            <>
+                              <Button
+                                size="sm"
+                                className="rounded-none bg-success text-white hover:bg-success/90"
+                                onClick={() => { setSelectedDoc(doc); setReviewAction('approved'); setReviewDialogOpen(true); }}
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="rounded-none"
+                                onClick={() => { setSelectedDoc(doc); setReviewAction('declined'); setReviewDialogOpen(true); }}
+                              >
+                                <XCircle className="h-3.5 w-3.5 mr-1.5" />Decline
+                              </Button>
+                            </>
+                          )}
+                          {isAdmin && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none text-destructive hover:bg-black/5" onClick={() => handleDelete(doc)} title="Delete">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </AdminCard>
+          </TabsContent>
+        </div>
       </Tabs>
 
       {/* Upload Dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg rounded-none max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5 text-primary" />
+              <Upload className="h-5 w-5" style={{ color: '#00BAAD' }} />
               Upload Document
             </DialogTitle>
             <DialogDescription>
@@ -946,7 +1070,7 @@ const AdminDocumentVault: React.FC = () => {
             <div>
               <Label>Document Type *</Label>
               <Select value={uploadDocType} onValueChange={setUploadDocType}>
-                <SelectTrigger><SelectValue placeholder="Select document type" /></SelectTrigger>
+                <SelectTrigger className="rounded-none"><SelectValue placeholder="Select document type" /></SelectTrigger>
                 <SelectContent>
                   {allowedUploadTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
@@ -956,7 +1080,7 @@ const AdminDocumentVault: React.FC = () => {
             <div>
               <Label>Link to Claimant</Label>
               <Select value={uploadClaimantId} onValueChange={setUploadClaimantId}>
-                <SelectTrigger><SelectValue placeholder="Select claimant (optional)" /></SelectTrigger>
+                <SelectTrigger className="rounded-none"><SelectValue placeholder="Select claimant (optional)" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No Claimant</SelectItem>
                   {claimants.map(c => (
@@ -969,7 +1093,7 @@ const AdminDocumentVault: React.FC = () => {
             <div>
               <Label>Link to Attorney</Label>
               <Select value={uploadAttorneyId} onValueChange={setUploadAttorneyId}>
-                <SelectTrigger><SelectValue placeholder="Select attorney (optional)" /></SelectTrigger>
+                <SelectTrigger className="rounded-none"><SelectValue placeholder="Select attorney (optional)" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No Attorney</SelectItem>
                   {attorneys.map(a => (
@@ -985,7 +1109,7 @@ const AdminDocumentVault: React.FC = () => {
                 <div>
                   <Label>Link to Expert *</Label>
                   <Select value={uploadExpertId} onValueChange={setUploadExpertId}>
-                    <SelectTrigger><SelectValue placeholder="Select expert" /></SelectTrigger>
+                    <SelectTrigger className="rounded-none"><SelectValue placeholder="Select expert" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">No Expert</SelectItem>
                       {experts.map(e => (
@@ -995,7 +1119,7 @@ const AdminDocumentVault: React.FC = () => {
                   </Select>
                 </div>
 
-                <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm text-primary">
+                <div className="border p-3 text-sm" style={{ backgroundColor: 'rgba(0,186,173,0.06)', borderColor: 'rgba(0,186,173,0.25)', color: '#00807a' }}>
                   <FileText className="h-4 w-4 inline mr-1" />
                   Expert Reports will automatically sync to Report Management, update case status, and link to the matching scheduled assessment.
                 </div>
@@ -1007,7 +1131,7 @@ const AdminDocumentVault: React.FC = () => {
                 <div>
                   <Label>Access Level</Label>
                   <Select value={uploadAccessLevel} onValueChange={setUploadAccessLevel}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="rounded-none"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {ACCESS_LEVELS.map(l => (
                         <SelectItem key={l.value} value={l.value}>
@@ -1040,7 +1164,7 @@ const AdminDocumentVault: React.FC = () => {
                 </div>
 
                 {uploadDocType === 'Expert AOD Agreement' && (
-                  <div className="bg-warning/10 border border-warning/20 rounded-lg p-3 text-sm text-warning">
+                  <div className="border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
                     <Shield className="h-4 w-4 inline mr-1" />
                     Expert AOD Agreements are automatically hidden from attorneys.
                   </div>
@@ -1054,8 +1178,9 @@ const AdminDocumentVault: React.FC = () => {
                 type="file"
                 accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"
                 onChange={e => setUploadFile(e.target.files?.[0] || null)}
+                className="rounded-none"
               />
-              <p className="text-xs text-muted-foreground mt-1">PDF, DOC, DOCX, XLS, JPG, PNG</p>
+              <p className="text-xs text-slate-500 mt-1">PDF, DOC, DOCX, XLS, JPG, PNG</p>
             </div>
 
             <div>
@@ -1065,12 +1190,13 @@ const AdminDocumentVault: React.FC = () => {
                 onChange={e => setUploadNotes(e.target.value)}
                 placeholder="Additional notes..."
                 rows={2}
+                className="rounded-none"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpload} disabled={uploading || !uploadFile || !uploadDocType}>
+            <Button variant="outline" className="rounded-none" onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
+            <Button className="rounded-none" onClick={handleUpload} disabled={uploading || !uploadFile || !uploadDocType}>
               <Upload className="h-4 w-4 mr-2" />
               {uploading ? 'Uploading...' : 'Upload'}
             </Button>
@@ -1080,7 +1206,7 @@ const AdminDocumentVault: React.FC = () => {
 
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent>
+        <DialogContent className="rounded-none">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {reviewAction === 'approved'
@@ -1093,7 +1219,7 @@ const AdminDocumentVault: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="bg-muted/30 rounded-lg p-3 space-y-1 text-sm">
+            <div className="border border-black/10 bg-black/[0.02] p-3 space-y-1 text-sm">
               <p><strong>Type:</strong> {selectedDoc?.document_type}</p>
               <p><strong>Claimant:</strong> {selectedDoc?.claimant_name || 'N/A'}</p>
               <p><strong>Attorney:</strong> {selectedDoc?.attorney_name || 'N/A'}</p>
@@ -1106,12 +1232,14 @@ const AdminDocumentVault: React.FC = () => {
                 onChange={e => setReviewNotes(e.target.value)}
                 placeholder={reviewAction === 'declined' ? 'Reason for declining...' : 'Notes...'}
                 rows={3}
+                className="rounded-none"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReviewDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" className="rounded-none" onClick={() => setReviewDialogOpen(false)}>Cancel</Button>
             <Button
+              className="rounded-none"
               onClick={handleReview}
               disabled={reviewing}
               variant={reviewAction === 'declined' ? 'destructive' : 'default'}
@@ -1124,12 +1252,13 @@ const AdminDocumentVault: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
       {/* Document Preview Dialog */}
       <Dialog open={previewDialogOpen} onOpenChange={(open) => { setPreviewDialogOpen(open); if (!open) { setPreviewUrl(null); setSelectedDoc(null); } }}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto rounded-none">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5 text-primary" />
+              <Eye className="h-5 w-5" style={{ color: '#00BAAD' }} />
               Document Preview
             </DialogTitle>
             <DialogDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -1137,7 +1266,7 @@ const AdminDocumentVault: React.FC = () => {
               {selectedDoc && (
                 <div className="flex items-center gap-2 flex-wrap">
                   {getStatusBadge(selectedDoc.approval_status)}
-                  <Badge variant="secondary" className="text-[10px]">{selectedDoc.document_type}</Badge>
+                  <AdminPill tone="neutral">{selectedDoc.document_type}</AdminPill>
                 </div>
               )}
             </DialogDescription>
@@ -1145,39 +1274,39 @@ const AdminDocumentVault: React.FC = () => {
 
           {/* Document info */}
           {selectedDoc && (
-            <div className="bg-muted/30 rounded-lg p-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Claimant</p>
-                <p className="font-medium">{selectedDoc.claimant_name || 'N/A'}</p>
+            <div className="border border-black/10 bg-black/[0.02] p-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Claimant</p>
+                <p className="font-medium truncate">{selectedDoc.claimant_name || 'N/A'}</p>
               </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Attorney</p>
-                <p className="font-medium">{selectedDoc.attorney_name || 'N/A'}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Attorney</p>
+                <p className="font-medium truncate">{selectedDoc.attorney_name || 'N/A'}</p>
               </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Expert</p>
-                <p className="font-medium">{selectedDoc.expert_name || 'N/A'}</p>
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Expert</p>
+                <p className="font-medium truncate">{selectedDoc.expert_name || 'N/A'}</p>
                 {selectedDoc.expert_type && (
-                  <p className="text-[10px] text-muted-foreground">{selectedDoc.expert_type}</p>
+                  <p className="text-[10px] text-slate-500 truncate">{selectedDoc.expert_type}</p>
                 )}
               </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Uploaded</p>
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Uploaded</p>
                 <p className="font-medium">{format(parseISO(selectedDoc.created_at), 'dd MMM yyyy HH:mm')}</p>
               </div>
             </div>
           )}
 
           {/* POPIA notice */}
-          <div className="bg-warning/5 border border-warning/20 rounded-lg px-3 py-2 flex items-center gap-2 text-xs text-warning">
+          <div className="border border-warning/20 bg-warning/5 px-3 py-2 flex items-center gap-2 text-xs text-warning">
             <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" />
             <span>This access has been recorded per POPIA requirements. Handle personal information responsibly.</span>
           </div>
 
           {/* Preview area */}
-          <div className="border border-border rounded-lg overflow-hidden bg-background" style={{ height: '55vh' }}>
+          <div className="border border-black/10 overflow-hidden bg-white" style={{ height: '55vh' }}>
             {previewLoading ? (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
+              <div className="flex items-center justify-center h-full text-slate-500">
                 <RefreshCw className="h-6 w-6 animate-spin mr-2" />
                 Loading preview...
               </div>
@@ -1186,20 +1315,20 @@ const AdminDocumentVault: React.FC = () => {
                 <iframe src={previewUrl} className="w-full h-full" title="Document Preview" />
               ) : selectedDoc?.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(selectedDoc?.file_name || '') ? (
                 <div className="flex items-center justify-center h-full p-4">
-                  <img src={previewUrl} alt={selectedDoc?.file_name} className="max-w-full max-h-full object-contain rounded" />
+                  <img src={previewUrl} alt={selectedDoc?.file_name} className="max-w-full max-h-full object-contain" />
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
+                <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500">
                   <FileText className="h-16 w-16 opacity-30" />
                   <p className="text-sm">Preview not available for this file type ({selectedDoc?.file_type || 'unknown'})</p>
-                  <Button variant="outline" size="sm" onClick={() => previewUrl && window.open(previewUrl, '_blank')}>
+                  <Button variant="outline" size="sm" className="rounded-none" onClick={() => previewUrl && window.open(previewUrl, '_blank')}>
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Open in New Tab
                   </Button>
                 </div>
               )
             ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
+              <div className="flex items-center justify-center h-full text-slate-500">
                 Failed to load preview
               </div>
             )}
@@ -1207,7 +1336,7 @@ const AdminDocumentVault: React.FC = () => {
 
           <DialogFooter className="flex flex-wrap gap-2">
             {selectedDoc && (
-              <Button variant="outline" size="sm" onClick={() => selectedDoc && handleDownload(selectedDoc)}>
+              <Button variant="outline" size="sm" className="rounded-none" onClick={() => selectedDoc && handleDownload(selectedDoc)}>
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
@@ -1217,6 +1346,7 @@ const AdminDocumentVault: React.FC = () => {
                 <Button
                   variant="destructive"
                   size="sm"
+                  className="rounded-none"
                   onClick={() => {
                     setPreviewDialogOpen(false);
                     setReviewAction('declined');
@@ -1228,6 +1358,7 @@ const AdminDocumentVault: React.FC = () => {
                 </Button>
                 <Button
                   size="sm"
+                  className="rounded-none"
                   onClick={() => {
                     setPreviewDialogOpen(false);
                     setReviewAction('approved');
@@ -1242,7 +1373,7 @@ const AdminDocumentVault: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminPage>
   );
 };
 
