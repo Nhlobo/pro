@@ -8,22 +8,25 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { VirtualizedMultiSelect } from '@/components/ui/virtualized-multi-select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   AlertTriangle,
   CheckCircle2,
   FileText,
-  TrendingDown,
   RefreshCw,
   Search,
   X,
   CalendarClock,
+  Clock,
   Flame,
   Download,
   Mail,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   History,
   ThumbsUp,
   ThumbsDown,
@@ -31,9 +34,15 @@ import {
   Save,
   Trash2,
   Columns,
-  Shield,
   XCircle,
-  User
+  User,
+  Users,
+  Inbox,
+  Send,
+  Lock,
+  ClipboardList,
+  SlidersHorizontal,
+  ListChecks,
 } from "lucide-react";
 import { format } from 'date-fns';
 import { jsPDF } from 'jspdf';
@@ -44,10 +53,23 @@ import { Label } from '@/components/ui/label';
 import { useConfirm } from '@/hooks/useConfirm';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuth } from '@/hooks/useAuth';
-import { Inbox, Send, Lock } from 'lucide-react';
 import { ApprovalTimeline } from '@/components/ApprovalTimeline';
-
 import { RandSign } from "@/components/icons/RandSign";
+import {
+  AdminPage,
+  AdminHeader,
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminStatCard,
+  AdminPill,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminTabList,
+  AdminTabTrigger,
+  AdminSectionLabel,
+  BRAND_TEAL,
+} from '@/components/admin/ui/AdminUI';
 type ExpertPayStatus = 'Urgent' | 'Planned to pay' | 'Partially paid' | 'Fully paid' | 'Unpaid';
 type ApprovalStatus = 'pending' | 'approved' | 'not_approved' | 'moved_next';
 type RequestStatus = 'none' | 'submitted';
@@ -1810,922 +1832,706 @@ const AdminExpertPaymentPlanner: React.FC = () => {
     }
   };
 
+  // ===== New UI-only state for the redesigned layout (no business/data logic here) =====
+  const [activeTab, setActiveTab] = useState<'schedule' | 'approvals' | 'history'>('schedule');
+  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [detailRowId, setDetailRowId] = useState<string | null>(null);
+  const toggleGroup = (id: string) =>
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  const detailRow = detailRowId ? rows.find(r => r.appointment_id === detailRowId) ?? null : null;
+  const pendingRequestCount = filtered.filter(r => {
+    const pp = getPlan(r.appointment_id);
+    return pp.requestStatus === 'submitted' && (pp.decision ?? 'pending') === 'pending';
+  }).length;
+  const dateLabel = format(new Date(), 'EEEE, dd MMMM yyyy');
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto p-2 lg:p-3 space-y-3 max-w-full">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Experts Payment Schedule</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Plan monthly payments to experts. Grouped per Referring Attorney with per-firm subtotals,
-              mirroring the "Payments to be made" spreadsheet.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-2 max-w-full">
-            <div className="flex items-center gap-1.5" title="Row order used in the exported / emailed PDF">
-              <Label htmlFor="epp-export-sort" className="text-xs text-muted-foreground whitespace-nowrap">Export sort</Label>
-              <Select value={exportSort} onValueChange={(v) => setExportSort(v as ExportSort)}>
-                <SelectTrigger id="epp-export-sort" className="h-8 w-[170px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Default (current view)</SelectItem>
-                  <SelectItem value="decision">By approval decision</SelectItem>
-                </SelectContent>
-              </Select>
+    <AdminPage className="max-w-[1600px]">
+      <AdminHeader
+        eyebrow="Finance"
+        title="Expert Payment Planner"
+        description={dateLabel}
+        icon={RandSign as any}
+        actions={
+          <>
+            <div className="flex shrink-0 items-center gap-2 border border-black/10 bg-black/[0.02] px-3 py-2">
+              {loading ? (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Syncing…
+                </span>
+              ) : loadError ? (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5" /> Sync failed
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                  <CheckCircle2 className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Synced
+                </span>
+              )}
             </div>
-            <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={loading || !filtered.length}>
-              <Download className="h-4 w-4 mr-2" /> Export PDF
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setEmailOpen(true)} disabled={loading || !filtered.length}>
-              <Mail className="h-4 w-4 mr-2" /> Email PDF
-            </Button>
-            <Button
-              variant={compareMode ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setCompareMode(v => !v)}
-              disabled={loading}
-              title="Show side-by-side metrics for each selected attorney"
-              aria-pressed={compareMode}
-            >
-              <Columns className="h-4 w-4 mr-2" /> Compare {compareMode ? 'on' : 'off'}
-            </Button>
-            {(() => {
-              const pendingRequestCount = filtered.filter(r => {
-                const pp = getPlan(r.appointment_id);
-                return pp.requestStatus === 'submitted' && (pp.decision ?? 'pending') === 'pending';
-              }).length;
-              return (
-                <Button variant="outline" size="sm" onClick={() => setApprovalsOpen(true)} disabled={loading} title="Review approval requests">
-                  <Inbox className="h-4 w-4 mr-2" /> Approval Requests
-                  {pendingRequestCount > 0 && (
-                    <span className="ml-1 inline-flex items-center justify-center rounded-full bg-amber-500/20 text-amber-700 text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]">
-                      {pendingRequestCount}
-                    </span>
-                  )}
-                </Button>
-              );
-            })()}
-            <Button variant="outline" size="sm" onClick={() => setHistoryOpen(true)} disabled={loading}>
-              <History className="h-4 w-4 mr-2" /> History {history.length > 0 && <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary/15 text-primary text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]">{history.length}</span>}
-            </Button>
-            <Button variant="default" size="sm" onClick={saveSnapshot} disabled={loading || !filtered.length} title="Save plan, send selected rows for approval and store in History">
-              <Save className="h-4 w-4 mr-2" /> Save & Send for Approval
-            </Button>
-            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+            <Button variant="outline" size="sm" className="rounded-none" onClick={load} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
             </Button>
-          </div>
-        </div>
-
-        {/* Permissions / access-status panel — hidden by request */}
-
-        {/* Sticky compact summary bar — always visible so the table never gets pushed out of view */}
-        <div className="sticky top-0 z-20 -mx-4 lg:-mx-6 px-4 lg:px-6 py-2 bg-background/95 backdrop-blur border-b">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-            <span className="font-semibold text-foreground">Summary</span>
-            <span><span className="text-muted-foreground">To Pay:</span> <span className="font-semibold tabular-nums text-emerald-600">{ZAR(kpis.plannedAmount)}</span></span>
-            <span><span className="text-muted-foreground">Urgent:</span> <span className="font-semibold tabular-nums text-amber-600">{ZAR(kpis.urgentAmount)}</span></span>
-            <span><span className="text-muted-foreground">Selected:</span> <span className="font-semibold tabular-nums">{kpis.plannedSelected}</span> <span className="text-muted-foreground">({kpis.urgentSelected} urgent)</span></span>
-            <span><span className="text-muted-foreground">Expert Debt:</span> <span className="font-semibold tabular-nums">{ZAR(kpis.totalExpertDebt)}</span></span>
-            <span><span className="text-muted-foreground">Outstanding:</span> <span className="font-semibold tabular-nums">{ZAR(kpis.outstanding)}</span></span>
-            <span><span className="text-muted-foreground">Files:</span> <span className="font-semibold tabular-nums">{kpis.filesToBePaid}</span></span>
-            <span><span className="text-muted-foreground">Reports:</span> <span className="font-semibold tabular-nums">{kpis.reportsReceived}</span></span>
-            <span className="h-3 w-px bg-border" />
-            <span title="Approved planned amount"><span className="text-muted-foreground">Approved:</span> <span className="font-semibold tabular-nums text-emerald-700">{ZAR(kpis.approvedAmount)}</span> <span className="text-muted-foreground">({kpis.approvedCount})</span></span>
-            <span><span className="text-muted-foreground">Not appr.:</span> <span className="font-semibold tabular-nums text-rose-700">{kpis.notApprovedCount}</span></span>
-            <span><span className="text-muted-foreground">Next:</span> <span className="font-semibold tabular-nums text-indigo-700">{kpis.movedNextCount}</span></span>
-            <span><span className="text-muted-foreground">Pending:</span> <span className="font-semibold tabular-nums">{kpis.pendingCount}</span></span>
             <Button
-              variant="ghost"
               size="sm"
-              className="h-6 ml-auto text-xs"
-              onClick={() => setSummaryExpanded(v => !v)}
+              className="rounded-none bg-black text-white hover:bg-black/90"
+              onClick={saveSnapshot}
+              disabled={loading || !filtered.length}
+              title="Save plan, send selected rows for approval and store in History"
             >
-              {summaryExpanded ? <><ChevronUp className="h-3.5 w-3.5 mr-1" />Hide cards</> : <><ChevronDown className="h-3.5 w-3.5 mr-1" />Show cards</>}
+              <Save className="h-4 w-4 mr-2" /> Save &amp; Send for Approval
             </Button>
-          </div>
+          </>
+        }
+      />
+
+      {/* Non-blocking sync banner — never covers the page, only appears while the very
+          first load is in flight and there is nothing on screen yet to work with. */}
+      {loading && rows.length === 0 && !loadError && (
+        <div className="flex items-center gap-2 border border-black/10 bg-black/[0.02] px-3 py-2 text-xs text-slate-500">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin" style={{ color: BRAND_TEAL }} />
+          Fetching the latest payment schedule — the page stays interactive while this finishes.
         </div>
+      )}
 
-        {summaryExpanded && (
-          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-            <KpiCard label="Total To Be Paid (Selected)" value={ZAR(kpis.plannedAmount)} icon={<RandSign className="h-4 w-4" />} tone="success" />
-            <KpiCard label="Urgent To Pay" value={ZAR(kpis.urgentAmount)} icon={<Flame className="h-4 w-4" />} tone="warning" />
-            <KpiCard label={`Selected Files (${kpis.urgentSelected} urgent)`} value={String(kpis.plannedSelected)} icon={<CheckCircle2 className="h-4 w-4" />} />
-            <KpiCard label="Scheduled Payment" value={ZAR(kpis.totalExpertDebt)} icon={<RandSign className="h-4 w-4" />} />
-            <KpiCard label="Attorneys Outstanding" value={ZAR(kpis.outstanding)} icon={<AlertTriangle className="h-4 w-4" />} />
-            <KpiCard label="Files to Be Paid" value={String(kpis.filesToBePaid)} icon={<CalendarClock className="h-4 w-4" />} />
-            <KpiCard label="Reports Received" value={String(kpis.reportsReceived)} icon={<FileText className="h-4 w-4" />} />
-          </div>
-        )}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+        <AdminTabList sticky columns={3}>
+          <AdminTabTrigger value="schedule" label="Payment Schedule" icon={ClipboardList} center />
+          <AdminTabTrigger
+            value="approvals"
+            label="Approval Requests"
+            icon={Inbox}
+            badge={pendingRequestCount || undefined}
+            center
+          />
+          <AdminTabTrigger value="history" label="History" icon={History} badge={history.length || undefined} center />
+        </AdminTabList>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              Filters
-              {filterOptionsLoading && (
-                <span className="inline-flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Loading attorneys & experts…
-                </span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {loadError && (
-              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
-                  <div className="flex-1">
-                    <div className="font-medium text-destructive">
-                      Failed at: <span className="font-mono">{loadError.step}</span>
+        <div className="mt-4">
+          {/* ================= PAYMENT SCHEDULE ================= */}
+          <TabsContent value="schedule" className="mt-0 space-y-4 focus-visible:outline-none">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+              <AdminStatCard label="To pay (selected)" value={ZAR(kpis.plannedAmount)} icon={RandSign as any} loading={loading} />
+              <AdminStatCard label="Urgent to pay" value={ZAR(kpis.urgentAmount)} icon={Flame} loading={loading} />
+              <AdminStatCard
+                label={`Selected files (${kpis.urgentSelected} urgent)`}
+                value={String(kpis.plannedSelected)}
+                icon={CheckCircle2}
+                loading={loading}
+              />
+              <AdminStatCard label="Expert debt" value={ZAR(kpis.totalExpertDebt)} icon={RandSign as any} loading={loading} />
+              <AdminStatCard label="Attorneys outstanding" value={ZAR(kpis.outstanding)} icon={AlertTriangle} loading={loading} />
+              <AdminStatCard label="Files to be paid" value={String(kpis.filesToBePaid)} icon={CalendarClock} loading={loading} />
+              <AdminStatCard label="Reports received" value={String(kpis.reportsReceived)} icon={FileText} loading={loading} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <AdminStatCard label="Approved" value={ZAR(kpis.approvedAmount)} hint={`${kpis.approvedCount} file${kpis.approvedCount === 1 ? '' : 's'}`} icon={ThumbsUp} />
+              <AdminStatCard label="Not approved" value={String(kpis.notApprovedCount)} icon={ThumbsDown} />
+              <AdminStatCard label="Move to next" value={String(kpis.movedNextCount)} icon={ArrowRightCircle} />
+              <AdminStatCard label="Pending decision" value={String(kpis.pendingCount)} icon={Clock} />
+            </div>
+
+            {/* -------- Filters -------- */}
+            <AdminCard>
+              <AdminCardHeader
+                icon={SlidersHorizontal}
+                title="Filters"
+                description={
+                  filterOptionsLoading
+                    ? 'Loading attorneys & experts…'
+                    : `${filtered.length} row${filtered.length === 1 ? '' : 's'} across ${grouped.length} attorney${grouped.length === 1 ? '' : 's'}`
+                }
+                actions={
+                  <Button variant="ghost" size="sm" className="rounded-none" onClick={() => setFiltersOpen(v => !v)}>
+                    {filtersOpen ? (
+                      <><ChevronUp className="h-4 w-4 mr-1" />Hide</>
+                    ) : (
+                      <><ChevronDown className="h-4 w-4 mr-1" />Show</>
+                    )}
+                  </Button>
+                }
+              />
+              {filtersOpen && (
+                <AdminCardBody className="space-y-3">
+                  {loadError && (
+                    <div className="border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
+                        <div className="flex-1">
+                          <div className="font-medium text-destructive">
+                            Failed at: <span className="font-mono">{loadError.step}</span>
+                          </div>
+                          <div className="text-muted-foreground break-words">{loadError.message}</div>
+                          <Button size="sm" variant="outline" className="mt-2 rounded-none" onClick={load} disabled={loading}>
+                            {loading ? 'Retrying…' : 'Retry'}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-muted-foreground break-words">{loadError.message}</div>
-                    <Button size="sm" variant="outline" className="mt-2" onClick={load} disabled={loading}>
-                      {loading ? 'Retrying…' : 'Retry'}
-                    </Button>
+                  )}
+
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    <div className="flex gap-2 md:col-span-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search expert, attorney, patient…"
+                          value={searchInput}
+                          onChange={(e) => setSearchInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') setSearch(searchInput); }}
+                          className="pl-9 rounded-none"
+                        />
+                      </div>
+                      <Button size="sm" className="rounded-none" onClick={() => setSearch(searchInput)}>
+                        <Search className="h-4 w-4 mr-1" />Search
+                      </Button>
+                    </div>
+                    <VirtualizedMultiSelect
+                      options={allAttorneys.map(a => ({ id: a.id, label: a.firm_name }))}
+                      value={attorneyFilter} onChange={setAttorneyFilter}
+                      placeholderAll="All attorneys" searchPlaceholder="Search attorneys…"
+                      emptyText="No attorneys found." loading={filterOptionsLoading}
+                    />
+                    <VirtualizedMultiSelect
+                      options={allExperts.map(e => ({ id: e.id, label: e.full_name }))}
+                      value={expertFilter} onChange={setExpertFilter}
+                      placeholderAll="All experts" searchPlaceholder="Search experts…"
+                      emptyText="No experts found." loading={filterOptionsLoading}
+                    />
+                    <Select value={professionFilter} onValueChange={setProfessionFilter}>
+                      <SelectTrigger className="rounded-none"><SelectValue placeholder="Expert type" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All expert types</SelectItem>
+                        {allProfessions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <Select value={attorneyPayFilter} onValueChange={setAttorneyPayFilter}>
+                      <SelectTrigger className="rounded-none"><SelectValue placeholder="Attorney payment" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All attorney payments</SelectItem>
+                        <SelectItem value="Fully paid">Fully paid</SelectItem>
+                        <SelectItem value="Partially paid">Partially paid</SelectItem>
+                        <SelectItem value="Unpaid">Unpaid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={expertPayFilter} onValueChange={setExpertPayFilter}>
+                      <SelectTrigger className="rounded-none"><SelectValue placeholder="Expert payment" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All expert payments</SelectItem>
+                        <SelectItem value="fully paid">Fully paid</SelectItem>
+                        <SelectItem value="partially paid">Partially paid</SelectItem>
+                        <SelectItem value="Unpaid">Unpaid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={reportFilter} onValueChange={setReportFilter}>
+                      <SelectTrigger className="rounded-none"><SelectValue placeholder="Report received" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All reports</SelectItem>
+                        <SelectItem value="yes">Received</SelectItem>
+                        <SelectItem value="no">Not received</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={paidStatusFilter} onValueChange={setPaidStatusFilter}>
+                      <SelectTrigger className="rounded-none"><SelectValue placeholder="Paid / Unpaid" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Paid &amp; Unpaid</SelectItem>
+                        <SelectItem value="paid">Paid only</SelectItem>
+                        <SelectItem value="unpaid">Unpaid only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={decisionFilter} onValueChange={setDecisionFilter}>
+                      <SelectTrigger className="rounded-none"><SelectValue placeholder="Approval status" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All approvals</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                        <SelectItem value="not_approved">Not approved</SelectItem>
+                        <SelectItem value="moved_next">Move to next payment</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-muted-foreground">From (leave blank for all past)</label>
+                      <Input type="date" className="rounded-none" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs text-muted-foreground">To (leave blank for all future)</label>
+                      <Input type="date" className="rounded-none" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                    </div>
                   </div>
-                </div>
-              </div>
+
+                  <div className="flex flex-wrap items-center gap-2 border-t border-black/10 pt-3">
+                    <Button size="sm" className="rounded-none" onClick={load} disabled={loading || filterOptionsLoading}>
+                      {loading ? <RefreshCw className="h-4 w-4 mr-1 animate-spin" /> : <Search className="h-4 w-4 mr-1" />}
+                      {loading ? 'Fetching…' : 'Fetch Data'}
+                    </Button>
+                    <Button variant="outline" size="sm" className="rounded-none" onClick={clearFilters} disabled={loading || filterOptionsLoading}>
+                      <X className="h-4 w-4 mr-1" /> Clear filters &amp; reload
+                    </Button>
+                    <Button
+                      variant={compareMode ? 'default' : 'outline'}
+                      size="sm"
+                      className="rounded-none"
+                      onClick={() => setCompareMode(v => !v)}
+                      disabled={loading}
+                      aria-pressed={compareMode}
+                      title="Show side-by-side metrics for each selected attorney"
+                    >
+                      <Columns className="h-4 w-4 mr-2" /> Compare {compareMode ? 'on' : 'off'}
+                    </Button>
+                    <div className="ml-auto flex flex-wrap items-center gap-2">
+                      <Select value={exportSort} onValueChange={(v) => setExportSort(v as ExportSort)}>
+                        <SelectTrigger className="h-8 w-[190px] rounded-none text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="default">Sort: current view</SelectItem>
+                          <SelectItem value="decision">Sort: approval decision</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" size="sm" className="rounded-none" onClick={handleExportPdf} disabled={loading || !filtered.length}>
+                        <Download className="h-4 w-4 mr-2" /> Export PDF
+                      </Button>
+                      <Button variant="outline" size="sm" className="rounded-none" onClick={() => setEmailOpen(true)} disabled={loading || !filtered.length}>
+                        <Mail className="h-4 w-4 mr-2" /> Email PDF
+                      </Button>
+                    </div>
+                  </div>
+                </AdminCardBody>
+              )}
+            </AdminCard>
+
+            {/* -------- Compare mode -------- */}
+            {compareMode && (
+              <AdminCard>
+                <AdminCardHeader
+                  icon={Columns}
+                  title="Side-by-side comparison"
+                  description={`${grouped.length} attorney${grouped.length === 1 ? '' : 's'} in current view`}
+                />
+                <AdminCardBody>
+                  {grouped.length === 0 ? (
+                    <div className="text-sm text-muted-foreground text-center py-6">
+                      No attorneys to compare. Adjust filters or pick attorneys above.
+                    </div>
+                  ) : grouped.length === 1 ? (
+                    <div className="text-sm text-muted-foreground text-center py-6">
+                      Select at least two attorneys (Attorneys filter) to compare metrics side-by-side.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <div className="grid gap-3" style={{ gridTemplateColumns: `180px repeat(${grouped.length}, minmax(180px, 1fr))` }}>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground self-end pb-2">Metric</div>
+                        {grouped.map(g => (
+                          <div key={`h-${g.attorney_id}`} className="text-sm font-semibold truncate pb-2 border-b border-black/10" title={g.attorney_name}>
+                            {g.attorney_name}
+                          </div>
+                        ))}
+                        {([
+                          { key: 'files', label: 'Files', fmt: (g: typeof grouped[number]) => String(g.rows.length) },
+                          { key: 'expertDebt', label: 'Expert debt', fmt: (g: typeof grouped[number]) => ZAR(g.totalExpertDebts) },
+                          { key: 'attorneyDebt', label: 'Attorney debt', fmt: (g: typeof grouped[number]) => ZAR(g.attorneyDebt) },
+                          { key: 'deposit', label: 'Deposit', fmt: (g: typeof grouped[number]) => ZAR(g.deposit) },
+                          { key: 'outstanding', label: 'Outstanding', fmt: (g: typeof grouped[number]) => ZAR(g.outstanding), tone: 'warning' as const },
+                          { key: 'planned', label: 'To Pay (planned)', fmt: (g: typeof grouped[number]) => ZAR(g.plannedTotal), tone: 'success' as const },
+                          { key: 'urgent', label: 'Urgent', fmt: (g: typeof grouped[number]) => ZAR(g.urgentTotal), tone: 'urgent' as const },
+                          { key: 'partial', label: 'Partial paid', fmt: (g: typeof grouped[number]) => ZAR(g.partialTotal) },
+                          { key: 'reportsReceived', label: 'Reports received', fmt: (g: typeof grouped[number]) => `${g.rows.filter(r => r.report_received === 'yes').length} / ${g.rows.length}` },
+                          { key: 'approved', label: 'Approved', fmt: (g: typeof grouped[number]) => String(g.rows.filter(r => (getPlan(r.appointment_id).decision ?? 'pending') === 'approved').length), tone: 'success' as const },
+                          { key: 'notApproved', label: 'Not approved', fmt: (g: typeof grouped[number]) => String(g.rows.filter(r => getPlan(r.appointment_id).decision === 'not_approved').length), tone: 'danger' as const },
+                          { key: 'movedNext', label: 'Move to next', fmt: (g: typeof grouped[number]) => String(g.rows.filter(r => getPlan(r.appointment_id).decision === 'moved_next').length) },
+                          { key: 'pending', label: 'Pending', fmt: (g: typeof grouped[number]) => String(g.rows.filter(r => !getPlan(r.appointment_id).decision || getPlan(r.appointment_id).decision === 'pending').length) },
+                        ] as const).flatMap((metric, idx) => [
+                          <div key={`l-${metric.key}`} className={`text-xs text-muted-foreground py-1.5 ${idx > 0 ? 'border-t border-black/10' : ''}`}>{metric.label}</div>,
+                          ...grouped.map(g => (
+                            <div
+                              key={`v-${metric.key}-${g.attorney_id}`}
+                              className={`text-sm font-semibold tabular-nums py-1.5 ${idx > 0 ? 'border-t border-black/10' : ''} ${
+                                ('tone' in metric && metric.tone === 'success') ? 'text-emerald-700' :
+                                ('tone' in metric && metric.tone === 'warning') ? 'text-amber-700' :
+                                ('tone' in metric && metric.tone === 'urgent') ? 'text-amber-600' :
+                                ('tone' in metric && metric.tone === 'danger') ? 'text-rose-700' : ''
+                              }`}
+                            >
+                              {metric.fmt(g)}
+                            </div>
+                          )),
+                        ])}
+                      </div>
+                    </div>
+                  )}
+                </AdminCardBody>
+              </AdminCard>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="flex gap-2 md:col-span-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search expert, attorney, patient…"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') setSearch(searchInput); }}
-                    className="pl-9"
-                  />
-                </div>
-                <Button size="sm" onClick={() => setSearch(searchInput)}><Search className="h-4 w-4 mr-1" />Search</Button>
-              </div>
-              <VirtualizedMultiSelect
-                options={allAttorneys.map(a => ({ id: a.id, label: a.firm_name }))}
-                value={attorneyFilter} onChange={setAttorneyFilter}
-                placeholderAll="All attorneys" searchPlaceholder="Search attorneys…"
-                emptyText="No attorneys found." loading={filterOptionsLoading}
-              />
-              <VirtualizedMultiSelect
-                options={allExperts.map(e => ({ id: e.id, label: e.full_name }))}
-                value={expertFilter} onChange={setExpertFilter}
-                placeholderAll="All experts" searchPlaceholder="Search experts…"
-                emptyText="No experts found." loading={filterOptionsLoading}
-              />
-              <Select value={professionFilter} onValueChange={setProfessionFilter}>
-                <SelectTrigger><SelectValue placeholder="Expert type" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All expert types</SelectItem>
-                  {allProfessions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <Select value={attorneyPayFilter} onValueChange={setAttorneyPayFilter}>
-                <SelectTrigger><SelectValue placeholder="Attorney payment" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All attorney payments</SelectItem>
-                  <SelectItem value="Fully paid">Fully paid</SelectItem>
-                  <SelectItem value="Partially paid">Partially paid</SelectItem>
-                  <SelectItem value="Unpaid">Unpaid</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={expertPayFilter} onValueChange={setExpertPayFilter}>
-                <SelectTrigger><SelectValue placeholder="Expert payment" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All expert payments</SelectItem>
-                  <SelectItem value="fully paid">Fully paid</SelectItem>
-                  <SelectItem value="partially paid">Partially paid</SelectItem>
-                  <SelectItem value="Unpaid">Unpaid</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={reportFilter} onValueChange={setReportFilter}>
-                <SelectTrigger><SelectValue placeholder="Report received" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All reports</SelectItem>
-                  <SelectItem value="yes">Received</SelectItem>
-                  <SelectItem value="no">Not received</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={paidStatusFilter} onValueChange={setPaidStatusFilter}>
-                <SelectTrigger><SelectValue placeholder="Paid / Unpaid" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Paid &amp; Unpaid</SelectItem>
-                  <SelectItem value="paid">Paid only</SelectItem>
-                  <SelectItem value="unpaid">Unpaid only</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={decisionFilter} onValueChange={setDecisionFilter}>
-                <SelectTrigger><SelectValue placeholder="Approval status" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All approvals</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="not_approved">Not approved</SelectItem>
-                  <SelectItem value="moved_next">Move to next payment</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-muted-foreground">From (leave blank for all past)</label>
-                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-muted-foreground">To (leave blank for all future)</label>
-                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <Button size="sm" onClick={load} disabled={loading || filterOptionsLoading}>
-                {loading ? <RefreshCw className="h-4 w-4 mr-1 animate-spin" /> : <Search className="h-4 w-4 mr-1" />}
-                {loading ? 'Fetching…' : 'Fetch Data'}
-              </Button>
-              <Button variant="outline" size="sm" onClick={clearFilters} disabled={loading || filterOptionsLoading}>
-                <X className="h-4 w-4 mr-1" /> Clear filters & reload
-              </Button>
-              <div className="ml-auto text-sm text-muted-foreground">
-                {filtered.length} row{filtered.length === 1 ? '' : 's'} across {grouped.length} attorney{grouped.length === 1 ? '' : 's'}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {compareMode && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Columns className="h-4 w-4" /> Side-by-side comparison
-                <span className="text-xs font-normal text-muted-foreground">
-                  {grouped.length} attorney{grouped.length === 1 ? '' : 's'} in current view
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {grouped.length === 0 ? (
-                <div className="text-sm text-muted-foreground text-center py-6">
-                  No attorneys to compare. Adjust filters or pick attorneys above.
-                </div>
-              ) : grouped.length === 1 ? (
-                <div className="text-sm text-muted-foreground text-center py-6">
-                  Select at least two attorneys (Attorneys filter) to compare metrics side-by-side.
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <div
-                    className="grid gap-3"
-                    style={{ gridTemplateColumns: `180px repeat(${grouped.length}, minmax(180px, 1fr))` }}
-                  >
-                    {/* Header row */}
-                    <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground self-end pb-2">
-                      Metric
-                    </div>
-                    {grouped.map(g => (
-                      <div key={`h-${g.attorney_id}`} className="text-sm font-semibold truncate pb-2 border-b" title={g.attorney_name}>
-                        {g.attorney_name}
-                      </div>
-                    ))}
-
-                    {([
-                      { key: 'files', label: 'Files', fmt: (g: typeof grouped[number]) => String(g.rows.length) },
-                      { key: 'expertDebt', label: 'Expert debt', fmt: (g: typeof grouped[number]) => ZAR(g.totalExpertDebts) },
-                      { key: 'attorneyDebt', label: 'Attorney debt', fmt: (g: typeof grouped[number]) => ZAR(g.attorneyDebt) },
-                      { key: 'deposit', label: 'Deposit', fmt: (g: typeof grouped[number]) => ZAR(g.deposit) },
-                      { key: 'outstanding', label: 'Outstanding', fmt: (g: typeof grouped[number]) => ZAR(g.outstanding), tone: 'warning' as const },
-                      { key: 'planned', label: 'To Pay (planned)', fmt: (g: typeof grouped[number]) => ZAR(g.plannedTotal), tone: 'success' as const },
-                      { key: 'urgent', label: 'Urgent', fmt: (g: typeof grouped[number]) => ZAR(g.urgentTotal), tone: 'urgent' as const },
-                      { key: 'partial', label: 'Partial paid', fmt: (g: typeof grouped[number]) => ZAR(g.partialTotal) },
-                      {
-                        key: 'reportsReceived',
-                        label: 'Reports received',
-                        fmt: (g: typeof grouped[number]) => `${g.rows.filter(r => r.report_received === 'yes').length} / ${g.rows.length}`,
-                      },
-                      {
-                        key: 'approved',
-                        label: 'Approved',
-                        fmt: (g: typeof grouped[number]) =>
-                          String(g.rows.filter(r => (getPlan(r.appointment_id).decision ?? 'pending') === 'approved').length),
-                        tone: 'success' as const,
-                      },
-                      {
-                        key: 'notApproved',
-                        label: 'Not approved',
-                        fmt: (g: typeof grouped[number]) =>
-                          String(g.rows.filter(r => getPlan(r.appointment_id).decision === 'not_approved').length),
-                        tone: 'danger' as const,
-                      },
-                      {
-                        key: 'movedNext',
-                        label: 'Move to next',
-                        fmt: (g: typeof grouped[number]) =>
-                          String(g.rows.filter(r => getPlan(r.appointment_id).decision === 'moved_next').length),
-                      },
-                      {
-                        key: 'pending',
-                        label: 'Pending',
-                        fmt: (g: typeof grouped[number]) =>
-                          String(g.rows.filter(r => !getPlan(r.appointment_id).decision || getPlan(r.appointment_id).decision === 'pending').length),
-                      },
-                    ] as const).flatMap((metric, idx) => [
-                      <div
-                        key={`l-${metric.key}`}
-                        className={`text-xs text-muted-foreground py-1.5 ${idx > 0 ? 'border-t' : ''}`}
-                      >
-                        {metric.label}
-                      </div>,
-                      ...grouped.map(g => (
-                        <div
-                          key={`v-${metric.key}-${g.attorney_id}`}
-                          className={`text-sm font-semibold tabular-nums py-1.5 ${idx > 0 ? 'border-t' : ''} ${
-                            ('tone' in metric && metric.tone === 'success') ? 'text-emerald-700' :
-                            ('tone' in metric && metric.tone === 'warning') ? 'text-amber-700' :
-                            ('tone' in metric && metric.tone === 'urgent') ? 'text-amber-600' :
-                            ('tone' in metric && metric.tone === 'danger') ? 'text-rose-700' : ''
-                          }`}
-                        >
-                          {metric.fmt(g)}
-                        </div>
-                      )),
-                    ])}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Scheduled Payment</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table className="text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-middle">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="whitespace-nowrap">Date</TableHead>
-                    <TableHead>Expert</TableHead>
-                    <TableHead className="w-[80px]">Type</TableHead>
-                    <TableHead>Patient</TableHead>
-                    <TableHead>Matter</TableHead>
-                    <TableHead>Attorney</TableHead>
-                    <TableHead>Att. Pay</TableHead>
-                    <TableHead>Expert Pay</TableHead>
-                    <TableHead className="whitespace-nowrap" title="Quick payment status: Unpaid, Scheduled, or Paid">Status</TableHead>
-                    <TableHead>Report</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Fee Due</TableHead>
-                    <TableHead className="text-center" title="File from expert to be taken out — urgent">Urg</TableHead>
-                    <TableHead className="text-center">Plan</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">Partial</TableHead>
-                    <TableHead className="text-right whitespace-nowrap">To Pay</TableHead>
-                    {canApprove && <TableHead className="text-center whitespace-nowrap">Approval</TableHead>}
-                    <TableHead className="w-[160px]">Comment</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow><TableCell colSpan={canApprove ? 17 : 16} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
-                  ) : grouped.length === 0 ? (
-                    <TableRow><TableCell colSpan={canApprove ? 17 : 16} className="text-center py-10 text-muted-foreground">
-                      No appointments match the current filters.
-                    </TableCell></TableRow>
-                  ) : grouped.map(g => {
-                    const allPlanned = g.rows.every(r => getPlan(r.appointment_id).planned || getPlan(r.appointment_id).urgent);
-                    const allUrgent = g.rows.every(r => getPlan(r.appointment_id).urgent);
-                    return (
-                    <React.Fragment key={g.attorney_id}>
-                      <TableRow className="bg-muted/60 hover:bg-muted/60">
-                        <TableCell colSpan={canApprove ? 17 : 16} className="font-semibold uppercase text-sm tracking-wide">
-                          <div className="flex items-center justify-between gap-3 flex-wrap">
-                            <span>{g.attorney_name}</span>
-                            <div className="flex items-center gap-2 normal-case font-normal text-xs">
-                              <Button size="sm" variant="outline" className="h-7"
-                                onClick={() => setPlan(prev => {
-                                  const next = { ...prev };
-                                  g.rows.forEach(r => {
-                                    next[r.appointment_id] = { ...(next[r.appointment_id] ?? EMPTY_PLAN), planned: !allPlanned };
-                                  });
-                                  return next;
-                                })}>
-                                {allPlanned ? 'Unselect all planned' : 'Select all planned'}
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-7"
-                                onClick={() => setPlan(prev => {
-                                  const next = { ...prev };
-                                  g.rows.forEach(r => {
-                                    next[r.appointment_id] = { ...(next[r.appointment_id] ?? EMPTY_PLAN), urgent: !allUrgent };
-                                  });
-                                  return next;
-                                })}>
-                                <Flame className="h-3.5 w-3.5 mr-1" /> {allUrgent ? 'Clear urgent' : 'Mark all urgent'}
-                              </Button>
-                              {canApprove && <>
-                              <div className="h-5 w-px bg-border mx-1" />
-                              <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                                onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}
-                                title="Approve all claimants in this attorney group">
-                                <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Approve all
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-7 border-rose-300 text-rose-700 hover:bg-rose-50"
-                                onClick={() => openDecisionPrompt('not_approved', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}>
-                                <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Not approved
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-7 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
-                                onClick={() => openDecisionPrompt('moved_next', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}>
-                                <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next
-                              </Button>
-                              </>}
-                            </div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                      {g.rows.map(r => {
-                        const p = getPlan(r.appointment_id);
-                        const toPay = (p.planned || p.urgent)
-                          ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0))
-                          : 0;
-                        return (
-                        <TableRow key={r.appointment_id}
-                          className={`hover:bg-muted/40 ${p.urgent ? 'bg-rose-50/60' : p.planned ? 'bg-emerald-50/40' : ''}`}>
-                          <TableCell className="whitespace-nowrap">{format(new Date(r.assessment_date), 'dd MMM yy')}</TableCell>
-                          <TableCell className="font-medium break-words">{r.expert_name}</TableCell>
-                          <TableCell className="break-words whitespace-normal max-w-[80px] leading-tight">{r.expert_type}</TableCell>
-                          <TableCell className="break-words">{r.patient_name}</TableCell>
-                          <TableCell className="break-words">{r.matter_type}</TableCell>
-                          <TableCell className="break-words">{r.attorney_name}</TableCell>
-                          <TableCell><Badge variant="outline" className={PAY_STYLE[r.attorney_payment]}>{r.attorney_payment}</Badge></TableCell>
-                          <TableCell>
-                            {(() => {
-                              const effective: ExpertPayStatus =
-                                p.expertPaymentOverride ??
-                                (p.urgent ? 'Urgent'
-                                  : p.planned ? 'Planned to pay'
-                                  : r.expert_payment === 'fully paid' ? 'Fully paid'
-                                  : r.expert_payment === 'partially paid' ? 'Partially paid'
-                                  : (Number(p.partial) || 0) > 0 ? 'Partially paid'
-                                  : 'Unpaid');
-                              return (
-                                <Select
-                                  value={effective}
-                                  onValueChange={(v) => {
-                                    const val = v as ExpertPayStatus;
-                                    setPlan(prev => {
-                                      const cur = prev[r.appointment_id] ?? EMPTY_PLAN;
-                                      return {
-                                        ...prev,
-                                        [r.appointment_id]: {
-                                          ...cur,
-                                          expertPaymentOverride: val,
-                                          urgent: val === 'Urgent' ? true : (cur.urgent && val !== 'Fully paid'),
-                                          planned: val === 'Planned to pay' || val === 'Urgent' ? true : (val === 'Fully paid' ? false : cur.planned),
-                                        },
-                                      };
-                                    });
-                                  }}
+            {/* -------- Grouped payment schedule -------- */}
+            {loading && rows.length === 0 ? (
+              <AdminCard><AdminLoadingState label="Loading payment schedule…" /></AdminCard>
+            ) : grouped.length === 0 ? (
+              <AdminCard>
+                <AdminEmptyState
+                  icon={Search}
+                  title="No appointments match the current filters"
+                  description="Try widening the date range, or clear filters to reload the full schedule."
+                  action={
+                    <Button variant="outline" size="sm" className="rounded-none mt-2" onClick={clearFilters}>
+                      <X className="h-4 w-4 mr-2" />Clear filters
+                    </Button>
+                  }
+                />
+              </AdminCard>
+            ) : (
+              <div className="space-y-3">
+                {grouped.map(g => {
+                  const allPlanned = g.rows.every(r => getPlan(r.appointment_id).planned || getPlan(r.appointment_id).urgent);
+                  const allUrgent = g.rows.every(r => getPlan(r.appointment_id).urgent);
+                  const collapsed = collapsedGroups.has(g.attorney_id);
+                  return (
+                    <AdminCard key={g.attorney_id}>
+                      <AdminCardHeader
+                        icon={Users}
+                        title={g.attorney_name}
+                        description={
+                          `${g.rows.length} file${g.rows.length === 1 ? '' : 's'} · Expert debt ${ZAR(g.totalExpertDebts)} · ` +
+                          `Outstanding ${ZAR(g.outstanding)} · Planned ${ZAR(g.plannedTotal)}` +
+                          (g.urgentTotal > 0 ? ` (incl. ${ZAR(g.urgentTotal)} urgent)` : '')
+                        }
+                        actions={
+                          <>
+                            <Button
+                              size="sm" variant="outline" className="h-7 rounded-none text-xs"
+                              onClick={() => setPlan(prev => {
+                                const next = { ...prev };
+                                g.rows.forEach(r => { next[r.appointment_id] = { ...(next[r.appointment_id] ?? EMPTY_PLAN), planned: !allPlanned }; });
+                                return next;
+                              })}
+                            >
+                              {allPlanned ? 'Unselect planned' : 'Select all planned'}
+                            </Button>
+                            <Button
+                              size="sm" variant="outline" className="h-7 rounded-none text-xs"
+                              onClick={() => setPlan(prev => {
+                                const next = { ...prev };
+                                g.rows.forEach(r => { next[r.appointment_id] = { ...(next[r.appointment_id] ?? EMPTY_PLAN), urgent: !allUrgent }; });
+                                return next;
+                              })}
+                            >
+                              <Flame className="h-3.5 w-3.5 mr-1" /> {allUrgent ? 'Clear urgent' : 'Mark all urgent'}
+                            </Button>
+                            {canApprove && (
+                              <>
+                                <span className="h-5 w-px bg-black/10 mx-0.5" />
+                                <Button
+                                  size="sm" variant="outline"
+                                  className="h-7 rounded-none text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                                  onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}
+                                  title="Approve all claimants in this attorney group"
                                 >
-                                  <SelectTrigger className={`h-7 w-[120px] text-[11px] font-medium px-2 ${EXPERT_PAY_STYLE[effective]}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {EXPERT_PAY_OPTIONS.map(opt => (
-                                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              );
-                            })()}
-                          </TableCell>
-                          <TableCell>
-                            {(() => {
-                              const partial = Number(p.partial) || 0;
-                              const isPaid = r.expert_payment === 'fully paid' || p.expertPaymentOverride === 'Fully paid';
-                              const isScheduled = !isPaid && (p.planned || p.urgent || p.decision === 'approved' || partial > 0 || r.expert_payment === 'partially paid');
-                              const status = isPaid ? 'Paid' : isScheduled ? 'Scheduled' : 'Unpaid';
-                              const cls = isPaid
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : isScheduled
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                  : 'bg-amber-50 text-amber-700 border-amber-200';
-                              return <Badge variant="outline" className={cls}>{status}</Badge>;
-                            })()}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className={r.report_received === 'yes'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-slate-50 text-slate-700 border-slate-200'}>
-                              {r.report_received}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right whitespace-nowrap font-semibold">{ZAR(r.fee_due_to_expert)}</TableCell>
-                          <TableCell className="text-center">
-                            <Checkbox
-                              checked={p.urgent}
-                              onCheckedChange={(v) => setPlanField(r.appointment_id, 'urgent', !!v)}
-                              aria-label="Urgent — file to be taken out"
-                            />
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Checkbox
-                              checked={p.planned}
-                              onCheckedChange={(v) => setPlanField(r.appointment_id, 'planned', !!v)}
-                              aria-label="Planned payment"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Input
-                              type="number" min={0} step="0.01"
-                              value={p.partial || ''}
-                              onChange={(e) => setPlanField(r.appointment_id, 'partial', Number(e.target.value) || 0)}
-                              className="h-7 w-20 text-right ml-auto text-xs px-1.5"
-                              placeholder="0.00"
-                            />
-                          </TableCell>
-                          <TableCell className="text-right whitespace-nowrap font-bold text-emerald-700">
-                            {ZAR(toPay)}
-                          </TableCell>
-                          {canApprove && (
-                          <TableCell className="text-center">
-                            {(() => {
-                              const decision = (p.decision ?? 'pending') as ApprovalStatus;
-                              const reqStatus = p.requestStatus ?? 'none';
-                              return (
-                                <div className="flex flex-col items-center gap-1">
-                                  <Select value={decision} onValueChange={(v) => {
-                                      const next = v as ApprovalStatus;
-                                      if (next === 'pending') setDecision(r.appointment_id, 'pending');
-                                      else openDecisionPrompt(next, { kind: 'row', ids: [r.appointment_id] });
-                                    }}>
-                                      <SelectTrigger className={`h-7 w-[140px] text-[11px] font-medium px-2 ${DECISION_STYLE[decision]}`}>
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="pending">Pending</SelectItem>
-                                        <SelectItem value="approved">Approved</SelectItem>
-                                        <SelectItem value="not_approved">Not approved</SelectItem>
-                                        <SelectItem value="moved_next">Move to next payment</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  {reqStatus === 'submitted' && decision === 'pending' && (
-                                    <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
-                                      Awaiting admin
-                                    </Badge>
-                                  )}
-                                  {p.decidedAt && (
-                                    <span className="text-[10px] text-muted-foreground tabular-nums" title={p.decidedBy ? `By ${p.decidedBy}` : undefined}>
-                                      {format(new Date(p.decidedAt), 'dd MMM HH:mm')}
-                                    </span>
+                                  <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Approve all
+                                </Button>
+                                <Button
+                                  size="sm" variant="outline"
+                                  className="h-7 rounded-none text-xs border-rose-300 text-rose-700 hover:bg-rose-50"
+                                  onClick={() => openDecisionPrompt('not_approved', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}
+                                >
+                                  <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Not approved
+                                </Button>
+                                <Button
+                                  size="sm" variant="outline"
+                                  className="h-7 rounded-none text-xs border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                                  onClick={() => openDecisionPrompt('moved_next', { kind: 'row', ids: g.rows.map(r => r.appointment_id) })}
+                                >
+                                  <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next
+                                </Button>
+                              </>
+                            )}
+                            <Button
+                              size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-none"
+                              onClick={() => toggleGroup(g.attorney_id)}
+                              title={collapsed ? 'Expand' : 'Collapse'}
+                            >
+                              {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                            </Button>
+                          </>
+                        }
+                      />
+                      {!collapsed && (
+                        <div className="overflow-x-auto">
+                          <Table className="text-xs [&_th]:h-8 [&_th]:px-2 [&_th]:py-1 [&_th]:text-[11px] [&_td]:px-2 [&_td]:py-1.5 [&_td]:align-middle">
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="whitespace-nowrap">Date</TableHead>
+                                <TableHead>Patient / Expert</TableHead>
+                                <TableHead>Matter</TableHead>
+                                <TableHead>Att. Pay</TableHead>
+                                <TableHead>Expert Pay</TableHead>
+                                <TableHead>Report</TableHead>
+                                <TableHead className="text-right whitespace-nowrap">Fee Due</TableHead>
+                                <TableHead className="text-center" title="File from expert to be taken out — urgent">Urg</TableHead>
+                                <TableHead className="text-center">Plan</TableHead>
+                                <TableHead className="text-right whitespace-nowrap">Partial</TableHead>
+                                <TableHead className="text-right whitespace-nowrap">To Pay</TableHead>
+                                <TableHead className="text-center">Decision</TableHead>
+                                <TableHead className="w-[64px] text-center">Details</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {g.rows.map(r => {
+                                const p = getPlan(r.appointment_id);
+                                const toPay = (p.planned || p.urgent) ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0)) : 0;
+                                const decision = (p.decision ?? 'pending') as ApprovalStatus;
+                                const effective: ExpertPayStatus =
+                                  p.expertPaymentOverride ??
+                                  (p.urgent ? 'Urgent'
+                                    : p.planned ? 'Planned to pay'
+                                    : r.expert_payment === 'fully paid' ? 'Fully paid'
+                                    : r.expert_payment === 'partially paid' ? 'Partially paid'
+                                    : (Number(p.partial) || 0) > 0 ? 'Partially paid'
+                                    : 'Unpaid');
+                                return (
+                                  <TableRow
+                                    key={r.appointment_id}
+                                    className={`hover:bg-black/[0.02] ${p.urgent ? 'bg-rose-50/60' : p.planned ? 'bg-emerald-50/40' : ''}`}
+                                  >
+                                    <TableCell className="whitespace-nowrap">{format(new Date(r.assessment_date), 'dd MMM yy')}</TableCell>
+                                    <TableCell className="max-w-[220px]">
+                                      <div className="font-medium break-words">{r.patient_name}</div>
+                                      <div className="text-[11px] text-muted-foreground break-words">{r.expert_name} · {r.expert_type}</div>
+                                    </TableCell>
+                                    <TableCell className="break-words max-w-[120px]">{r.matter_type}</TableCell>
+                                    <TableCell><Badge variant="outline" className={PAY_STYLE[r.attorney_payment]}>{r.attorney_payment}</Badge></TableCell>
+                                    <TableCell>
+                                      <Select
+                                        value={effective}
+                                        onValueChange={(v) => {
+                                          const val = v as ExpertPayStatus;
+                                          setPlan(prev => {
+                                            const cur = prev[r.appointment_id] ?? EMPTY_PLAN;
+                                            return {
+                                              ...prev,
+                                              [r.appointment_id]: {
+                                                ...cur,
+                                                expertPaymentOverride: val,
+                                                urgent: val === 'Urgent' ? true : (cur.urgent && val !== 'Fully paid'),
+                                                planned: val === 'Planned to pay' || val === 'Urgent' ? true : (val === 'Fully paid' ? false : cur.planned),
+                                              },
+                                            };
+                                          });
+                                        }}
+                                      >
+                                        <SelectTrigger className={`h-7 w-[128px] rounded-none text-[11px] font-medium px-2 ${EXPERT_PAY_STYLE[effective]}`}>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {EXPERT_PAY_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                                        </SelectContent>
+                                      </Select>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Badge variant="outline" className={r.report_received === 'yes' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-700 border-slate-200'}>
+                                        {r.report_received}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right whitespace-nowrap font-semibold">{ZAR(r.fee_due_to_expert)}</TableCell>
+                                    <TableCell className="text-center">
+                                      <Checkbox
+                                        checked={p.urgent}
+                                        onCheckedChange={(v) => setPlanField(r.appointment_id, 'urgent', !!v)}
+                                        aria-label="Urgent — file to be taken out"
+                                      />
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                      <Checkbox
+                                        checked={p.planned}
+                                        onCheckedChange={(v) => setPlanField(r.appointment_id, 'planned', !!v)}
+                                        aria-label="Planned payment"
+                                      />
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                      <Input
+                                        type="number" min={0} step="0.01"
+                                        value={p.partial || ''}
+                                        onChange={(e) => setPlanField(r.appointment_id, 'partial', Number(e.target.value) || 0)}
+                                        className="h-7 w-20 rounded-none text-right ml-auto text-xs px-1.5"
+                                        placeholder="0.00"
+                                      />
+                                    </TableCell>
+                                    <TableCell className="text-right whitespace-nowrap font-bold text-emerald-700">{ZAR(toPay)}</TableCell>
+                                    <TableCell className="text-center">
+                                      <Badge variant="outline" className={`${DECISION_STYLE[decision]} text-[10px] whitespace-nowrap`}>
+                                        {DECISION_LABEL[decision]}
+                                      </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                      <Button
+                                        size="sm" variant="ghost" className="h-7 w-7 p-0 rounded-none"
+                                        onClick={() => setDetailRowId(r.appointment_id)}
+                                        title="Open details — comments, approval, timeline"
+                                      >
+                                        <ChevronRight className="h-4 w-4" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </AdminCard>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ================= APPROVAL REQUESTS ================= */}
+          <TabsContent value="approvals" className="mt-0 space-y-4 focus-visible:outline-none">
+            <AdminCard>
+              <AdminCardHeader
+                icon={Inbox}
+                title="Approval Requests"
+                description={canApprove ? 'Review and decide on submitted payment items.' : 'View only — the designated approver can decide.'}
+                actions={
+                  <>
+                    <Button size="sm" variant={approvalsTab === 'pending' ? 'default' : 'outline'} className="rounded-none" onClick={() => setApprovalsTab('pending')}>
+                      Pending
+                    </Button>
+                    <Button size="sm" variant={approvalsTab === 'history' ? 'default' : 'outline'} className="rounded-none" onClick={() => setApprovalsTab('history')}>
+                      Review history
+                    </Button>
+                    <Button size="sm" variant="outline" className="rounded-none" onClick={() => setReviewExportOpen(true)}>
+                      <Download className="h-4 w-4 mr-2" /> Export history (PDF)
+                    </Button>
+                  </>
+                }
+              />
+              <AdminCardBody>
+                {(() => {
+                  const requestRows = filtered
+                    .map(r => ({ r, p: getPlan(r.appointment_id) }))
+                    .filter(({ p }) => {
+                      const dec = (p.decision ?? 'pending') as ApprovalStatus;
+                      if (approvalsTab === 'pending') return p.requestStatus === 'submitted' && dec === 'pending';
+                      return !!p.requestedAt || (dec !== 'pending');
+                    })
+                    .sort((a, b) => {
+                      const ad = a.p.requestedAt || a.p.decidedAt || '';
+                      const bd = b.p.requestedAt || b.p.decidedAt || '';
+                      return bd.localeCompare(ad);
+                    });
+
+                  if (requestRows.length === 0) {
+                    return (
+                      <AdminEmptyState
+                        icon={Inbox}
+                        title={approvalsTab === 'pending' ? 'No approval requests are currently waiting' : 'No reviewed requests yet'}
+                      />
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-3">
+                      {requestRows.map(({ r, p }) => {
+                        const decision = (p.decision ?? 'pending') as ApprovalStatus;
+                        const toPay = (p.planned || p.urgent) ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0)) : 0;
+                        return (
+                          <div key={r.appointment_id} className="border border-black/10 bg-white p-3">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-semibold">{r.patient_name}</span>
+                                  <span className="text-xs text-muted-foreground">·</span>
+                                  <span className="text-xs">{r.expert_name}</span>
+                                  <span className="text-xs text-muted-foreground">·</span>
+                                  <span className="text-xs">{r.attorney_name}</span>
+                                  <Badge variant="outline" className={`${DECISION_STYLE[decision]} text-[10px]`}>{DECISION_LABEL[decision]}</Badge>
+                                  {p.requestStatus === 'submitted' && decision === 'pending' && (
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px]">Awaiting admin</Badge>
                                   )}
                                 </div>
-                              );
-                            })()}
-                          </TableCell>
-                          )}
-                          <TableCell className="align-top w-[220px] max-w-[260px]">
-                            <CommentThread
-                              comments={p.comments ?? []}
-                              legacy={p.comment}
-                              onAdd={(t) => addComment(r.appointment_id, t)}
-                              currentRole={authorRole}
-                            />
-                            {!canApprove && (p.planned || p.urgent) && (() => {
-                              const decision = (p.decision ?? 'pending') as ApprovalStatus;
-                              const reqStatus = p.requestStatus ?? 'none';
-                              return (
-                                <div className="mt-2 flex flex-col gap-1">
-                                  {reqStatus === 'submitted' && decision === 'pending' ? (
-                                    <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px] w-fit">
-                                      Awaiting admin review
-                                    </Badge>
-                                  ) : decision !== 'pending' ? (
-                                    <Badge variant="outline" className={`${DECISION_STYLE[decision]} text-[10px] w-fit`}>
-                                      <Lock className="h-3 w-3 mr-1" />{DECISION_LABEL[decision]}
-                                    </Badge>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-6 px-2 text-[10px] w-fit"
-                                      onClick={() => submitForApproval(r.appointment_id)}
-                                      title="Submit this row to admin for approval"
-                                    >
-                                      <Send className="h-3 w-3 mr-1" /> Submit for Review
-                                    </Button>
-                                  )}
-                                  {reqStatus === 'submitted' && decision === 'pending' && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-6 px-2 text-[10px] w-fit text-muted-foreground"
-                                      onClick={() => submitForApproval(r.appointment_id)}
-                                      title="Send follow-up reminder to admin"
-                                    >
-                                      <Send className="h-3 w-3 mr-1" /> Follow up
-                                    </Button>
-                                  )}
+                                <div className="text-[11px] text-muted-foreground mt-0.5">
+                                  Assessment {format(new Date(r.assessment_date), 'dd MMM yyyy')}
+                                  {' · '}Fee due <span className="font-semibold text-foreground">{ZAR(r.fee_due_to_expert)}</span>
+                                  {' · '}To pay <span className="font-semibold text-emerald-700">{ZAR(toPay)}</span>
                                 </div>
-                              );
-                            })()}
-                          </TableCell>
-                        </TableRow>
-                        );
-                      })}
-                      <TableRow className="bg-background border-b-4 border-background hover:bg-background">
-                        <TableCell colSpan={canApprove ? 17 : 16} className="p-3">
-                          <div className="rounded-lg border bg-gradient-to-r from-slate-50 to-emerald-50/40 p-3">
-                            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                              {g.attorney_name} — Summary
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                <Button size="sm" variant="outline" className="h-7 rounded-none" onClick={() => setDetailRowId(r.appointment_id)}>
+                                  View details
+                                </Button>
+                                {canApprove && (
+                                  <>
+                                    <Button size="sm" variant="outline" className="h-7 rounded-none border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                                      onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: [r.appointment_id] })}>
+                                      <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Approve
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="h-7 rounded-none border-rose-300 text-rose-700 hover:bg-rose-50"
+                                      onClick={() => openDecisionPrompt('not_approved', { kind: 'row', ids: [r.appointment_id] })}>
+                                      <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Decline
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="h-7 rounded-none border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                                      onClick={() => openDecisionPrompt('moved_next', { kind: 'row', ids: [r.appointment_id] })}>
+                                      <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next month
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                              <SummaryStat label="Total expert debts" value={ZAR(g.totalExpertDebts)} />
-                              <SummaryStat label="Attorney total debt" value={ZAR(g.attorneyDebt)} />
-                              <SummaryStat label="Deposit by attorney" value={ZAR(g.deposit)} />
-                              <SummaryStat label="Outstanding balance" value={ZAR(g.outstanding)} tone="warning" />
-                              <SummaryStat
-                                label={g.urgentTotal > 0 ? `Planned (incl. ${ZAR(g.urgentTotal)} urgent)` : 'Planned payment'}
-                                value={ZAR(g.plannedTotal)}
-                                tone="success"
+                            <div className="mt-3">
+                              <ApprovalTimeline
+                                submittedAt={p.requestedAt} submittedBy={p.requestedBy}
+                                decidedAt={p.decidedAt} decidedBy={p.decidedBy}
+                                decision={decision} compact
                               />
                             </div>
                           </div>
-                        </TableCell>
-                      </TableRow>
-                    </React.Fragment>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5" /> Email Expert Payment Planner
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground">
-                The current filtered view ({filtered.length} files across {grouped.length} attorneys)
-                will be exported to PDF and sent as an attachment.
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="epp-to">To (comma-separated) *</Label>
-                <Input id="epp-to" type="email" value={emailTo}
-                  aria-invalid={!!emailToError}
-                  aria-describedby={emailToError ? 'epp-to-err' : undefined}
-                  className={emailToError ? 'border-destructive focus-visible:ring-destructive' : ''}
-                  onChange={(e) => {
-                    setEmailTo(e.target.value);
-                    if (emailToError) setEmailToError(validateEmailList(e.target.value, true).error);
-                  }}
-                  onBlur={(e) => setEmailToError(validateEmailList(e.target.value, true).error)}
-                  placeholder="finance@example.co.za, manager@example.co.za" />
-                {emailToError && (
-                  <p id="epp-to-err" className="text-xs text-destructive">{emailToError}</p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="epp-cc">CC (optional)</Label>
-                <Input id="epp-cc" value={emailCc}
-                  aria-invalid={!!emailCcError}
-                  aria-describedby={emailCcError ? 'epp-cc-err' : undefined}
-                  className={emailCcError ? 'border-destructive focus-visible:ring-destructive' : ''}
-                  onChange={(e) => {
-                    setEmailCc(e.target.value);
-                    if (emailCcError) setEmailCcError(validateEmailList(e.target.value, false).error);
-                  }}
-                  onBlur={(e) => setEmailCcError(validateEmailList(e.target.value, false).error)}
-                  placeholder="cc@example.co.za" />
-                {emailCcError && (
-                  <p id="epp-cc-err" className="text-xs text-destructive">{emailCcError}</p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="epp-subj">Subject</Label>
-                <Input id="epp-subj" value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="epp-msg">Message</Label>
-                <Textarea id="epp-msg" rows={4} value={emailMessage}
-                  onChange={(e) => setEmailMessage(e.target.value)} />
-              </div>
-            </div>
-            <DialogFooter className="gap-2">
-              <Button variant="outline" onClick={() => setEmailOpen(false)} disabled={sending}>Cancel</Button>
-              <Button onClick={handleSendEmail} disabled={sending || !emailTo.trim() || !!emailToError || !!emailCcError}>
-                {sending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Sending…</> : <><Mail className="h-4 w-4 mr-2" />Send Email</>}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Approval Requests — admin reviews submitted rows */}
-        <Dialog open={approvalsOpen} onOpenChange={setApprovalsOpen}>
-          <DialogContent className="sm:max-w-5xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Inbox className="h-5 w-5" /> Approval Requests
-                {!canApprove && (
-                  <Badge variant="outline" className="ml-2 bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
-                    <Lock className="h-3 w-3 mr-1" /> View only — admin can approve
-                  </Badge>
-                )}
-              </DialogTitle>
-            </DialogHeader>
-
-            <div className="flex items-center gap-2 mb-3 flex-wrap">
-              <Button size="sm" variant={approvalsTab === 'pending' ? 'default' : 'outline'} onClick={() => setApprovalsTab('pending')}>
-                Pending requests
-              </Button>
-              <Button size="sm" variant={approvalsTab === 'history' ? 'default' : 'outline'} onClick={() => setApprovalsTab('history')}>
-                Review history
-              </Button>
-              <div className="ml-auto">
-                <Button size="sm" variant="outline" onClick={() => setReviewExportOpen(true)} title="Export review history (timestamps & authors) as PDF for a date range">
-                  <Download className="h-4 w-4 mr-2" /> Export review history (PDF)
-                </Button>
-              </div>
-            </div>
-
-
-            {(() => {
-              const requestRows = filtered
-                .map(r => ({ r, p: getPlan(r.appointment_id) }))
-                .filter(({ p }) => {
-                  const dec = (p.decision ?? 'pending') as ApprovalStatus;
-                  if (approvalsTab === 'pending') {
-                    return p.requestStatus === 'submitted' && dec === 'pending';
-                  }
-                  // history: anything that was ever submitted OR has a non-pending decision
-                  return !!p.requestedAt || (dec !== 'pending');
-                })
-                .sort((a, b) => {
-                  const ad = a.p.requestedAt || a.p.decidedAt || '';
-                  const bd = b.p.requestedAt || b.p.decidedAt || '';
-                  return bd.localeCompare(ad);
-                });
-
-              if (requestRows.length === 0) {
-                return (
-                  <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-                    {approvalsTab === 'pending'
-                      ? 'No approval requests are currently waiting.'
-                      : 'No reviewed requests yet.'}
-                  </div>
-                );
-              }
-
-              return (
-                <div className="space-y-3">
-                  {requestRows.map(({ r, p }) => {
-                    const decision = (p.decision ?? 'pending') as ApprovalStatus;
-                    const toPay = (p.planned || p.urgent)
-                      ? Math.max(0, r.fee_due_to_expert - (Number(p.partial) || 0))
-                      : 0;
-                    return (
-                      <div key={r.appointment_id} className="rounded-lg border p-3 bg-card">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-semibold">{r.patient_name}</span>
-                              <span className="text-xs text-muted-foreground">·</span>
-                              <span className="text-xs">{r.expert_name}</span>
-                              <span className="text-xs text-muted-foreground">·</span>
-                              <span className="text-xs">{r.attorney_name}</span>
-                              <Badge variant="outline" className={`${DECISION_STYLE[decision]} text-[10px]`}>
-                                {DECISION_LABEL[decision]}
-                              </Badge>
-                              {p.requestStatus === 'submitted' && decision === 'pending' && (
-                                <Badge variant="outline" className="bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
-                                  Awaiting admin
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground mt-0.5">
-                              Assessment {format(new Date(r.assessment_date), 'dd MMM yyyy')}
-                              {' · '}Fee due <span className="font-semibold text-foreground">{ZAR(r.fee_due_to_expert)}</span>
-                              {' · '}To pay <span className="font-semibold text-emerald-700">{ZAR(toPay)}</span>
-                            </div>
-                          </div>
-                          {canApprove && (
-                            <div className="flex flex-wrap gap-1">
-                              <Button size="sm" variant="outline" className="h-7 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                                onClick={() => openDecisionPrompt('approved', { kind: 'row', ids: [r.appointment_id] })}>
-                                <ThumbsUp className="h-3.5 w-3.5 mr-1" /> Approve
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-7 border-rose-300 text-rose-700 hover:bg-rose-50"
-                                onClick={() => openDecisionPrompt('not_approved', { kind: 'row', ids: [r.appointment_id] })}>
-                                <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Decline
-                              </Button>
-                              <Button size="sm" variant="outline" className="h-7 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
-                                onClick={() => openDecisionPrompt('moved_next', { kind: 'row', ids: [r.appointment_id] })}>
-                                <ArrowRightCircle className="h-3.5 w-3.5 mr-1" /> Move to next month
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                        <div className="mt-3">
-                          <ApprovalTimeline
-                            submittedAt={p.requestedAt}
-                            submittedBy={p.requestedBy}
-                            decidedAt={p.decidedAt}
-                            decidedBy={p.decidedBy}
-                            decision={decision}
-                            compact
-                          />
-                        </div>
-                        <div className="mt-3">
-                          <CommentThread
-                            comments={p.comments ?? []}
-                            legacy={p.comment}
-                            onAdd={(t) => addComment(r.appointment_id, t)}
-                            currentRole={authorRole}
-                            compact={false}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-          </DialogContent>
-        </Dialog>
-
-        {/* Export review history — pick a date range */}
-        <Dialog open={reviewExportOpen} onOpenChange={setReviewExportOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Download className="h-5 w-5" /> Export review history (PDF)
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                Exports every approval submission, decision, and comment (with timestamps and authors) for events that occurred in the selected range.
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="rev-from" className="text-xs">From</Label>
-                  <Input id="rev-from" type="date" value={reviewExportFrom} onChange={(e) => setReviewExportFrom(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="rev-to" className="text-xs">To</Label>
-                  <Input id="rev-to" type="date" value={reviewExportTo} onChange={(e) => setReviewExportTo(e.target.value)} />
-                </div>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setReviewExportOpen(false)}>Cancel</Button>
-              <Button onClick={exportReviewHistoryPdf}>
-                <Download className="h-4 w-4 mr-2" /> Download PDF
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-
-
-        {/* History Planner — what was planned vs approved */}
-        <Dialog open={historyOpen} onOpenChange={(o) => { setHistoryOpen(o); if (!o) setHistoryDetail(null); }}>
-          <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <History className="h-5 w-5" /> History Planner — Planned vs Approved
-              </DialogTitle>
-            </DialogHeader>
-
-            {!historyDetail ? (
-              <div className="space-y-3">
-                <div className="flex items-end gap-2">
-                  <div className="flex-1 space-y-1">
-                    <Label htmlFor="snap-label">New plan label</Label>
-                    <Input id="snap-label" value={snapshotLabel}
-                      onChange={(e) => setSnapshotLabel(e.target.value)}
-                      placeholder={`Planner ${format(new Date(), 'dd MMM yyyy')}`} />
-                  </div>
-                  <Button onClick={saveSnapshot} disabled={!filtered.length}>
-                    <Save className="h-4 w-4 mr-2" /> Save & Send
-                  </Button>
-                </div>
-
-                {/* Today's payment plans — quick resend for approval */}
-                {todaysPlans.length > 0 && (
-                  <div className="rounded-md border bg-amber-50/40">
-                    <div className="px-3 py-2 border-b bg-amber-100/60 flex items-center justify-between">
-                      <div className="text-sm font-semibold text-amber-900 flex items-center gap-2">
-                        <CalendarClock className="h-4 w-4" /> Today's payment plans
-                        <Badge variant="outline" className="bg-amber-200/60 text-amber-900 border-amber-300">{todaysPlans.length}</Badge>
-                      </div>
-                      <div className="text-xs text-amber-800">Re-send any plan submitted today for admin approval.</div>
+                        );
+                      })}
                     </div>
-                    <div className="divide-y">
+                  );
+                })()}
+              </AdminCardBody>
+            </AdminCard>
+          </TabsContent>
+
+          {/* ================= HISTORY ================= */}
+          <TabsContent value="history" className="mt-0 space-y-4 focus-visible:outline-none">
+            {!historyDetail ? (
+              <>
+                <AdminCard>
+                  <AdminCardHeader icon={Save} title="Save a new plan" description="Snapshot the current filtered view and send it for approval." />
+                  <AdminCardBody>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                      <div className="flex-1 space-y-1">
+                        <Label htmlFor="snap-label">Plan label</Label>
+                        <Input id="snap-label" className="rounded-none" value={snapshotLabel}
+                          onChange={(e) => setSnapshotLabel(e.target.value)}
+                          placeholder={`Planner ${format(new Date(), 'dd MMM yyyy')}`} />
+                      </div>
+                      <Button className="rounded-none" onClick={saveSnapshot} disabled={!filtered.length}>
+                        <Save className="h-4 w-4 mr-2" /> Save &amp; Send
+                      </Button>
+                    </div>
+                  </AdminCardBody>
+                </AdminCard>
+
+                {todaysPlans.length > 0 && (
+                  <AdminCard>
+                    <AdminCardHeader
+                      icon={CalendarClock}
+                      title="Today's payment plans"
+                      description="Re-send any plan submitted today for admin approval."
+                      actions={<AdminPill tone="warning">{todaysPlans.length}</AdminPill>}
+                    />
+                    <div className="divide-y divide-black/10">
                       {todaysPlans.map(h => {
                         const st = h.approvalStatus ?? 'pending';
                         return (
-                          <div key={`today-${h.id}`} className="px-3 py-2 flex items-center gap-2 flex-wrap">
+                          <div key={`today-${h.id}`} className="px-4 py-2.5 flex items-center gap-2 flex-wrap">
                             <div className="flex-1 min-w-[200px]">
                               <div className="text-sm font-medium">{h.label}</div>
                               <div className="text-[11px] text-muted-foreground tabular-nums">
@@ -2733,346 +2539,533 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                 {h.submittedForApprovalAt && ` · sent ${fmtStamp(h.submittedForApprovalAt)}`}
                               </div>
                             </div>
-                            <Badge variant="outline" className={
-                              st === 'approved' ? DECISION_STYLE.approved
-                              : st === 'not_approved' ? DECISION_STYLE.not_approved
-                              : DECISION_STYLE.pending
-                            }>
+                            <Badge variant="outline" className={st === 'approved' ? DECISION_STYLE.approved : st === 'not_approved' ? DECISION_STYLE.not_approved : DECISION_STYLE.pending}>
                               {st === 'approved' ? 'Approved' : st === 'not_approved' ? 'Declined' : 'Pending'}
                             </Badge>
-                            <Button size="sm" variant="outline" onClick={() => sendSnapshotForApproval(h.id)}>
+                            <Button size="sm" variant="outline" className="rounded-none" onClick={() => sendSnapshotForApproval(h.id)}>
                               <Send className="h-3 w-3 mr-1" /> Re-send for approval
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => setHistoryDetail(h)}>View</Button>
+                            <Button size="sm" variant="outline" className="rounded-none" onClick={() => setHistoryDetail(h)}>View</Button>
                           </div>
                         );
                       })}
                     </div>
-                  </div>
+                  </AdminCard>
                 )}
 
-                {history.length === 0 ? (
-                  <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-                    No saved plans yet. Save the current planner state to start tracking history.
+                <AdminCard>
+                  <AdminCardHeader icon={History} title="All saved plans" description={`${history.length} plan${history.length === 1 ? '' : 's'}`} />
+                  {history.length === 0 ? (
+                    <AdminEmptyState icon={History} title="No saved plans yet" description="Save the current planner state to start tracking history." />
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Plan</TableHead>
+                            <TableHead className="text-center">Approval</TableHead>
+                            <TableHead className="text-right">Planned</TableHead>
+                            <TableHead className="text-right">Approved</TableHead>
+                            <TableHead className="text-center">Decisions</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {history.map(h => {
+                            const st = h.approvalStatus ?? 'pending';
+                            const stLabel = st === 'approved' ? 'Approved' : st === 'not_approved' ? 'Declined' : 'Pending';
+                            const stClass = st === 'approved' ? DECISION_STYLE.approved : st === 'not_approved' ? DECISION_STYLE.not_approved : DECISION_STYLE.pending;
+                            return (
+                              <TableRow key={h.id}>
+                                <TableCell>
+                                  <div className="font-medium flex items-center gap-2 flex-wrap">
+                                    {h.label}
+                                    {h.submittedBy && <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 text-[10px]">by {h.submittedBy}</Badge>}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground tabular-nums">
+                                    {format(new Date(h.created_at), 'dd MMM yyyy HH:mm')} · {h.totals.rows} files · {h.totals.attorneys} attorneys
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <Badge variant="outline" className={stClass}>{stLabel}</Badge>
+                                  {h.approvedBy && <div className="text-[10px] text-muted-foreground mt-0.5">{h.approvedBy}</div>}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums font-semibold">{ZAR(h.totals.plannedAmount)}</TableCell>
+                                <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{ZAR(h.totals.approvedAmount)}</TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex justify-center gap-1 flex-wrap">
+                                    <Badge variant="outline" className={DECISION_STYLE.approved}>✓ {h.totals.approvedCount}</Badge>
+                                    <Badge variant="outline" className={DECISION_STYLE.not_approved}>✗ {h.totals.notApprovedCount}</Badge>
+                                    <Badge variant="outline" className={DECISION_STYLE.moved_next}>→ {h.totals.movedNextCount}</Badge>
+                                    <Badge variant="outline" className={DECISION_STYLE.pending}>… {h.totals.pendingCount}</Badge>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right whitespace-nowrap">
+                                  <Button size="sm" variant="outline" className="rounded-none" onClick={() => setHistoryDetail(h)}>View</Button>
+                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteSnapshot(h.id)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </AdminCard>
+              </>
+            ) : (
+              <AdminCard>
+                <AdminCardBody className="space-y-4">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <div className="text-base font-semibold flex items-center gap-2">
+                        {historyDetail.label}
+                        {(() => {
+                          const st = historyDetail.approvalStatus ?? 'pending';
+                          const stLabel = st === 'approved' ? 'Approved' : st === 'not_approved' ? 'Declined' : 'Pending approval';
+                          const stClass = st === 'approved' ? DECISION_STYLE.approved : st === 'not_approved' ? DECISION_STYLE.not_approved : DECISION_STYLE.pending;
+                          return <Badge variant="outline" className={stClass}>{stLabel}</Badge>;
+                        })()}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {format(new Date(historyDetail.created_at), 'dd MMM yyyy HH:mm')} · {historyDetail.totals.rows} files
+                        {historyDetail.submittedBy && ` · submitted by ${historyDetail.submittedBy}`}
+                        {historyDetail.approvedBy && ` · ${historyDetail.approvalStatus === 'approved' ? 'approved' : 'decided'} by ${historyDetail.approvedBy} ${historyDetail.approvedAt ? fmtStamp(historyDetail.approvedAt) : ''}`}
+                      </div>
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      <Button size="sm" variant="outline" className="rounded-none" onClick={() => setHistoryDetail(null)}>← Back</Button>
+                      <Button size="sm" variant="outline" className="rounded-none" onClick={() => sendSnapshotForApproval(historyDetail.id)}>
+                        <Send className="h-3 w-3 mr-1" /> Re-send for approval
+                      </Button>
+                      {canApprove && (historyDetail.approvalStatus ?? 'pending') !== 'approved' && (
+                        <Button size="sm" className="rounded-none bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => approveSnapshot(historyDetail.id)}>
+                          <ThumbsUp className="h-3 w-3 mr-1" /> Approve
+                        </Button>
+                      )}
+                      {canApprove && (historyDetail.approvalStatus ?? 'pending') !== 'not_approved' && (
+                        <Button size="sm" variant="outline" className="rounded-none text-rose-700 border-rose-300" onClick={() => declineSnapshot(historyDetail.id)}>
+                          <ThumbsDown className="h-3 w-3 mr-1" /> Decline
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" className="rounded-none" onClick={() => exportSnapshotPdf(historyDetail)}
+                        disabled={(historyDetail.approvalStatus ?? 'pending') !== 'approved'}
+                        title={(historyDetail.approvalStatus ?? 'pending') !== 'approved' ? 'Approve the plan to unlock' : 'Export approved plan as PDF'}>
+                        <Download className="h-3 w-3 mr-1" /> Export PDF
+                      </Button>
+                      <Button size="sm" className="rounded-none" onClick={() => openEmailSnapshot(historyDetail)}
+                        disabled={(historyDetail.approvalStatus ?? 'pending') !== 'approved'}
+                        title={(historyDetail.approvalStatus ?? 'pending') !== 'approved' ? 'Approve the plan to unlock' : 'Email approved plan'}>
+                        <Mail className="h-3 w-3 mr-1" /> Email
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => restoreSnapshot(historyDetail)}>Restore decisions</Button>
+                    </div>
                   </div>
-                ) : (
-                  <div className="rounded-md border overflow-hidden">
+
+                  <ApprovalTimeline
+                    submittedAt={historyDetail.submittedForApprovalAt}
+                    submittedBy={historyDetail.submittedBy}
+                    decidedAt={historyDetail.approvedAt}
+                    decidedBy={historyDetail.approvedBy}
+                    decision={
+                      (historyDetail.approvalStatus === 'approved' ? 'approved'
+                        : historyDetail.approvalStatus === 'not_approved' ? 'not_approved'
+                        : 'pending') as any
+                    }
+                  />
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <SummaryStat label="Planned amount" value={ZAR(historyDetail.totals.plannedAmount)} />
+                    <SummaryStat label="Approved amount" value={ZAR(historyDetail.totals.approvedAmount)} tone="success" />
+                    <SummaryStat label="Urgent amount" value={ZAR(historyDetail.totals.urgentAmount)} tone="warning" />
+                    <SummaryStat label="Decisions (A/N/Next/Pending)"
+                      value={`${historyDetail.totals.approvedCount} / ${historyDetail.totals.notApprovedCount} / ${historyDetail.totals.movedNextCount} / ${historyDetail.totals.pendingCount}`} />
+                  </div>
+
+                  <div className="border border-black/10 overflow-hidden max-h-[50vh] overflow-y-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Plan</TableHead>
-                          <TableHead className="text-center">Approval</TableHead>
-                          <TableHead className="text-right">Planned</TableHead>
-                          <TableHead className="text-right">Approved</TableHead>
-                          <TableHead className="text-center">Decisions</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Attorney</TableHead>
+                          <TableHead>Claimant</TableHead>
+                          <TableHead>Expert</TableHead>
+                          <TableHead className="text-right">Fee Due</TableHead>
+                          <TableHead className="text-right">To Pay</TableHead>
+                          <TableHead className="text-center">Planned</TableHead>
+                          <TableHead className="text-center">Decision</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {history.map(h => {
-                          const st = h.approvalStatus ?? 'pending';
-                          const stLabel = st === 'approved' ? 'Approved' : st === 'not_approved' ? 'Declined' : 'Pending';
-                          const stClass = st === 'approved' ? DECISION_STYLE.approved : st === 'not_approved' ? DECISION_STYLE.not_approved : DECISION_STYLE.pending;
-                          return (
-                            <TableRow key={h.id}>
-                              <TableCell>
-                                <div className="font-medium flex items-center gap-2 flex-wrap">
-                                  {h.label}
-                                  {h.submittedBy && (
-                                    <Badge variant="outline" className="bg-sky-50 text-sky-700 border-sky-200 text-[10px]">
-                                      by {h.submittedBy}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="text-xs text-muted-foreground tabular-nums">
-                                  {format(new Date(h.created_at), 'dd MMM yyyy HH:mm')} · {h.totals.rows} files · {h.totals.attorneys} attorneys
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Badge variant="outline" className={stClass}>{stLabel}</Badge>
-                                {h.approvedBy && (
-                                  <div className="text-[10px] text-muted-foreground mt-0.5">{h.approvedBy}</div>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right tabular-nums font-semibold">{ZAR(h.totals.plannedAmount)}</TableCell>
-                              <TableCell className="text-right tabular-nums font-semibold text-emerald-700">{ZAR(h.totals.approvedAmount)}</TableCell>
-                              <TableCell className="text-center">
-                                <div className="flex justify-center gap-1 flex-wrap">
-                                  <Badge variant="outline" className={DECISION_STYLE.approved}>✓ {h.totals.approvedCount}</Badge>
-                                  <Badge variant="outline" className={DECISION_STYLE.not_approved}>✗ {h.totals.notApprovedCount}</Badge>
-                                  <Badge variant="outline" className={DECISION_STYLE.moved_next}>→ {h.totals.movedNextCount}</Badge>
-                                  <Badge variant="outline" className={DECISION_STYLE.pending}>… {h.totals.pendingCount}</Badge>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right whitespace-nowrap">
-                                <Button size="sm" variant="outline" onClick={() => setHistoryDetail(h)}>View</Button>
-                                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteSnapshot(h.id)}>
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
+                        {historyDetail.entries.map(e => (
+                          <TableRow key={e.appointment_id}>
+                            <TableCell className="whitespace-nowrap text-xs">{format(new Date(e.assessment_date), 'dd MMM yy')}</TableCell>
+                            <TableCell className="text-xs">{e.attorney_name}</TableCell>
+                            <TableCell className="text-xs">{e.patient_name}</TableCell>
+                            <TableCell className="text-xs">{e.expert_name}</TableCell>
+                            <TableCell className="text-right text-xs tabular-nums">{ZAR(e.fee_due)}</TableCell>
+                            <TableCell className="text-right text-xs tabular-nums font-semibold text-emerald-700">{ZAR(e.to_pay)}</TableCell>
+                            <TableCell className="text-center text-xs">
+                              {e.urgent ? <Badge variant="outline" className="bg-rose-100 text-rose-800 border-rose-300">Urgent</Badge>
+                                : e.planned ? <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">Planned</Badge>
+                                : <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="outline" className={DECISION_STYLE[e.decision]}>{DECISION_LABEL[e.decision]}</Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))}
                       </TableBody>
                     </Table>
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <div>
-                    <div className="text-base font-semibold flex items-center gap-2">
-                      {historyDetail.label}
-                      {(() => {
-                        const st = historyDetail.approvalStatus ?? 'pending';
-                        const stLabel = st === 'approved' ? 'Approved' : st === 'not_approved' ? 'Declined' : 'Pending approval';
-                        const stClass = st === 'approved' ? DECISION_STYLE.approved : st === 'not_approved' ? DECISION_STYLE.not_approved : DECISION_STYLE.pending;
-                        return <Badge variant="outline" className={stClass}>{stLabel}</Badge>;
-                      })()}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {format(new Date(historyDetail.created_at), 'dd MMM yyyy HH:mm')} · {historyDetail.totals.rows} files
-                      {historyDetail.submittedBy && ` · submitted by ${historyDetail.submittedBy}`}
-                      {historyDetail.approvedBy && ` · ${historyDetail.approvalStatus === 'approved' ? 'approved' : 'decided'} by ${historyDetail.approvedBy} ${historyDetail.approvedAt ? fmtStamp(historyDetail.approvedAt) : ''}`}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button size="sm" variant="outline" onClick={() => setHistoryDetail(null)}>← Back</Button>
-                    <Button size="sm" variant="outline" onClick={() => sendSnapshotForApproval(historyDetail.id)}>
-                      <Send className="h-3 w-3 mr-1" /> Re-send for approval
-                    </Button>
-                    {canApprove && (historyDetail.approvalStatus ?? 'pending') !== 'approved' && (
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => approveSnapshot(historyDetail.id)}>
-                        <ThumbsUp className="h-3 w-3 mr-1" /> Approve
-                      </Button>
-                    )}
-                    {canApprove && (historyDetail.approvalStatus ?? 'pending') !== 'not_approved' && (
-                      <Button size="sm" variant="outline" className="text-rose-700 border-rose-300" onClick={() => declineSnapshot(historyDetail.id)}>
-                        <ThumbsDown className="h-3 w-3 mr-1" /> Decline
-                      </Button>
-                    )}
-                    <Button size="sm" variant="outline" onClick={() => exportSnapshotPdf(historyDetail)}
-                      disabled={(historyDetail.approvalStatus ?? 'pending') !== 'approved'}
-                      title={(historyDetail.approvalStatus ?? 'pending') !== 'approved' ? 'Approve the plan to unlock' : 'Export approved plan as PDF'}>
-                      <Download className="h-3 w-3 mr-1" /> Export PDF
-                    </Button>
-                    <Button size="sm" onClick={() => openEmailSnapshot(historyDetail)}
-                      disabled={(historyDetail.approvalStatus ?? 'pending') !== 'approved'}
-                      title={(historyDetail.approvalStatus ?? 'pending') !== 'approved' ? 'Approve the plan to unlock' : 'Email approved plan'}>
-                      <Mail className="h-3 w-3 mr-1" /> Email
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => restoreSnapshot(historyDetail)}>Restore decisions</Button>
-                  </div>
-                </div>
-
-                <ApprovalTimeline
-                  submittedAt={historyDetail.submittedForApprovalAt}
-                  submittedBy={historyDetail.submittedBy}
-                  decidedAt={historyDetail.approvedAt}
-                  decidedBy={historyDetail.approvedBy}
-                  decision={
-                    (historyDetail.approvalStatus === 'approved'
-                      ? 'approved'
-                      : historyDetail.approvalStatus === 'not_approved'
-                      ? 'not_approved'
-                      : 'pending') as any
-                  }
-                />
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <SummaryStat label="Planned amount" value={ZAR(historyDetail.totals.plannedAmount)} />
-                  <SummaryStat label="Approved amount" value={ZAR(historyDetail.totals.approvedAmount)} tone="success" />
-                  <SummaryStat label="Urgent amount" value={ZAR(historyDetail.totals.urgentAmount)} tone="warning" />
-                  <SummaryStat label={`Decisions (A/N/Next/Pending)`}
-                    value={`${historyDetail.totals.approvedCount} / ${historyDetail.totals.notApprovedCount} / ${historyDetail.totals.movedNextCount} / ${historyDetail.totals.pendingCount}`} />
-                </div>
-
-                <div className="rounded-md border overflow-hidden max-h-[50vh] overflow-y-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Attorney</TableHead>
-                        <TableHead>Claimant</TableHead>
-                        <TableHead>Expert</TableHead>
-                        <TableHead className="text-right">Fee Due</TableHead>
-                        <TableHead className="text-right">To Pay</TableHead>
-                        <TableHead className="text-center">Planned</TableHead>
-                        <TableHead className="text-center">Decision</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {historyDetail.entries.map(e => (
-                        <TableRow key={e.appointment_id}>
-                          <TableCell className="whitespace-nowrap text-xs">{format(new Date(e.assessment_date), 'dd MMM yy')}</TableCell>
-                          <TableCell className="text-xs">{e.attorney_name}</TableCell>
-                          <TableCell className="text-xs">{e.patient_name}</TableCell>
-                          <TableCell className="text-xs">{e.expert_name}</TableCell>
-                          <TableCell className="text-right text-xs tabular-nums">{ZAR(e.fee_due)}</TableCell>
-                          <TableCell className="text-right text-xs tabular-nums font-semibold text-emerald-700">{ZAR(e.to_pay)}</TableCell>
-                          <TableCell className="text-center text-xs">
-                            {e.urgent ? <Badge variant="outline" className="bg-rose-100 text-rose-800 border-rose-300">Urgent</Badge>
-                              : e.planned ? <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">Planned</Badge>
-                              : <span className="text-muted-foreground">—</span>}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="outline" className={DECISION_STYLE[e.decision]}>{DECISION_LABEL[e.decision]}</Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
+                </AdminCardBody>
+              </AdminCard>
             )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Email approved snapshot dialog */}
-        <Dialog open={snapEmailOpen} onOpenChange={setSnapEmailOpen}>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5" /> Email Approved Plan
-              </DialogTitle>
-            </DialogHeader>
-            {snapEmailTarget && (
-              <div className="space-y-3">
-                <div className="rounded-md border bg-emerald-50/60 p-2 text-xs text-emerald-900">
-                  <span className="font-semibold">{snapEmailTarget.label}</span> · Approved{snapEmailTarget.approvedBy ? ` by ${snapEmailTarget.approvedBy}` : ''}{snapEmailTarget.approvedAt ? ` on ${fmtStamp(snapEmailTarget.approvedAt)}` : ''}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="snap-to">To<span className="text-destructive">*</span></Label>
-                  <Input id="snap-to" value={snapEmailTo} onChange={(e) => { setSnapEmailTo(e.target.value); setSnapEmailToError(null); }}
-                    placeholder="finance@example.com, ops@example.com" />
-                  {snapEmailToError && <p className="text-xs text-destructive">{snapEmailToError}</p>}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="snap-cc">CC</Label>
-                  <Input id="snap-cc" value={snapEmailCc} onChange={(e) => { setSnapEmailCc(e.target.value); setSnapEmailCcError(null); }} />
-                  {snapEmailCcError && <p className="text-xs text-destructive">{snapEmailCcError}</p>}
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="snap-subj">Subject</Label>
-                  <Input id="snap-subj" value={snapEmailSubject} onChange={(e) => setSnapEmailSubject(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="snap-msg">Message</Label>
-                  <Textarea id="snap-msg" rows={4} value={snapEmailMessage} onChange={(e) => setSnapEmailMessage(e.target.value)} />
-                </div>
-              </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setSnapEmailOpen(false)} disabled={sending}>Cancel</Button>
-              <Button onClick={sendSnapshotEmail} disabled={sending}>
-                {sending ? 'Sending…' : (<><Mail className="h-4 w-4 mr-2" /> Send</>)}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Required-comment prompt for admin decisions */}
-        <Dialog
-          open={!!decisionPrompt?.open}
-          onOpenChange={(o) => { if (!o) setDecisionPrompt(null); }}
-        >
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                {decisionPrompt?.decision === 'approved' && <ThumbsUp className="h-5 w-5 text-emerald-600" />}
-                {decisionPrompt?.decision === 'not_approved' && <ThumbsDown className="h-5 w-5 text-rose-600" />}
-                {decisionPrompt?.decision === 'moved_next' && <ArrowRightCircle className="h-5 w-5 text-indigo-600" />}
-                {decisionPrompt ? DECISION_LABEL[decisionPrompt.decision] : ''} — explanation required
-              </DialogTitle>
-            </DialogHeader>
-            {decisionPrompt && (
-              <div className="space-y-3">
-                <div className="rounded-md border bg-muted/40 p-2 text-xs">
-                  <div>
-                    <span className="text-muted-foreground">Target: </span>
-                    <span className="font-medium">
-                      {decisionPrompt.target.kind === 'row'
-                        ? `${decisionPrompt.target.ids.length} payment row${decisionPrompt.target.ids.length === 1 ? '' : 's'}`
-                        : 'Payment plan snapshot'}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">By: </span>
-                    <span className="font-medium">{currentUserName}</span>
-                    <span className="text-muted-foreground"> · </span>
-                    <span className="font-medium tabular-nums">{fmtStamp(new Date().toISOString())}</span>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="decision-comment">
-                    Reason / explanation <span className="text-destructive">*</span>
-                  </Label>
-                  <Textarea
-                    id="decision-comment"
-                    rows={4}
-                    autoFocus
-                    placeholder={
-                      decisionPrompt.decision === 'approved'
-                        ? 'e.g. Funds available, invoices verified, attorney AOD in place.'
-                        : decisionPrompt.decision === 'not_approved'
-                        ? 'e.g. Expert report outstanding, attorney debt unresolved.'
-                        : 'e.g. Cashflow tight this month, defer to next payment cycle.'
-                    }
-                    value={decisionPrompt.comment}
-                    onChange={(e) => setDecisionPrompt({ ...decisionPrompt, comment: e.target.value, error: null })}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                        e.preventDefault();
-                        confirmDecisionPrompt();
-                      }
-                    }}
-                  />
-                  {decisionPrompt.error && <p className="text-xs text-destructive">{decisionPrompt.error}</p>}
-                  <p className="text-[11px] text-muted-foreground">
-                    This comment will be timestamped and attached to the audit trail. Ctrl/Cmd + Enter to submit.
-                  </p>
-                </div>
-              </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setDecisionPrompt(null)}>Cancel</Button>
-              <Button
-                onClick={confirmDecisionPrompt}
-                className={
-                  decisionPrompt?.decision === 'approved'
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                    : decisionPrompt?.decision === 'not_approved'
-                    ? 'bg-rose-600 hover:bg-rose-700 text-white'
-                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                }
-              >
-                Confirm {decisionPrompt ? DECISION_LABEL[decisionPrompt.decision].toLowerCase() : ''}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </div>
-  );
-};
-
-const KpiCard: React.FC<{
-  label: string; value: string; icon: React.ReactNode; tone?: 'default' | 'success' | 'warning';
-}> = ({ label, value, icon, tone = 'default' }) => {
-  const toneClass =
-    tone === 'success' ? 'text-emerald-600'
-    : tone === 'warning' ? 'text-amber-600'
-    : 'text-muted-foreground';
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className={`flex items-center gap-2 text-xs font-medium ${toneClass}`}>
-          {icon}<span className="uppercase tracking-wide">{label}</span>
+          </TabsContent>
         </div>
-        <div className="mt-2 text-xl font-bold tracking-tight truncate" title={value}>{value}</div>
-      </CardContent>
-    </Card>
+      </Tabs>
+
+      {/* ================= ROW DETAIL SHEET ================= */}
+      <Sheet open={!!detailRowId} onOpenChange={(o) => { if (!o) setDetailRowId(null); }}>
+        <SheetContent side="right" className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-xl">
+          {detailRow && (() => {
+            const p = getPlan(detailRow.appointment_id);
+            const toPay = (p.planned || p.urgent) ? Math.max(0, detailRow.fee_due_to_expert - (Number(p.partial) || 0)) : 0;
+            const decision = (p.decision ?? 'pending') as ApprovalStatus;
+            const effective: ExpertPayStatus =
+              p.expertPaymentOverride ??
+              (p.urgent ? 'Urgent'
+                : p.planned ? 'Planned to pay'
+                : detailRow.expert_payment === 'fully paid' ? 'Fully paid'
+                : detailRow.expert_payment === 'partially paid' ? 'Partially paid'
+                : (Number(p.partial) || 0) > 0 ? 'Partially paid'
+                : 'Unpaid');
+            return (
+              <>
+                <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+                  <SheetTitle className="flex items-center gap-2 text-black">
+                    <User className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+                    {detailRow.patient_name}
+                  </SheetTitle>
+                  <SheetDescription>
+                    {detailRow.expert_name} ({detailRow.expert_type}) · {detailRow.attorney_name} · {format(new Date(detailRow.assessment_date), 'dd MMM yyyy')}
+                  </SheetDescription>
+                </SheetHeader>
+
+                <div className="flex-1 space-y-5 px-4 py-4 sm:px-6">
+                  <div className="grid grid-cols-2 gap-2">
+                    <SummaryStat label="Fee due to expert" value={ZAR(detailRow.fee_due_to_expert)} />
+                    <SummaryStat label="To pay now" value={ZAR(toPay)} tone="success" />
+                    <SummaryStat label="Attorney payment" value={detailRow.attorney_payment} />
+                    <SummaryStat label="Report received" value={detailRow.report_received === 'yes' ? 'Yes' : 'No'} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <AdminSectionLabel>Plan this payment</AdminSectionLabel>
+                    <div className="flex flex-wrap items-center gap-4">
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={p.urgent} onCheckedChange={(v) => setPlanField(detailRow.appointment_id, 'urgent', !!v)} /> Urgent
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox checked={p.planned} onCheckedChange={(v) => setPlanField(detailRow.appointment_id, 'planned', !!v)} /> Planned
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-slate-500">Partial paid</Label>
+                        <Input
+                          type="number" min={0} step="0.01"
+                          value={p.partial || ''}
+                          onChange={(e) => setPlanField(detailRow.appointment_id, 'partial', Number(e.target.value) || 0)}
+                          className="h-8 w-28 rounded-none text-right"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <AdminSectionLabel>Expert payment status</AdminSectionLabel>
+                    <Select
+                      value={effective}
+                      onValueChange={(v) => {
+                        const val = v as ExpertPayStatus;
+                        setPlan(prev => {
+                          const cur = prev[detailRow.appointment_id] ?? EMPTY_PLAN;
+                          return {
+                            ...prev,
+                            [detailRow.appointment_id]: {
+                              ...cur,
+                              expertPaymentOverride: val,
+                              urgent: val === 'Urgent' ? true : (cur.urgent && val !== 'Fully paid'),
+                              planned: val === 'Planned to pay' || val === 'Urgent' ? true : (val === 'Fully paid' ? false : cur.planned),
+                            },
+                          };
+                        });
+                      }}
+                    >
+                      <SelectTrigger className={`h-9 w-full rounded-none text-sm font-medium ${EXPERT_PAY_STYLE[effective]}`}><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {EXPERT_PAY_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {canApprove ? (
+                    <div className="space-y-2">
+                      <AdminSectionLabel>Approval decision</AdminSectionLabel>
+                      <Select
+                        value={decision}
+                        onValueChange={(v) => {
+                          const next = v as ApprovalStatus;
+                          if (next === 'pending') setDecision(detailRow.appointment_id, 'pending');
+                          else openDecisionPrompt(next, { kind: 'row', ids: [detailRow.appointment_id] });
+                        }}
+                      >
+                        <SelectTrigger className={`h-9 w-full rounded-none text-sm font-medium ${DECISION_STYLE[decision]}`}><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="approved">Approved</SelectItem>
+                          <SelectItem value="not_approved">Not approved</SelectItem>
+                          <SelectItem value="moved_next">Move to next payment</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {p.decidedAt && (
+                        <p className="text-xs text-slate-500">Decided {fmtStamp(p.decidedAt)}{p.decidedBy ? ` by ${p.decidedBy}` : ''}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <AdminSectionLabel>Approval</AdminSectionLabel>
+                      {p.requestStatus === 'submitted' && decision === 'pending' ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <AdminPill tone="warning">Awaiting admin review</AdminPill>
+                          <Button size="sm" variant="outline" className="rounded-none" onClick={() => submitForApproval(detailRow.appointment_id)}>
+                            <Send className="h-3.5 w-3.5 mr-1" />Follow up
+                          </Button>
+                        </div>
+                      ) : decision !== 'pending' ? (
+                        <AdminPill tone={decision === 'approved' ? 'success' : decision === 'not_approved' ? 'destructive' : 'teal'}>
+                          <Lock className="h-3 w-3 mr-1" />{DECISION_LABEL[decision]}
+                        </AdminPill>
+                      ) : (p.planned || p.urgent) ? (
+                        <Button size="sm" variant="outline" className="rounded-none" onClick={() => submitForApproval(detailRow.appointment_id)}>
+                          <Send className="h-3.5 w-3.5 mr-1" />Submit for review
+                        </Button>
+                      ) : (
+                        <p className="text-xs text-slate-500">Mark this payment Urgent or Planned to submit it for approval.</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <AdminSectionLabel>Timeline</AdminSectionLabel>
+                    <ApprovalTimeline
+                      submittedAt={p.requestedAt} submittedBy={p.requestedBy}
+                      decidedAt={p.decidedAt} decidedBy={p.decidedBy}
+                      decision={decision} compact
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <AdminSectionLabel>Comments</AdminSectionLabel>
+                    <CommentThread
+                      comments={p.comments ?? []}
+                      legacy={p.comment}
+                      onAdd={(t) => addComment(detailRow.appointment_id, t)}
+                      currentRole={authorRole}
+                      compact={false}
+                    />
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+
+      {/* ================= Email planner dialog ================= */}
+      <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Email Expert Payment Planner</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="border border-black/10 bg-black/[0.02] p-3 text-xs text-muted-foreground">
+              The current filtered view ({filtered.length} files across {grouped.length} attorneys) will be exported to PDF and sent as an attachment.
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="epp-to">To (comma-separated) *</Label>
+              <Input id="epp-to" type="email" value={emailTo}
+                aria-invalid={!!emailToError}
+                aria-describedby={emailToError ? 'epp-to-err' : undefined}
+                className={`rounded-none ${emailToError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                onChange={(e) => { setEmailTo(e.target.value); if (emailToError) setEmailToError(validateEmailList(e.target.value, true).error); }}
+                onBlur={(e) => setEmailToError(validateEmailList(e.target.value, true).error)}
+                placeholder="finance@example.co.za, manager@example.co.za" />
+              {emailToError && <p id="epp-to-err" className="text-xs text-destructive">{emailToError}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="epp-cc">CC (optional)</Label>
+              <Input id="epp-cc" value={emailCc}
+                aria-invalid={!!emailCcError}
+                aria-describedby={emailCcError ? 'epp-cc-err' : undefined}
+                className={`rounded-none ${emailCcError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
+                onChange={(e) => { setEmailCc(e.target.value); if (emailCcError) setEmailCcError(validateEmailList(e.target.value, false).error); }}
+                onBlur={(e) => setEmailCcError(validateEmailList(e.target.value, false).error)}
+                placeholder="cc@example.co.za" />
+              {emailCcError && <p id="epp-cc-err" className="text-xs text-destructive">{emailCcError}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="epp-subj">Subject</Label>
+              <Input id="epp-subj" className="rounded-none" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="epp-msg">Message</Label>
+              <Textarea id="epp-msg" rows={4} value={emailMessage} onChange={(e) => setEmailMessage(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="rounded-none" onClick={() => setEmailOpen(false)} disabled={sending}>Cancel</Button>
+            <Button className="rounded-none" onClick={handleSendEmail} disabled={sending || !emailTo.trim() || !!emailToError || !!emailCcError}>
+              {sending ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Sending…</> : <><Mail className="h-4 w-4 mr-2" />Send Email</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ================= Export review history dialog ================= */}
+      <Dialog open={reviewExportOpen} onOpenChange={setReviewExportOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Download className="h-5 w-5" /> Export review history (PDF)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Exports every approval submission, decision, and comment (with timestamps and authors) for events that occurred in the selected range.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="rev-from" className="text-xs">From</Label>
+                <Input id="rev-from" type="date" className="rounded-none" value={reviewExportFrom} onChange={(e) => setReviewExportFrom(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="rev-to" className="text-xs">To</Label>
+                <Input id="rev-to" type="date" className="rounded-none" value={reviewExportTo} onChange={(e) => setReviewExportTo(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="rounded-none" onClick={() => setReviewExportOpen(false)}>Cancel</Button>
+            <Button className="rounded-none" onClick={exportReviewHistoryPdf}><Download className="h-4 w-4 mr-2" /> Download PDF</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ================= Email approved snapshot dialog ================= */}
+      <Dialog open={snapEmailOpen} onOpenChange={setSnapEmailOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Mail className="h-5 w-5" /> Email Approved Plan</DialogTitle>
+          </DialogHeader>
+          {snapEmailTarget && (
+            <div className="space-y-3">
+              <div className="border border-emerald-200 bg-emerald-50/60 p-2 text-xs text-emerald-900">
+                <span className="font-semibold">{snapEmailTarget.label}</span> · Approved{snapEmailTarget.approvedBy ? ` by ${snapEmailTarget.approvedBy}` : ''}{snapEmailTarget.approvedAt ? ` on ${fmtStamp(snapEmailTarget.approvedAt)}` : ''}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="snap-to">To<span className="text-destructive">*</span></Label>
+                <Input id="snap-to" className="rounded-none" value={snapEmailTo} onChange={(e) => { setSnapEmailTo(e.target.value); setSnapEmailToError(null); }}
+                  placeholder="finance@example.com, ops@example.com" />
+                {snapEmailToError && <p className="text-xs text-destructive">{snapEmailToError}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="snap-cc">CC</Label>
+                <Input id="snap-cc" className="rounded-none" value={snapEmailCc} onChange={(e) => { setSnapEmailCc(e.target.value); setSnapEmailCcError(null); }} />
+                {snapEmailCcError && <p className="text-xs text-destructive">{snapEmailCcError}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="snap-subj">Subject</Label>
+                <Input id="snap-subj" className="rounded-none" value={snapEmailSubject} onChange={(e) => setSnapEmailSubject(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="snap-msg">Message</Label>
+                <Textarea id="snap-msg" rows={4} value={snapEmailMessage} onChange={(e) => setSnapEmailMessage(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" className="rounded-none" onClick={() => setSnapEmailOpen(false)} disabled={sending}>Cancel</Button>
+            <Button className="rounded-none" onClick={sendSnapshotEmail} disabled={sending}>
+              {sending ? 'Sending…' : (<><Mail className="h-4 w-4 mr-2" /> Send</>)}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ================= Required-comment prompt for admin decisions ================= */}
+      <Dialog open={!!decisionPrompt?.open} onOpenChange={(o) => { if (!o) setDecisionPrompt(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {decisionPrompt?.decision === 'approved' && <ThumbsUp className="h-5 w-5 text-emerald-600" />}
+              {decisionPrompt?.decision === 'not_approved' && <ThumbsDown className="h-5 w-5 text-rose-600" />}
+              {decisionPrompt?.decision === 'moved_next' && <ArrowRightCircle className="h-5 w-5 text-indigo-600" />}
+              {decisionPrompt ? DECISION_LABEL[decisionPrompt.decision] : ''} — explanation required
+            </DialogTitle>
+          </DialogHeader>
+          {decisionPrompt && (
+            <div className="space-y-3">
+              <div className="border border-black/10 bg-black/[0.02] p-2 text-xs">
+                <div>
+                  <span className="text-muted-foreground">Target: </span>
+                  <span className="font-medium">
+                    {decisionPrompt.target.kind === 'row'
+                      ? `${decisionPrompt.target.ids.length} payment row${decisionPrompt.target.ids.length === 1 ? '' : 's'}`
+                      : 'Payment plan snapshot'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">By: </span>
+                  <span className="font-medium">{currentUserName}</span>
+                  <span className="text-muted-foreground"> · </span>
+                  <span className="font-medium tabular-nums">{fmtStamp(new Date().toISOString())}</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="decision-comment">Reason / explanation <span className="text-destructive">*</span></Label>
+                <Textarea
+                  id="decision-comment" rows={4} autoFocus
+                  placeholder={
+                    decisionPrompt.decision === 'approved' ? 'e.g. Funds available, invoices verified, attorney AOD in place.'
+                      : decisionPrompt.decision === 'not_approved' ? 'e.g. Expert report outstanding, attorney debt unresolved.'
+                      : 'e.g. Cashflow tight this month, defer to next payment cycle.'
+                  }
+                  value={decisionPrompt.comment}
+                  onChange={(e) => setDecisionPrompt({ ...decisionPrompt, comment: e.target.value, error: null })}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); confirmDecisionPrompt(); } }}
+                />
+                {decisionPrompt.error && <p className="text-xs text-destructive">{decisionPrompt.error}</p>}
+                <p className="text-[11px] text-muted-foreground">This comment will be timestamped and attached to the audit trail. Ctrl/Cmd + Enter to submit.</p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" className="rounded-none" onClick={() => setDecisionPrompt(null)}>Cancel</Button>
+            <Button
+              className="rounded-none"
+              onClick={confirmDecisionPrompt}
+              style={
+                decisionPrompt?.decision === 'approved' ? { backgroundColor: '#059669', color: 'white' }
+                  : decisionPrompt?.decision === 'not_approved' ? { backgroundColor: '#e11d48', color: 'white' }
+                  : { backgroundColor: '#4f46e5', color: 'white' }
+              }
+            >
+              Confirm {decisionPrompt ? DECISION_LABEL[decisionPrompt.decision].toLowerCase() : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </AdminPage>
   );
 };
 
@@ -3084,7 +3077,7 @@ const SummaryStat: React.FC<{
     : tone === 'warning' ? 'text-amber-700'
     : 'text-foreground';
   return (
-    <div className="rounded-md bg-background border px-3 py-2">
+    <div className="border border-black/10 bg-black/[0.02] px-3 py-2">
       <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground leading-tight">
         {label}
       </div>
@@ -3111,9 +3104,9 @@ const CommentThread: React.FC<{
   const hasLegacy = !!(legacy && legacy.trim() && comments.length === 0);
   return (
     <div className="flex flex-col gap-1.5">
-      <div className={`flex flex-col gap-1 ${compact ? 'max-h-[120px]' : 'max-h-[260px]'} overflow-y-auto pr-1`}>
+      <div className={`flex flex-col gap-1 ${compact ? 'max-h-[120px]' : 'max-h-[320px]'} overflow-y-auto pr-1`}>
         {hasLegacy && (
-          <div className="rounded-md border bg-muted/30 px-2 py-1 text-[11px] leading-snug break-words whitespace-pre-wrap [overflow-wrap:anywhere]">
+          <div className="border border-black/10 bg-black/[0.02] px-2 py-1 text-[11px] leading-snug break-words whitespace-pre-wrap [overflow-wrap:anywhere]">
             <div className="text-[9px] uppercase tracking-wide text-muted-foreground">Legacy note</div>
             {legacy}
           </div>
@@ -3124,21 +3117,15 @@ const CommentThread: React.FC<{
         {comments.map(c => (
           <div
             key={c.id}
-            className={`rounded-md border px-2 py-1 text-[11px] leading-snug break-words whitespace-pre-wrap [overflow-wrap:anywhere] ${
-              c.author_role === 'admin'
-                ? 'bg-indigo-50 border-indigo-200'
-                : 'bg-emerald-50/60 border-emerald-200'
+            className={`border px-2 py-1 text-[11px] leading-snug break-words whitespace-pre-wrap [overflow-wrap:anywhere] ${
+              c.author_role === 'admin' ? 'bg-indigo-50 border-indigo-200' : 'bg-emerald-50/60 border-emerald-200'
             }`}
           >
             <div className="flex items-center justify-between gap-2 mb-0.5">
-              <span className={`text-[9px] uppercase tracking-wide font-semibold ${
-                c.author_role === 'admin' ? 'text-indigo-700' : 'text-emerald-700'
-              }`}>
+              <span className={`text-[9px] uppercase tracking-wide font-semibold ${c.author_role === 'admin' ? 'text-indigo-700' : 'text-emerald-700'}`}>
                 {c.author_role === 'admin' ? 'Admin' : 'Employee'} · {c.author_name}
               </span>
-              <span className="text-[9px] text-muted-foreground tabular-nums whitespace-nowrap">
-                {fmtStamp(c.at)}
-              </span>
+              <span className="text-[9px] text-muted-foreground tabular-nums whitespace-nowrap">{fmtStamp(c.at)}</span>
             </div>
             {c.text}
           </div>
@@ -3148,25 +3135,12 @@ const CommentThread: React.FC<{
         <Textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleSend(); } }}
           placeholder={`Add ${currentRole === 'admin' ? 'admin' : 'employee'} comment… (Ctrl+Enter)`}
-          className="min-h-[34px] max-h-[80px] text-[11px] leading-snug resize-none break-words"
+          className="min-h-[34px] max-h-[100px] rounded-none text-[11px] leading-snug resize-none break-words"
           rows={1}
         />
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="h-8 px-2"
-          onClick={handleSend}
-          disabled={!draft.trim()}
-          title="Add comment"
-        >
+        <Button type="button" size="sm" variant="outline" className="h-8 px-2 rounded-none" onClick={handleSend} disabled={!draft.trim()} title="Add comment">
           <Send className="h-3.5 w-3.5" />
         </Button>
       </div>
