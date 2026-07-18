@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,6 +30,7 @@ import {
   recalculateShortTermFromAppointments,
 } from '@/hooks/usePaymentSync';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
+import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
 
 import { RandSign } from "@/components/icons/RandSign";
 interface RegularPaymentDialogProps {
@@ -499,22 +500,26 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <RandSign className="h-5 w-5 text-primary" />
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-3xl"
+      >
+        <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+          <SheetTitle className="flex items-center gap-2 text-black">
+            <RandSign className="h-5 w-5" style={{ color: BRAND_TEAL }} />
             Record Payment — {attorneyName}
-          </DialogTitle>
+          </SheetTitle>
           <p className="text-xs text-muted-foreground">
             {agreementType === 'aod' ? 'AOD Agreement' : 'Short-term Agreement'} • Select claimants whose reports are being taken out
           </p>
-        </DialogHeader>
+        </SheetHeader>
 
-        {loading ? (
-          <div className="py-8 text-center text-muted-foreground">Loading payment summary...</div>
-        ) : (
-          <div className="space-y-4">
+        <div className="flex-1 px-4 py-4 sm:px-6">
+          {loading ? (
+            <div className="py-8 text-center text-muted-foreground">Loading payment summary...</div>
+          ) : (
+            <div className="space-y-4">
             {/* Financial Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Card className="border-border/50">
@@ -888,8 +893,9 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               </>
             )}
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 };
