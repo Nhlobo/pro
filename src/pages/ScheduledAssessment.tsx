@@ -695,10 +695,9 @@ const ScheduledAssessment = () => {
           }
 
           console.log('✅ AOD document created:', newAOD);
-          toast({
-            title: "Synced to AOD Documents",
-            description: `${totalReports} assessments, ${reportsReleased} reports released. Total outstanding: R${totalOutstanding.toFixed(2)}`,
-          });
+          // Silent — no toast here by design, see note below on the
+          // "update existing AOD" branch for why these background-sync
+          // popups were removed.
         } else {
           // Update existing AOD with current aggregated values
           await supabase
@@ -777,10 +776,8 @@ const ScheduledAssessment = () => {
               notes: `Attorney: ${referringAttorneyName}. Claimant: ${claimantName}. Duration: ${duration} months. Appointment ID: ${apt.id.substring(0, 8)}. Outstanding: R${outstanding.toFixed(2)}. Synced: ${new Date().toISOString()}`
             });
 
-          toast({
-            title: "Synced to Short Term Agreements",
-            description: `Single assessment (${duration} months). Outstanding: R${outstanding.toFixed(2)}`,
-          });
+          // Silent — no toast (see note above); this is the same
+          // automatic background sync, just for short-term agreements.
         } else {
           // Update existing agreement
           await supabase
@@ -794,10 +791,7 @@ const ScheduledAssessment = () => {
             })
             .eq('id', existingAgreement.id);
 
-          toast({
-            title: "Updated Short Term Agreement",
-            description: `Agreement updated: R${outstanding.toFixed(2)} outstanding`,
-          });
+          // Silent — no toast (see note above).
         }
       }
     } catch (error) {
