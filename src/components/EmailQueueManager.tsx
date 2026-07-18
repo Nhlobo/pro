@@ -396,3 +396,207 @@ export const EmailQueueManager = () => {
           </>
         )}
       </AdminCard>
+
+      {/* Email Preview panel */}
+      <Dialog open={!!previewEmail} onOpenChange={() => setPreviewEmail(null)}>
+        <DialogContent side="right" className="brand-legal-theme flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-2xl">
+          <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
+            <DialogTitle className="flex flex-wrap items-center gap-2 text-base font-bold text-black">
+              <Mail className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+              Email Preview
+              {previewEmail && <StatusPill status={previewEmail.status} />}
+              {previewEmail && <AttendancePill email={previewEmail} />}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              {previewEmail?.subject}
+            </DialogDescription>
+          </DialogHeader>
+
+          {previewEmail && (
+            <div className="space-y-4 px-5 py-5">
+              <div className="grid grid-cols-1 gap-3 border border-black/10 bg-black/[0.02] p-4 text-sm sm:grid-cols-2">
+                <div>
+                  <span className="font-medium text-slate-500">To:</span>{" "}
+                  <span className="text-black">
+                    {previewEmail.recipient_name
+                      ? `${previewEmail.recipient_name} <${previewEmail.recipient_email}>`
+                      : previewEmail.recipient_email}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-500">Type:</span>{" "}
+                  <span className="text-black">{getEmailTypeLabel(previewEmail.email_type)}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-500">Subject:</span>{" "}
+                  <span className="text-black">{previewEmail.subject}</span>
+                </div>
+                <div>
+                  <span className="font-medium text-slate-500">Sent:</span>{" "}
+                  <span className="text-black">
+                    {previewEmail.sent_at
+                      ? format(new Date(previewEmail.sent_at), "PPpp")
+                      : format(new Date(previewEmail.created_at), "PPpp")}
+                  </span>
+                </div>
+                {previewEmail.forwarded_to && (
+                  <div className="sm:col-span-2">
+                    <span className="font-medium text-slate-500">Forwarded to:</span>{" "}
+                    <span className="text-black">{previewEmail.forwarded_to}</span>
+                    {previewEmail.forward_notes && (
+                      <span className="text-slate-500"> — {previewEmail.forward_notes}</span>
+                    )}
+                  </div>
+                )}
+                {previewEmail.metadata?.cc_addresses?.length > 0 && (
+                  <div className="sm:col-span-2">
+                    <span className="font-medium text-slate-500">CC:</span>{" "}
+                    <span className="text-black">{previewEmail.metadata.cc_addresses.join(", ")}</span>
+                  </div>
+                )}
+                {previewEmail.error_message && (
+                  <div className="flex items-start gap-2 text-destructive sm:col-span-2">
+                    <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                    <span>{previewEmail.error_message}</span>
+                  </div>
+                )}
+              </div>
+
+              <Tabs defaultValue="preview" className="w-full">
+                <TabsList className="h-auto w-max gap-1 rounded-none border border-black/15 bg-transparent p-1">
+                  <TabsTrigger value="preview" className={flatTab}>Preview</TabsTrigger>
+                  <TabsTrigger value="html" className={flatTab}>HTML Source</TabsTrigger>
+                  {previewEmail.metadata && <TabsTrigger value="metadata" className={flatTab}>Metadata</TabsTrigger>}
+                </TabsList>
+                <TabsContent value="preview" className="mt-3">
+                  <ScrollArea className="h-[45vh] border border-black/10">
+                    {/* Sandboxed iframe prevents stored-XSS from arbitrary html_content */}
+                    <iframe
+                      title="Email preview"
+                      sandbox=""
+                      srcDoc={previewEmail.html_content || ""}
+                      className="h-[45vh] w-full border-0 bg-white"
+                    />
+                  </ScrollArea>
+                </TabsContent>
+                <TabsContent value="html" className="mt-3">
+                  <ScrollArea className="h-[45vh] border border-black/10 p-4">
+                    <pre className="whitespace-pre-wrap text-xs">{previewEmail.html_content}</pre>
+                  </ScrollArea>
+                </TabsContent>
+                {previewEmail.metadata && (
+                  <TabsContent value="metadata" className="mt-3">
+                    <ScrollArea className="h-[45vh] border border-black/10 p-4">
+                      <pre className="text-xs">{JSON.stringify(previewEmail.metadata, null, 2)}</pre>
+                    </ScrollArea>
+                  </TabsContent>
+                )}
+              </Tabs>
+            </div>
+          )}
+
+          {previewEmail && (
+            <div className="mt-auto flex flex-wrap justify-end gap-2 border-t border-black/10 px-5 py-4">
+              {!previewEmail.is_responded && (
+                <Button
+                  variant="outline"
+                  className="rounded-none border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                  onClick={() => {
+                    markAsResponded(previewEmail.id);
+                    setPreviewEmail(null);
+                  }}
+                >
+                  <MessageSquareReply className="mr-1.5 h-4 w-4" />
+                  Mark Responded
+                </Button>
+              )}
+              {!previewEmail.forwarded_to && (
+                <Button
+                  variant="outline"
+                  className="rounded-none border-black/15 hover:bg-black/5"
+                  style={{ color: BRAND_TEAL }}
+                  onClick={() => {
+                    setForwardDialog(previewEmail);
+                    setPreviewEmail(null);
+                  }}
+                >
+                  <Forward className="mr-1.5 h-4 w-4" />
+                  Forward
+                </Button>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Forward panel */}
+      <Dialog
+        open={!!forwardDialog}
+        onOpenChange={() => { setForwardDialog(null); setForwardTo(""); setForwardNotes(""); }}
+      >
+        <DialogContent side="right" className="brand-legal-theme flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-md">
+          <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-black">
+              <Forward className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+              Forward Email
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Route this email to a department, team, or employee for follow-up.
+            </DialogDescription>
+          </DialogHeader>
+
+          {forwardDialog && (
+            <div className="space-y-4 px-5 py-5">
+              <div className="border border-black/10 bg-black/[0.02] p-3 text-sm">
+                <p className="font-medium text-black">{forwardDialog.subject}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Originally to: {forwardDialog.recipient_name || forwardDialog.recipient_email}
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="forward-to">Forward to (Department / Team / Employee)</Label>
+                <Input
+                  id="forward-to"
+                  placeholder="e.g. Legal Team, Finance, John Smith"
+                  value={forwardTo}
+                  onChange={(e) => setForwardTo(e.target.value)}
+                  className="mt-1 rounded-none"
+                />
+              </div>
+              <div>
+                <Label htmlFor="forward-notes">Notes (optional)</Label>
+                <Textarea
+                  id="forward-notes"
+                  placeholder="Add context or instructions for the team..."
+                  value={forwardNotes}
+                  onChange={(e) => setForwardNotes(e.target.value)}
+                  rows={3}
+                  className="mt-1 rounded-none"
+                />
+              </div>
+
+              <div className="flex gap-2 border-t border-black/10 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => { setForwardDialog(null); setForwardTo(""); setForwardNotes(""); }}
+                  className="flex-1 rounded-none border-black/15 text-black hover:bg-black/5"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleForwardSubmit}
+                  disabled={!forwardTo.trim() || isForwarding}
+                  className="flex-1 rounded-none text-white hover:opacity-90"
+                  style={{ backgroundColor: BRAND_TEAL }}
+                >
+                  <Forward className="mr-1.5 h-4 w-4" />
+                  {isForwarding ? "Forwarding..." : "Forward"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
