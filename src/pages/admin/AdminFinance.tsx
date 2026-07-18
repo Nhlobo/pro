@@ -328,7 +328,7 @@ const AdminFinance: React.FC = () => {
             />
           </div>
           <div className="flex gap-2">
-            <Button size="sm" className="rounded-none" onClick={applyAttorneySearch}>
+            <Button size="sm" className="gradient-teal rounded-none border" onClick={applyAttorneySearch}>
               <Search className="h-4 w-4 mr-2" /> Search
             </Button>
             {attorneySearch && (
@@ -392,9 +392,9 @@ const AdminFinance: React.FC = () => {
                   ) : undefined}
                 />
               ) : (
-                <div className="overflow-x-auto">
+                <div className="max-h-[65vh] overflow-auto">
                   <Table className="text-xs [&_th]:h-8 [&_th]:px-3 [&_th]:py-1 [&_th]:text-[11px] [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle">
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
                       <TableRow>
                         <TableHead>Referring Attorney</TableHead>
                         <TableHead className="text-center">AODs</TableHead>
@@ -487,9 +487,9 @@ const AdminFinance: React.FC = () => {
                   ) : undefined}
                 />
               ) : (
-                <div className="overflow-x-auto">
+                <div className="max-h-[65vh] overflow-auto">
                   <Table className="text-xs [&_th]:h-8 [&_th]:px-3 [&_th]:py-1 [&_th]:text-[11px] [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle">
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
                       <TableRow>
                         <TableHead>Referring Attorney</TableHead>
                         <TableHead>Description</TableHead>
