@@ -261,15 +261,15 @@ const CommunicationsModule: React.FC = () => {
   return (
     <div className="space-y-4">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="w-full grid grid-cols-3">
-          <TabsTrigger value="send-report" className="flex items-center gap-1.5 text-xs">
-            <FileText className="h-3.5 w-3.5" /> Send Report
+        <TabsList className="grid w-full h-auto grid-cols-3">
+          <TabsTrigger value="send-report" className="flex min-h-[44px] items-center justify-center gap-1.5 whitespace-normal px-1.5 py-2 text-center text-[11px] leading-tight sm:text-xs">
+            <FileText className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Send Report</span>
           </TabsTrigger>
-          <TabsTrigger value="request-document" className="flex items-center gap-1.5 text-xs">
-            <FileQuestion className="h-3.5 w-3.5" /> Request Document
+          <TabsTrigger value="request-document" className="flex min-h-[44px] items-center justify-center gap-1.5 whitespace-normal px-1.5 py-2 text-center text-[11px] leading-tight sm:text-xs">
+            <FileQuestion className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Request Document</span>
           </TabsTrigger>
-          <TabsTrigger value="new-instruction" className="flex items-center gap-1.5 text-xs">
-            <Send className="h-3.5 w-3.5" /> New Instruction
+          <TabsTrigger value="new-instruction" className="flex min-h-[44px] items-center justify-center gap-1.5 whitespace-normal px-1.5 py-2 text-center text-[11px] leading-tight sm:text-xs">
+            <Send className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">New Instruction</span>
           </TabsTrigger>
         </TabsList>
 
@@ -296,7 +296,7 @@ const CommunicationsModule: React.FC = () => {
                 <Label>Message (optional)</Label>
                 <Textarea placeholder="Add a message to accompany the report..." value={message} onChange={(e) => setMessage(e.target.value)} rows={4} />
               </div>
-              <Button onClick={handleSendReport} disabled={!selectedRecipient || isSending} className="w-full sm:w-auto">
+              <Button onClick={handleSendReport} disabled={!selectedRecipient || isSending} className="gradient-teal w-full border sm:w-auto">
                 {isSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
                 Queue Report Email
               </Button>
@@ -331,7 +331,7 @@ const CommunicationsModule: React.FC = () => {
                 <Label>Message (optional)</Label>
                 <Textarea placeholder="Provide details about the required documents..." value={message} onChange={(e) => setMessage(e.target.value)} rows={4} />
               </div>
-              <Button onClick={handleRequestDocument} disabled={!selectedRecipient || isSending} className="w-full sm:w-auto" variant="default">
+              <Button onClick={handleRequestDocument} disabled={!selectedRecipient || isSending} className="gradient-teal w-full border sm:w-auto">
                 {isSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileQuestion className="h-4 w-4 mr-2" />}
                 Queue Document Request
               </Button>
@@ -362,7 +362,7 @@ const CommunicationsModule: React.FC = () => {
                 <Label>Instruction Details <span className="text-destructive">*</span></Label>
                 <Textarea placeholder="Provide the full instruction details..." value={message} onChange={(e) => setMessage(e.target.value)} rows={6} />
               </div>
-              <Button onClick={handleSendInstruction} disabled={!selectedRecipient || !message.trim() || isSending} className="w-full sm:w-auto">
+              <Button onClick={handleSendInstruction} disabled={!selectedRecipient || !message.trim() || isSending} className="gradient-teal w-full border sm:w-auto">
                 {isSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
                 Queue Instruction Email
               </Button>
