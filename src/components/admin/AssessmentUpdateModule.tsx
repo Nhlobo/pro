@@ -7,8 +7,8 @@ import ReferringAttorneyUpdate from '@/pages/ReferringAttorneyUpdate';
  */
 const AssessmentUpdateModule: React.FC = () => {
   return (
-    <div className="mt-2 [&>div>div:first-child]:hidden">
-      <ReferringAttorneyUpdate />
+    <div className="mt-2">
+      <ReferringAttorneyUpdate embedded />
     </div>
   );
 };
