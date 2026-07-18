@@ -209,6 +209,40 @@ const PAY_STYLE: Record<string, string> = {
 // window via the dateFrom/dateTo filters.
 const DATA_WINDOW_START = '2000-01-01';
 
+// Performance: committing to the shared `plan` state on every keystroke forces
+// the whole payment schedule to re-render mid-type, which is what makes typing
+// a partial-payment amount feel laggy on a big list. This wrapper keeps the
+// keystrokes purely local (instant, cheap) and only writes the value into the
+// shared plan state a moment after the user stops typing (or when they leave
+// the field) — the value that ultimately gets saved is identical either way.
+const PartialAmountInput: React.FC<{ value: number; onCommit: (n: number) => void }> = React.memo(
+  ({ value, onCommit }) => {
+    const [draft, setDraft] = useState<string>(value ? String(value) : '');
+    const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => { setDraft(value ? String(value) : ''); }, [value]);
+    const commit = (raw: string) => onCommit(Number(raw) || 0);
+    return (
+      <Input
+        type="number" min={0} step="0.01"
+        value={draft}
+        onChange={(e) => {
+          const raw = e.target.value;
+          setDraft(raw);
+          if (timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = setTimeout(() => commit(raw), 400);
+        }}
+        onBlur={() => {
+          if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+          commit(draft);
+        }}
+        className="h-7 w-20 rounded-none text-right ml-auto text-xs px-1.5"
+        placeholder="0.00"
+      />
+    );
+  },
+);
+PartialAmountInput.displayName = 'PartialAmountInput';
+
 const AdminExpertPaymentPlanner: React.FC = () => {
   const [rows, setRows] = useState<PlannerRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1843,6 +1877,33 @@ const AdminExpertPaymentPlanner: React.FC = () => {
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+
+  // Performance: an attorney group's rows (with all their Selects/Inputs) are only
+  // ever mounted into the DOM while that group is expanded. Groups therefore start
+  // COLLAPSED by default — with hundreds of appointments this is what keeps the
+  // page fast, since editing one row no longer means the browser has to redraw
+  // rows belonging to every other attorney on screen. Each newly-seen attorney
+  // (first load, or after filters bring in someone new) is collapsed once; the
+  // user's own expand/collapse choices afterwards are always respected.
+  const seenGroupIdsRef = React.useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const newIds = grouped.map(g => g.attorney_id).filter(id => !seenGroupIdsRef.current.has(id));
+    if (!newIds.length) return;
+    newIds.forEach(id => seenGroupIdsRef.current.add(id));
+    // Small views (a focused search/filter down to 1-2 attorneys) are cheap to
+    // render in full, so auto-expand them for a faster "just show me it" feel.
+    if (grouped.length <= 2) return;
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      newIds.forEach(id => next.add(id));
+      return next;
+    });
+  }, [grouped]);
+  const allGroupIds = useMemo(() => grouped.map(g => g.attorney_id), [grouped]);
+  const expandAllGroups = () => setCollapsedGroups(new Set());
+  const collapseAllGroups = () => setCollapsedGroups(new Set(allGroupIds));
+  const allExpanded = grouped.length > 0 && grouped.every(g => !collapsedGroups.has(g.attorney_id));
+
   const detailRow = detailRowId ? rows.find(r => r.appointment_id === detailRowId) ?? null : null;
   const pendingRequestCount = filtered.filter(r => {
     const pp = getPlan(r.appointment_id);
@@ -1945,7 +2006,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 description={
                   filterOptionsLoading
                     ? 'Loading attorneys & experts…'
-                    : `${filtered.length} row${filtered.length === 1 ? '' : 's'} across ${grouped.length} attorney${grouped.length === 1 ? '' : 's'}`
+                    : `${filtered.length} row${filtered.length === 1 ? '' : 's'} across ${grouped.length} attorney${grouped.length === 1 ? '' : 's'} — click an attorney below to open their files, or use "Expand all"`
                 }
                 actions={
                   <Button variant="ghost" size="sm" className="rounded-none" onClick={() => setFiltersOpen(v => !v)}>
@@ -2083,6 +2144,20 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                       title="Show side-by-side metrics for each selected attorney"
                     >
                       <Columns className="h-4 w-4 mr-2" /> Compare {compareMode ? 'on' : 'off'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="rounded-none"
+                      onClick={() => (allExpanded ? collapseAllGroups() : expandAllGroups())}
+                      disabled={loading || !grouped.length}
+                      title="Attorneys stay collapsed by default to keep the page fast — open only the ones you need"
+                    >
+                      {allExpanded ? (
+                        <><ChevronUp className="h-4 w-4 mr-2" /> Collapse all</>
+                      ) : (
+                        <><ChevronDown className="h-4 w-4 mr-2" /> Expand all</>
+                      )}
                     </Button>
                     <div className="ml-auto flex flex-wrap items-center gap-2">
                       <Select value={exportSort} onValueChange={(v) => setExportSort(v as ExportSort)}>
@@ -2351,12 +2426,9 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                                       />
                                     </TableCell>
                                     <TableCell className="text-right">
-                                      <Input
-                                        type="number" min={0} step="0.01"
-                                        value={p.partial || ''}
-                                        onChange={(e) => setPlanField(r.appointment_id, 'partial', Number(e.target.value) || 0)}
-                                        className="h-7 w-20 rounded-none text-right ml-auto text-xs px-1.5"
-                                        placeholder="0.00"
+                                      <PartialAmountInput
+                                        value={p.partial || 0}
+                                        onCommit={(n) => setPlanField(r.appointment_id, 'partial', n)}
                                       />
                                     </TableCell>
                                     <TableCell className="text-right whitespace-nowrap font-bold text-emerald-700">{ZAR(toPay)}</TableCell>
