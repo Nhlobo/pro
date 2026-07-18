@@ -271,7 +271,7 @@ const App = () => (
                 <Route path="/user-management" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><UserManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/permission-management" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><PermissionManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/security-settings" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><SecuritySettings /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/email-queue" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><EmailQueue /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/email-queue" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><AdminPortalLayout><EmailQueue /></AdminPortalLayout></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/workflow-automation" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_appointments", "admin_only"]}><WorkflowAutomation /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/edit-requests" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><EditRequestManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/audit-trail" element={<ProtectedRoute><PermissionProtectedRoute permission="admin_only"><AuditTrail /></PermissionProtectedRoute></ProtectedRoute>} />
