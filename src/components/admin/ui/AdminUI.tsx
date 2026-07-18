@@ -1,6 +1,7 @@
 // src/components/admin/ui/AdminUI.tsx
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { LucideIcon } from 'lucide-react';
 
 /**
@@ -190,6 +191,85 @@ export const AdminLoadingState: React.FC<{ label?: string }> = ({ label = 'Loadi
     />
     {label}
   </div>
+);
+
+/* ------------------------------------------------------------------ */
+/* Tab navigation — the primary "module switcher" pattern used on      */
+/* every multi-panel admin screen (Appointment Engine, System Control, */
+/* Email History, Sales Performance). One definition, one feel.       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Wraps a `<TabsList>` with the enterprise chrome: hairline border, flat
+ * white surface, horizontal scroll with edge fade on small screens (so it
+ * reads as "more to scroll" instead of an abrupt cut-off), and an optional
+ * sticky mode so long pages keep the module switcher on-screen while the
+ * person scrolls through a tab's content — this is what keeps deep pages
+ * fast to navigate instead of forcing a scroll-up round trip every time.
+ */
+export const AdminTabList: React.FC<{
+  children: React.ReactNode;
+  className?: string;
+  /** Pins the bar under the sticky app header while its content scrolls. */
+  sticky?: boolean;
+  /** Lay out triggers as an even grid on ≥sm instead of left-aligned flow. */
+  columns?: number;
+}> = ({ children, className, sticky, columns }) => (
+  <div
+    className={cn(
+      '-mx-3 overflow-x-auto px-3 sm:mx-0 sm:overflow-visible sm:px-0',
+      sticky && 'sticky top-0 z-20 -mt-px bg-white/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80'
+    )}
+  >
+    <TabsList
+      className={cn(
+        'flex h-auto w-max min-w-full items-stretch gap-1 rounded-none border border-black/10 bg-white p-1 sm:w-full',
+        columns && `sm:grid sm:w-full sm:min-w-0`,
+        className
+      )}
+      style={columns ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } : undefined}
+    >
+      {children}
+    </TabsList>
+  </div>
+);
+
+/**
+ * A single tab trigger with the shared active/inactive treatment: flat
+ * black fill + white text when active, quiet slate text otherwise, a short
+ * color transition instead of an abrupt swap, generous touch target height
+ * (44px) for fast, confident tapping on tablets and phones, and an optional
+ * count badge (e.g. "3 unattended") that inverts to stay legible on the
+ * active black background.
+ */
+export const AdminTabTrigger: React.FC<{
+  value: string;
+  label: string;
+  icon?: LucideIcon;
+  badge?: React.ReactNode;
+  /** Center the icon/label group — used when the tab list is a grid. */
+  center?: boolean;
+  className?: string;
+}> = ({ value, label, icon: Icon, badge, center, className }) => (
+  <TabsTrigger
+    value={value}
+    className={cn(
+      'group relative flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-none px-3 py-2 text-xs font-medium text-slate-500 transition-colors duration-150 hover:text-black data-[state=active]:bg-black data-[state=active]:text-white data-[state=active]:shadow-none sm:text-sm',
+      center && 'sm:justify-center',
+      className
+    )}
+  >
+    {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
+    <span className="truncate">{label}</span>
+    {badge !== undefined && badge !== null && badge !== 0 && (
+      <span
+        className="ml-0.5 flex h-4 min-w-[16px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white transition-colors duration-150 group-data-[state=active]:bg-white group-data-[state=active]:text-black"
+        style={{ backgroundColor: BRAND_TEAL }}
+      >
+        {badge}
+      </span>
+    )}
+  </TabsTrigger>
 );
 
 /* ------------------------------------------------------------------ */
