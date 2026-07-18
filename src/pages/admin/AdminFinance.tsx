@@ -1,14 +1,27 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X, Landmark, FileStack, History } from "lucide-react";
 import { toast } from 'sonner';
 import { recalculateAODFromAppointments, recalculateShortTermFromAppointments } from '@/hooks/usePaymentSync';
 import { RegularPaymentDialog } from '@/components/RegularPaymentDialog';
 import FinanceAuditTrail from '@/components/FinanceAuditTrail';
+import {
+  AdminPage,
+  AdminHeader,
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminStatCard,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminTabList,
+  AdminTabTrigger,
+} from '@/components/admin/ui/AdminUI';
 
 import { RandSign } from "@/components/icons/RandSign";
 interface ConsolidatedAttorney {
@@ -266,273 +279,296 @@ const AdminFinance: React.FC = () => {
     setPaymentDialog({ open: true, agreementId: id, agreementType: type, attorneyName: name, referringAttorneyId: attorneyId });
   };
 
+  // ===== UI-only state for the redesigned layout (no business/data logic here) =====
+  // Long-Term AOD, Short-term Agreements and the Audit Trail used to sit stacked on
+  // one long page. Splitting them into tabs — the same module-switcher pattern as
+  // Appointment Engine / System Control / Sales Performance — means staff land on
+  // one focused table instead of scrolling past everything to find it.
+  const [activeTab, setActiveTab] = useState<'aod' | 'short_term' | 'audit'>('aod');
+  const dateLabel = new Date().toLocaleDateString('en-ZA', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground">Finance & Payments</h1>
-          <p className="text-sm text-muted-foreground">Bidirectional payment sync: Assessments ↔ AOD ↔ Short-term Agreements</p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleFullSync}
-          disabled={syncing}
-          className="gap-2"
-        >
-          {syncing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <ArrowRightLeft className="h-4 w-4" />}
-          {syncing ? 'Syncing...' : 'Sync All Payments'}
-        </Button>
-      </div>
+    <AdminPage className="max-w-7xl">
+      <AdminHeader
+        eyebrow="Finance"
+        title="Finance & Payments"
+        description={dateLabel}
+        icon={RandSign as any}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-none"
+            onClick={handleFullSync}
+            disabled={syncing}
+          >
+            {syncing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <ArrowRightLeft className="h-4 w-4 mr-2" />}
+            {syncing ? 'Syncing…' : 'Sync All Payments'}
+          </Button>
+        }
+      />
 
-      <Card className="rounded-none border-black/10 shadow-none">
-        <CardContent className="pt-4">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search referring attorney..."
-                value={attorneySearchDraft}
-                onChange={(event) => setAttorneySearchDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') applyAttorneySearch();
-                }}
-                className="pl-9"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={applyAttorneySearch} className="gap-2">
-                <Search className="h-4 w-4" />
-                Search
+      <p className="-mt-2 text-xs text-slate-500">
+        Bidirectional payment sync: Assessments ↔ AOD ↔ Short-term Agreements
+      </p>
+
+      {/* -------- Search (filters both AOD and Short-term tables) -------- */}
+      <AdminCard>
+        <AdminCardBody className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search referring attorney…"
+              value={attorneySearchDraft}
+              onChange={(event) => setAttorneySearchDraft(event.target.value)}
+              onKeyDown={(event) => { if (event.key === 'Enter') applyAttorneySearch(); }}
+              className="rounded-none pl-9"
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" className="rounded-none" onClick={applyAttorneySearch}>
+              <Search className="h-4 w-4 mr-2" /> Search
+            </Button>
+            {attorneySearch && (
+              <Button size="sm" variant="outline" className="rounded-none" onClick={clearAttorneySearch}>
+                <X className="h-4 w-4 mr-2" /> Clear
               </Button>
-              {attorneySearch && (
-                <Button variant="outline" onClick={clearAttorneySearch} className="gap-2">
-                  <X className="h-4 w-4" />
-                  Clear
-                </Button>
-              )}
-            </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
+        </AdminCardBody>
+      </AdminCard>
 
-      {/* Financial Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="rounded-none border-black/10 shadow-none">
-          <CardContent className="pt-4 pb-3 px-4">
-            <RandSign className="h-5 w-5 text-primary mb-2" />
-            <p className="text-xl md:text-2xl font-bold text-foreground">R{(totalValue / 1000).toFixed(0)}k</p>
-            <p className="text-[11px] text-muted-foreground">Total Contract Value</p>
-          </CardContent>
-        </Card>
-        <Card className="rounded-none border-black/10 shadow-none">
-          <CardContent className="pt-4 pb-3 px-4">
-            <CheckCircle2 className="h-5 w-5 text-green-600 mb-2" />
-            <p className="text-2xl font-bold text-green-600">R{(totalPaid / 1000).toFixed(0)}k</p>
-            <p className="text-[11px] text-muted-foreground">Total Payments Received</p>
-          </CardContent>
-        </Card>
-        <Card className="rounded-none border-black/10 shadow-none">
-          <CardContent className="pt-4 pb-3 px-4">
-            <Clock className="h-5 w-5 text-blue-500 mb-2" />
-            <p className="text-2xl font-bold text-blue-500">R{(totalDiscount / 1000).toFixed(1)}k</p>
-            <p className="text-[11px] text-muted-foreground">Discount Applied</p>
-          </CardContent>
-        </Card>
-        <Card className="rounded-none border-black/10 shadow-none">
-          <CardContent className="pt-4 pb-3 px-4">
-            <AlertCircle className="h-5 w-5 text-orange-500 mb-2" />
-            <p className="text-2xl font-bold text-orange-500">R{(outstanding / 1000).toFixed(0)}k</p>
-            <p className="text-[11px] text-muted-foreground">Outstanding Balance</p>
-          </CardContent>
-        </Card>
-        <Card className="rounded-none border-black/10 shadow-none">
-          <CardContent className="pt-4 pb-3 px-4">
-            <Users className="h-5 w-5 text-primary mb-2" />
-            <p className="text-xl md:text-2xl font-bold text-foreground">{filteredConsolidatedAttorneys.length}</p>
-            <p className="text-[11px] text-muted-foreground">Long-Term Attorneys</p>
-          </CardContent>
-        </Card>
+      {/* -------- Financial summary -------- */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <AdminStatCard label="Total contract value" value={`R${(totalValue / 1000).toFixed(0)}k`} icon={RandSign as any} loading={loading} />
+        <AdminStatCard label="Total payments received" value={`R${(totalPaid / 1000).toFixed(0)}k`} icon={CheckCircle2} loading={loading} />
+        <AdminStatCard label="Discount applied" value={`R${(totalDiscount / 1000).toFixed(1)}k`} icon={Clock} loading={loading} />
+        <AdminStatCard label="Outstanding balance" value={`R${(outstanding / 1000).toFixed(0)}k`} icon={AlertCircle} loading={loading} />
+        <AdminStatCard label="Long-term attorneys" value={String(filteredConsolidatedAttorneys.length)} icon={Users} loading={loading} />
       </div>
 
-      {/* Long-Term AOD – Consolidated by Referring Attorney */}
-      <Card className="rounded-none border-black/10 shadow-none">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-base">Long-Term AOD – Referring Attorney Debts</CardTitle>
-            <Badge variant="secondary" className="text-[10px]">{filteredConsolidatedAttorneys.length} attorneys</Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Referring Attorney</th>
-                  <th className="text-center py-3 px-4 font-medium text-muted-foreground">AODs</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total Debt</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Discount</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Deposits</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Payments</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Balance</th>
-                  <th className="text-center py-3 px-4 font-medium text-muted-foreground">Reports</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
-                  <th className="text-center py-3 px-4 font-medium text-muted-foreground">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
-                ) : filteredConsolidatedAttorneys.length === 0 ? (
-                  <tr><td colSpan={10} className="py-8 text-center text-muted-foreground">No long-term AOD agreements</td></tr>
-                ) : filteredConsolidatedAttorneys.map((att) => (
-                  <tr key={att.attorneyId} className="border-b rounded-none border-black/10 shadow-none hover:bg-muted/20">
-                    <td className="py-3 px-4 font-medium text-foreground">{att.attorneyName}</td>
-                    <td className="py-3 px-4 text-center">
-                      <Badge variant="outline" className="text-[10px]">{att.aodCount}</Badge>
-                    </td>
-                    <td className="py-3 px-4 text-right text-muted-foreground">
-                      R{att.totalDebt.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4 text-right text-blue-500 font-medium">
-                      R{att.totalDiscount.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4 text-right text-muted-foreground">
-                      R{att.totalDeposits.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4 text-right text-green-600 font-medium">
-                      R{att.totalPayments.toLocaleString()}
-                    </td>
-                    <td className={`py-3 px-4 text-right font-bold ${att.balance > 0 ? 'text-orange-500' : 'text-green-600'}`}>
-                      R{att.balance.toLocaleString()}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <Badge variant="outline" className="text-[10px]">
-                        {att.reportsTaken}{att.totalReports > 0 ? `/${att.totalReports}` : ''}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4">
-                      <Badge className={`text-[10px] ${
-                        att.paymentStatus === 'paid' ? 'bg-green-500/10 text-green-600' :
-                        att.paymentStatus === 'partial' ? 'bg-blue-500/10 text-blue-600' :
-                        'bg-orange-500/10 text-orange-500'
-                      }`}>
-                        {att.paymentStatus}
-                      </Badge>
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="text-xs gap-1 h-7"
-                        onClick={() => openPaymentDialog(att.latestAodId, 'aod', att.attorneyName, att.attorneyId)}
-                      >
-                        <Zap className="h-3 w-3" />
-                        Record Payment
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* -------- Module switcher: AOD / Short-term / Audit Trail -------- */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+        <AdminTabList sticky columns={3}>
+          <AdminTabTrigger
+            value="aod"
+            label="Long-Term AOD"
+            icon={Landmark}
+            badge={filteredConsolidatedAttorneys.length || undefined}
+            center
+          />
+          <AdminTabTrigger
+            value="short_term"
+            label="Short-term Agreements"
+            icon={FileStack}
+            badge={filteredShortTermDocs.length || undefined}
+            center
+          />
+          <AdminTabTrigger value="audit" label="Audit Trail" icon={History} center />
+        </AdminTabList>
 
-      {/* Short-term Agreements Table */}
-      <Card className="rounded-none border-black/10 shadow-none">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-base">Short-term Agreements</CardTitle>
-            <Badge variant="secondary" className="text-[10px]">{filteredShortTermDocs.length}</Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Referring Attorney</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Description</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Total Debt</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Discount</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Deposit / Paid</th>
-                  <th className="text-right py-3 px-4 font-medium text-muted-foreground">Balance</th>
-                  <th className="text-center py-3 px-4 font-medium text-muted-foreground">Reports Taken</th>
-                  <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
-                  <th className="text-center py-3 px-4 font-medium text-muted-foreground">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">Loading...</td></tr>
-                ) : filteredShortTermDocs.length === 0 ? (
-                  <tr><td colSpan={9} className="py-8 text-center text-muted-foreground">No short-term agreements found</td></tr>
-                ) : filteredShortTermDocs.map((doc) => {
-                  const paid = doc.payments_made || doc.deposit_amount || 0;
-                  const balance = Math.max(0, (doc.total_contract_value || 0) - paid);
-                  const reportsTaken = doc.reports_completed || 0;
-                  const totalReports = doc.total_reports_agreed || 0;
-                  const referringAttorneyName = doc.referring_attorneys?.name || doc.debtor_law_firm_name || '–';
+        <div className="mt-4">
+          {/* ================= LONG-TERM AOD ================= */}
+          <TabsContent value="aod" className="mt-0 focus-visible:outline-none">
+            <AdminCard>
+              <AdminCardHeader
+                icon={Landmark}
+                title="Long-Term AOD — Referring Attorney Debts"
+                description={`${filteredConsolidatedAttorneys.length} attorney${filteredConsolidatedAttorneys.length === 1 ? '' : 's'}`}
+              />
+              {loading ? (
+                <AdminLoadingState label="Loading long-term AOD debts…" />
+              ) : filteredConsolidatedAttorneys.length === 0 ? (
+                <AdminEmptyState
+                  icon={Landmark}
+                  title="No long-term AOD agreements"
+                  description={attorneySearch ? 'Try a different attorney name, or clear the search.' : undefined}
+                  action={attorneySearch ? (
+                    <Button variant="outline" size="sm" className="rounded-none mt-2" onClick={clearAttorneySearch}>
+                      <X className="h-4 w-4 mr-2" />Clear search
+                    </Button>
+                  ) : undefined}
+                />
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table className="text-xs [&_th]:h-8 [&_th]:px-3 [&_th]:py-1 [&_th]:text-[11px] [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Referring Attorney</TableHead>
+                        <TableHead className="text-center">AODs</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">Total Debt</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">Discount</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">Deposits</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">Payments</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">Balance</TableHead>
+                        <TableHead className="text-center">Reports</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-center">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredConsolidatedAttorneys.map((att) => (
+                        <TableRow key={att.attorneyId} className="hover:bg-black/[0.02]">
+                          <TableCell className="font-medium">{att.attorneyName}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="rounded-none text-[10px]">{att.aodCount}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap text-muted-foreground">
+                            R{att.totalDebt.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap font-medium text-blue-600">
+                            R{att.totalDiscount.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap text-muted-foreground">
+                            R{att.totalDeposits.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right whitespace-nowrap font-medium text-emerald-700">
+                            R{att.totalPayments.toLocaleString()}
+                          </TableCell>
+                          <TableCell className={`text-right whitespace-nowrap font-bold ${att.balance > 0 ? 'text-orange-600' : 'text-emerald-700'}`}>
+                            R{att.balance.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="rounded-none text-[10px]">
+                              {att.reportsTaken}{att.totalReports > 0 ? `/${att.totalReports}` : ''}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              className={`rounded-none text-[10px] ${
+                                att.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                                att.paymentStatus === 'partial' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                'bg-amber-100 text-amber-800 border-amber-200'
+                              }`}
+                            >
+                              {att.paymentStatus}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 rounded-none text-xs"
+                              onClick={() => openPaymentDialog(att.latestAodId, 'aod', att.attorneyName, att.attorneyId)}
+                            >
+                              <Zap className="h-3.5 w-3.5 mr-1" /> Record Payment
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </AdminCard>
+          </TabsContent>
 
-                  return (
-                    <tr key={doc.id} className="border-b rounded-none border-black/10 shadow-none hover:bg-muted/20">
-                      <td className="py-3 px-4 font-medium text-foreground">
-                        {referringAttorneyName}
-                      </td>
-                      <td className="py-3 px-4 font-medium text-foreground">
-                        {doc.contract_description || '–'}
-                      </td>
-                      <td className="py-3 px-4 text-right text-muted-foreground">
-                        R{(doc.total_contract_value || 0).toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4 text-right text-blue-500 font-medium">
-                        R{(doc.discount_amount || 0).toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4 text-right text-green-600 font-medium">
-                        R{paid.toLocaleString()}
-                      </td>
-                      <td className={`py-3 px-4 text-right font-bold ${balance > 0 ? 'text-orange-500' : 'text-green-600'}`}>
-                        R{balance.toLocaleString()}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <Badge variant="outline" className="text-[10px]">
-                          {reportsTaken}{totalReports > 0 ? `/${totalReports}` : ''}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4">
-                        <Badge className={`text-[10px] ${
-                          doc.payment_status === 'paid' ? 'bg-green-500/10 text-green-600' :
-                          doc.payment_status === 'partial' ? 'bg-blue-500/10 text-blue-600' :
-                          doc.payment_status === 'overdue' ? 'bg-destructive/10 text-destructive' :
-                          'bg-orange-500/10 text-orange-500'
-                        }`}>
-                          {doc.payment_status || 'pending'}
-                        </Badge>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs gap-1 h-7"
-                          onClick={() => openPaymentDialog(doc.id, 'short_term', referringAttorneyName, doc.referring_attorney_id)}
-                        >
-                          <Zap className="h-3 w-3" />
-                          Record Payment
-                        </Button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+          {/* ================= SHORT-TERM AGREEMENTS ================= */}
+          <TabsContent value="short_term" className="mt-0 focus-visible:outline-none">
+            <AdminCard>
+              <AdminCardHeader
+                icon={FileStack}
+                title="Short-term Agreements"
+                description={`${filteredShortTermDocs.length} agreement${filteredShortTermDocs.length === 1 ? '' : 's'}`}
+              />
+              {loading ? (
+                <AdminLoadingState label="Loading short-term agreements…" />
+              ) : filteredShortTermDocs.length === 0 ? (
+                <AdminEmptyState
+                  icon={FileStack}
+                  title="No short-term agreements found"
+                  description={attorneySearch ? 'Try a different attorney name, or clear the search.' : undefined}
+                  action={attorneySearch ? (
+                    <Button variant="outline" size="sm" className="rounded-none mt-2" onClick={clearAttorneySearch}>
+                      <X className="h-4 w-4 mr-2" />Clear search
+                    </Button>
+                  ) : undefined}
+                />
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table className="text-xs [&_th]:h-8 [&_th]:px-3 [&_th]:py-1 [&_th]:text-[11px] [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Referring Attorney</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">Total Debt</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">Discount</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">Deposit / Paid</TableHead>
+                        <TableHead className="text-right whitespace-nowrap">Balance</TableHead>
+                        <TableHead className="text-center">Reports Taken</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-center">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredShortTermDocs.map((doc) => {
+                        const paid = doc.payments_made || doc.deposit_amount || 0;
+                        const balance = Math.max(0, (doc.total_contract_value || 0) - paid);
+                        const reportsTaken = doc.reports_completed || 0;
+                        const totalReports = doc.total_reports_agreed || 0;
+                        const referringAttorneyName = doc.referring_attorneys?.name || doc.debtor_law_firm_name || '–';
 
-      <FinanceAuditTrail />
+                        return (
+                          <TableRow key={doc.id} className="hover:bg-black/[0.02]">
+                            <TableCell className="font-medium">{referringAttorneyName}</TableCell>
+                            <TableCell className="font-medium">{doc.contract_description || '–'}</TableCell>
+                            <TableCell className="text-right whitespace-nowrap text-muted-foreground">
+                              R{(doc.total_contract_value || 0).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap font-medium text-blue-600">
+                              R{(doc.discount_amount || 0).toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-right whitespace-nowrap font-medium text-emerald-700">
+                              R{paid.toLocaleString()}
+                            </TableCell>
+                            <TableCell className={`text-right whitespace-nowrap font-bold ${balance > 0 ? 'text-orange-600' : 'text-emerald-700'}`}>
+                              R{balance.toLocaleString()}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="outline" className="rounded-none text-[10px]">
+                                {reportsTaken}{totalReports > 0 ? `/${totalReports}` : ''}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                className={`rounded-none text-[10px] ${
+                                  doc.payment_status === 'paid' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                                  doc.payment_status === 'partial' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                  doc.payment_status === 'overdue' ? 'bg-rose-100 text-rose-800 border-rose-200' :
+                                  'bg-amber-100 text-amber-800 border-amber-200'
+                                }`}
+                              >
+                                {doc.payment_status || 'pending'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 rounded-none text-xs"
+                                onClick={() => openPaymentDialog(doc.id, 'short_term', referringAttorneyName, doc.referring_attorney_id)}
+                              >
+                                <Zap className="h-3.5 w-3.5 mr-1" /> Record Payment
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </AdminCard>
+          </TabsContent>
 
-
+          {/* ================= AUDIT TRAIL ================= */}
+          <TabsContent value="audit" className="mt-0 focus-visible:outline-none">
+            <FinanceAuditTrail />
+          </TabsContent>
+        </div>
+      </Tabs>
 
       {/* Regular Payment Dialog */}
       <RegularPaymentDialog
@@ -544,7 +580,7 @@ const AdminFinance: React.FC = () => {
         referringAttorneyId={paymentDialog.referringAttorneyId}
         onPaymentRecorded={fetchAll}
       />
-    </div>
+    </AdminPage>
   );
 };
 
