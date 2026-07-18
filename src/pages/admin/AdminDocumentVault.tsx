@@ -366,8 +366,12 @@ const AdminDocumentVault: React.FC = () => {
   };
 
   // Keep the top scrollbar's inner "track" the same width as the table so it
-  // scrolls in lockstep, and recompute whenever the row set or column count
-  // (role-dependent) changes size.
+  // scrolls in lockstep. Deliberately depends only on primitives (row COUNT,
+  // not the `filteredDocs` array itself) — `filteredDocs` is a brand-new
+  // array reference on every render, and depending on it here would re-run
+  // this effect (and rebuild the ResizeObserver) on every single re-render,
+  // including the one that fires when the preview sheet opens — which is
+  // exactly what was causing the lag/glitch when tapping the eye icon.
   useLayoutEffect(() => {
     const el = tableScrollRef.current;
     if (!el) return;
@@ -380,7 +384,7 @@ const AdminDocumentVault: React.FC = () => {
       ro.disconnect();
       window.removeEventListener('resize', update);
     };
-  }, [filteredDocs, loading, isAdminOrEmployee]);
+  }, [filteredDocs.length, loading, isAdminOrEmployee, activeTab]);
 
   // Upload handler
   const handleUpload = async () => {
@@ -1317,7 +1321,7 @@ const AdminDocumentVault: React.FC = () => {
           row-detail pattern) instead of a centered popup, so it doesn't block
           the table behind it and feels consistent across the Admin Portal. */}
       <Sheet open={previewDialogOpen} onOpenChange={(open) => { setPreviewDialogOpen(open); if (!open) { setPreviewUrl(null); setSelectedDoc(null); } }}>
-        <SheetContent side="right" className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-2xl">
+        <SheetContent side="right" className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none duration-200 data-[state=closed]:duration-150 sm:max-w-2xl">
           <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
             <SheetTitle className="flex items-center gap-2 text-black">
               <Eye className="h-4 w-4" style={{ color: '#00BAAD' }} />
