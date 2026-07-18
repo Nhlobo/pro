@@ -12,7 +12,7 @@ const NewAppointmentModule: React.FC = () => {
         <Skeleton className="h-64 w-full" />
       </div>
     }>
-      <NewAppointmentPage />
+      <NewAppointmentPage embedded />
     </Suspense>
   );
 };
