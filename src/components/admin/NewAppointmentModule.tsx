@@ -4,7 +4,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 // Lazy-load the full NewAppointment page content
 const NewAppointmentPage = lazy(() => import('@/pages/NewAppointment'));
 
-const NewAppointmentModule: React.FC = () => {
+interface NewAppointmentModuleProps {
+  /** Called when the form's Cancel button is used — closes the host panel
+   *  instead of navigating away, so the user stays on the Appointment Engine. */
+  onCancel?: () => void;
+}
+
+const NewAppointmentModule: React.FC<NewAppointmentModuleProps> = ({ onCancel }) => {
   return (
     <Suspense fallback={
       <div className="space-y-4 p-4">
@@ -12,7 +18,7 @@ const NewAppointmentModule: React.FC = () => {
         <Skeleton className="h-64 w-full" />
       </div>
     }>
-      <NewAppointmentPage embedded />
+      <NewAppointmentPage embedded onCancel={onCancel} />
     </Suspense>
   );
 };
