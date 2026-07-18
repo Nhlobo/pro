@@ -190,6 +190,19 @@ All colors MUST be HSL.
     background: linear-gradient(135deg, hsl(var(--kutlwano-blue)), hsl(var(--kutlwano-teal)));
   }
 
+  /* Solid teal gradient for primary download/export actions (e.g. "Export
+     Report", "Download" buttons) — distinct from gradient-nav, which mixes
+     in brand blue and is reserved for navigation chrome. */
+  .gradient-teal {
+    background: linear-gradient(135deg, #00BAAD, #00E5C9);
+    color: #fff;
+    border-color: transparent;
+  }
+  .gradient-teal:hover {
+    background: linear-gradient(135deg, #00A69A, #00CDB4);
+    color: #fff;
+  }
+
   /* Scoped brand theme matching the Auth / Help / Privacy / Terms pages
      (#00BAAD teal accent, black text, square edges). Overrides only the
      CSS variables that shadcn/ui components already read, so every
@@ -205,4 +218,4 @@ All colors MUST be HSL.
     --border: 0 0% 88%;
     --foreground: 0 0% 7%;
   }
-}
+    }
