@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Helmet } from "react-helmet-async";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CalendarIcon, ArrowLeft, AlertTriangle } from "lucide-react";
+import {
+  CalendarIcon,
+  ArrowLeft,
+  AlertTriangle,
+  UserSquare2,
+  Stethoscope,
+  Wallet,
+  NotebookPen,
+  ListChecks,
+  X,
+} from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -22,6 +31,7 @@ import { ShortTermAgreementPreview } from "@/components/ShortTermAgreementPrevie
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 import DebtTrackerPanel from "@/components/DebtTrackerPanel";
+import { AdminCard, AdminSectionLabel, BRAND_TEAL } from "@/components/admin/ui/AdminUI";
 
 const NEW_APPOINTMENT_DEFAULTS = {
   claimantId: "",
@@ -43,7 +53,15 @@ const NEW_APPOINTMENT_DEFAULTS = {
   salesConsultantId: ""
 };
 
-const NewAppointment = () => {
+/**
+ * `embedded` drops the page's own header, Helmet tags, and footer when this
+ * form is hosted inside another surface's chrome — e.g. the Appointment
+ * Engine's "New Appointment" side panel, which already renders its own
+ * SheetHeader/title. Standalone route usage (`/new-appointment`) is
+ * unaffected; it still gets the full page shell. Same pattern already used
+ * by UserManagement's `embedded` prop.
+ */
+const NewAppointment = ({ embedded = false }: { embedded?: boolean } = {}) => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/new-appointment';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1143,155 +1161,197 @@ const NewAppointment = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>{isEditMode ? 'Edit Appointment' : 'Schedule New Appointment'} - Medico-Legal Assessment System</title>
-        <meta name="description" content={isEditMode ? 'Edit an existing medical assessment appointment.' : 'Schedule a new medical assessment appointment for claimants with available medical experts.'} />
-        <link rel="canonical" href={canonicalUrl} />
-      </Helmet>
+    <div className={embedded ? '' : 'min-h-screen bg-background'}>
+      {!embedded && (
+        <Helmet>
+          <title>{isEditMode ? 'Edit Appointment' : 'Schedule New Appointment'} - Medico-Legal Assessment System</title>
+          <meta name="description" content={isEditMode ? 'Edit an existing medical assessment appointment.' : 'Schedule a new medical assessment appointment for claimants with available medical experts.'} />
+          <link rel="canonical" href={canonicalUrl} />
+        </Helmet>
+      )}
 
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" asChild>
+      {!embedded && (
+        <header className="border-b border-black/10 bg-white">
+          <div className="container mx-auto flex items-center gap-4 px-4 py-6">
+            <Button variant="outline" size="sm" className="rounded-none border-black/15 hover:bg-black/5" asChild>
               <Link to="/scheduled-assessment">
-                <ArrowLeft className="h-4 w-4 mr-2" />
+                <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Scheduled Assessments
               </Link>
             </Button>
-            <h1 className="text-2xl font-bold">{isEditMode ? 'Edit Appointment' : 'Schedule New Appointment'}</h1>
+            <h1 className="text-2xl font-bold text-black">{isEditMode ? 'Edit Appointment' : 'Schedule New Appointment'}</h1>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
-      <main className="container mx-auto px-4 py-8">
-        <Card className="max-w-4xl mx-auto">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 justify-between">
-              <span className="flex items-center gap-2">
-                <CalendarIcon className="h-5 w-5" />
+      <main className={embedded ? '' : 'container mx-auto px-4 py-8'}>
+        <div className={embedded ? 'space-y-6' : 'mx-auto max-w-5xl space-y-6'}>
+          {/* Page-level title row — only for embedded mode, since the panel's
+              own SheetHeader already carries the title in that context. In
+              standalone mode the same information is covered by the page
+              header above, so this row only shows here. */}
+          {!embedded && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-lg font-semibold text-black">
+                <CalendarIcon className="h-5 w-5" style={{ color: BRAND_TEAL }} />
                 {isEditMode ? 'Edit Assessment Appointment' : 'New Assessment Appointment'}
-              </span>
-              {!isEditMode && (
-                <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} />
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {bookingType === 'multiple' && appointmentQueue.length > 0 && (
-              <div className="mb-6 p-4 border rounded-lg bg-muted/50">
-                <h3 className="font-semibold mb-3">Appointment Queue ({appointmentQueue.length})</h3>
-                <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {appointmentQueue.map((item) => (
-                    <div key={item.id} className="p-3 bg-background rounded border">
-                      <div className="flex items-start justify-between">
-                          <div className="space-y-1 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-sm">{item.claimantName}</span>
-                              <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full">
-                                {formatExpertType(item.expertType)}
-                              </span>
-                            </div>
-                          <div className="text-sm text-muted-foreground">
-                            Expert: <span className="font-medium">{item.expertName}</span>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            Date: <span className="font-medium">{item.appointmentDate}</span>
-                            {item.appointmentTime && (
-                              <span> at {item.appointmentTime}</span>
-                            )}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            Attorney: <span className="font-medium">{item.attorneyName}</span>
-                          </div>
-                          {item.assessmentType && (
-                            <div className="text-sm text-muted-foreground">
-                              Type: <span className="font-medium">{item.assessmentType}</span>
-                            </div>
-                          )}
-                          {item.assessmentFees && (
-                            <div className="text-sm text-muted-foreground">
-                              Assessment Fee: <span className="font-medium">R {parseFloat(item.assessmentFees).toFixed(2)}</span>
-                            </div>
-                          )}
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => removeFromQueue(item.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <Button 
-                    type="button" 
-                    onClick={submitQueue} 
-                    disabled={submitting}
-                    className="flex-1"
-                    size="lg"
-                  >
-                    {submitting ? 'Submitting Queue...' : `Submit All ${appointmentQueue.length} Appointments`}
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setAppointmentQueue([])}
-                    size="lg"
-                  >
-                    Clear Queue
-                  </Button>
+              </div>
+              {!isEditMode && <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} />}
+            </div>
+          )}
+          {embedded && !isEditMode && (
+            <div className="flex justify-end">
+              <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} />
+            </div>
+          )}
+
+          {/* Queue panel — capped scroll instead of growing the page, so
+              staff batching several bookings never lose the form itself
+              off the bottom of the screen. */}
+          {bookingType === 'multiple' && appointmentQueue.length > 0 && (
+            <AdminCard>
+              <div className="flex items-center justify-between border-b border-black/10 px-4 py-3">
+                <div className="flex items-center gap-2 text-sm font-semibold text-black">
+                  <ListChecks className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+                  Appointment Queue ({appointmentQueue.length})
                 </div>
               </div>
-            )}
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Booking Type Selection - Only show when not editing */}
-              {!isEditMode && (
-                <div className="space-y-3">
-                  <Label>Booking Type</Label>
-                  <RadioGroup value={bookingType} onValueChange={setBookingType} className="flex gap-6">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="single" id="single" />
-                      <Label htmlFor="single">Single Booking</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="multiple" id="multiple" />
-                      <Label htmlFor="multiple">Multiple Booking</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
-              )}
-
-              {isEditMode && (editAppointmentDetails.attorney || editAppointmentDetails.claimant) && (
-                <div className="rounded-md border bg-muted/30 p-4">
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <div>
-                      <p className="text-xs font-medium uppercase text-muted-foreground">Saved referring attorney</p>
-                      <p className="text-sm font-semibold text-foreground">
-                        {formatAttorneyDisplay(editAppointmentDetails.attorney) || 'Not available'}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium uppercase text-muted-foreground">Saved claimant</p>
-                      <p className="text-sm font-semibold text-foreground">
-                        {formatClaimantDisplay(editAppointmentDetails.claimant) || 'Not available'}
-                      </p>
+              <div className="max-h-72 space-y-2 overflow-y-auto p-4">
+                {appointmentQueue.map((item) => (
+                  <div key={item.id} className="border border-black/10 bg-black/[0.015] p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-medium text-black">{item.claimantName}</span>
+                          <span
+                            className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                            style={{ color: BRAND_TEAL, backgroundColor: `${BRAND_TEAL}14` }}
+                          >
+                            {formatExpertType(item.expertType)}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          Expert: <span className="font-medium text-black">{item.expertName}</span>
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          Date: <span className="font-medium text-black">{item.appointmentDate}</span>
+                          {item.appointmentTime && <span> at {item.appointmentTime}</span>}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          Attorney: <span className="font-medium text-black">{item.attorneyName}</span>
+                        </div>
+                        {item.assessmentType && (
+                          <div className="text-xs text-slate-500">
+                            Type: <span className="font-medium text-black">{item.assessmentType}</span>
+                          </div>
+                        )}
+                        {item.assessmentFees && (
+                          <div className="text-xs text-slate-500">
+                            Assessment Fee: <span className="font-medium text-black">R {parseFloat(item.assessmentFees).toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeFromQueue(item.id)}
+                        className="h-7 w-7 shrink-0 rounded-none text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        aria-label="Remove from queue"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
+              <div className="flex gap-2 border-t border-black/10 p-4">
+                <Button
+                  type="button"
+                  onClick={submitQueue}
+                  disabled={submitting}
+                  className="flex-1 rounded-none bg-black text-white hover:bg-black/90"
+                  size="lg"
+                >
+                  {submitting ? 'Submitting Queue...' : `Submit All ${appointmentQueue.length} Appointments`}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAppointmentQueue([])}
+                  size="lg"
+                  className="rounded-none border-black/15 hover:bg-black/5"
+                >
+                  Clear Queue
+                </Button>
+              </div>
+            </AdminCard>
+          )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            {/* Booking Type — only shown when creating, styled as a compact
+                segmented toggle rather than a bare radio pair. */}
+            {!isEditMode && (
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Booking Type</Label>
+                <RadioGroup value={bookingType} onValueChange={setBookingType} className="flex gap-2">
+                  {[
+                    { value: 'single', label: 'Single Booking' },
+                    { value: 'multiple', label: 'Multiple Booking' },
+                  ].map((opt) => (
+                    <label
+                      key={opt.value}
+                      htmlFor={opt.value}
+                      className={`flex cursor-pointer items-center gap-2 border px-3 py-2 text-sm transition-colors ${
+                        bookingType === opt.value
+                          ? 'border-black bg-black text-white'
+                          : 'border-black/15 text-black hover:bg-black/5'
+                      }`}
+                    >
+                      <RadioGroupItem value={opt.value} id={opt.value} className="sr-only" />
+                      {opt.label}
+                    </label>
+                  ))}
+                </RadioGroup>
+              </div>
+            )}
+
+            {isEditMode && (editAppointmentDetails.attorney || editAppointmentDetails.claimant) && (
+              <AdminCard className="bg-black/[0.015]">
+                <div className="grid grid-cols-1 gap-3 p-4 md:grid-cols-2">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Saved referring attorney</p>
+                    <p className="text-sm font-semibold text-black">
+                      {formatAttorneyDisplay(editAppointmentDetails.attorney) || 'Not available'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Saved claimant</p>
+                    <p className="text-sm font-semibold text-black">
+                      {formatClaimantDisplay(editAppointmentDetails.claimant) || 'Not available'}
+                    </p>
+                  </div>
+                </div>
+              </AdminCard>
+            )}
+
+            {/* ---------------------------------------------------------- */}
+            {/* Section: Case & Attorney                                   */}
+            {/* ---------------------------------------------------------- */}
+            <div className="space-y-4">
+              <AdminSectionLabel>
+                <span className="flex items-center gap-1.5">
+                  <UserSquare2 className="h-3.5 w-3.5" />
+                  Case &amp; Attorney
+                </span>
+              </AdminSectionLabel>
+
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 {/* Referring Attorney FIRST - to filter claimants */}
                 <div className="space-y-2" data-field="referringAttorney">
                   <Label htmlFor="referring-attorney" className={validationErrors.referringAttorney ? "text-destructive" : ""}>Referring Attorney *</Label>
                   <Select value={formData.referringAttorney} onValueChange={(value) => handleInputChange('referringAttorney', value)}>
-                    <SelectTrigger className={validationErrors.referringAttorney ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={`rounded-none ${validationErrors.referringAttorney ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}`}>
                       <SelectValue placeholder={loading ? "Loading attorneys..." : "Select referring attorney"}>
                         {formData.referringAttorney && (() => {
                           const selectedAttorney = attorneys.find(a => a.id === formData.referringAttorney)
@@ -1321,27 +1381,26 @@ const NewAppointment = () => {
                   <div className="flex items-center justify-between">
                     <Label htmlFor="claimant" className={validationErrors.claimantId ? "text-destructive" : ""}>Claimant Name *</Label>
                     {formData.referringAttorney && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-slate-500">
                         {filteredClaimants.length} linked claimant{filteredClaimants.length === 1 ? '' : 's'}
                       </span>
                     )}
                   </div>
-                  <Select 
-                    value={formData.claimantId} 
+                  <Select
+                    value={formData.claimantId}
                     onValueChange={handleClaimantChange}
                     disabled={!formData.referringAttorney || claimantsLoading}
                   >
-                    <SelectTrigger className={validationErrors.claimantId ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={`rounded-none ${validationErrors.claimantId ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}`}>
                       <SelectValue placeholder={
                         loading || claimantsLoading
-                          ? "Loading claimants..." 
-                          : !formData.referringAttorney 
-                            ? "Select referring attorney first" 
-                            : filteredClaimants.length === 0 
-                              ? "No claimants for this attorney" 
+                          ? "Loading claimants..."
+                          : !formData.referringAttorney
+                            ? "Select referring attorney first"
+                            : filteredClaimants.length === 0
+                              ? "No claimants for this attorney"
                               : "Select claimant"
                       }>
-
                         {formData.claimantId ? (() => {
                           const selectedClaimant = claimants.find(c => c.id === formData.claimantId)
                             || (editAppointmentDetails.claimant?.id === formData.claimantId ? editAppointmentDetails.claimant : null);
@@ -1371,7 +1430,7 @@ const NewAppointment = () => {
                   </Select>
                   {validationErrors.claimantId && <p className="text-sm text-destructive">Please select a claimant</p>}
                   {formData.referringAttorney && !claimantsLoading && filteredClaimants.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-slate-500">
                       No claimants found for this referring attorney. You may need to add one first.
                     </p>
                   )}
@@ -1385,9 +1444,9 @@ const NewAppointment = () => {
                     return (
                       <div
                         role="alert"
-                        className="mt-2 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+                        className="mt-2 flex items-start gap-2 border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
                       >
-                        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                         <div className="space-y-1">
                           <p className="font-medium">
                             This claimant is not linked to the selected referring attorney.
@@ -1404,16 +1463,61 @@ const NewAppointment = () => {
                       </div>
                     );
                   })()}
-
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    placeholder="Assessment location"
+                    className="rounded-none"
+                    value={formData.location}
+                    onChange={(e) => handleInputChange('location', e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="sales-consultant">Sales Consultant</Label>
+                  <Select value={formData.salesConsultantId} onValueChange={(value) => handleInputChange('salesConsultantId', value)}>
+                    <SelectTrigger className="rounded-none">
+                      <SelectValue placeholder={salesConsultants.length === 0 ? "No consultants available" : "Select sales consultant"}>
+                        {formData.salesConsultantId && salesConsultants.find(sc => sc.id === formData.salesConsultantId)?.name}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {salesConsultants.map((consultant) => (
+                        <SelectItem key={consultant.id} value={consultant.id}>
+                          {consultant.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-slate-500">
+                    Attribute this appointment to a sales consultant for tracking.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ---------------------------------------------------------- */}
+            {/* Section: Expert & Assessment                               */}
+            {/* ---------------------------------------------------------- */}
+            <div className="space-y-4">
+              <AdminSectionLabel>
+                <span className="flex items-center gap-1.5">
+                  <Stethoscope className="h-3.5 w-3.5" />
+                  Expert &amp; Assessment
+                </span>
+              </AdminSectionLabel>
+
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-2" data-field="expertType">
                   <Label htmlFor="expert-type" className={validationErrors.expertType ? "text-destructive" : ""}>Type of Expert *</Label>
                   <Select value={formData.expertType} onValueChange={(value) => {
                     handleInputChange('expertType', value);
                     handleInputChange('expertId', '');
                   }}>
-                    <SelectTrigger className={validationErrors.expertType ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={`rounded-none ${validationErrors.expertType ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}`}>
                       <SelectValue placeholder="Select type of expert">
                         {formData.expertType && formatExpertType(formData.expertType)}
                       </SelectValue>
@@ -1431,12 +1535,12 @@ const NewAppointment = () => {
 
                 <div className="space-y-2" data-field="expertId">
                   <Label htmlFor="medical-expert" className={validationErrors.expertId ? "text-destructive" : ""}>Medical Expert *</Label>
-                  <Select 
-                    value={formData.expertId} 
+                  <Select
+                    value={formData.expertId}
                     onValueChange={(value) => handleInputChange('expertId', value)}
                     disabled={!formData.expertType}
                   >
-                    <SelectTrigger className={validationErrors.expertId ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={`rounded-none ${validationErrors.expertId ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}`}>
                       <SelectValue placeholder={!formData.expertType ? "Select expert type first" : filteredExperts.length === 0 ? "No experts available for this type" : "Select medical expert"}>
                         {formData.expertId && experts.find(e => e.id === formData.expertId) && (
                           <>
@@ -1455,7 +1559,7 @@ const NewAppointment = () => {
                   </Select>
                   {validationErrors.expertId && <p className="text-sm text-destructive">Please select a medical expert</p>}
                   {formData.expertType && filteredExperts.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-slate-500">
                       No {formatExpertType(formData.expertType)} experts are currently available in the system.
                     </p>
                   )}
@@ -1463,12 +1567,12 @@ const NewAppointment = () => {
 
                 <div className="space-y-2" data-field="appointmentDate">
                   <Label htmlFor="appointment-date" className={validationErrors.appointmentDate ? "text-destructive" : ""}>Appointment Date *</Label>
-                  <Input 
-                    type="date" 
-                    id="appointment-date" 
+                  <Input
+                    type="date"
+                    id="appointment-date"
+                    className={`rounded-none ${validationErrors.appointmentDate ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : ""}`}
                     value={formData.appointmentDate}
                     onChange={(e) => handleInputChange('appointmentDate', e.target.value)}
-                    className={validationErrors.appointmentDate ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : ""}
                     required
                   />
                   {validationErrors.appointmentDate && <p className="text-sm text-destructive">Please select an appointment date</p>}
@@ -1477,19 +1581,19 @@ const NewAppointment = () => {
                 <div className="space-y-2" data-field="appointmentTime">
                   <Label htmlFor="appointment-time" className={validationErrors.appointmentTime ? "text-destructive" : ""}>Appointment Time *</Label>
                   <Input
-                    type="time" 
-                    id="appointment-time" 
+                    type="time"
+                    id="appointment-time"
+                    className={`rounded-none ${validationErrors.appointmentTime ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : ""}`}
                     value={formData.appointmentTime}
                     onChange={(e) => handleInputChange('appointmentTime', e.target.value)}
-                    className={validationErrors.appointmentTime ? "border-destructive ring-1 ring-destructive focus-visible:ring-destructive" : ""}
                   />
                   {validationErrors.appointmentTime && <p className="text-sm text-destructive">Please select an appointment time</p>}
                 </div>
 
-                <div className="space-y-2" data-field="assessmentType">
+                <div className="space-y-2 md:col-span-2" data-field="assessmentType">
                   <Label htmlFor="assessment-type" className={validationErrors.assessmentType ? "text-destructive" : ""}>Assessment Type *</Label>
                   <Select value={formData.assessmentType} onValueChange={(value) => handleInputChange('assessmentType', value)}>
-                    <SelectTrigger className={validationErrors.assessmentType ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}>
+                    <SelectTrigger className={`rounded-none ${validationErrors.assessmentType ? "border-destructive ring-1 ring-destructive focus:ring-destructive" : ""}`}>
                       <SelectValue placeholder="Select assessment type">
                         {formData.assessmentType}
                       </SelectValue>
@@ -1515,8 +1619,8 @@ const NewAppointment = () => {
                   {validationErrors.assessmentType && !formData.assessmentType && <p className="text-sm text-destructive">Please select an assessment type</p>}
                   {validationErrors.assessmentType && formData.assessmentType && <p className="text-sm text-destructive">"{formData.assessmentType}" is not an accepted assessment type. Please select a valid option.</p>}
                   {formData.assessmentType && formData.appointmentDate && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className="text-xs font-mono">
+                    <div className="mt-1 flex items-center gap-2">
+                      <Badge variant="outline" className="rounded-none font-mono text-xs">
                         Auto Code: {(() => {
                           const sc = claimants.find(c => c.id === formData.claimantId);
                           return generateAssessmentCode(
@@ -1530,49 +1634,33 @@ const NewAppointment = () => {
                     </div>
                   )}
                   {(formData.assessmentType === 'Joint Minutes' || formData.assessmentType === 'Addendum') && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-slate-500">
                       ℹ️ This is a post-report service requested after the expert's initial report is complete.
                     </p>
                   )}
                 </div>
+              </div>
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input 
-                    id="location" 
-                    placeholder="Assessment location" 
-                    value={formData.location}
-                    onChange={(e) => handleInputChange('location', e.target.value)}
-                  />
-                </div>
+            {/* ---------------------------------------------------------- */}
+            {/* Section: Payment & Terms                                   */}
+            {/* ---------------------------------------------------------- */}
+            <div className="space-y-4">
+              <AdminSectionLabel>
+                <span className="flex items-center gap-1.5">
+                  <Wallet className="h-3.5 w-3.5" />
+                  Payment &amp; Terms
+                </span>
+              </AdminSectionLabel>
 
-                <div className="space-y-2">
-                  <Label htmlFor="sales-consultant">Sales Consultant</Label>
-                  <Select value={formData.salesConsultantId} onValueChange={(value) => handleInputChange('salesConsultantId', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={salesConsultants.length === 0 ? "No consultants available" : "Select sales consultant"}>
-                        {formData.salesConsultantId && salesConsultants.find(sc => sc.id === formData.salesConsultantId)?.name}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {salesConsultants.map((consultant) => (
-                        <SelectItem key={consultant.id} value={consultant.id}>
-                          {consultant.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-sm text-muted-foreground">
-                    Attribute this appointment to a sales consultant for tracking.
-                  </p>
-                </div>
-
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="assessment-fees">Assessment Fees</Label>
-                  <Input 
-                    id="assessment-fees" 
-                    type="number" 
-                    placeholder="Enter assessment fees" 
+                  <Input
+                    id="assessment-fees"
+                    type="number"
+                    placeholder="Enter assessment fees"
+                    className="rounded-none"
                     value={formData.assessmentFees}
                     onChange={(e) => handleInputChange('assessmentFees', e.target.value)}
                   />
@@ -1589,13 +1677,13 @@ const NewAppointment = () => {
                       placeholder={formData.discountType === 'percentage' ? 'Enter discount %' : 'Enter discount amount'}
                       value={formData.discount}
                       onChange={(e) => handleInputChange('discount', e.target.value)}
-                      className="flex-1"
+                      className="flex-1 rounded-none"
                     />
                     <Select
                       value={formData.discountType}
                       onValueChange={(value) => handleInputChange('discountType', value)}
                     >
-                      <SelectTrigger className="w-32">
+                      <SelectTrigger className="w-32 rounded-none">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -1608,12 +1696,25 @@ const NewAppointment = () => {
 
                 <div className="space-y-2">
                   <Label htmlFor="deposit-made">Deposit Made</Label>
-                  <Input 
-                    id="deposit-made" 
-                    type="number" 
-                    placeholder="Enter deposit amount" 
+                  <Input
+                    id="deposit-made"
+                    type="number"
+                    placeholder="Enter deposit amount"
+                    className="rounded-none"
                     value={formData.depositMade}
                     onChange={(e) => handleInputChange('depositMade', e.target.value)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="full-payment">Full Payment</Label>
+                  <Input
+                    id="full-payment"
+                    type="number"
+                    placeholder="Enter full payment amount"
+                    className="rounded-none"
+                    value={formData.fullPayment}
+                    onChange={(e) => handleInputChange('fullPayment', e.target.value)}
                   />
                 </div>
 
@@ -1630,53 +1731,42 @@ const NewAppointment = () => {
                     const outstanding = Math.max(0, finalFee - deposit);
                     const isFullyPaid = deposit > 0 && deposit >= finalFee;
                     return (
-                      <div className="md:col-span-2 rounded-md border bg-muted/40 p-3 space-y-1 text-sm">
+                      <AdminCard className="space-y-1 p-3 text-sm md:col-span-2">
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Assessment Fees</span>
-                          <span>R {fees.toFixed(2)}</span>
+                          <span className="text-slate-500">Assessment Fees</span>
+                          <span className="text-black">R {fees.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">
+                          <span className="text-slate-500">
                             Discount {formData.discountType === 'percentage' ? `(${rawDisc || 0}%)` : ''}
                           </span>
-                          <span>- R {discValue.toFixed(2)}</span>
+                          <span className="text-black">- R {discValue.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between border-t pt-1">
-                          <span className="text-muted-foreground">Final Fee</span>
-                          <span className="font-medium">R {finalFee.toFixed(2)}</span>
+                        <div className="flex justify-between border-t border-black/10 pt-1">
+                          <span className="text-slate-500">Final Fee</span>
+                          <span className="font-medium text-black">R {finalFee.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Deposit Made</span>
-                          <span>- R {deposit.toFixed(2)}</span>
+                          <span className="text-slate-500">Deposit Made</span>
+                          <span className="text-black">- R {deposit.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between border-t pt-1">
-                          <span className="font-semibold">
+                        <div className="flex justify-between border-t border-black/10 pt-1">
+                          <span className="font-semibold text-black">
                             {isFullyPaid ? 'Status' : 'Outstanding Balance'}
                           </span>
-                          <span className={`font-bold ${isFullyPaid ? 'text-green-600' : 'text-destructive'}`}>
+                          <span className={`font-bold ${isFullyPaid ? 'text-success' : 'text-destructive'}`}>
                             {isFullyPaid ? '✓ Fully Paid' : `R ${outstanding.toFixed(2)}`}
                           </span>
                         </div>
-                      </div>
+                      </AdminCard>
                     );
                   })()
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="full-payment">Full Payment</Label>
-                  <Input 
-                    id="full-payment" 
-                    type="number" 
-                    placeholder="Enter full payment amount" 
-                    value={formData.fullPayment}
-                    onChange={(e) => handleInputChange('fullPayment', e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="payment-terms">Terms of Payment</Label>
                   <Select value={formData.paymentTerms} onValueChange={(value) => handleInputChange('paymentTerms', value)}>
-                    <SelectTrigger>
+                    <SelectTrigger className="rounded-none">
                       <SelectValue placeholder="Select payment terms">
                         {formData.paymentTerms && (
                           formData.paymentTerms === 'aod' ? 'AOD (Agreement on Demand)' :
@@ -1699,7 +1789,7 @@ const NewAppointment = () => {
                     </SelectContent>
                   </Select>
                   {formData.paymentTerms && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-xs text-slate-500">
                       {(() => {
                         const paymentLower = formData.paymentTerms.toLowerCase();
                         const duration = parseInt(formData.agreementDurationMonths) || 0;
@@ -1710,7 +1800,7 @@ const NewAppointment = () => {
                           : rawDiscount;
                         const finalFee = Math.max(0, assessmentFees - discount);
                         const hasBalance = finalFee - (parseFloat(formData.depositMade) || 0) > 0;
-                        
+
                         if (paymentLower.includes('aod') && (duration === 0 || duration >= 12)) {
                           return '📋 Will be synced to AOD Documents (12+ months agreement)';
                         } else if ((duration > 0 && duration < 12) || paymentLower.includes('short')) {
@@ -1724,84 +1814,105 @@ const NewAppointment = () => {
                   )}
                 </div>
 
-                {/* Debt Tracker Panel - shows when payment terms selected */}
-                {formData.paymentTerms && formData.referringAttorney && (
-                  <DebtTrackerPanel 
-                    referringAttorneyId={formData.referringAttorney}
-                    paymentTerms={formData.paymentTerms}
-                  />
-                )}
-
                 <div className="space-y-2">
                   <Label htmlFor="agreement-duration">Agreement Duration (Months)</Label>
-                  <Input 
-                    id="agreement-duration" 
-                    type="number" 
-                    placeholder="Enter duration in months (e.g., 12, 24)" 
+                  <Input
+                    id="agreement-duration"
+                    type="number"
+                    placeholder="Enter duration in months (e.g., 12, 24)"
+                    className="rounded-none"
                     value={formData.agreementDurationMonths}
                     onChange={(e) => handleInputChange('agreementDurationMonths', e.target.value)}
                     min="0"
                   />
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-slate-500">
                     Leave blank for standard AOD (defaults to 12 months). Use &lt;12 for short-term agreements.
                   </p>
                 </div>
-              </div>
 
+                {/* Debt Tracker Panel - shows when payment terms selected */}
+                {formData.paymentTerms && formData.referringAttorney && (
+                  <div className="md:col-span-2">
+                    <DebtTrackerPanel
+                      referringAttorneyId={formData.referringAttorney}
+                      paymentTerms={formData.paymentTerms}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* ---------------------------------------------------------- */}
+            {/* Section: Notes                                             */}
+            {/* ---------------------------------------------------------- */}
+            <div className="space-y-4">
+              <AdminSectionLabel>
+                <span className="flex items-center gap-1.5">
+                  <NotebookPen className="h-3.5 w-3.5" />
+                  Notes
+                </span>
+              </AdminSectionLabel>
               <div className="space-y-2">
                 <Label htmlFor="notes">Special Instructions/Notes</Label>
-                <Textarea 
-                  id="notes" 
+                <Textarea
+                  id="notes"
                   placeholder="Any special instructions or notes for the assessment"
                   rows={4}
+                  className="rounded-none"
                   value={formData.notes}
                   onChange={(e) => handleInputChange('notes', e.target.value)}
                 />
               </div>
+            </div>
 
-              <div className="flex gap-4 pt-6">
+            {bookingType === 'multiple' && (
+              <div className="border border-black/10 bg-black/[0.02] p-4">
+                <h4 className="mb-2 text-sm font-semibold text-black">Multiple Booking Instructions</h4>
+                <div className="space-y-1 text-sm text-slate-600">
+                  <p>• Fill out the form above for each appointment you want to schedule</p>
+                  <p>• Select different expert types and experts for each appointment</p>
+                  <p>• Click "Add to Queue" to add each appointment to your batch</p>
+                  <p>• Review your queued appointments above</p>
+                  <p>• Click "Submit All Appointments" when ready to schedule all at once</p>
+                </div>
+              </div>
+            )}
+
+            {/* Sticky action bar — stays reachable at the bottom of the
+                viewport instead of getting lost after a long scroll, the
+                same "always-visible controls" principle as the sticky tab
+                switcher on the Appointment Engine and System Control. */}
+            <div className={embedded ? 'sticky bottom-0 -mx-6 border-t border-black/10 bg-white/95 px-6 py-4 backdrop-blur' : 'sticky bottom-0 -mx-4 border-t border-black/10 bg-white/95 px-4 py-4 backdrop-blur'}>
+              <div className="flex gap-3">
                 {bookingType === 'multiple' && !isEditMode ? (
                   <>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+                    <Button
+                      type="button"
+                      variant="outline"
                       onClick={addToQueue}
-                      className="flex-1"
+                      className="flex-1 rounded-none border-black/15 hover:bg-black/5"
                       disabled={!formData.claimantId || !formData.expertId || !formData.expertType || !formData.appointmentDate || !formData.referringAttorney}
                     >
                       Add to Queue ({appointmentQueue.length})
                     </Button>
-                    <Button type="button" variant="outline" asChild>
+                    <Button type="button" variant="outline" className="rounded-none border-black/15 hover:bg-black/5" asChild>
                       <Link to="/">Cancel</Link>
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button type="submit" className="flex-1" disabled={submitting}>
+                    <Button type="submit" className="flex-1 rounded-none bg-black text-white hover:bg-black/90" disabled={submitting}>
                       {submitting ? (isEditMode ? 'Updating...' : 'Scheduling...') : (isEditMode ? 'Update Appointment' : 'Schedule Appointment')}
                     </Button>
-                    <Button type="button" variant="outline" asChild>
+                    <Button type="button" variant="outline" className="rounded-none border-black/15 hover:bg-black/5" asChild>
                       <Link to="/scheduled-assessment">Cancel</Link>
                     </Button>
                   </>
                 )}
               </div>
-
-              {bookingType === 'multiple' && (
-                <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Multiple Booking Instructions</h4>
-                  <div className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                    <p>• Fill out the form above for each appointment you want to schedule</p>
-                    <p>• Select different expert types and experts for each appointment</p>
-                    <p>• Click "Add to Queue" to add each appointment to your batch</p>
-                    <p>• Review your queued appointments above</p>
-                    <p>• Click "Submit All Appointments" when ready to schedule all at once</p>
-                  </div>
-                </div>
-              )}
-            </form>
-          </CardContent>
-        </Card>
+            </div>
+          </form>
+        </div>
       </main>
 
       {showAODPreview && aodId && (
@@ -1831,7 +1942,7 @@ const NewAppointment = () => {
         />
       )}
 
-      <CompanyFooter />
+      {!embedded && <CompanyFooter />}
     </div>
   );
 };
