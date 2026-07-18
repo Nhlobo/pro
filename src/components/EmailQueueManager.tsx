@@ -46,6 +46,8 @@ import {
   AdminPill,
   AdminEmptyState,
   AdminLoadingState,
+  AdminTabList,
+  AdminTabTrigger,
   BRAND_TEAL,
 } from "@/components/admin/ui/AdminUI";
 
@@ -216,33 +218,13 @@ export const EmailQueueManager = () => {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <div className="-mx-1 overflow-x-auto px-1">
-              <TabsList className="h-auto w-max gap-1 rounded-none border border-black/15 bg-transparent p-1">
-                <TabsTrigger value="all" className={flatTab}>
-                  <Inbox className="mr-1.5 h-3.5 w-3.5" /> All
-                </TabsTrigger>
-                <TabsTrigger value="unattended" className={flatTab}>
-                  <EyeOff className="mr-1.5 h-3.5 w-3.5" /> Unattended
-                  {stats.unattended > 0 && (
-                    <span
-                      className="ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white"
-                      style={{ backgroundColor: BRAND_TEAL }}
-                    >
-                      {stats.unattended}
-                    </span>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="read" className={flatTab}>
-                  <Eye className="mr-1.5 h-3.5 w-3.5" /> Read
-                </TabsTrigger>
-                <TabsTrigger value="forwarded" className={flatTab}>
-                  <ArrowUpRight className="mr-1.5 h-3.5 w-3.5" /> Forwarded
-                </TabsTrigger>
-                <TabsTrigger value="sent" className={flatTab}>
-                  <Send className="mr-1.5 h-3.5 w-3.5" /> Delivered
-                </TabsTrigger>
-              </TabsList>
-            </div>
+            <AdminTabList>
+              <AdminTabTrigger value="all" label="All" icon={Inbox} />
+              <AdminTabTrigger value="unattended" label="Unattended" icon={EyeOff} badge={stats.unattended} />
+              <AdminTabTrigger value="read" label="Read" icon={Eye} />
+              <AdminTabTrigger value="forwarded" label="Forwarded" icon={ArrowUpRight} />
+              <AdminTabTrigger value="sent" label="Delivered" icon={Send} />
+            </AdminTabList>
           </Tabs>
         </AdminCardBody>
       </AdminCard>
