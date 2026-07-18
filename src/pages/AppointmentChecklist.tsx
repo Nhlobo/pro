@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
-import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Calendar, ClipboardCheck, Download, Search, UserCheck, ShieldCheck, RefreshCw, Car, FileCheck } from "lucide-react";
+import { Calendar, ClipboardCheck, Download, Search, UserCheck, ShieldCheck, RefreshCw, Car, FileCheck } from "lucide-react";
 import { format, parseISO, isToday, isTomorrow } from "date-fns";
 import { todayInSAST, nowInSAST, formatDateTimeShort } from "@/utils/dateTime";
 import { supabase } from "@/integrations/supabase/client";
@@ -394,17 +393,11 @@ const AppointmentChecklist: React.FC = () => {
         <div className="container mx-auto px-4 py-6 max-w-7xl space-y-6">
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Link to="/dashboard">
-                <Button variant="outline" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-1" />
-                  Back
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                  <ClipboardCheck className="h-7 w-7 text-primary" />
-                  Appointment Checklist
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="min-w-0">
+                <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
+                  <ClipboardCheck className="h-6 w-6 sm:h-7 sm:w-7 text-primary shrink-0" />
+                  <span className="truncate">Appointment Checklist</span>
                 </h1>
                 <p className="text-sm text-muted-foreground">
                   Daily grouped checklist for claimant assessments
@@ -416,7 +409,7 @@ const AppointmentChecklist: React.FC = () => {
                 <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
-              <Button size="sm" onClick={downloadPDF} disabled={dayGroups.length === 0} className="flex-1 sm:flex-none">
+              <Button size="sm" onClick={downloadPDF} disabled={dayGroups.length === 0} className="gradient-teal border flex-1 sm:flex-none">
                 <Download className="h-4 w-4 mr-1" />
                 Download PDF
               </Button>
