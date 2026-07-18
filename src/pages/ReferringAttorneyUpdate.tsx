@@ -31,7 +31,14 @@ type AttorneyUpdateData = {
   matter_type?: string;
 };
 
-const ReferringAttorneyUpdate = () => {
+/**
+ * `embedded` drops the page's own header, Helmet tags, and footer when this
+ * view is hosted inside another surface's chrome — e.g. the Appointment
+ * Engine's "Assessment Update" tab. Standalone route usage
+ * (`/referring-attorney-update`) is unaffected. Same pattern as
+ * NewAppointment's `embedded` prop.
+ */
+const ReferringAttorneyUpdate = ({ embedded = false }: { embedded?: boolean } = {}) => {
   const { toast } = useToast();
   const [updateData, setUpdateData] = useState<AttorneyUpdateData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -241,49 +248,75 @@ const ReferringAttorneyUpdate = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>Assessment Update - Medico-Legal Assessment System</title>
-        <meta name="description" content="Real-time updates on scheduled assessments." />
-      </Helmet>
+    <div className={embedded ? '' : 'min-h-screen bg-background'}>
+      {!embedded && (
+        <Helmet>
+          <title>Assessment Update - Medico-Legal Assessment System</title>
+          <meta name="description" content="Real-time updates on scheduled assessments." />
+        </Helmet>
+      )}
 
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/"><ArrowLeft className="h-4 w-4 mr-2" />Back</Link>
-              </Button>
-              <h1 className="text-2xl font-bold">Assessment Update</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              {selectedRows.size > 0 && (
-                <Button
-                  variant="default"
-                  onClick={openBulkDialog}
-                  className="gap-2"
-                >
-                  <Users className="h-4 w-4" />
-                  Send Bulk ({selectedRows.size})
+      {!embedded && (
+        <header className="border-b">
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/admin"><ArrowLeft className="h-4 w-4 mr-2" />Back</Link>
                 </Button>
-              )}
-              <Button 
-                variant="outline" 
-                onClick={handleManualRefresh}
-                disabled={refreshing}
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                {refreshing ? 'Refreshing...' : 'Refresh Data'}
-              </Button>
-              <Button onClick={handleDownloadReport}>
-                <Download className="h-4 w-4 mr-2" />Download
-              </Button>
+                <h1 className="text-xl font-bold sm:text-2xl">Assessment Update</h1>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {selectedRows.size > 0 && (
+                  <Button
+                    variant="default"
+                    onClick={openBulkDialog}
+                    className="gap-2"
+                  >
+                    <Users className="h-4 w-4" />
+                    Send Bulk ({selectedRows.size})
+                  </Button>
+                )}
+                <Button 
+                  variant="outline" 
+                  onClick={handleManualRefresh}
+                  disabled={refreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  {refreshing ? 'Refreshing...' : 'Refresh Data'}
+                </Button>
+                <Button onClick={handleDownloadReport} className="gradient-teal border">
+                  <Download className="h-4 w-4 mr-2" />Download
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
-      <main className="container mx-auto px-4 py-8">
+      {/* Embedded mode still needs its own action row — the module tab has
+          no other place to put Refresh/Download/Bulk-send — just without
+          the duplicate title/back button that the Appointment Engine's
+          header already provides. */}
+      {embedded && (
+        <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+          {selectedRows.size > 0 && (
+            <Button variant="default" onClick={openBulkDialog} className="gap-2">
+              <Users className="h-4 w-4" />
+              Send Bulk ({selectedRows.size})
+            </Button>
+          )}
+          <Button variant="outline" onClick={handleManualRefresh} disabled={refreshing}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh Data'}
+          </Button>
+          <Button onClick={handleDownloadReport} className="gradient-teal border">
+            <Download className="h-4 w-4 mr-2" />Download
+          </Button>
+        </div>
+      )}
+
+      <main className={embedded ? '' : 'container mx-auto px-4 py-8'}>
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -321,6 +354,7 @@ const ReferringAttorneyUpdate = () => {
             {loading ? (
               <div className="text-center py-8">Loading...</div>
             ) : (
+              <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                  <TableRow>
@@ -403,6 +437,7 @@ const ReferringAttorneyUpdate = () => {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -426,7 +461,7 @@ const ReferringAttorneyUpdate = () => {
         }}
       />
 
-      <CompanyFooter />
+      {!embedded && <CompanyFooter />}
     </div>
   );
 };
