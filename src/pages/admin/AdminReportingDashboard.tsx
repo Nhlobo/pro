@@ -23,7 +23,10 @@ import {
   Briefcase,
   FileSpreadsheet,
   X,
-  Search
+  Search,
+  BarChart3,
+  Filter,
+  MessageSquare,
 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +39,20 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
+import {
+  AdminPage,
+  AdminHeader,
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminStatCard,
+  AdminPill,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminTabList,
+  AdminTabTrigger,
+  AdminSectionLabel,
+} from '@/components/admin/ui/AdminUI';
 
 import { RandSign } from "@/components/icons/RandSign";
 type Period = 'monthly' | 'quarterly' | 'yearly' | 'bi_annually';
@@ -704,436 +721,567 @@ const AdminReportingDashboard: React.FC = () => {
     toast({ title: 'Attorney report ready', description: `${attorneyFilter} · ${periodLabel}` });
   };
 
+  // ---- Pure display helper (presentation only, using the shared AdminPill) ----
+  const getReportStatusBadge = (status?: string | null) => {
+    if (isSubmitted(status)) return <AdminPill tone="success"><FileCheck className="h-3 w-3" />Submitted</AdminPill>;
+    if (isInProgress(status)) return <AdminPill tone="warning"><Clock className="h-3 w-3" />In Progress</AdminPill>;
+    return <AdminPill tone="destructive"><AlertTriangle className="h-3 w-3" />Outstanding</AdminPill>;
+  };
+
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground">Reporting System</h1>
-          <p className="text-xs md:text-sm text-muted-foreground">Claimant-centric reporting for {periodLabel}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Select value={period} onValueChange={(v: Period) => setPeriod(v)}>
-            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="quarterly">Quarterly</SelectItem>
-              <SelectItem value="bi_annually">Bi-Annually</SelectItem>
-              <SelectItem value="yearly">Yearly</SelectItem>
-            </SelectContent>
-          </Select>
-          {period === 'monthly' && (
-            <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
-              <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {monthNames.map((n, i) => <SelectItem key={i} value={String(i + 1)}>{n}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
-          {period === 'quarterly' && (
-            <Select value={String(quarter)} onValueChange={(v) => setQuarter(Number(v))}>
-              <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4].map((q) => <SelectItem key={q} value={String(q)}>Q{q}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          )}
-          {period === 'bi_annually' && (
-            <Select value={String(half)} onValueChange={(v) => setHalf(Number(v))}>
-              <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">H1</SelectItem>
-                <SelectItem value="2">H2</SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-          <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-            <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {[now.getFullYear() - 2, now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (
-                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={attorneyFilter} onValueChange={setAttorneyFilter}>
-            <SelectTrigger className="w-56"><SelectValue placeholder="Referring Attorney" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Referring Attorneys</SelectItem>
-              {attorneyOptions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={pdfStatusFilter} onValueChange={(v: typeof pdfStatusFilter) => setPdfStatusFilter(v)}>
-            <SelectTrigger className="w-44"><SelectValue placeholder="PDF status filter" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="submitted">Submitted Reports</SelectItem>
-              <SelectItem value="in_progress">In Process</SelectItem>
-              <SelectItem value="outstanding">Outstanding</SelectItem>
-            </SelectContent>
-          </Select>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className={cn(
-                  'gap-2 justify-start text-left font-normal',
-                  !pdfDateRange?.from && 'text-muted-foreground'
-                )}
-              >
-                <CalendarIcon className="h-4 w-4" />
-                {dateRangeLabel}
-                {pdfDateRange?.from && (
-                  <X
-                    className="h-3 w-3 ml-1 opacity-60 hover:opacity-100"
-                    onClick={(e) => { e.stopPropagation(); setPdfDateRange(undefined); }}
+    <AdminPage>
+      <AdminHeader
+        eyebrow="Workflow"
+        title="Reporting System"
+        description={`Claimant-centric operational reporting for ${periodLabel}`}
+        icon={BarChart3}
+        actions={
+          <>
+            <Button variant="outline" size="sm" className="rounded-none" onClick={exportPDF}>
+              <Download className="h-4 w-4 mr-1.5" />
+              Export PDF
+            </Button>
+            <Button
+              size="sm"
+              className="gradient-teal rounded-none border"
+              onClick={exportAttorneyPDF}
+              disabled={attorneyFilter === 'all'}
+              title={attorneyFilter === 'all' ? 'Select a referring attorney first' : undefined}
+            >
+              <Download className="h-4 w-4 mr-1.5" />
+              Attorney Report
+            </Button>
+          </>
+        }
+      />
+
+      {/* Filters — every table, KPI and export on this page reacts to these */}
+      <AdminCard>
+        <AdminCardHeader
+          icon={Filter}
+          title="Report Filters"
+          description="Choose the period, attorney and status. Every table, KPI and export below reacts to these."
+        />
+        <AdminCardBody>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Period</label>
+              <Select value={period} onValueChange={(v: Period) => setPeriod(v)}>
+                <SelectTrigger className="mt-1 rounded-none"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="quarterly">Quarterly</SelectItem>
+                  <SelectItem value="bi_annually">Bi-Annually</SelectItem>
+                  <SelectItem value="yearly">Yearly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {period === 'monthly' && (
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Month</label>
+                <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                  <SelectTrigger className="mt-1 rounded-none"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {monthNames.map((n, i) => <SelectItem key={i} value={String(i + 1)}>{n}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {period === 'quarterly' && (
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Quarter</label>
+                <Select value={String(quarter)} onValueChange={(v) => setQuarter(Number(v))}>
+                  <SelectTrigger className="mt-1 rounded-none"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4].map((q) => <SelectItem key={q} value={String(q)}>Q{q}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {period === 'bi_annually' && (
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Half</label>
+                <Select value={String(half)} onValueChange={(v) => setHalf(Number(v))}>
+                  <SelectTrigger className="mt-1 rounded-none"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">H1</SelectItem>
+                    <SelectItem value="2">H2</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Year</label>
+              <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                <SelectTrigger className="mt-1 rounded-none"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[now.getFullYear() - 2, now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map((y) => (
+                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="col-span-2 sm:col-span-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Referring Attorney</label>
+              <Select value={attorneyFilter} onValueChange={setAttorneyFilter}>
+                <SelectTrigger className="mt-1 rounded-none"><SelectValue placeholder="Referring Attorney" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Referring Attorneys</SelectItem>
+                  {attorneyOptions.map((a) => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Report Status</label>
+              <Select value={pdfStatusFilter} onValueChange={(v: typeof pdfStatusFilter) => setPdfStatusFilter(v)}>
+                <SelectTrigger className="mt-1 rounded-none"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="submitted">Submitted Reports</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="outstanding">Outstanding</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="col-span-2 sm:col-span-3 lg:col-span-6">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Export Date Range (PDF only)</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      'mt-1 w-full justify-start gap-2 rounded-none text-left font-normal sm:w-auto',
+                      !pdfDateRange?.from && 'text-slate-400'
+                    )}
+                  >
+                    <CalendarIcon className="h-4 w-4" style={{ color: '#00BAAD' }} />
+                    {dateRangeLabel}
+                    {pdfDateRange?.from && (
+                      <X
+                        className="ml-1 h-3 w-3 opacity-60 hover:opacity-100"
+                        onClick={(e) => { e.stopPropagation(); setPdfDateRange(undefined); }}
+                      />
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto rounded-none p-0" align="start">
+                  <Calendar
+                    mode="range"
+                    selected={pdfDateRange}
+                    onSelect={setPdfDateRange}
+                    numberOfMonths={2}
+                    initialFocus
+                    className={cn('p-3 pointer-events-auto')}
                   />
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="range"
-                selected={pdfDateRange}
-                onSelect={setPdfDateRange}
-                numberOfMonths={2}
-                initialFocus
-                className={cn('p-3 pointer-events-auto')}
-              />
-            </PopoverContent>
-          </Popover>
-          <Button variant="outline" size="sm" onClick={exportPDF} className="gap-2">
-            <Download className="h-4 w-4" /> Export PDF
-          </Button>
-          <Button size="sm" onClick={exportAttorneyPDF} className="gap-2" disabled={attorneyFilter === 'all'}>
-            <Download className="h-4 w-4" /> Attorney Report
-          </Button>
-        </div>
-      </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+        </AdminCardBody>
+      </AdminCard>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-        {[
-          { label: 'Total Claimants Assessed', value: metrics.totalClaimants, icon: Users, color: 'text-primary' },
-          { label: 'Total Assessments', value: metrics.totalAssessments, icon: Briefcase, color: 'text-foreground' },
-          { label: 'Reports Submitted', value: metrics.submitted, icon: FileCheck, color: 'text-emerald-600' },
-          { label: 'In Progress', value: metrics.inProgress, icon: Clock, color: 'text-amber-600' },
-          { label: 'Outstanding', value: metrics.outstanding, icon: AlertTriangle, color: 'text-rose-600' },
-        ].map((k) => (
-          <Card key={k.label} className="rounded-none border-black/10 shadow-none">
-            <CardContent className="pt-3 pb-3 px-3 md:px-4">
-              <k.icon className={`h-4 w-4 mb-2 ${k.color}`} />
-              <p className="text-xl md:text-2xl font-bold text-foreground tabular-nums">{k.value}</p>
-              <p className="text-[11px] text-muted-foreground leading-tight">{k.label}</p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+        <AdminStatCard label="Claimants Assessed" value={metrics.totalClaimants} icon={Users} loading={loading} />
+        <AdminStatCard label="Total Assessments" value={metrics.totalAssessments} icon={Briefcase} loading={loading} />
+        <AdminStatCard label="Reports Submitted" value={metrics.submitted} icon={FileCheck} loading={loading} />
+        <AdminStatCard label="In Progress" value={metrics.inProgress} icon={Clock} loading={loading} />
+        <AdminStatCard label="Outstanding" value={metrics.outstanding} icon={AlertTriangle} loading={loading} />
       </div>
 
-      <Tabs defaultValue="claimants">
-        <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0">
-          <TabsList className="w-max">
-            <TabsTrigger value="claimants">Claimants ({grouped.length})</TabsTrigger>
-            <TabsTrigger value="attorney">Attorney Report</TabsTrigger>
-            <TabsTrigger value="active">Active Attorneys ({activeAttorneys.length})</TabsTrigger>
-            <TabsTrigger value="reports">Report Catalogue</TabsTrigger>
-            <TabsTrigger value="summary">Summary / Comments</TabsTrigger>
-          </TabsList>
-        </div>
+      {/* Tabs + content */}
+      <Tabs defaultValue="claimants" className="w-full">
+        <AdminTabList columns={5}>
+          <AdminTabTrigger value="claimants" label="Claimants" badge={grouped.length} center />
+          <AdminTabTrigger value="attorney" label="Attorney Report" center />
+          <AdminTabTrigger value="active" label="Active Attorneys" badge={activeAttorneys.length} center />
+          <AdminTabTrigger value="reports" label="Report Catalogue" center />
+          <AdminTabTrigger value="summary" label="Summary" center />
+        </AdminTabList>
 
-        <TabsContent value="active" className="space-y-3">
-          <Card className="rounded-none border-black/10 shadow-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">
-                Active Referring Attorneys · Matters since 1 Jan 2025
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+        <div className="mt-4 space-y-4">
+          {/* ===================== Active Referring Attorneys ===================== */}
+          <TabsContent value="active" className="mt-0 focus-visible:outline-none">
+            <AdminCard>
+              <AdminCardHeader
+                icon={Users}
+                title="Active Referring Attorneys"
+                description="Matters since 1 Jan 2025 — tap Select to filter every tab and export by this attorney."
+              />
               {activeAttorneys.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No active referring attorneys found.</p>
+                <AdminEmptyState icon={Users} title="No active referring attorneys found" />
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
-                        <TableHead>Referring Attorney</TableHead>
-                        <TableHead className="text-right">Matters (2025–Date)</TableHead>
-                        <TableHead className="w-32 text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {activeAttorneys.map((a, i) => (
-                        <TableRow key={a.name}>
-                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                          <TableCell className="font-medium">{a.name}</TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant="secondary">{a.matters}</Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setAttorneyFilter(a.name)}
-                            >
-                              Select
-                            </Button>
-                          </TableCell>
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden overflow-x-auto md:block">
+                    <Table className="text-xs [&_th]:h-9 [&_th]:px-3 [&_th]:py-1 [&_th]:text-[11px] [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle">
+                      <TableHeader className="bg-white">
+                        <TableRow>
+                          <TableHead className="w-10">#</TableHead>
+                          <TableHead>Referring Attorney</TableHead>
+                          <TableHead className="text-right">Matters (2025–Date)</TableHead>
+                          <TableHead className="w-28 text-right">Action</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="attorney" className="space-y-3">
-          <Card className="rounded-none border-black/10 shadow-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">
-                Per-Attorney Report {attorneyFilter !== 'all' ? `· ${attorneyFilter}` : ''} · {periodLabel}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {attorneyFilter === 'all' && (
-                <p className="text-sm text-muted-foreground">
-                  Select a Referring Attorney from the filter above to build a tailored report.
-                </p>
-              )}
-              {attorneyFilter !== 'all' && grouped.length === 0 && (
-                <p className="text-sm text-muted-foreground">No claimants for this attorney in {periodLabel}.</p>
-              )}
-              {attorneyFilter !== 'all' && grouped.length > 0 && (
-                <div className="rounded-md border rounded-none border-black/10 shadow-none overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Claimant Full Name</TableHead>
-                        <TableHead className="text-center">Total Assessments</TableHead>
-                        <TableHead className="text-center">Submitted</TableHead>
-                        <TableHead className="text-center">In Progress</TableHead>
-                        <TableHead className="text-center">Outstanding</TableHead>
-                        <TableHead>Comment</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {grouped.map((g) => {
-                        const sub = g.items.filter((r) => isSubmitted(r.report_status)).length;
-                        const ip = g.items.filter((r) => isInProgress(r.report_status)).length;
-                        const out = g.items.length - sub - ip;
-                        return (
-                          <TableRow key={g.id}>
-                            <TableCell className="font-medium">{g.name} <span className="text-xs text-muted-foreground">({g.auto_id})</span></TableCell>
-                            <TableCell className="text-center">{g.items.length}</TableCell>
-                            <TableCell className="text-center"><Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">{sub}</Badge></TableCell>
-                            <TableCell className="text-center"><Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">{ip}</Badge></TableCell>
-                            <TableCell className="text-center"><Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100">{out}</Badge></TableCell>
-                            <TableCell className="min-w-[240px]">
-                              <Textarea
-                                rows={2}
-                                value={claimantComments[g.id] ?? ''}
-                                onChange={(e) => setClaimantComments((s) => ({ ...s, [g.id]: e.target.value }))}
-                                placeholder="Note any missing documents or the reason for delay…"
-                                className="text-xs"
-                              />
+                      </TableHeader>
+                      <TableBody>
+                        {activeAttorneys.map((a, i) => (
+                          <TableRow key={a.name} className="hover:bg-black/[0.02]">
+                            <TableCell className="text-slate-400">{i + 1}</TableCell>
+                            <TableCell className="font-medium text-black">{a.name}</TableCell>
+                            <TableCell className="text-right">
+                              <AdminPill tone="teal">{a.matters}</AdminPill>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button size="sm" variant="outline" className="rounded-none" onClick={() => setAttorneyFilter(a.name)}>
+                                Select
+                              </Button>
                             </TableCell>
                           </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {/* Mobile cards */}
+                  <div className="divide-y divide-black/10 md:hidden">
+                    {activeAttorneys.map((a, i) => (
+                      <div key={a.name} className="flex items-center justify-between gap-3 p-4">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-black">{i + 1}. {a.name}</p>
+                          <p className="mt-1 text-[11px] text-slate-500">Matters since 2025: <AdminPill tone="teal" className="ml-1">{a.matters}</AdminPill></p>
+                        </div>
+                        <Button size="sm" variant="outline" className="shrink-0 rounded-none" onClick={() => setAttorneyFilter(a.name)}>
+                          Select
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </AdminCard>
+          </TabsContent>
+
+          {/* ===================== Per-Attorney Report ===================== */}
+          <TabsContent value="attorney" className="mt-0 focus-visible:outline-none">
+            <AdminCard>
+              <AdminCardHeader
+                icon={Briefcase}
+                title="Per-Attorney Report"
+                description={attorneyFilter !== 'all' ? `${attorneyFilter} · ${periodLabel}` : periodLabel}
+                actions={
+                  attorneyFilter !== 'all' && grouped.length > 0 ? (
+                    <Button size="sm" className="gradient-teal rounded-none border" onClick={exportAttorneyPDF}>
+                      <Download className="h-4 w-4 mr-1.5" />
+                      Download Attorney PDF
+                    </Button>
+                  ) : undefined
+                }
+              />
+              {attorneyFilter === 'all' && (
+                <AdminEmptyState
+                  icon={Briefcase}
+                  title="No referring attorney selected"
+                  description="Select a Referring Attorney from the filters above to build a tailored report."
+                />
+              )}
+              {attorneyFilter !== 'all' && grouped.length === 0 && (
+                <AdminEmptyState
+                  icon={Briefcase}
+                  title="No claimants found"
+                  description={`No claimants for this attorney in ${periodLabel}.`}
+                />
               )}
               {attorneyFilter !== 'all' && grouped.length > 0 && (
-                <div className="flex justify-end">
-                  <Button onClick={exportAttorneyPDF} className="gap-2">
-                    <Download className="h-4 w-4" /> Download Attorney PDF
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="claimants" className="space-y-3">
-          <Card className="rounded-none border-black/10 shadow-none">
-            <CardHeader className="pb-2"><CardTitle className="text-base">Claimants in {periodLabel}</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={claimantSearch}
-                  onChange={(e) => setClaimantSearch(e.target.value)}
-                  placeholder="Search claimant by name or ID to add a comment…"
-                  className="pl-8 pr-9"
-                />
-                {claimantSearch && (
-                  <button
-                    type="button"
-                    onClick={() => setClaimantSearch('')}
-                    className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
-                    aria-label="Clear search"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              {loading && <p className="text-sm text-muted-foreground">Loading…</p>}
-              {!loading && grouped.length === 0 && <p className="text-sm text-muted-foreground">No data for this period.</p>}
-              {(() => {
-                const q = claimantSearch.trim().toLowerCase();
-                const visible = q
-                  ? grouped.filter((g) =>
-                      g.name.toLowerCase().includes(q) ||
-                      (g.auto_id ?? '').toLowerCase().includes(q) ||
-                      (g.attorney ?? '').toLowerCase().includes(q)
-                    )
-                  : grouped;
-                if (!loading && q && visible.length === 0) {
-                  return <p className="text-sm text-muted-foreground">No claimant matches "{claimantSearch}".</p>;
-                }
-                return visible.map((g) => {
-                const isOpen = !!openClaimants[g.id];
-                const subSubmitted = g.items.filter((r) => isSubmitted(r.report_status)).length;
-                const subProgress = g.items.filter((r) => isInProgress(r.report_status)).length;
-                const subOut = g.items.length - subSubmitted - subProgress;
-                return (
-                  <Collapsible key={g.id} open={isOpen} onOpenChange={(o) => setOpenClaimants((s) => ({ ...s, [g.id]: o }))}>
-                    <div className="rounded-md border rounded-none border-black/10 shadow-none hover:bg-muted/40 transition">
-                    <CollapsibleTrigger className="w-full">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3">
-                        <div className="flex items-center gap-3 text-left min-w-0">
-                          <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform ${isOpen ? 'rotate-0' : '-rotate-90'}`} />
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">{g.name} <span className="text-muted-foreground">({g.auto_id})</span></p>
-                            <p className="text-xs text-muted-foreground truncate">{g.attorney ?? 'No attorney'} · {g.items.length} assessment{g.items.length > 1 ? 's' : ''}</p>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge variant="outline" className="text-emerald-700 border-emerald-300">Submitted: {subSubmitted}</Badge>
-                          <Badge variant="outline" className="text-amber-700 border-amber-300">In progress: {subProgress}</Badge>
-                          <Badge variant="outline" className="text-rose-700 border-rose-300">Outstanding: {subOut}</Badge>
-                        </div>
-                      </div>
-                    </CollapsibleTrigger>
-                    {(() => {
-                      const hasComment = !!(claimantComments[g.id]?.trim());
-                      const open = commentOpen[g.id] ?? hasComment;
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden overflow-x-auto lg:block">
+                    <Table className="text-xs [&_th]:h-9 [&_th]:px-3 [&_th]:py-1 [&_th]:text-[11px] [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle">
+                      <TableHeader className="bg-white">
+                        <TableRow>
+                          <TableHead>Claimant Full Name</TableHead>
+                          <TableHead className="text-center">Total</TableHead>
+                          <TableHead className="text-center">Submitted</TableHead>
+                          <TableHead className="text-center">In Progress</TableHead>
+                          <TableHead className="text-center">Outstanding</TableHead>
+                          <TableHead className="min-w-[240px]">Comment</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {grouped.map((g) => {
+                          const sub = g.items.filter((r) => isSubmitted(r.report_status)).length;
+                          const ip = g.items.filter((r) => isInProgress(r.report_status)).length;
+                          const out = g.items.length - sub - ip;
+                          return (
+                            <TableRow key={g.id} className="hover:bg-black/[0.02]">
+                              <TableCell className="font-medium text-black">
+                                {g.name} <span className="text-slate-400">({g.auto_id})</span>
+                              </TableCell>
+                              <TableCell className="text-center">{g.items.length}</TableCell>
+                              <TableCell className="text-center"><AdminPill tone="success">{sub}</AdminPill></TableCell>
+                              <TableCell className="text-center"><AdminPill tone="warning">{ip}</AdminPill></TableCell>
+                              <TableCell className="text-center"><AdminPill tone="destructive">{out}</AdminPill></TableCell>
+                              <TableCell className="min-w-[240px]">
+                                <Textarea
+                                  rows={2}
+                                  value={claimantComments[g.id] ?? ''}
+                                  onChange={(e) => setClaimantComments((s) => ({ ...s, [g.id]: e.target.value }))}
+                                  placeholder="Note any missing documents or the reason for delay…"
+                                  className="rounded-none text-xs"
+                                />
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  {/* Mobile / tablet cards */}
+                  <div className="divide-y divide-black/10 lg:hidden">
+                    {grouped.map((g) => {
+                      const sub = g.items.filter((r) => isSubmitted(r.report_status)).length;
+                      const ip = g.items.filter((r) => isInProgress(r.report_status)).length;
+                      const out = g.items.length - sub - ip;
                       return (
-                        <div className="px-3 pb-3" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-between">
-                            <Label className="text-[11px] text-muted-foreground">Claimant Comment</Label>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={open ? 'secondary' : 'outline'}
-                              className="h-6 px-2 text-[11px] gap-1"
-                              onClick={() => setCommentOpen((s) => ({ ...s, [g.id]: !open }))}
-                            >
-                              {open ? 'Hide comment' : (hasComment ? 'Edit comment' : 'Needs comment?')}
-                            </Button>
+                        <div key={g.id} className="space-y-2.5 p-4">
+                          <p className="truncate text-sm font-semibold text-black">
+                            {g.name} <span className="font-normal text-slate-400">({g.auto_id})</span>
+                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <AdminPill tone="neutral">Total: {g.items.length}</AdminPill>
+                            <AdminPill tone="success">Submitted: {sub}</AdminPill>
+                            <AdminPill tone="warning">In progress: {ip}</AdminPill>
+                            <AdminPill tone="destructive">Outstanding: {out}</AdminPill>
                           </div>
-                          {open && (
+                          <div>
+                            <Label className="text-[11px] text-slate-400">Comment</Label>
                             <Textarea
                               rows={2}
                               value={claimantComments[g.id] ?? ''}
                               onChange={(e) => setClaimantComments((s) => ({ ...s, [g.id]: e.target.value }))}
                               placeholder="Note any missing documents or the reason for delay…"
-                              className="text-xs mt-1"
+                              className="mt-1 rounded-none text-xs"
                             />
-                          )}
-                          {!open && hasComment && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{claimantComments[g.id]}</p>
-                          )}
+                          </div>
                         </div>
                       );
-                    })()}
-                    <CollapsibleContent>
-                      <div className="border-t rounded-none border-black/10 shadow-none">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Appointment Date</TableHead>
-                              <TableHead>Case Status</TableHead>
-                              <TableHead>Report Status</TableHead>
-                              <TableHead>Submitted On</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {g.items.map((r) => (
-                              <TableRow key={r.appointment_id}>
-                                <TableCell>{new Date(r.appointment_date).toLocaleDateString('en-ZA')}</TableCell>
-                                <TableCell><Badge variant="secondary">{r.case_status ?? '—'}</Badge></TableCell>
-                                <TableCell>
-                                  <Badge className={
-                                    isSubmitted(r.report_status) ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100' :
-                                    isInProgress(r.report_status) ? 'bg-amber-100 text-amber-700 hover:bg-amber-100' :
-                                    'bg-rose-100 text-rose-700 hover:bg-rose-100'
-                                  }>{r.report_status ?? 'pending'}</Badge>
-                                </TableCell>
-                                <TableCell>{r.report_submitted_date ? new Date(r.report_submitted_date).toLocaleDateString('en-ZA') : '—'}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CollapsibleContent>
-                    </div>
-                  </Collapsible>
-                );
-              });
-              })()}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reports">
-          <Card className="rounded-none border-black/10 shadow-none">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Reports available to send to a Referring Attorney</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {REPORT_TYPES.map((rt) => (
-                  <div key={rt.id} className="flex items-start justify-between p-3 rounded-md border rounded-none border-black/10 shadow-none hover:bg-muted/30">
-                    <div className="flex gap-3">
-                      <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center">
-                        <rt.icon className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{rt.name}</p>
-                        <p className="text-xs text-muted-foreground">{rt.desc}</p>
-                      </div>
-                    </div>
-                    <Button size="sm" variant="outline" className="gap-2 shrink-0"
-                      onClick={() => toast({ title: 'Prepared', description: `${rt.name} ready to send for ${periodLabel}.` })}>
-                      <Mail className="h-3.5 w-3.5" /> Send
-                    </Button>
+                    })}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                </>
+              )}
+            </AdminCard>
+          </TabsContent>
 
-        <TabsContent value="summary">
-          <Card className="rounded-none border-black/10 shadow-none">
-            <CardHeader className="pb-2"><CardTitle className="text-base">Summary / Comments</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <Textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder={`Add an executive summary or notes for the ${period} report (${periodLabel})…`}
-                rows={8}
-                maxLength={4000}
+          {/* ===================== Claimants (grouped, expandable) ===================== */}
+          <TabsContent value="claimants" className="mt-0 focus-visible:outline-none">
+            <AdminCard>
+              <AdminCardHeader
+                icon={Users}
+                title="Claimants"
+                description={`${grouped.length} claimant${grouped.length === 1 ? '' : 's'} in ${periodLabel}`}
               />
-              <p className="text-xs text-muted-foreground">{comment.length}/4000 characters · This summary is included in PDF exports.</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
+              <AdminCardBody className="space-y-3">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    value={claimantSearch}
+                    onChange={(e) => setClaimantSearch(e.target.value)}
+                    placeholder="Search claimant by name or ID to add a comment…"
+                    className="rounded-none pl-8 pr-9"
+                  />
+                  {claimantSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setClaimantSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-black"
+                      aria-label="Clear search"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                {loading ? (
+                  <AdminLoadingState label="Loading claimants…" />
+                ) : grouped.length === 0 ? (
+                  <AdminEmptyState icon={Users} title="No data for this period" />
+                ) : (
+                  (() => {
+                    const q = claimantSearch.trim().toLowerCase();
+                    const visible = q
+                      ? grouped.filter((g) =>
+                          g.name.toLowerCase().includes(q) ||
+                          (g.auto_id ?? '').toLowerCase().includes(q) ||
+                          (g.attorney ?? '').toLowerCase().includes(q)
+                        )
+                      : grouped;
+                    if (q && visible.length === 0) {
+                      return <p className="text-sm text-slate-500">No claimant matches "{claimantSearch}".</p>;
+                    }
+                    return (
+                      <div className="space-y-2">
+                        {visible.map((g) => {
+                          const isOpen = !!openClaimants[g.id];
+                          const subSubmitted = g.items.filter((r) => isSubmitted(r.report_status)).length;
+                          const subProgress = g.items.filter((r) => isInProgress(r.report_status)).length;
+                          const subOut = g.items.length - subSubmitted - subProgress;
+                          const hasComment = !!(claimantComments[g.id]?.trim());
+                          const commentIsOpen = commentOpen[g.id] ?? hasComment;
+                          return (
+                            <Collapsible key={g.id} open={isOpen} onOpenChange={(o) => setOpenClaimants((s) => ({ ...s, [g.id]: o }))}>
+                              <div className="border border-black/10">
+                                <CollapsibleTrigger className="w-full text-left transition-colors hover:bg-black/[0.02]">
+                                  <div className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex min-w-0 items-center gap-3">
+                                      <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? 'rotate-0' : '-rotate-90'}`} />
+                                      <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-black">
+                                          {g.name} <span className="font-normal text-slate-400">({g.auto_id})</span>
+                                        </p>
+                                        <p className="truncate text-[11px] text-slate-500">
+                                          {g.attorney ?? 'No attorney'} · {g.items.length} assessment{g.items.length > 1 ? 's' : ''}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      <AdminPill tone="success">Submitted: {subSubmitted}</AdminPill>
+                                      <AdminPill tone="warning">In progress: {subProgress}</AdminPill>
+                                      <AdminPill tone="destructive">Outstanding: {subOut}</AdminPill>
+                                    </div>
+                                  </div>
+                                </CollapsibleTrigger>
+
+                                <div className="border-t border-black/10 px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <Label className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                                      <MessageSquare className="h-3 w-3" />
+                                      Claimant Comment
+                                    </Label>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-6 rounded-none px-2 text-[11px]"
+                                      onClick={() => setCommentOpen((s) => ({ ...s, [g.id]: !commentIsOpen }))}
+                                    >
+                                      {commentIsOpen ? 'Hide comment' : (hasComment ? 'Edit comment' : 'Needs comment?')}
+                                    </Button>
+                                  </div>
+                                  {commentIsOpen && (
+                                    <Textarea
+                                      rows={2}
+                                      value={claimantComments[g.id] ?? ''}
+                                      onChange={(e) => setClaimantComments((s) => ({ ...s, [g.id]: e.target.value }))}
+                                      placeholder="Note any missing documents or the reason for delay…"
+                                      className="mt-1.5 rounded-none text-xs"
+                                    />
+                                  )}
+                                  {!commentIsOpen && hasComment && (
+                                    <p className="mt-1 line-clamp-1 text-xs text-slate-500">{claimantComments[g.id]}</p>
+                                  )}
+                                </div>
+
+                                <CollapsibleContent>
+                                  <div className="overflow-x-auto border-t border-black/10">
+                                    <Table className="text-xs [&_th]:h-8 [&_th]:px-3 [&_th]:text-[11px] [&_td]:px-3 [&_td]:py-2">
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>Appointment Date</TableHead>
+                                          <TableHead>Case Status</TableHead>
+                                          <TableHead>Report Status</TableHead>
+                                          <TableHead>Submitted On</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {g.items.map((r) => (
+                                          <TableRow key={r.appointment_id} className="hover:bg-black/[0.02]">
+                                            <TableCell className="whitespace-nowrap text-slate-500">
+                                              {new Date(r.appointment_date).toLocaleDateString('en-ZA')}
+                                            </TableCell>
+                                            <TableCell><AdminPill tone="neutral">{r.case_status ?? '—'}</AdminPill></TableCell>
+                                            <TableCell>{getReportStatusBadge(r.report_status)}</TableCell>
+                                            <TableCell className="whitespace-nowrap text-slate-500">
+                                              {r.report_submitted_date ? new Date(r.report_submitted_date).toLocaleDateString('en-ZA') : '—'}
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                </CollapsibleContent>
+                              </div>
+                            </Collapsible>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()
+                )}
+              </AdminCardBody>
+            </AdminCard>
+          </TabsContent>
+
+          {/* ===================== Report Catalogue ===================== */}
+          <TabsContent value="reports" className="mt-0 focus-visible:outline-none">
+            <AdminCard>
+              <AdminCardHeader
+                icon={FileSpreadsheet}
+                title="Report Catalogue"
+                description="Reports available to send to a Referring Attorney"
+              />
+              <AdminCardBody>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {REPORT_TYPES.map((rt) => (
+                    <div key={rt.id} className="flex items-start justify-between gap-3 border border-black/10 p-3 transition-colors hover:bg-black/[0.02]">
+                      <div className="flex min-w-0 gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5">
+                          <rt.icon className="h-4 w-4" style={{ color: '#00BAAD' }} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-black">{rt.name}</p>
+                          <p className="text-xs text-slate-500">{rt.desc}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 rounded-none"
+                        onClick={() => toast({ title: 'Prepared', description: `${rt.name} ready to send for ${periodLabel}.` })}
+                      >
+                        <Mail className="h-3.5 w-3.5 mr-1.5" />
+                        Send
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </AdminCardBody>
+            </AdminCard>
+          </TabsContent>
+
+          {/* ===================== Summary / Comments ===================== */}
+          <TabsContent value="summary" className="mt-0 focus-visible:outline-none">
+            <AdminCard>
+              <AdminCardHeader icon={FileText} title="Summary / Comments" description="Included as an appendix in PDF exports." />
+              <AdminCardBody className="space-y-2">
+                <Textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder={`Add an executive summary or notes for the ${period} report (${periodLabel})…`}
+                  rows={10}
+                  maxLength={4000}
+                  className="rounded-none"
+                />
+                <p className="text-xs text-slate-400">{comment.length}/4000 characters · This summary is included in PDF exports.</p>
+              </AdminCardBody>
+            </AdminCard>
+          </TabsContent>
+        </div>
       </Tabs>
-    </div>
+    </AdminPage>
   );
 };
 
