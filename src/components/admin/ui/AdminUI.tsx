@@ -112,24 +112,41 @@ export const AdminStatCard: React.FC<{
   icon?: LucideIcon;
   hint?: React.ReactNode;
   loading?: boolean;
-}> = ({ label, value, icon: Icon, hint, loading }) => (
-  <AdminCard className="transition-colors hover:border-black/25">
-    <div className="px-3 pb-3 pt-3 md:px-4">
-      <div className="mb-2 flex items-center justify-between">
-        {Icon && (
-          <div className="rounded-full bg-black/5 p-1.5 md:p-2">
-            <Icon className="h-4 w-4" style={{ color: BRAND_TEAL }} />
-          </div>
-        )}
+}> = ({ label, value, icon: Icon, hint, loading }) => {
+  // Long formatted currency values (e.g. "R 1 234 567,89") use a non-breaking
+  // thousands separator, so without help the browser treats the whole number
+  // as one unbreakable "word" and lets it spill out of the card on narrower
+  // desktop grid columns instead of wrapping. Shrink the font a step for
+  // longer values and allow a hard wrap as a fallback so the number always
+  // stays inside its own card instead of overlapping the next one.
+  const valueText = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+  const valueLen = valueText.replace(/\s/g, '').length;
+  const valueSizeClass =
+    valueLen > 14 ? 'text-base md:text-lg' :
+    valueLen > 10 ? 'text-lg md:text-xl' :
+    'text-xl md:text-2xl';
+  return (
+    <AdminCard className="min-w-0 overflow-hidden transition-colors hover:border-black/25">
+      <div className="min-w-0 px-3 pb-3 pt-3 md:px-4">
+        <div className="mb-2 flex items-center justify-between">
+          {Icon && (
+            <div className="rounded-full bg-black/5 p-1.5 md:p-2">
+              <Icon className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+            </div>
+          )}
+        </div>
+        <p
+          className={cn('font-bold tabular-nums text-black leading-tight break-words [overflow-wrap:anywhere]', valueSizeClass)}
+          title={valueText || undefined}
+        >
+          {loading ? '–' : value}
+        </p>
+        <p className="text-[11px] leading-tight text-slate-500">{label}</p>
+        {hint && <p className="mt-0.5 text-[10px] text-slate-400">{hint}</p>}
       </div>
-      <p className="text-xl font-bold tabular-nums text-black md:text-2xl">
-        {loading ? '–' : value}
-      </p>
-      <p className="text-[11px] leading-tight text-slate-500">{label}</p>
-      {hint && <p className="mt-0.5 text-[10px] text-slate-400">{hint}</p>}
-    </div>
-  </AdminCard>
-);
+    </AdminCard>
+  );
+};
 
 /* ------------------------------------------------------------------ */
 /* Badges / pills                                                      */
