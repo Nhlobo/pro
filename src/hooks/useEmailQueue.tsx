@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -35,25 +36,18 @@ export const useEmailQueue = (status?: string) => {
   const queryClient = useQueryClient();
   const { isPageLocked, isActiveTab } = useAppointmentSync();
 
-  const { data: emails, isLoading, refetch } = useQuery({
-    queryKey: ["email-queue", status],
+  // One stable query for the whole queue — tab filtering happens client-side
+  // below (see `emails`), so switching tabs is instant instead of firing a
+  // brand-new Supabase request per tab and showing a "0 0" flash while it's
+  // in flight.
+  const { data: allEmails, isLoading, refetch } = useQuery({
+    queryKey: ["email-queue"],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("email_queue")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (status === "unattended") {
-        query = query.eq("is_read", false).in("status", ["sent", "pending"]);
-      } else if (status === "read") {
-        query = query.eq("is_read", true);
-      } else if (status === "forwarded") {
-        query = query.not("forwarded_to", "is", null);
-      } else if (status && status !== "all") {
-        query = query.eq("status", status);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return data as EmailQueueItem[];
     },
@@ -61,6 +55,15 @@ export const useEmailQueue = (status?: string) => {
     refetchOnReconnect: false,
     enabled: !isPageLocked || isActiveTab,
   });
+
+  const emails = useMemo(() => {
+    if (!allEmails) return allEmails;
+    if (status === "unattended") return allEmails.filter((e) => !e.is_read && ["sent", "pending"].includes(e.status));
+    if (status === "read") return allEmails.filter((e) => e.is_read);
+    if (status === "forwarded") return allEmails.filter((e) => !!e.forwarded_to);
+    if (status && status !== "all") return allEmails.filter((e) => e.status === status);
+    return allEmails;
+  }, [allEmails, status]);
 
   const markAsReadMutation = useMutation({
     mutationFn: async (emailId: string) => {
@@ -129,15 +132,15 @@ export const useEmailQueue = (status?: string) => {
     onError: (error: any) => toast.error(`Failed to forward: ${error.message}`),
   });
 
-  const stats = {
-    total: emails?.length || 0,
-    unattended: emails?.filter((e) => !e.is_read).length || 0,
-    read: emails?.filter((e) => e.is_read && !e.is_responded).length || 0,
-    responded: emails?.filter((e) => e.is_responded).length || 0,
-    forwarded: emails?.filter((e) => e.forwarded_to).length || 0,
-    sent: emails?.filter((e) => e.status === "sent").length || 0,
-    failed: emails?.filter((e) => (e.status as string) === "failed").length || 0,
-  };
+  const stats = useMemo(() => ({
+    total: allEmails?.length || 0,
+    unattended: allEmails?.filter((e) => !e.is_read).length || 0,
+    read: allEmails?.filter((e) => e.is_read && !e.is_responded).length || 0,
+    responded: allEmails?.filter((e) => e.is_responded).length || 0,
+    forwarded: allEmails?.filter((e) => e.forwarded_to).length || 0,
+    sent: allEmails?.filter((e) => e.status === "sent").length || 0,
+    failed: allEmails?.filter((e) => (e.status as string) === "failed").length || 0,
+  }), [allEmails]);
 
   return {
     emails,
