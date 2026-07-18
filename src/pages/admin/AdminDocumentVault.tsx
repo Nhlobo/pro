@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import {
@@ -31,6 +32,7 @@ import {
   AdminLoadingState,
   AdminTabList,
   AdminTabTrigger,
+  AdminSectionLabel,
 } from '@/components/admin/ui/AdminUI';
 
 // ============================================================================
@@ -168,10 +170,34 @@ const AdminDocumentVault: React.FC = () => {
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewing, setReviewing] = useState(false);
 
-  // Preview state
+  // Preview state (sliding panel, not a popup dialog)
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  // Desktop table: a slim scrollbar pinned above the table, mirrored with the
+  // table's own horizontal scroll, so staff can reach the Actions/eye column
+  // by scrolling sideways right away instead of scrolling all the way down
+  // to the bottom scrollbar first.
+  const topScrollRef = useRef<HTMLDivElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
+  const isSyncingScroll = useRef(false);
+
+  const syncScrollFromTop = () => {
+    if (isSyncingScroll.current) return;
+    if (!topScrollRef.current || !tableScrollRef.current) return;
+    isSyncingScroll.current = true;
+    tableScrollRef.current.scrollLeft = topScrollRef.current.scrollLeft;
+    isSyncingScroll.current = false;
+  };
+  const syncScrollFromTable = () => {
+    if (isSyncingScroll.current) return;
+    if (!topScrollRef.current || !tableScrollRef.current) return;
+    isSyncingScroll.current = true;
+    topScrollRef.current.scrollLeft = tableScrollRef.current.scrollLeft;
+    isSyncingScroll.current = false;
+  };
 
   // Dropdowns
   const [claimants, setClaimants] = useState<{ id: string; name: string; auto_id: string }[]>([]);
@@ -338,6 +364,23 @@ const AdminDocumentVault: React.FC = () => {
     declined: documents.filter(d => d.approval_status === 'declined').length,
     experts: documents.filter(isExpertDoc).length,
   };
+
+  // Keep the top scrollbar's inner "track" the same width as the table so it
+  // scrolls in lockstep, and recompute whenever the row set or column count
+  // (role-dependent) changes size.
+  useLayoutEffect(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const update = () => setTableScrollWidth(el.scrollWidth);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    window.addEventListener('resize', update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, [filteredDocs, loading, isAdminOrEmployee]);
 
   // Upload handler
   const handleUpload = async () => {
@@ -715,7 +758,7 @@ const AdminDocumentVault: React.FC = () => {
               <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button size="sm" className="rounded-none" onClick={() => setUploadDialogOpen(true)}>
+            <Button size="sm" className="gradient-teal rounded-none border" onClick={() => setUploadDialogOpen(true)}>
               <Upload className="h-4 w-4 mr-1.5" />
               Upload Document
             </Button>
@@ -834,7 +877,23 @@ const AdminDocumentVault: React.FC = () => {
                 <>
                   {/* Desktop / wide-tablet table — avoids the column-overlap that a
                       cramped table produces on narrower screens. */}
-                  <div className="hidden xl:block max-h-[65vh] overflow-auto">
+                  <div className="hidden xl:block">
+                    {/* Top scrollbar, mirrored with the table below, so staff can scroll
+                        sideways to reach the Actions/eye column without first scrolling
+                        all the way down to find the horizontal scrollbar. */}
+                    <div
+                      ref={topScrollRef}
+                      onScroll={syncScrollFromTop}
+                      className="overflow-x-auto overflow-y-hidden border-b border-black/10 bg-black/[0.02] [&::-webkit-scrollbar]:h-2.5"
+                      style={{ scrollbarWidth: 'thin' }}
+                    >
+                      <div style={{ width: tableScrollWidth, height: 10 }} />
+                    </div>
+                    <div
+                      ref={tableScrollRef}
+                      onScroll={syncScrollFromTable}
+                      className="max-h-[65vh] overflow-auto"
+                    >
                     <Table className="text-xs [&_th]:h-9 [&_th]:px-3 [&_th]:py-1 [&_th]:text-[11px] [&_td]:px-3 [&_td]:py-2 [&_td]:align-middle">
                       <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
                         <TableRow>
@@ -942,6 +1001,7 @@ const AdminDocumentVault: React.FC = () => {
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
                   </div>
 
                   {/* Mobile / tablet card list — same data, no horizontal scroll and no
@@ -1196,7 +1256,7 @@ const AdminDocumentVault: React.FC = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" className="rounded-none" onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
-            <Button className="rounded-none" onClick={handleUpload} disabled={uploading || !uploadFile || !uploadDocType}>
+            <Button className="gradient-teal rounded-none border" onClick={handleUpload} disabled={uploading || !uploadFile || !uploadDocType}>
               <Upload className="h-4 w-4 mr-2" />
               {uploading ? 'Uploading...' : 'Upload'}
             </Button>
@@ -1253,88 +1313,96 @@ const AdminDocumentVault: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Document Preview Dialog */}
-      <Dialog open={previewDialogOpen} onOpenChange={(open) => { setPreviewDialogOpen(open); if (!open) { setPreviewUrl(null); setSelectedDoc(null); } }}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto rounded-none">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5" style={{ color: '#00BAAD' }} />
-              Document Preview
-            </DialogTitle>
-            <DialogDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <span className="truncate">{selectedDoc?.file_name}</span>
-              {selectedDoc && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  {getStatusBadge(selectedDoc.approval_status)}
-                  <AdminPill tone="neutral">{selectedDoc.document_type}</AdminPill>
-                </div>
-              )}
-            </DialogDescription>
-          </DialogHeader>
+      {/* Document Preview — sliding panel (matches the Expert Payment Planner
+          row-detail pattern) instead of a centered popup, so it doesn't block
+          the table behind it and feels consistent across the Admin Portal. */}
+      <Sheet open={previewDialogOpen} onOpenChange={(open) => { setPreviewDialogOpen(open); if (!open) { setPreviewUrl(null); setSelectedDoc(null); } }}>
+        <SheetContent side="right" className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-2xl">
+          <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+            <SheetTitle className="flex items-center gap-2 text-black">
+              <Eye className="h-4 w-4" style={{ color: '#00BAAD' }} />
+              <span className="truncate">{selectedDoc?.file_name || 'Document Preview'}</span>
+            </SheetTitle>
+            <SheetDescription asChild>
+              <div className="flex flex-wrap items-center gap-2">
+                {selectedDoc && getStatusBadge(selectedDoc.approval_status)}
+                {selectedDoc && <AdminPill tone="neutral">{getDocTypeLabel(selectedDoc.document_type)}</AdminPill>}
+              </div>
+            </SheetDescription>
+          </SheetHeader>
 
-          {/* Document info */}
-          {selectedDoc && (
-            <div className="border border-black/10 bg-black/[0.02] p-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Claimant</p>
-                <p className="font-medium truncate">{selectedDoc.claimant_name || 'N/A'}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Attorney</p>
-                <p className="font-medium truncate">{selectedDoc.attorney_name || 'N/A'}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Expert</p>
-                <p className="font-medium truncate">{selectedDoc.expert_name || 'N/A'}</p>
-                {selectedDoc.expert_type && (
-                  <p className="text-[10px] text-slate-500 truncate">{selectedDoc.expert_type}</p>
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Uploaded</p>
-                <p className="font-medium">{format(parseISO(selectedDoc.created_at), 'dd MMM yyyy HH:mm')}</p>
-              </div>
-            </div>
-          )}
-
-          {/* POPIA notice */}
-          <div className="border border-warning/20 bg-warning/5 px-3 py-2 flex items-center gap-2 text-xs text-warning">
-            <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" />
-            <span>This access has been recorded per POPIA requirements. Handle personal information responsibly.</span>
-          </div>
-
-          {/* Preview area */}
-          <div className="border border-black/10 overflow-hidden bg-white" style={{ height: '55vh' }}>
-            {previewLoading ? (
-              <div className="flex items-center justify-center h-full text-slate-500">
-                <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-                Loading preview...
-              </div>
-            ) : previewUrl ? (
-              selectedDoc?.file_type?.includes('pdf') || selectedDoc?.file_name?.endsWith('.pdf') ? (
-                <iframe src={previewUrl} className="w-full h-full" title="Document Preview" />
-              ) : selectedDoc?.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(selectedDoc?.file_name || '') ? (
-                <div className="flex items-center justify-center h-full p-4">
-                  <img src={previewUrl} alt={selectedDoc?.file_name} className="max-w-full max-h-full object-contain" />
+          <div className="flex-1 space-y-4 px-4 py-4 sm:px-6">
+            {/* Document info */}
+            {selectedDoc && (
+              <div>
+                <AdminSectionLabel>Document Info</AdminSectionLabel>
+                <div className="grid grid-cols-2 gap-3 border border-black/10 bg-black/[0.02] p-3 text-sm">
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Claimant</p>
+                    <p className="font-medium truncate text-black">{selectedDoc.claimant_name || 'N/A'}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Attorney</p>
+                    <p className="font-medium truncate text-black">{selectedDoc.attorney_name || 'N/A'}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Expert</p>
+                    <p className="font-medium truncate text-black">{selectedDoc.expert_name || 'N/A'}</p>
+                    {selectedDoc.expert_type && (
+                      <p className="text-[10px] text-slate-500 truncate">{selectedDoc.expert_type}</p>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Uploaded</p>
+                    <p className="font-medium text-black">{format(parseISO(selectedDoc.created_at), 'dd MMM yyyy HH:mm')}</p>
+                  </div>
                 </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500">
-                  <FileText className="h-16 w-16 opacity-30" />
-                  <p className="text-sm">Preview not available for this file type ({selectedDoc?.file_type || 'unknown'})</p>
-                  <Button variant="outline" size="sm" className="rounded-none" onClick={() => previewUrl && window.open(previewUrl, '_blank')}>
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open in New Tab
-                  </Button>
-                </div>
-              )
-            ) : (
-              <div className="flex items-center justify-center h-full text-slate-500">
-                Failed to load preview
               </div>
             )}
+
+            {/* POPIA notice */}
+            <div className="flex items-center gap-2 border border-warning/20 bg-warning/5 px-3 py-2 text-xs text-warning">
+              <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>This access has been recorded per POPIA requirements. Handle personal information responsibly.</span>
+            </div>
+
+            {/* Preview area */}
+            <div>
+              <AdminSectionLabel>Preview</AdminSectionLabel>
+              <div className="border border-black/10 overflow-hidden bg-white" style={{ height: '50vh' }}>
+                {previewLoading ? (
+                  <div className="flex items-center justify-center h-full text-slate-500">
+                    <RefreshCw className="h-6 w-6 animate-spin mr-2" style={{ color: '#00BAAD' }} />
+                    Loading preview...
+                  </div>
+                ) : previewUrl ? (
+                  selectedDoc?.file_type?.includes('pdf') || selectedDoc?.file_name?.endsWith('.pdf') ? (
+                    <iframe src={previewUrl} className="w-full h-full" title="Document Preview" />
+                  ) : selectedDoc?.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(selectedDoc?.file_name || '') ? (
+                    <div className="flex items-center justify-center h-full p-4">
+                      <img src={previewUrl} alt={selectedDoc?.file_name} className="max-w-full max-h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-500">
+                      <FileText className="h-16 w-16 opacity-30" />
+                      <p className="text-sm text-center px-4">Preview not available for this file type ({selectedDoc?.file_type || 'unknown'})</p>
+                      <Button variant="outline" size="sm" className="rounded-none" onClick={() => previewUrl && window.open(previewUrl, '_blank')}>
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Open in New Tab
+                      </Button>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex items-center justify-center h-full text-slate-500">
+                    Failed to load preview
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          <DialogFooter className="flex flex-wrap gap-2">
+          {/* Sticky action footer */}
+          <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-black/10 bg-white px-4 py-3 sm:px-6">
             {selectedDoc && (
               <Button variant="outline" size="sm" className="rounded-none" onClick={() => selectedDoc && handleDownload(selectedDoc)}>
                 <Download className="h-4 w-4 mr-2" />
@@ -1358,7 +1426,7 @@ const AdminDocumentVault: React.FC = () => {
                 </Button>
                 <Button
                   size="sm"
-                  className="rounded-none"
+                  className="gradient-teal rounded-none border"
                   onClick={() => {
                     setPreviewDialogOpen(false);
                     setReviewAction('approved');
@@ -1370,9 +1438,9 @@ const AdminDocumentVault: React.FC = () => {
                 </Button>
               </>
             )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </SheetContent>
+      </Sheet>
     </AdminPage>
   );
 };
