@@ -531,20 +531,20 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               <Card className="border-border/50">
                 <CardContent className="p-3 text-center">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Deposit / Paid</p>
-                  <p className="text-lg font-bold text-green-600 mt-1">R{summary.totalPaid.toLocaleString()}</p>
+                  <p className="text-lg font-bold text-foreground mt-1">R{summary.totalPaid.toLocaleString()}</p>
                   <p className="text-[9px] text-muted-foreground">
                     Dep: R{summary.totalDeposits.toLocaleString()} + Pay: R{summary.totalRegularPayments.toLocaleString()}
                   </p>
                 </CardContent>
               </Card>
-              <Card className="border-border/50 border-orange-200">
+              <Card className="border-border/50">
                 <CardContent className="p-3 text-center">
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Balance</p>
-                  <p className={`text-lg font-bold mt-1 ${summary.balance > 0 ? 'text-orange-500' : 'text-green-600'}`}>
+                  <p className="text-lg font-bold text-foreground mt-1">
                     R{summary.balance.toLocaleString()}
                   </p>
                   {summary.balance === 0 && (
-                    <Badge className="text-[9px] bg-green-500/10 text-green-600 mt-1">Paid in Full</Badge>
+                    <Badge variant="outline" className="text-[9px] border-[#00BAAD]/40 text-[#00BAAD] mt-1">Paid in Full</Badge>
                   )}
                 </CardContent>
               </Card>
@@ -582,11 +582,11 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                       onClick={() => setMode(opt.id)}
                       className={`text-left rounded-md border p-2 transition-colors ${
                         active
-                          ? 'border-primary bg-primary/10 ring-1 ring-primary'
+                          ? 'border-[#00BAAD] bg-[#00BAAD]/10 ring-1 ring-[#00BAAD]'
                           : 'border-border hover:bg-accent/50'
                       }`}
                     >
-                      <p className={`text-xs font-semibold ${active ? 'text-primary' : 'text-foreground'}`}>{opt.label}</p>
+                      <p className={`text-xs font-semibold ${active ? 'text-[#00BAAD]' : 'text-foreground'}`}>{opt.label}</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">{opt.desc}</p>
                     </button>
                   );
@@ -602,7 +602,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                 onClick={() => setClaimantSectionOpen(!claimantSectionOpen)}
               >
                 <p className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
-                  <Users className="h-4 w-4 text-primary" />
+                  <Users className="h-4 w-4 text-[#00BAAD]" />
                   Select Claimants — Reports Taken Out
                 </p>
                 <div className="flex items-center gap-2">
@@ -684,7 +684,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                             return (
                               <TableRow
                                 key={key}
-                                className={`text-xs cursor-pointer transition-colors hover:bg-accent/50 ${isSelected ? 'bg-primary/10 border-l-2 border-l-primary' : ''}`}
+                                className={`text-xs cursor-pointer transition-colors hover:bg-accent/50 ${isSelected ? 'bg-[#00BAAD]/10 border-l-2 border-l-[#00BAAD]' : ''}`}
                                 onClick={() => toggleClaimant(key)}
                               >
                                 <TableCell>
@@ -738,12 +738,12 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
             <Separator />
 
             {/* Payment Capture Form */}
-            <div className="border-2 border-primary/20 rounded-lg p-4 bg-primary/5 space-y-3">
+            <div className="border border-black/10 rounded-lg p-4 bg-black/[0.02] space-y-3">
               <div className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-primary" />
+                <Zap className="h-4 w-4 text-[#00BAAD]" />
                 <span className="font-semibold text-sm text-foreground">Capture Regular Payment</span>
                 {success && (
-                  <span className="flex items-center gap-1 text-xs text-green-600 ml-auto">
+                  <span className="flex items-center gap-1 text-xs text-[#00BAAD] ml-auto">
                     <CheckCircle2 className="h-3 w-3" /> Recorded & Synced!
                   </span>
                 )}
@@ -817,6 +817,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                     (mode === 'both' && (!amount || parseFloat(amount) <= 0))
                   }
                   size="sm"
+                  className="gradient-teal rounded-none border"
                 >
                   {submitting ? 'Recording...' : (
                     <>
@@ -875,7 +876,10 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                           <TableRow key={p.id} className="text-xs">
                             <TableCell>{format(new Date(p.payment_date), 'dd MMM yyyy')}</TableCell>
                             <TableCell>
-                              <Badge variant={p.payment_type === 'deposit' ? 'secondary' : 'default'} className="text-[9px]">
+                              <Badge
+                                variant="outline"
+                                className={`text-[9px] ${p.payment_type === 'deposit' ? 'border-black/15 text-black' : 'border-[#00BAAD]/40 text-[#00BAAD]'}`}
+                              >
                                 {p.payment_type}
                               </Badge>
                             </TableCell>
