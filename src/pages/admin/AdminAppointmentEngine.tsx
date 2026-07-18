@@ -171,7 +171,7 @@ const AdminAppointmentEngine: React.FC = () => {
           </SheetHeader>
           <div className="flex-1 px-4 py-4 sm:px-6">
             <Suspense fallback={<TabFallback />}>
-              <NewAppointmentModule />
+              <NewAppointmentModule onCancel={() => setIsBookingOpen(false)} />
             </Suspense>
           </div>
         </SheetContent>
