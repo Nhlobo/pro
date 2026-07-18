@@ -715,10 +715,11 @@ const ScheduledAssessment = () => {
             })
             .eq('id', existingAOD.id);
 
-          toast({
-            title: "Updated AOD Document",
-            description: `AOD updated: ${totalReports} assessments, ${reportsReleased} reports released, R${totalOutstanding.toFixed(2)} outstanding`,
-          });
+          // Silent update — no toast here by design. This runs automatically
+          // in the background on every payment/assessment sync, and the
+          // popup was firing constantly and interrupting staff, so it was
+          // removed per request. The AOD record itself still updates as
+          // normal above.
         }
       } else {
         // SINGLE ASSESSMENT WITH DURATION < 12 MONTHS: Sync to Short Term Agreements
