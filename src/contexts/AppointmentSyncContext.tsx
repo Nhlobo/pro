@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -37,7 +36,6 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
   const [isActiveTab, setIsActiveTab] = useState(!document.hidden);
   const [isPageLocked, setIsPageLocked] = useState(false);
   const [hasPendingSync, setHasPendingSync] = useState(false);
-  const { toast } = useToast();
   const { user, loading } = useAuth();
   const channelRef = useRef<RealtimeChannel | null>(null);
   const retryCountRef = useRef(0);
@@ -241,15 +239,12 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         'postgres_changes',
         { event: '*', schema: 'public', table: 'appointments' },
         (payload) => {
+          // Data still syncs silently in the background (handleRealtimeUpdate
+          // below refreshes the relevant views) — the popup toast that used
+          // to fire on every insert has been removed per staff request; it
+          // was firing constantly and interrupting work across the portal
+          // (including on Assessments / Daily Schedule).
           handleRealtimeUpdate('appointments', payload);
-          
-          // Only show toast if page is NOT locked and INSERT event
-          if (payload.eventType === 'INSERT' && !isPageLocked && isActiveTab) {
-            toast({
-              title: "New Appointment",
-              description: "A new appointment has been created.",
-            });
-          }
         }
       )
       .on(
@@ -263,20 +258,8 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         'postgres_changes',
         { event: '*', schema: 'public', table: 'expert_reports' },
         (payload) => {
+          // As above: sync still happens silently, popup removed.
           handleRealtimeUpdate('expert_reports', payload);
-          
-          // Only show toast if page is NOT locked and relevant UPDATE
-          if (payload.eventType === 'UPDATE' && !isPageLocked && isActiveTab) {
-            const newData = payload.new as any;
-            const oldData = payload.old as any;
-            
-            if (oldData?.report_status !== newData?.report_status) {
-              toast({
-                title: "Report Status Updated",
-                description: `Status changed to ${newData.report_status}.`,
-              });
-            }
-          }
         }
       )
       .on(
@@ -321,15 +304,12 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
               console.log(`Retrying connection (attempt ${retryCountRef.current})...`);
               setupChannel();
             }, retryDelay);
-            } else if (typeof navigator === 'undefined' || navigator.onLine) {
-            // Only surface this when the device itself is online — if the
-            // device is offline, the dedicated /offline page already owns
-            // that message and this would just be a redundant duplicate.
-            toast({
-              title: "Sync Unavailable",
-              description: "Real-time updates paused. Data will refresh on navigation.",
-              variant: "destructive",
-            });
+          } else {
+            // Real-time sync gave up retrying — this used to pop up a
+            // "Sync Unavailable" toast, but that fired repeatedly and
+            // interrupted staff (e.g. while on Assessments). The app keeps
+            // working; data simply refreshes on navigation instead of live.
+            console.warn('Real-time sync unavailable after retries; data will refresh on navigation.');
           }
         } else if (status === 'CLOSED') {
           setIsConnected(false);
@@ -337,7 +317,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
       });
 
     channelRef.current = channel;
-  }, [toast, handleRealtimeUpdate, isPageLocked, isActiveTab]);
+  }, [handleRealtimeUpdate, isPageLocked, isActiveTab]);
 
   useEffect(() => {
     // Only establish real-time connection if user is authenticated and not loading
