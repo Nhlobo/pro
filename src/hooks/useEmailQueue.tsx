@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 
 export interface EmailQueueItem {
   id: string;
@@ -34,12 +33,19 @@ export interface EmailQueueItem {
 
 export const useEmailQueue = (status?: string) => {
   const queryClient = useQueryClient();
-  const { isPageLocked, isActiveTab } = useAppointmentSync();
 
   // One stable query for the whole queue — tab filtering happens client-side
   // below (see `emails`), so switching tabs is instant instead of firing a
   // brand-new Supabase request per tab and showing a "0 0" flash while it's
   // in flight.
+  //
+  // Note: email_queue is intentionally NOT part of the AppointmentSync
+  // realtime channel (it was removed from the realtime publication to avoid
+  // broadcasting email payloads), so this query does not gate itself on that
+  // context's lock/active-tab state — doing so previously could strand the
+  // fetch in a disabled state (stats stuck at 0, list stuck empty). Instead
+  // it fetches on mount and polls lightly so the page stays in sync on its
+  // own, in addition to the manual Refresh button.
   const { data: allEmails, isLoading, refetch } = useQuery({
     queryKey: ["email-queue"],
     queryFn: async () => {
@@ -51,9 +57,9 @@ export const useEmailQueue = (status?: string) => {
       if (error) throw error;
       return data as EmailQueueItem[];
     },
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-    enabled: !isPageLocked || isActiveTab,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: 30_000,
   });
 
   const emails = useMemo(() => {
