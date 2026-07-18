@@ -728,15 +728,13 @@ const AssessmentReportsStatistics = () => {
 
       <header className="border-b">
         <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Link>
-              </Button>
-              <h1 className="text-2xl font-bold">
+          {/* Back to Dashboard removed — the operations dashboard is already
+              reachable from the persistent portal header, so this was a
+              duplicate. Everything below now wraps on narrow screens
+              instead of overflowing/overlapping the viewport. */}
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-xl font-bold sm:text-2xl">
                 {isHistoricalView ? 'Historical Assessment Reports' : 'Assessment Reports & Statistics'}
               </h1>
               {isHistoricalView && (
@@ -749,7 +747,7 @@ const AssessmentReportsStatistics = () => {
                 </Button>
               )}
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               {!isHistoricalView && (
                 <>
                   <Button 
@@ -769,7 +767,7 @@ const AssessmentReportsStatistics = () => {
                   </Button>
                   
                   <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-[140px] sm:w-[180px]">
                       <SelectValue placeholder="Select period" />
                     </SelectTrigger>
                     <SelectContent>
@@ -782,7 +780,7 @@ const AssessmentReportsStatistics = () => {
                   {selectedPeriod === "monthly" && (
                     <>
                       <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
-                        <SelectTrigger className="w-[140px]">
+                        <SelectTrigger className="w-[120px] sm:w-[140px]">
                           <SelectValue placeholder="Month" />
                         </SelectTrigger>
                         <SelectContent>
@@ -795,7 +793,7 @@ const AssessmentReportsStatistics = () => {
                       </Select>
                       
                       <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                        <SelectTrigger className="w-[100px]">
+                        <SelectTrigger className="w-[90px] sm:w-[100px]">
                           <SelectValue placeholder="Year" />
                         </SelectTrigger>
                         <SelectContent>
@@ -846,7 +844,7 @@ const AssessmentReportsStatistics = () => {
                     </AlertDialog>
                   )}
                   
-                  <Button onClick={generatePDFReport} className="flex items-center gap-2">
+                  <Button onClick={generatePDFReport} className="gradient-teal flex items-center gap-2 border">
                     <Download className="h-4 w-4" />
                     Export Report
                   </Button>
@@ -854,7 +852,7 @@ const AssessmentReportsStatistics = () => {
               )}
               
               {isHistoricalView && currentArchive && (
-                <Button onClick={() => generateHistoricalPDF(currentArchive)} className="flex items-center gap-2">
+                <Button onClick={() => generateHistoricalPDF(currentArchive)} className="gradient-teal flex items-center gap-2 border">
                   <Download className="h-4 w-4" />
                   Download Historical Report
                 </Button>
@@ -867,10 +865,10 @@ const AssessmentReportsStatistics = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Data Source Information */}
         {!isHistoricalView && (
-          <Card className="mb-6 border-blue-200 bg-blue-50/50">
+          <Card className="mb-6 border-black/10 bg-black/[0.02]">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-blue-600 mt-0.5" />
+                <Calendar className="h-5 w-5 text-black mt-0.5" />
                 <div className="flex-1">
                   <h3 className="font-semibold text-sm mb-1">Live Data from Scheduled Assessments</h3>
                   <p className="text-sm text-muted-foreground">
@@ -927,11 +925,11 @@ const AssessmentReportsStatistics = () => {
         )}
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" />
+                <FileText className="h-4 w-4 text-black" />
                 <span className="text-sm text-muted-foreground">Total Assessments</span>
               </div>
               <p className="text-2xl font-bold mt-2">{displayData.totalAssessments}</p>
@@ -941,7 +939,7 @@ const AssessmentReportsStatistics = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-green-600" />
+                <TrendingUp className="h-4 w-4 text-black" />
                 <span className="text-sm text-muted-foreground">Completed Reports</span>
               </div>
               <p className="text-2xl font-bold mt-2">{displayData.completedReports}</p>
@@ -951,7 +949,7 @@ const AssessmentReportsStatistics = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-yellow-600" />
+                <Calendar className="h-4 w-4 text-black" />
                 <span className="text-sm text-muted-foreground">Pending Reports</span>
               </div>
               <p className="text-2xl font-bold mt-2">{displayData.pendingReports}</p>
@@ -961,7 +959,7 @@ const AssessmentReportsStatistics = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-red-600" />
+                <Calendar className="h-4 w-4 text-black" />
                 <span className="text-sm text-muted-foreground">Reports Taken Out</span>
               </div>
               <p className="text-2xl font-bold mt-2">{displayData.reportsTakenOut}</p>
@@ -971,7 +969,7 @@ const AssessmentReportsStatistics = () => {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-blue-600" />
+                <TrendingUp className="h-4 w-4 text-black" />
                 <span className="text-sm text-muted-foreground">Completion Rate</span>
               </div>
               <p className="text-2xl font-bold mt-2">{displayData.completionRate}</p>
@@ -980,12 +978,14 @@ const AssessmentReportsStatistics = () => {
         </div>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="mb-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="attorney-reports">Attorney Reports</TabsTrigger>
-            <TabsTrigger value="performance">Expert Performance</TabsTrigger>
-            <TabsTrigger value="trends">Trends Analysis</TabsTrigger>
-          </TabsList>
+          <div className="-mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:overflow-visible sm:px-0">
+            <TabsList className="w-max sm:w-full">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="attorney-reports">Attorney Reports</TabsTrigger>
+              <TabsTrigger value="performance">Expert Performance</TabsTrigger>
+              <TabsTrigger value="trends">Trends Analysis</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="overview" className="space-y-6">
             {/* Matter Type Contributions */}
@@ -1104,7 +1104,7 @@ const AssessmentReportsStatistics = () => {
                       <p className="text-sm font-medium text-muted-foreground">Total Referring Attorneys</p>
                       <p className="text-2xl font-bold">{attorneyReportsData.length}</p>
                     </div>
-                    <FileText className="h-8 w-8 text-primary" />
+                    <FileText className="h-8 w-8 text-black" />
                   </div>
                 </CardContent>
               </Card>
@@ -1116,7 +1116,7 @@ const AssessmentReportsStatistics = () => {
                       <p className="text-sm font-medium text-muted-foreground">Total Referrals</p>
                       <p className="text-2xl font-bold">{attorneyReportsData.reduce((sum, attorney) => sum + attorney.referrals, 0)}</p>
                     </div>
-                    <TrendingUp className="h-8 w-8 text-green-600" />
+                    <TrendingUp className="h-8 w-8 text-black" />
                   </div>
                 </CardContent>
               </Card>
@@ -1128,7 +1128,7 @@ const AssessmentReportsStatistics = () => {
                       <p className="text-sm font-medium text-muted-foreground">Avg Response Time</p>
                       <p className="text-2xl font-bold">{(attorneyReportsData.reduce((sum, attorney) => sum + attorney.response_time, 0) / attorneyReportsData.length).toFixed(1)}h</p>
                     </div>
-                    <Calendar className="h-8 w-8 text-blue-600" />
+                    <Calendar className="h-8 w-8 text-black" />
                   </div>
                 </CardContent>
               </Card>
@@ -1140,7 +1140,7 @@ const AssessmentReportsStatistics = () => {
                       <p className="text-sm font-medium text-muted-foreground">Avg Success Rate</p>
                       <p className="text-2xl font-bold">{(attorneyReportsData.reduce((sum, attorney) => sum + attorney.success_rate, 0) / attorneyReportsData.length).toFixed(1)}%</p>
                     </div>
-                    <Users className="h-8 w-8 text-purple-600" />
+                    <Users className="h-8 w-8 text-black" />
                   </div>
                 </CardContent>
               </Card>
