@@ -1882,8 +1882,8 @@ const NewAppointment = ({ embedded = false }: { embedded?: boolean } = {}) => {
                 viewport instead of getting lost after a long scroll, the
                 same "always-visible controls" principle as the sticky tab
                 switcher on the Appointment Engine and System Control. */}
-            <div className={embedded ? 'sticky bottom-0 -mx-6 border-t border-black/10 bg-white/95 px-6 py-4 backdrop-blur' : 'sticky bottom-0 -mx-4 border-t border-black/10 bg-white/95 px-4 py-4 backdrop-blur'}>
-              <div className="flex gap-3">
+            <div className={embedded ? 'sticky bottom-0 -mx-4 border-t border-black/10 bg-white/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6' : 'sticky bottom-0 -mx-4 border-t border-black/10 bg-white/95 px-4 py-4 backdrop-blur'}>
+              <div className="flex flex-wrap gap-3">
                 {bookingType === 'multiple' && !isEditMode ? (
                   <>
                     <Button
