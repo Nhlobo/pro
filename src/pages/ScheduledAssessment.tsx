@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3, RefreshCw, Check, Paperclip, Send } from "lucide-react";
+import { Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3, RefreshCw, Check, Paperclip, Send } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { sastNowParts } from "@/utils/dateTime";
@@ -23,7 +23,6 @@ import CompanyFooter from "@/components/CompanyFooter";
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 import { BulkAppointmentUpload } from "@/components/BulkAppointmentUpload";
 import { BulkAppointmentEmailDialog } from "@/components/BulkAppointmentEmailDialog";
-import { SaveStatusIndicator } from "@/components/SaveStatusIndicator";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DateRangePicker, isWithinDateRange } from "@/components/ui/date-range-picker";
@@ -136,46 +135,49 @@ const AssessmentPeriodStats = ({
   const displayQuarter = parseInt(selectedQuarter);
   const displayYear = parseInt(selectedYear);
   
+  // Clean, flat tiles — matching the Daily Schedule summary style: plain
+  // white card, hairline border, near-black numbers, teal used only for the
+  // icon accent. No colour-coded blocks per period.
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 mb-6">
+      <Card className="rounded-none border-black/10">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Monthly</p>
+              <p className="text-sm font-medium text-black">Monthly</p>
               <p className="text-xs text-muted-foreground">{monthNames[displayMonth]} {displayYear}</p>
             </div>
-            <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <BarChart3 className="h-5 w-5" style={{ color: '#00BAAD' }} />
           </div>
-          <p className="text-3xl font-bold mt-2 text-blue-700 dark:text-blue-300">{stats.monthlyCount}</p>
+          <p className="text-3xl font-bold mt-2 text-black">{stats.monthlyCount}</p>
           <p className="text-xs text-muted-foreground mt-1">assessments</p>
         </CardContent>
       </Card>
-      
-      <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800">
+
+      <Card className="rounded-none border-black/10">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Quarterly</p>
+              <p className="text-sm font-medium text-black">Quarterly</p>
               <p className="text-xs text-muted-foreground">Q{displayQuarter} {displayYear}</p>
             </div>
-            <BarChart3 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            <BarChart3 className="h-5 w-5" style={{ color: '#00BAAD' }} />
           </div>
-          <p className="text-3xl font-bold mt-2 text-purple-700 dark:text-purple-300">{stats.quarterlyCount}</p>
+          <p className="text-3xl font-bold mt-2 text-black">{stats.quarterlyCount}</p>
           <p className="text-xs text-muted-foreground mt-1">assessments</p>
         </CardContent>
       </Card>
-      
-      <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950 dark:to-emerald-900 border-emerald-200 dark:border-emerald-800">
+
+      <Card className="rounded-none border-black/10">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Yearly</p>
+              <p className="text-sm font-medium text-black">Yearly</p>
               <p className="text-xs text-muted-foreground">{displayYear}</p>
             </div>
-            <BarChart3 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+            <BarChart3 className="h-5 w-5" style={{ color: '#00BAAD' }} />
           </div>
-          <p className="text-3xl font-bold mt-2 text-emerald-700 dark:text-emerald-300">{stats.yearlyCount}</p>
+          <p className="text-3xl font-bold mt-2 text-black">{stats.yearlyCount}</p>
           <p className="text-xs text-muted-foreground mt-1">assessments</p>
         </CardContent>
       </Card>
@@ -1988,31 +1990,20 @@ const ScheduledAssessment = () => {
       </Helmet>
 
       <header className="border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Link>
-              </Button>
-              <h1 className="text-2xl font-bold">Scheduled Assessments</h1>
-              <SaveStatusIndicator 
-                status={saveStatus.status}
-                lastSaved={saveStatus.lastSaved}
-                error={saveStatus.error}
-              />
+        <div className="container mx-auto px-4 py-4 sm:py-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4 min-w-0">
+              <h1 className="truncate text-xl font-bold sm:text-2xl">Scheduled Assessments</h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <BulkAppointmentUpload onUploadComplete={() => triggerSync()} />
               <Button variant="outline" onClick={() => refetch()} className="flex items-center gap-2">
                 <RefreshCw className="h-4 w-4" />
                 Refresh
               </Button>
-              <Button onClick={handleDownloadReport} className="flex items-center gap-2">
+              <Button onClick={handleDownloadReport} className="gradient-teal flex items-center gap-2 border">
                 <Download className="h-4 w-4" />
-                Download {reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report
+                <span className="truncate">Download {reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report</span>
               </Button>
             </div>
           </div>
@@ -2021,10 +2012,10 @@ const ScheduledAssessment = () => {
 
       <main className="container mx-auto px-4 py-3">
         {/* Statistics Integration Information */}
-        <Card className="mb-2 border-blue-200 bg-blue-50/50">
+        <Card className="mb-2 rounded-none border-black/10">
           <CardContent className="p-3">
             <div className="flex items-start gap-3">
-              <TrendingUp className="h-5 w-5 text-blue-600 mt-0.5" />
+              <TrendingUp className="h-5 w-5 mt-0.5" style={{ color: '#00BAAD' }} />
               <div className="flex-1">
                 <h3 className="font-semibold text-sm mb-1">Data Feeds Assessment Reports & Statistics</h3>
                 <p className="text-sm text-muted-foreground">
@@ -2128,7 +2119,7 @@ const ScheduledAssessment = () => {
                   />
                 </div>
               </div>
-              <Button onClick={handleDownloadReport} className="flex items-center gap-2 w-full lg:w-auto h-10">
+              <Button onClick={handleDownloadReport} className="gradient-teal flex items-center gap-2 w-full border lg:w-auto h-10">
                 <Download className="h-4 w-4" />
                 <span className="truncate">Download {reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report</span>
               </Button>
