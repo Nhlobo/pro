@@ -60,8 +60,13 @@ const NEW_APPOINTMENT_DEFAULTS = {
  * SheetHeader/title. Standalone route usage (`/new-appointment`) is
  * unaffected; it still gets the full page shell. Same pattern already used
  * by UserManagement's `embedded` prop.
+ *
+ * `onCancel`, when provided, is called by the Cancel button instead of
+ * navigating to another route — used by the side-panel host so Cancel just
+ * closes the panel (matching the header's X) and leaves the user exactly
+ * where they were, instead of routing them away to another page.
  */
-const NewAppointment = ({ embedded = false }: { embedded?: boolean } = {}) => {
+const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; onCancel?: () => void } = {}) => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/new-appointment';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -1895,8 +1900,14 @@ const NewAppointment = ({ embedded = false }: { embedded?: boolean } = {}) => {
                     >
                       Add to Queue ({appointmentQueue.length})
                     </Button>
-                    <Button type="button" variant="outline" className="rounded-none border-black/15 hover:bg-black/5" asChild>
-                      <Link to="/">Cancel</Link>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-none border-black/15 hover:bg-black/5"
+                      asChild={!onCancel}
+                      onClick={onCancel}
+                    >
+                      {onCancel ? 'Cancel' : <Link to="/">Cancel</Link>}
                     </Button>
                   </>
                 ) : (
@@ -1904,8 +1915,14 @@ const NewAppointment = ({ embedded = false }: { embedded?: boolean } = {}) => {
                     <Button type="submit" className="flex-1 rounded-none bg-black text-white hover:bg-black/90" disabled={submitting}>
                       {submitting ? (isEditMode ? 'Updating...' : 'Scheduling...') : (isEditMode ? 'Update Appointment' : 'Schedule Appointment')}
                     </Button>
-                    <Button type="button" variant="outline" className="rounded-none border-black/15 hover:bg-black/5" asChild>
-                      <Link to="/scheduled-assessment">Cancel</Link>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-none border-black/15 hover:bg-black/5"
+                      asChild={!onCancel}
+                      onClick={onCancel}
+                    >
+                      {onCancel ? 'Cancel' : <Link to="/scheduled-assessment">Cancel</Link>}
                     </Button>
                   </>
                 )}
