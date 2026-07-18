@@ -162,14 +162,14 @@ const AdminAppointmentEngine: React.FC = () => {
           side="right"
           className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-3xl"
         >
-          <SheetHeader className="border-b border-black/10 px-6 py-4 text-left">
+          <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
             <SheetTitle className="flex items-center gap-2 text-black">
               <PlusCircle className="h-4 w-4" style={{ color: BRAND_TEAL }} />
               New Appointment
             </SheetTitle>
             <SheetDescription>Book a new appointment without leaving the schedule.</SheetDescription>
           </SheetHeader>
-          <div className="flex-1 px-6 py-4">
+          <div className="flex-1 px-4 py-4 sm:px-6">
             <Suspense fallback={<TabFallback />}>
               <NewAppointmentModule />
             </Suspense>
