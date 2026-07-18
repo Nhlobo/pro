@@ -103,7 +103,7 @@ const DailyScheduleModule: React.FC = () => {
             Today's Schedule — {today}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className={schedule.length > 0 ? 'max-h-[520px] space-y-3 overflow-y-auto pr-1' : 'space-y-3'}>
           {schedule.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">
               No appointments scheduled for today.
