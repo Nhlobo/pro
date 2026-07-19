@@ -1,4 +1,4 @@
-// src/hooks/useHeimport { useMemo } from 'react';
+import { useMemo } from 'react';
 import { RefreshCw } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -159,4 +159,4 @@ export default function AdminHeatmap() {
       </section>
     </div>
   );
-}atmapData.tsx
+}
