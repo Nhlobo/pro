@@ -508,17 +508,3 @@ const ExternalResultCard: React.FC<{ result: ExternalResult }> = ({ result: r })
                 {s.host}<ExternalLink className="h-3 w-3" />
               </a>
             ))}
-          </div>
-        ) : (
-          <Button asChild size="sm" variant="outline" className="w-full rounded-none border-black/15 text-black hover:bg-black/5">
-            <a href={r.source_url} target="_blank" rel="noreferrer">
-              Open Source <ExternalLink className="ml-1 h-3 w-3" />
-            </a>
-          </Button>
-        )}
-      </div>
-    </AdminCardBody>
-  </AdminCard>
-);
-
-export default AdminFindExperts;
