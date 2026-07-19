@@ -97,9 +97,13 @@ type FilterPeriod = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'bi-annual' |
 
 interface AttorneyPitchlogProps {
   defaultTab?: string;
+  /** Rendered inside the Admin Attorney CRM's "Pitchlog" tab instead of as
+   *  its own route — drops the standalone page chrome (branded header,
+   *  "Dashboard" back link, footer) so it reads as one continuous screen. */
+  embedded?: boolean;
 }
 
-const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
+const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedded = false }) => {
   const { user } = useAuth();
   const { isSalesConsultant, isAdmin } = usePermissions();
   const { toast } = useToast();
@@ -990,21 +994,32 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
 
 
   return (
-    <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>Attorney Pitchlog - Medico-Legal CRM</title>
-        <meta name="description" content="Track and manage attorneys pitched for medico-legal assessments" />
-      </Helmet>
+    <div className={embedded ? "" : "min-h-screen bg-background"}>
+      {!embedded && (
+        <Helmet>
+          <title>Attorney Pitchlog - Medico-Legal CRM</title>
+          <meta name="description" content="Track and manage attorneys pitched for medico-legal assessments" />
+        </Helmet>
+      )}
 
-      <header className="bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal shadow-elegant border-b border-kutlwano-blue/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+      <header className={embedded
+        ? "bg-black"
+        : "bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal shadow-elegant border-b border-kutlwano-blue/30"}
+      >
+        <div className={embedded ? "px-4 sm:px-6" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
+          <div className="flex justify-between items-center h-14">
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" asChild className="text-white hover:bg-white/10">
-                <Link to="/dashboard"><ArrowLeft className="h-4 w-4 mr-2" />Dashboard</Link>
-              </Button>
-              <div className="h-6 w-px bg-white/30" />
-              <h1 className="text-lg font-bold text-white">Medico-Legal Attorney Pitchlog</h1>
+              {!embedded && (
+                <>
+                  <Button variant="ghost" size="sm" asChild className="text-white hover:bg-white/10">
+                    <Link to="/dashboard"><ArrowLeft className="h-4 w-4 mr-2" />Dashboard</Link>
+                  </Button>
+                  <div className="h-6 w-px bg-white/30" />
+                </>
+              )}
+              <h1 className="text-sm font-semibold text-white">
+                {embedded ? 'Pitchlog Tools' : 'Medico-Legal Attorney Pitchlog'}
+              </h1>
             </div>
             <div className="flex items-center gap-2">
               <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
@@ -1155,7 +1170,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
+      <div className={embedded ? "px-0 py-4 space-y-4" : "max-w-7xl mx-auto px-4 py-6 space-y-6"}>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium">Period:</Label>
@@ -1259,7 +1274,11 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
             <TabsTrigger value="performance">Performance</TabsTrigger>
             <TabsTrigger value="emails">Attorney Emails</TabsTrigger>
             <TabsTrigger value="province-coverage">Province Coverage</TabsTrigger>
-            <TabsTrigger value="sales-dashboard">Sales Dashboard</TabsTrigger>
+            {/* Only shown standalone — inside the Admin Attorney CRM this
+                duplicates the CRM's own top-level "Sales Dashboard" tab,
+                which is one click away and doesn't need a second entry
+                point buried inside Pitchlog. */}
+            {!embedded && <TabsTrigger value="sales-dashboard">Sales Dashboard</TabsTrigger>}
           </TabsList>
 
           {/* PITCHLOG TABLE with inline editing */}
@@ -1549,14 +1568,16 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab }) => {
             />
           </TabsContent>
 
-          {/* SALES DASHBOARD TAB */}
-          <TabsContent value="sales-dashboard">
-            <SalesDashboard />
-          </TabsContent>
+          {/* SALES DASHBOARD TAB — standalone route only, see note above */}
+          {!embedded && (
+            <TabsContent value="sales-dashboard">
+              <SalesDashboard />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
-      <CompanyFooter />
+      {!embedded && <CompanyFooter />}
     </div>
   );
 };
