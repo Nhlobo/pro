@@ -42,7 +42,14 @@ const getInitialVisibility = (): Record<SectionKey, boolean> => {
   return { teamTargets: false, incentiveStructure: false, strikeTracker: false };
 };
 
-const SalesDashboard: React.FC = () => {
+interface SalesDashboardProps {
+  /** True when rendered inside the Admin Attorney CRM (directly, or nested
+   *  inside the embedded Pitchlog). Hides the "Home" link, which is
+   *  redundant once the CRM's own header/tabs already provide navigation. */
+  embedded?: boolean;
+}
+
+const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => {
   const [selectedPayoutDate, setSelectedPayoutDate] = useState<Date | undefined>(new Date());
   const {
     consultant,
@@ -224,12 +231,14 @@ const SalesDashboard: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm" className="h-9 gap-2">
-            <Link to="/">
-              <Home className="h-4 w-4" />
-              Home
-            </Link>
-          </Button>
+          {!embedded && (
+            <Button asChild variant="outline" size="sm" className="h-9 gap-2">
+              <Link to="/">
+                <Home className="h-4 w-4" />
+                Home
+              </Link>
+            </Button>
+          )}
           <Button asChild variant="outline" size="sm" className="h-9 gap-2">
             <Link to="/availability-heatmap">
               <MapPin className="h-4 w-4" />
