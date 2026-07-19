@@ -1,12 +1,15 @@
+// src/components/admin/ExpertCreditControlModule.tsx
 import React from 'react';
-import ExpertCreditControl from '@/pages/ExpertCreditControl';
+import { ExpertCreditControlContent } from '@/components/admin/ExpertCreditControlContent';
 
+/**
+ * Credit Control tab inside the Expert Network page. Renders the shared
+ * content directly — no nested page shell, no CSS hacks hiding another
+ * page's header/nav/footer. This is what previously caused the tab to
+ * overlap the surrounding admin page and render at the wrong size.
+ */
 const ExpertCreditControlModule: React.FC = () => {
-  return (
-    <div className="mt-2 [&>div>div:first-child]:hidden [&>nav]:hidden [&>footer]:hidden [&>header]:hidden">
-      <ExpertCreditControl />
-    </div>
-  );
+  return <ExpertCreditControlContent />;
 };
 
 export default ExpertCreditControlModule;
