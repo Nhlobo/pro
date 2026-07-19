@@ -1,86 +1,73 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { MapPin, AlertTriangle, Loader2, Users, Calendar, ChevronDown, ChevronUp, Eye, EyeOff, Home } from 'lucide-react';
+// src/pages/admin/AdminHeatmap.tsx
+import React, { useMemo, useState } from 'react';
+import { Tabs } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import {
+  MapPin, Users, Calendar, Search, RefreshCw, ShieldAlert, CheckCircle2,
+  ArrowUpDown, ChevronRight,
+} from 'lucide-react';
+import {
+  useHeatmapData, STATUS_META, ProvinceData, MatterCategory,
+} from '@/hooks/useHeatmapData';
+import {
+  AdminPage,
+  AdminHeader,
+  AdminCard,
+  AdminStatCard,
+  AdminPill,
+  AdminEmptyState,
+  AdminLoadingState,
+  AdminSectionLabel,
+  AdminTabList,
+  AdminTabTrigger,
+  BRAND_TEAL,
+} from '@/components/admin/ui/AdminUI';
 
-const PRIMARY_EXPERT_TYPES = ['orthopaedic surgeon', 'neurosurgeon', 'clinical psychologist', 'neurologist'];
-
-const isPrimaryExpert = (expertType: string): boolean => {
-  const normalized = (expertType || '').toLowerCase().trim().replace(/[_\-]/g, ' ');
-  return PRIMARY_EXPERT_TYPES.some(t => normalized.includes(t) || 
-    (t === 'orthopaedic surgeon' && (normalized.includes('orthopedic') || normalized.includes('orthopaedic'))) ||
-    (t === 'clinical psychologist' && normalized.includes('clinical psychol'))
-  );
-};
-
-const ALL_PROVINCES = [
-  'Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape',
-  'Free State', 'Mpumalanga', 'Limpopo', 'North West', 'Northern Cape',
+const MATTER_FILTERS: { value: 'all' | MatterCategory; label: string }[] = [
+  { value: 'all', label: 'All Experts' },
+  { value: 'raf', label: 'RAF' },
+  { value: 'med_neg', label: 'Med Neg' },
+  { value: 'both', label: 'Both' },
 ];
 
-const normalizeProvince = (province: string): string => {
-  const p = (province || '').trim().toLowerCase().replace(/[_\-]/g, ' ');
-  const map: Record<string, string> = {
-    'gauteng': 'Gauteng',
-    'guateng': 'Gauteng',
-    'limpopo': 'Limpopo',
-    'kwazulu natal': 'KwaZulu-Natal',
-    'kwazulu-natal': 'KwaZulu-Natal',
-    'kwazulu_natal': 'KwaZulu-Natal',
-    'kzn': 'KwaZulu-Natal',
-    'free state': 'Free State',
-    'free_state': 'Free State',
-    'western cape': 'Western Cape',
-    'eastern cape': 'Eastern Cape',
-    'northern cape': 'Northern Cape',
-    'north west': 'North West',
-    'mpumalanga': 'Mpumalanga',
-  };
-  return map[p] || province || 'Unknown';
-};
+type SortKey = 'priority' | 'name' | 'demand' | 'coverage';
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: 'priority', label: 'Priority (default)' },
+  { value: 'name', label: 'Province name' },
+  { value: 'demand', label: 'Demand (high → low)' },
+  { value: 'coverage', label: 'Coverage (low → high)' },
+];
 
-type MatterCategory = 'raf' | 'med_neg' | 'both';
+const PRIORITY_ORDER: Record<ProvinceData['status'], number> = { critical: 0, shortage: 1, balanced: 2, inactive: 3 };
 
-const categorizeMatters = (matterTypes: string[] | null | undefined): MatterCategory => {
-  const arr = (matterTypes || []).map(m => (m || '').toLowerCase());
-  const hasRaf = arr.some(m => m.includes('mva') || m.includes('raf'));
-  const hasMedNeg = arr.some(m => m.includes('med neg') || m.includes('med_neg') || m.includes('medical negligence'));
-  if (hasRaf && hasMedNeg) return 'both';
-  if (hasMedNeg) return 'med_neg';
-  return 'raf';
-};
-
-interface ProvinceData {
-  name: string;
-  experts: number;
-  primaryExperts: number;
-  rafExperts: number;
-  medNegExperts: number;
-  bothExperts: number;
-  demand: number;
-  status: string;
-  color: string;
-  expertsByType: Record<string, number>;
-}
-
-const getStatus = (experts: number, demand: number): { status: string; color: string } => {
-  if (experts === 0 && demand === 0) return { status: 'inactive', color: 'bg-muted-foreground' };
-  if (experts === 0) return { status: 'critical', color: 'bg-destructive' };
-  const ratio = experts / Math.max(demand, 1);
-  if (demand > 0 && ratio < 0.5) return { status: 'critical', color: 'bg-destructive' };
-  if (demand > 0 && ratio < 1) return { status: 'shortage', color: 'bg-warning' };
-  return { status: 'balanced', color: 'bg-success' };
-};
-
+/**
+ * Availability Heatmap.
+ *
+ * Previous structure: every province rendered as a large multi-section
+ * card (primary counts, matter breakdown, primary experts, collapsible
+ * expert-type list, coverage bar) all at once — 9 provinces meant 9 heavy
+ * cards on screen simultaneously.
+ *
+ * New structure: a single-column, sortable row list. Each row shows the
+ * essentials (status, coverage bar, expert/demand counts) at a glance;
+ * the full breakdown (matter split, primary experts, expert-type list)
+ * moves into a detail sheet opened on click. Same underlying data,
+ * same thresholds, same counts — just far less DOM at rest, and a
+ * genuinely faster scan across all nine provinces.
+ */
 const AdminHeatmap: React.FC = () => {
-  const navigate = useNavigate();
-  const [provinces, setProvinces] = useState<ProvinceData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [expandedProvinces, setExpandedProvinces] = useState<Set<string>>(new Set());
+  const {
+    provinces, loading, refreshing, refetch,
+    totalExperts, totalDemand, criticalCount, balancedCount, matterCounts,
+  } = useHeatmapData();
+
   const [matterFilter, setMatterFilter] = useState<'all' | MatterCategory>('all');
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey>('priority');
+  const [detailProvince, setDetailProvince] = useState<ProvinceData | null>(null);
 
   const getDisplayCount = (p: ProvinceData) => {
     if (matterFilter === 'raf') return p.rafExperts;
@@ -89,309 +76,237 @@ const AdminHeatmap: React.FC = () => {
     return p.experts;
   };
 
-  // Section visibility — only the grid is toggleable; the three alert
-  // sections (No Primary Experts, Low Primary Availability, Regional
-  // Demand Alerts) are permanently hidden per requirement.
-  const SECTION_KEYS = ['grid'] as const;
-  type SectionKey = typeof SECTION_KEYS[number];
-  const [visible, setVisible] = useState<Record<SectionKey, boolean>>(() => {
-    try {
-      const saved = localStorage.getItem('heatmap_section_visibility');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return { grid: parsed.grid ?? true };
-      }
-    } catch {}
-    return { grid: true };
-  });
+  const maxDisplayCount = useMemo(
+    () => Math.max(...provinces.map(p => getDisplayCount(p)), 1),
+    [provinces, matterFilter],
+  );
 
-  const toggleSection = (key: SectionKey) => {
-    setVisible(prev => {
-      const next = { ...prev, [key]: !prev[key] };
-      try { localStorage.setItem('heatmap_section_visibility', JSON.stringify(next)); } catch {}
-      return next;
-    });
-  };
-
-  const SECTION_LABELS: Record<SectionKey, string> = {
-    grid: 'Province Heatmap',
-  };
-
-  const toggleExpand = (name: string) => {
-    setExpandedProvinces(prev => {
-      const next = new Set(prev);
-      if (next.has(name)) next.delete(name); else next.add(name);
-      return next;
-    });
-  };
-
-  useEffect(() => {
-    const fetchData = async () => {
-      // Fetch experts and demand-by-province in parallel.
-      // Demand uses a SECURITY DEFINER RPC so all roles (including sales
-      // consultants) see the same appointment counts as admins.
-      const [expertsRes, demandRes] = await Promise.all([
-        supabase.rpc('get_heatmap_experts_by_province'),
-        supabase.rpc('get_heatmap_demand_by_province'),
-      ]);
-
-      const expertRows: Array<{ province: string; expert_type: string; matter_types: string[] | null; expert_count: number }> = (expertsRes.data as any) || [];
-      const demandRows: Array<{ province: string; demand: number }> = (demandRes.data as any) || [];
-
-      // Count experts per normalized province and by type
-      const expertCounts: Record<string, number> = {};
-      const primaryExpertCounts: Record<string, number> = {};
-      const rafCounts: Record<string, number> = {};
-      const medNegCounts: Record<string, number> = {};
-      const bothCounts: Record<string, number> = {};
-      const expertsByTypePerProvince: Record<string, Record<string, number>> = {};
-      expertRows.forEach((e) => {
-        const prov = normalizeProvince(e.province);
-        const count = Number(e.expert_count || 0);
-        expertCounts[prov] = (expertCounts[prov] || 0) + count;
-        if (isPrimaryExpert(e.expert_type)) {
-          primaryExpertCounts[prov] = (primaryExpertCounts[prov] || 0) + count;
-        }
-        const cat = categorizeMatters(e.matter_types);
-        if (cat === 'raf') rafCounts[prov] = (rafCounts[prov] || 0) + count;
-        else if (cat === 'med_neg') medNegCounts[prov] = (medNegCounts[prov] || 0) + count;
-        else bothCounts[prov] = (bothCounts[prov] || 0) + count;
-        if (!expertsByTypePerProvince[prov]) expertsByTypePerProvince[prov] = {};
-        const type = e.expert_type || 'Unknown';
-        expertsByTypePerProvince[prov][type] = (expertsByTypePerProvince[prov][type] || 0) + count;
+  const visibleProvinces = useMemo(() => {
+    let list = provinces;
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(p => p.name.toLowerCase().includes(q));
+    }
+    const sorted = [...list];
+    if (sortKey === 'name') {
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortKey === 'demand') {
+      sorted.sort((a, b) => b.demand - a.demand);
+    } else if (sortKey === 'coverage') {
+      sorted.sort((a, b) => getDisplayCount(a) - getDisplayCount(b));
+    } else {
+      sorted.sort((a, b) => {
+        const diff = PRIORITY_ORDER[a.status] - PRIORITY_ORDER[b.status];
+        return diff !== 0 ? diff : b.demand - a.demand;
       });
-
-      // Demand: aggregate counts returned by RPC, normalising province names.
-      const demandCounts: Record<string, number> = {};
-      demandRows.forEach((r) => {
-        const prov = normalizeProvince(r.province);
-        demandCounts[prov] = (demandCounts[prov] || 0) + Number(r.demand || 0);
-      });
-
-      const provinceData: ProvinceData[] = ALL_PROVINCES.map(name => {
-        const expCount = expertCounts[name] || 0;
-        const primCount = primaryExpertCounts[name] || 0;
-        const demCount = demandCounts[name] || 0;
-        const { status, color } = getStatus(expCount, demCount);
-        return {
-          name, experts: expCount, primaryExperts: primCount,
-          rafExperts: rafCounts[name] || 0,
-          medNegExperts: medNegCounts[name] || 0,
-          bothExperts: bothCounts[name] || 0,
-          demand: demCount, status, color, expertsByType: expertsByTypePerProvince[name] || {},
-        };
-      });
-
-      // Sort: critical first, then by demand desc
-      provinceData.sort((a, b) => {
-        const order: Record<string, number> = { critical: 0, shortage: 1, balanced: 2, inactive: 3 };
-        const diff = (order[a.status] ?? 3) - (order[b.status] ?? 3);
-        if (diff !== 0) return diff;
-        return b.demand - a.demand;
-      });
-
-      setProvinces(provinceData);
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
-
-  const shortageRegions = provinces.filter(p => p.status === 'critical' || p.status === 'shortage');
-  const totalExperts = provinces.reduce((s, p) => s + p.experts, 0);
-  const totalDemand = provinces.reduce((s, p) => s + p.demand, 0);
-
-  // Identify provinces with low or zero primary experts
-  const primaryShortages = provinces
-    .map(p => ({ name: p.name, primary: p.primaryExperts, total: p.experts }))
-    .filter(p => p.total > 0 || provinces.find(pr => pr.name === p.name)?.demand! > 0)
-    .sort((a, b) => a.primary - b.primary);
+    }
+    return sorted;
+  }, [provinces, search, sortKey, matterFilter]);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
+      <AdminPage className="max-w-6xl">
+        <AdminHeader eyebrow="Intelligence" title="Availability Heatmap" description="Loading national coverage data…" icon={MapPin} />
+        <AdminCard><AdminLoadingState label="Crunching expert coverage vs. demand…" /></AdminCard>
+      </AdminPage>
     );
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      <div>
-        <Button variant="outline" size="sm" onClick={() => navigate('/')} className="gap-1">
-          <Home className="h-4 w-4" /> Back to Home
-        </Button>
-      </div>
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-foreground">National Availability Heatmap</h1>
-          <p className="text-sm text-muted-foreground">Real-time expert availability vs appointment demand (last 12 months)</p>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <Badge variant="outline" className="gap-1"><Users className="h-3 w-3" />{totalExperts} Experts</Badge>
-          <Badge variant="outline" className="gap-1"><Calendar className="h-3 w-3" />{totalDemand} Appointments</Badge>
-        </div>
+    <AdminPage className="max-w-6xl">
+      <AdminHeader
+        eyebrow="Intelligence"
+        title="Availability Heatmap"
+        description="Real-time expert availability vs. appointment demand, by province (last 12 months)"
+        icon={MapPin}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-none border-black/15 text-black hover:bg-black/5"
+            onClick={() => void refetch()}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        }
+      />
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <AdminStatCard label="Total Experts" value={totalExperts} icon={Users} />
+        <AdminStatCard label="Appointments (12m)" value={totalDemand} icon={Calendar} />
+        <AdminStatCard label="Critical Regions" value={criticalCount} icon={ShieldAlert} hint={criticalCount > 0 ? 'Needs attention' : 'None right now'} />
+        <AdminStatCard label="Balanced Regions" value={balancedCount} icon={CheckCircle2} hint={`of ${provinces.length} provinces`} />
       </div>
 
-      {/* Section visibility toggle bar */}
-      <Card className="rounded-none border-black/10 shadow-none">
-        <CardContent className="py-2 px-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground mr-1">Show / Hide:</span>
-          {SECTION_KEYS.map((key) => (
-            <Button
-              key={key}
-              type="button"
-              size="sm"
-              variant={visible[key] ? 'secondary' : 'outline'}
-              onClick={() => toggleSection(key)}
-              className="h-7 text-xs gap-1"
-            >
-              {visible[key] ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-              {SECTION_LABELS[key]}
-            </Button>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Matter Type Filter */}
-      {(() => {
-        const totalRaf = provinces.reduce((s, p) => s + p.rafExperts, 0);
-        const totalMedNeg = provinces.reduce((s, p) => s + p.medNegExperts, 0);
-        const totalBoth = provinces.reduce((s, p) => s + p.bothExperts, 0);
-        const filters: Array<{ key: 'all' | MatterCategory; label: string; count: number; cls: string }> = [
-          { key: 'all', label: 'All Experts', count: totalExperts, cls: 'border-border' },
-          { key: 'raf', label: 'RAF Experts', count: totalRaf, cls: 'border-primary text-primary' },
-          { key: 'med_neg', label: 'Med Neg Experts', count: totalMedNeg, cls: 'border-warning text-warning' },
-          { key: 'both', label: 'Both (RAF & Med Neg)', count: totalBoth, cls: 'border-success text-success' },
-        ];
-        return (
-          <Card className="rounded-none border-black/10 shadow-none">
-            <CardContent className="py-3 px-3 flex flex-wrap items-center gap-2">
-              <span className="text-xs text-muted-foreground mr-1">Filter by matter type:</span>
-              {filters.map(f => (
-                <Button
-                  key={f.key}
-                  type="button"
-                  size="sm"
-                  variant={matterFilter === f.key ? 'default' : 'outline'}
-                  onClick={() => setMatterFilter(f.key)}
-                  className="h-7 text-xs gap-1.5"
-                >
-                  {f.label}
-                  <Badge variant="secondary" className="h-4 text-[10px] px-1.5">{f.count}</Badge>
-                </Button>
+      {/* Controls */}
+      <AdminCard>
+        <div className="flex flex-col gap-3 p-3">
+          <Tabs value={matterFilter} onValueChange={(v) => setMatterFilter(v as typeof matterFilter)}>
+            <AdminTabList>
+              {MATTER_FILTERS.map(f => (
+                <AdminTabTrigger key={f.value} value={f.value} label={f.label} badge={matterCounts[f.value]} />
               ))}
-            </CardContent>
-          </Card>
-        );
-      })()}
+            </AdminTabList>
+          </Tabs>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Filter provinces…"
+                className="h-9 rounded-none border-black/15 pl-8 text-sm"
+              />
+            </div>
+            <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+              <SelectTrigger className="h-9 w-full rounded-none border-black/15 sm:w-56">
+                <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 text-slate-400" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </AdminCard>
 
-      {/* Heatmap Grid */}
-      {visible.grid && (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {provinces.map((prov) => {
-          const displayCount = getDisplayCount(prov);
-          const maxExperts = Math.max(...provinces.map(p => getDisplayCount(p)), 1);
-          const coveragePct = displayCount === 0 ? 0 : Math.round((displayCount / maxExperts) * 100);
-          // Categorical coverage: absolute thresholds
-          // High: >= 30 experts, Medium: >= 19 experts, Low: <= 18 experts
-          const coverageLabel = prov.experts === 0
-            ? 'None'
-            : prov.experts >= 30 ? 'High' : prov.experts >= 19 ? 'Medium' : 'Low';
-          const coverageColor = coverageLabel === 'High'
-            ? 'text-success'
-            : coverageLabel === 'Medium'
-              ? 'text-warning'
-              : coverageLabel === 'Low'
-                ? 'text-destructive'
-                : 'text-muted-foreground';
-          return (
-            <Card key={prov.name} className={`rounded-none border-black/10 shadow-none ${prov.status === 'critical' ? 'ring-2 ring-destructive/30' : ''}`}>
-              <CardContent className="pt-4 pb-3 px-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-semibold text-foreground">{prov.name}</span>
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Coverage status</span>
+        {(Object.keys(STATUS_META) as ProvinceData['status'][]).map((s) => (
+          <AdminPill key={s} tone={STATUS_META[s].tone}>{STATUS_META[s].label}</AdminPill>
+        ))}
+      </div>
+
+      {/* Province row list */}
+      {visibleProvinces.length === 0 ? (
+        <AdminCard>
+          <AdminEmptyState icon={Search} title="No provinces match your search" description="Try a different search term." />
+        </AdminCard>
+      ) : (
+        <div>
+          <AdminSectionLabel>Province Breakdown ({visibleProvinces.length})</AdminSectionLabel>
+          <AdminCard className="mt-3 divide-y divide-black/10">
+            {visibleProvinces.map((prov) => {
+              const meta = STATUS_META[prov.status];
+              const displayCount = getDisplayCount(prov);
+              const coveragePct = displayCount === 0 ? 0 : Math.round((displayCount / maxDisplayCount) * 100);
+
+              return (
+                <button
+                  key={prov.name}
+                  type="button"
+                  onClick={() => setDetailProvince(prov)}
+                  className="flex w-full items-center gap-4 px-4 py-3 text-left transition-colors hover:bg-black/[0.03]"
+                >
+                  <MapPin className="h-4 w-4 shrink-0" style={{ color: BRAND_TEAL }} />
+                  <div className="w-36 shrink-0 sm:w-44">
+                    <p className="truncate text-sm font-semibold text-black">{prov.name}</p>
+                    <AdminPill tone={meta.tone} className="mt-1">{meta.label}</AdminPill>
                   </div>
-                  <div className={`w-3 h-3 rounded-full ${prov.color}`} />
-                </div>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div className="bg-muted/30 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-foreground">{displayCount}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {matterFilter === 'raf' ? 'RAF Experts' :
-                       matterFilter === 'med_neg' ? 'Med Neg Experts' :
-                       matterFilter === 'both' ? 'Both (RAF & Med Neg)' : 'Total Experts'}
-                    </p>
+
+                  <div className="hidden flex-1 items-center gap-2 sm:flex">
+                    <div className="h-1.5 flex-1 overflow-hidden bg-black/10">
+                      <div
+                        className={`h-full transition-all ${
+                          meta.tone === 'destructive' ? 'bg-destructive' :
+                          meta.tone === 'warning' ? 'bg-warning' :
+                          meta.tone === 'success' ? 'bg-success' : 'bg-slate-300'
+                        }`}
+                        style={{ width: `${Math.min(coveragePct, 100)}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="bg-muted/30 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-foreground">{prov.demand}</p>
-                    <p className="text-[10px] text-muted-foreground">Assessments (12m)</p>
+
+                  <div className="flex shrink-0 items-center gap-4 text-right text-sm">
+                    <div>
+                      <p className="font-bold tabular-nums text-black">{displayCount}</p>
+                      <p className="text-[10px] text-slate-400">Experts</p>
+                    </div>
+                    <div>
+                      <p className="font-bold tabular-nums text-black">{prov.demand}</p>
+                      <p className="text-[10px] text-slate-400">Demand (12m)</p>
+                    </div>
+                  </div>
+
+                  <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
+                </button>
+              );
+            })}
+          </AdminCard>
+        </div>
+      )}
+
+      {/* Province detail */}
+      <Sheet open={!!detailProvince} onOpenChange={(open) => { if (!open) setDetailProvince(null); }}>
+        <SheetContent side="right" className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-lg">
+          {detailProvince && (
+            <>
+              <SheetHeader className="border-b border-black/10 px-5 py-4 text-left">
+                <SheetTitle className="flex items-center gap-2 text-black">
+                  <MapPin className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+                  {detailProvince.name}
+                </SheetTitle>
+                <SheetDescription>Full coverage breakdown for the last 12 months.</SheetDescription>
+              </SheetHeader>
+
+              <div className="flex-1 space-y-4 px-5 py-4">
+                <AdminPill tone={STATUS_META[detailProvince.status].tone}>{STATUS_META[detailProvince.status].label}</AdminPill>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="border border-black/10 bg-black/[0.02] px-3 py-2 text-center">
+                    <p className="text-lg font-bold tabular-nums text-black">{detailProvince.experts}</p>
+                    <p className="text-[10px] leading-tight text-slate-500">Total Experts</p>
+                  </div>
+                  <div className="border border-black/10 bg-black/[0.02] px-3 py-2 text-center">
+                    <p className="text-lg font-bold tabular-nums text-black">{detailProvince.demand}</p>
+                    <p className="text-[10px] leading-tight text-slate-500">Assessments (12m)</p>
                   </div>
                 </div>
 
-                {/* Matter type breakdown */}
-                <div className="grid grid-cols-3 gap-1.5 mb-3">
-                  <div className="bg-primary/10 border border-primary/20 rounded-md p-1.5 text-center">
-                    <p className="text-sm font-bold text-primary">{prov.rafExperts}</p>
-                    <p className="text-[9px] text-muted-foreground leading-tight">RAF</p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <div className="border border-black/10 px-1.5 py-1.5 text-center">
+                    <p className="text-sm font-bold tabular-nums" style={{ color: BRAND_TEAL }}>{detailProvince.rafExperts}</p>
+                    <p className="text-[9px] leading-tight text-slate-500">RAF</p>
                   </div>
-                  <div className="bg-warning/10 border border-warning/20 rounded-md p-1.5 text-center">
-                    <p className="text-sm font-bold text-warning">{prov.medNegExperts}</p>
-                    <p className="text-[9px] text-muted-foreground leading-tight">Med Neg</p>
+                  <div className="border border-black/10 px-1.5 py-1.5 text-center">
+                    <p className="text-sm font-bold tabular-nums text-warning">{detailProvince.medNegExperts}</p>
+                    <p className="text-[9px] leading-tight text-slate-500">Med Neg</p>
                   </div>
-                  <div className="bg-success/10 border border-success/20 rounded-md p-1.5 text-center">
-                    <p className="text-sm font-bold text-success">{prov.bothExperts}</p>
-                    <p className="text-[9px] text-muted-foreground leading-tight">Both</p>
+                  <div className="border border-black/10 px-1.5 py-1.5 text-center">
+                    <p className="text-sm font-bold tabular-nums text-success">{detailProvince.bothExperts}</p>
+                    <p className="text-[9px] leading-tight text-slate-500">Both</p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div className="bg-muted/30 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-foreground">{prov.primaryExperts}</p>
-                    <p className="text-[10px] text-muted-foreground">Primary Experts</p>
-                    <p className="text-[8px] text-muted-foreground/70">(Ortho, Neuro, Psych)</p>
-                  </div>
-                  <div className="bg-muted/30 rounded-lg p-2 text-center">
-                    <p className={`text-sm font-semibold ${coverageColor}`}>{coverageLabel}</p>
-                    <p className="text-[10px] text-muted-foreground">Expert Coverage</p>
-                  </div>
+                <div className="border border-black/10 bg-black/[0.02] px-3 py-2 text-center">
+                  <p className="text-lg font-bold tabular-nums text-black">{detailProvince.primaryExperts}</p>
+                  <p className="text-[10px] leading-tight text-slate-500">Primary Experts</p>
+                  <p className="text-[9px] leading-tight text-slate-400">(Ortho, Neuro, Psych)</p>
                 </div>
-                {Object.keys(prov.expertsByType).length > 0 && (
-                  <div className="mb-3">
-                    <button
-                      onClick={() => toggleExpand(prov.name)}
-                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-full justify-center"
-                    >
-                      {expandedProvinces.has(prov.name) ? (
-                        <><ChevronUp className="h-3 w-3" /> Hide expert types</>
-                      ) : (
-                        <><ChevronDown className="h-3 w-3" /> Show expert types ({Object.keys(prov.expertsByType).length})</>
-                      )}
-                    </button>
-                    {expandedProvinces.has(prov.name) && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {Object.entries(prov.expertsByType).sort((a, b) => b[1] - a[1]).map(([type, count]) => (
-                          <Badge key={type} variant="outline" className="text-[9px] px-1.5 py-0">
-                            {type}: {count}
-                          </Badge>
+
+                {Object.entries(detailProvince.expertsByType).length > 0 && (
+                  <div>
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Expert types</p>
+                    <div className="flex flex-wrap gap-1">
+                      {Object.entries(detailProvince.expertsByType)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([type, count]) => (
+                          <AdminPill key={type} tone="neutral">{type}: {count}</AdminPill>
                         ))}
-                      </div>
-                    )}
+                    </div>
                   </div>
                 )}
-                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${prov.color}`}
-                    style={{ width: `${Math.min(coveragePct, 100)}%` }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-      )}
-    </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+    </AdminPage>
   );
 };
 
