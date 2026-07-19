@@ -1,224 +1,86 @@
-// src/hooks/useHeatmapData.tsx
-import { useCallback, useEffect, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { SA_PROVINCES } from '@/hooks/useExpertSearch';
+// src/hooks/useHeimport { useMemo } from 'react';
+import { RefreshCw } from 'lucide-react';
 
-/* ------------------------------------------------------------------ */
-/* Types                                                               */
-/* ------------------------------------------------------------------ */
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
-export type MatterCategory = 'raf' | 'med_neg' | 'both';
+import { STATUS_META, type MatterCategory, type ProvinceData, useHeatmapData } from '@/hooks/useHeatmapData';
 
-export type ProvinceStatus = 'critical' | 'shortage' | 'balanced' | 'inactive';
-
-export interface ProvinceData {
-  name: string;
-  status: ProvinceStatus;
-  experts: number;
-  rafExperts: number;
-  medNegExperts: number;
-  bothExperts: number;
-  demand: number;
-  primaryExperts: number;
-  expertsByType: Record<string, number>;
-}
-
-export const STATUS_META: Record<ProvinceStatus, { label: string; tone: 'neutral' | 'teal' | 'success' | 'warning' | 'destructive' }> = {
-  critical: { label: 'Critical', tone: 'destructive' },
-  shortage: { label: 'Shortage', tone: 'warning' },
-  balanced: { label: 'Balanced', tone: 'success' },
-  inactive: { label: 'Inactive', tone: 'neutral' },
+const statusCardClass: Record<ProvinceData['status'], string> = {
+  critical: 'border-red-300 bg-red-50/80 dark:border-red-900 dark:bg-red-950/30',
+  shortage: 'border-amber-300 bg-amber-50/80 dark:border-amber-900 dark:bg-amber-950/30',
+  balanced: 'border-emerald-300 bg-emerald-50/80 dark:border-emerald-900 dark:bg-emerald-950/30',
+  inactive: 'border-slate-300 bg-slate-50/80 dark:border-slate-800 dark:bg-slate-900/40',
 };
 
-/* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
-
-const PROVINCE_NORMALIZE: Record<string, string> = {
-  'gauteng': 'Gauteng',
-  'guateng': 'Gauteng',
-  'western cape': 'Western Cape',
-  'kwazulu-natal': 'KwaZulu-Natal',
-  'kwazulu natal': 'KwaZulu-Natal',
-  'kzn': 'KwaZulu-Natal',
-  'eastern cape': 'Eastern Cape',
-  'free state': 'Free State',
-  'mpumalanga': 'Mpumalanga',
-  'limpopo': 'Limpopo',
-  'north west': 'North West',
-  'northern cape': 'Northern Cape',
+const matterLabels: Record<'all' | MatterCategory, string> = {
+  all: 'All',
+  raf: 'RAF',
+  med_neg: 'Medical Negligence',
+  both: 'Both',
 };
 
-function normalizeProvince(raw: string | null | undefined): string {
-  if (!raw) return 'Unknown';
-  const key = raw.trim().toLowerCase();
-  return PROVINCE_NORMALIZE[key] || raw.trim();
+function KpiCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
+  return (
+    <Card className="h-full">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-2xl font-bold tracking-tight">{value}</p>
+        {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+      </CardContent>
+    </Card>
+  );
 }
 
-// Experts whose type covers the three "gatekeeper" specialities that most
-// RAF/med-neg matters need a report from first.
-const PRIMARY_EXPERT_TYPES = ['Orthopaedic Surgeon', 'Neurosurgeon', 'Clinical Psychologist'];
+function ProvinceCard({ province }: { province: ProvinceData }) {
+  const meta = STATUS_META[province.status];
 
-function categorizeMatters(matterTypes: string[] | null): MatterCategory {
-  const matters = (matterTypes || []).map((m) => m.toLowerCase());
-  const isRaf = matters.some((m) => m.includes('raf') || m.includes('road accident') || m.includes('mva'));
-  const isMedNeg = matters.some((m) => m.includes('negligence') || m.includes('med_neg') || m.includes('medneg'));
-  if (isRaf && isMedNeg) return 'both';
-  if (isRaf) return 'raf';
-  if (isMedNeg) return 'med_neg';
-  // Experts without explicit matter tagging are treated as generalists
-  // available to both matter types.
-  return 'both';
+  return (
+    <Card className={`h-full transition-colors ${statusCardClass[province.status]}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-3">
+          <CardTitle className="text-base">{province.name}</CardTitle>
+          <Badge variant={meta.tone === 'destructive' ? 'destructive' : 'secondary'}>{meta.label}</Badge>
+        </div>
+      </CardHeader>
+
+      <CardContent className="space-y-3 text-sm">
+        <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+          <span>Total experts</span>
+          <span className="text-right font-medium text-foreground">{province.experts}</span>
+          <span>12m demand</span>
+          <span className="text-right font-medium text-foreground">{province.demand}</span>
+          <span>Primary experts</span>
+          <span className="text-right font-medium text-foreground">{province.primaryExperts}</span>
+        </div>
+
+        <Separator />
+
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="rounded-md border p-2">
+            <p className="text-muted-foreground">RAF</p>
+            <p className="text-base font-semibold">{province.rafExperts}</p>
+          </div>
+          <div className="rounded-md border p-2">
+            <p className="text-muted-foreground">Med Neg</p>
+            <p className="text-base font-semibold">{province.medNegExperts}</p>
+          </div>
+          <div className="rounded-md border p-2">
+            <p className="text-muted-foreground">Both</p>
+            <p className="text-base font-semibold">{province.bothExperts}</p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
-function statusForProvince(experts: number, demand: number): ProvinceStatus {
-  if (experts === 0 && demand === 0) return 'inactive';
-  if (experts === 0) return 'critical';
-  const ratio = experts / Math.max(demand, 1);
-  if (ratio < 0.05) return 'critical';
-  if (ratio < 0.15) return 'shortage';
-  return 'balanced';
-}
-
-/* ------------------------------------------------------------------ */
-/* Hook                                                                */
-/* ------------------------------------------------------------------ */
-
-/**
- * Availability heatmap data layer.
- *
- * Pulls active `medical_experts` (grouped by province, expert type, and
- * RAF/med-neg/both matter coverage) alongside the last 12 months of
- * `appointments` (grouped by the referring attorney's province) to work
- * out expert-supply-vs-demand per province, matching the thresholds the
- * Availability Heatmap page expects.
- */
-export const useHeatmapData = () => {
-  const [provinces, setProvinces] = useState<ProvinceData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const fetchData = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-
-    try {
-      const { data: experts, error: expertsError } = await supabase
-        .from('medical_experts')
-        .select('id, expert_type, province, matter_types, status, medico_legal_only')
-        .eq('status', 'active');
-      if (expertsError) throw expertsError;
-
-      const twelveMonthsAgo = new Date();
-      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-      const twelveMonthsAgoStr = twelveMonthsAgo.toISOString().slice(0, 10);
-
-      const { data: appointments, error: appointmentsError } = await supabase
-        .from('appointments')
-        .select('appointment_date, referring_attorneys!appointments_referring_attorney_id_fkey(province)')
-        .is('deleted_at', null)
-        .gte('appointment_date', twelveMonthsAgoStr);
-      if (appointmentsError) throw appointmentsError;
-
-      const byProvince: Record<string, ProvinceData> = {};
-      SA_PROVINCES.forEach((name) => {
-        byProvince[name] = {
-          name,
-          status: 'inactive',
-          experts: 0,
-          rafExperts: 0,
-          medNegExperts: 0,
-          bothExperts: 0,
-          demand: 0,
-          primaryExperts: 0,
-          expertsByType: {},
-        };
-      });
-
-      (experts || []).forEach((e: any) => {
-        if (e.medico_legal_only === false) return;
-        const province = normalizeProvince(e.province);
-        if (!byProvince[province]) {
-          byProvince[province] = {
-            name: province,
-            status: 'inactive',
-            experts: 0,
-            rafExperts: 0,
-            medNegExperts: 0,
-            bothExperts: 0,
-            demand: 0,
-            primaryExperts: 0,
-            expertsByType: {},
-          };
-        }
-        const entry = byProvince[province];
-        entry.experts += 1;
-
-        const category = categorizeMatters(e.matter_types);
-        if (category === 'raf') entry.rafExperts += 1;
-        else if (category === 'med_neg') entry.medNegExperts += 1;
-        else entry.bothExperts += 1;
-
-        if (e.expert_type && PRIMARY_EXPERT_TYPES.includes(e.expert_type)) {
-          entry.primaryExperts += 1;
-        }
-
-        const type = e.expert_type || 'Unspecified';
-        entry.expertsByType[type] = (entry.expertsByType[type] || 0) + 1;
-      });
-
-      (appointments || []).forEach((apt: any) => {
-        const rawProvince = apt.referring_attorneys?.province;
-        const province = normalizeProvince(rawProvince);
-        if (!byProvince[province]) {
-          byProvince[province] = {
-            name: province,
-            status: 'inactive',
-            experts: 0,
-            rafExperts: 0,
-            medNegExperts: 0,
-            bothExperts: 0,
-            demand: 0,
-            primaryExperts: 0,
-            expertsByType: {},
-          };
-        }
-        byProvince[province].demand += 1;
-      });
-
-      const result = Object.values(byProvince).map((p) => ({
-        ...p,
-        status: statusForProvince(p.experts, p.demand),
-      }));
-
-      setProvinces(result);
-    } catch (err) {
-      console.error('Failed to load heatmap data', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const refetch = useCallback(() => fetchData(true), [fetchData]);
-
-  const totalExperts = provinces.reduce((sum, p) => sum + p.experts, 0);
-  const totalDemand = provinces.reduce((sum, p) => sum + p.demand, 0);
-  const criticalCount = provinces.filter((p) => p.status === 'critical').length;
-  const balancedCount = provinces.filter((p) => p.status === 'balanced').length;
-
-  const matterCounts: Record<'all' | MatterCategory, number> = {
-    all: totalExperts,
-    raf: provinces.reduce((sum, p) => sum + p.rafExperts, 0),
-    med_neg: provinces.reduce((sum, p) => sum + p.medNegExperts, 0),
-    both: provinces.reduce((sum, p) => sum + p.bothExperts, 0),
-  };
-
-  return {
+export default function AdminHeatmap() {
+  const {
     provinces,
     loading,
     refreshing,
@@ -228,5 +90,73 @@ export const useHeatmapData = () => {
     criticalCount,
     balancedCount,
     matterCounts,
-  };
-};
+  } = useHeatmapData();
+
+  const ordered = useMemo(() => {
+    return [...provinces].sort((a, b) => {
+      const priority: Record<ProvinceData['status'], number> = { critical: 0, shortage: 1, balanced: 2, inactive: 3 };
+      if (priority[a.status] !== priority[b.status]) return priority[a.status] - priority[b.status];
+      return a.name.localeCompare(b.name);
+    });
+  }, [provinces]);
+
+  return (
+    <div className="space-y-6 p-4 md:p-6 xl:p-8">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Availability Heatmap</h1>
+          <p className="text-sm text-muted-foreground">
+            Province-level expert supply vs attorney demand (last 12 months).
+          </p>
+        </div>
+
+        <Button onClick={() => refetch()} disabled={loading || refreshing} className="w-full md:w-auto">
+          <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing...' : 'Refresh'}
+        </Button>
+      </div>
+
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Total Experts" value={totalExperts} />
+        <KpiCard label="Total Demand (12m)" value={totalDemand} />
+        <KpiCard label="Critical Provinces" value={criticalCount} hint="Immediate shortage pressure" />
+        <KpiCard label="Balanced Provinces" value={balancedCount} />
+      </section>
+
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {(Object.keys(matterCounts) as Array<'all' | MatterCategory>).map((key) => (
+          <Card key={key}>
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">{matterLabels[key]}</p>
+              <p className="text-xl font-semibold">{matterCounts[key]}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
+      <section>
+        {loading ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <Card key={i} className="h-[170px] animate-pulse">
+                <CardContent className="h-full p-4" />
+              </Card>
+            ))}
+          </div>
+        ) : ordered.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center text-sm text-muted-foreground">
+              No province data available yet.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+            {ordered.map((province) => (
+              <ProvinceCard key={province.name} province={province} />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}atmapData.tsx
