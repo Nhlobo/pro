@@ -5,22 +5,23 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Stethoscope,
-  Search,
   Activity,
   MapPin,
-  Plus,
+  PlusCircle,
   Users,
   ChevronDown,
   ChevronUp,
   Pencil,
   ClipboardList,
   Building2,
-  Wallet,
   Gauge,
+  Phone,
+  Mail,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatExpertType } from '@/utils/expertTypeMapping';
@@ -71,6 +72,25 @@ const TabFallback = () => (
       <Skeleton className="h-8 w-24" />
     </div>
     <Skeleton className="h-64 w-full" />
+  </div>
+);
+
+/** Loading state shown inside the sliding panel while the form chunk loads —
+ *  mirrors the Appointment Engine's "New Appointment" panel fallback so the
+ *  two sliding-panel experiences feel identical. */
+const PanelFallback = () => (
+  <div className="space-y-4 p-1">
+    <div className="flex items-center justify-between">
+      <Skeleton className="h-4 w-40" />
+      <Skeleton className="h-8 w-24" />
+    </div>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-full" />
+    </div>
+    <Skeleton className="h-48 w-full" />
   </div>
 );
 
@@ -128,8 +148,15 @@ const AdminExpertNetwork: React.FC = () => {
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+
+  // New/Edit Expert are docked sliding panels — the same pattern the
+  // Appointment Engine uses for "New Appointment" — rather than tabs that
+  // swap out the whole screen, or (as before) a full standalone routed page
+  // reused via CSS hacks that fought its own header/back-link/footer chrome
+  // and could navigate the entire app away from /admin/experts on save.
+  const [isNewExpertOpen, setIsNewExpertOpen] = useState(false);
   const [editExpertId, setEditExpertId] = useState<string | null>(null);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const refetchExperts = useCallback(async () => {
     const { data } = await supabase.rpc('get_medical_experts_secure');
@@ -139,11 +166,12 @@ const AdminExpertNetwork: React.FC = () => {
 
   useEffect(() => { refetchExperts(); }, [refetchExperts]);
 
+  // Deep-link support: /admin/experts?edit=<id> opens the edit panel directly,
+  // including on a hard refresh.
   useEffect(() => {
     const editId = searchParams.get('edit');
     if (editId && editId !== editExpertId) {
       setEditExpertId(editId);
-      setActiveTab('edit-expert');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -157,8 +185,16 @@ const AdminExpertNetwork: React.FC = () => {
 
   const openEdit = useCallback((id: string) => {
     setEditExpertId(id);
-    setActiveTab('edit-expert');
   }, []);
+
+  const closeEditPanel = useCallback(() => {
+    setEditExpertId(null);
+    if (searchParams.get('edit')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('edit');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -218,9 +254,18 @@ const AdminExpertNetwork: React.FC = () => {
         description="Directory, coverage, credit control and fee governance for every panel expert"
         icon={Stethoscope}
         actions={
-          <Badge variant="outline" className="rounded-none border-black/15 text-black">
-            {experts.length} experts
-          </Badge>
+          <>
+            <Badge variant="outline" className="rounded-none border-black/15 text-black">
+              {experts.length} experts
+            </Badge>
+            <Button
+              className="rounded-none bg-black text-white hover:bg-black/90"
+              onClick={() => setIsNewExpertOpen(true)}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" />
+              New Expert
+            </Button>
+          </>
         }
       />
 
@@ -236,15 +281,9 @@ const AdminExpertNetwork: React.FC = () => {
         />
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={(val) => { setActiveTab(val); if (val !== 'edit-expert') setEditExpertId(null); }}
-        className="w-full"
-      >
-        <AdminTabList sticky columns={editExpertId ? 5 : 4}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <AdminTabList sticky columns={3}>
           <AdminTabTrigger value="overview" label="Directory" icon={Users} center />
-          <AdminTabTrigger value="new-expert" label="New Expert" icon={Plus} center />
-          {editExpertId && <AdminTabTrigger value="edit-expert" label="Edit Expert" icon={Pencil} center />}
           <AdminTabTrigger value="credit-control" label="Credit Control" icon={RandSign as any} center />
           <AdminTabTrigger value="fee-reviews" label="Fee Reviews" icon={ClipboardList} center />
         </AdminTabList>
@@ -361,7 +400,9 @@ const AdminExpertNetwork: React.FC = () => {
               </AdminCardBody>
             </AdminCard>
 
-            {/* Expert directory table */}
+            {/* Expert directory — table on ≥md, card list on small screens so
+                the directory stays fully usable at any viewport width
+                instead of forcing sideways scrolling on a phone. */}
             <AdminCard>
               <AdminCardHeader icon={Gauge} title="Expert Directory" description={`${filtered.length} matching experts`} />
               {loading ? (
@@ -375,71 +416,133 @@ const AdminExpertNetwork: React.FC = () => {
                   description="Try a different name, discipline, or province."
                 />
               ) : (
-                <div className="overflow-x-auto">
-                  <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
-                    <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
-                      <TableRow>
-                        <TableHead>Expert</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Province</TableHead>
-                        <TableHead>Telephone</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead className="text-right">Consult Fee</TableHead>
-                        <TableHead>Score</TableHead>
-                        <TableHead className="text-right">Edit</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginated.map((e) => {
-                        const score = scoreForId(e.id);
-                        const fee = Number(e.consultation_fees || 0);
-                        return (
-                          <TableRow key={e.id} className="align-top hover:bg-black/[0.02]">
-                            <TableCell>
-                              <div className="flex items-start gap-1.5">
-                                <Stethoscope className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: BRAND_TEAL }} />
-                                <span className="break-words font-medium leading-tight text-black">
+                <>
+                  {/* ≥md: full data table */}
+                  <div className="hidden overflow-x-auto md:block">
+                    <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
+                      <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
+                        <TableRow>
+                          <TableHead>Expert</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Province</TableHead>
+                          <TableHead>Telephone</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead className="text-right">Consult Fee</TableHead>
+                          <TableHead>Score</TableHead>
+                          <TableHead className="text-right">Edit</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {paginated.map((e) => {
+                          const score = scoreForId(e.id);
+                          const fee = Number(e.consultation_fees || 0);
+                          return (
+                            <TableRow key={e.id} className="align-top hover:bg-black/[0.02]">
+                              <TableCell>
+                                <div className="flex items-start gap-1.5">
+                                  <Stethoscope className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: BRAND_TEAL }} />
+                                  <span className="break-words font-medium leading-tight text-black">
+                                    {e.first_name} {e.last_name}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="break-words leading-tight text-slate-500">
+                                {formatExpertType(e.expert_type)}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-start gap-1">
+                                  <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" />
+                                  <span className="break-words leading-tight text-slate-500">{e.province || '–'}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="break-words leading-tight text-slate-500">{e.phone_masked || '–'}</TableCell>
+                              <TableCell className="break-all leading-tight text-slate-500">{e.email_masked || '–'}</TableCell>
+                              <TableCell className="whitespace-nowrap text-right text-black">
+                                {fee > 0 ? `R${fee.toLocaleString('en-ZA')}` : '–'}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-1.5">
+                                  <Progress value={score} className="h-1.5 w-10" />
+                                  <span className="text-[11px] font-medium text-black">{score}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openEdit(e.id)}
+                                  className="h-7 w-7 rounded-none p-0"
+                                  title={`Edit ${e.first_name} ${e.last_name}`}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* <md: stacked card list, one per expert */}
+                  <div className="divide-y divide-black/10 md:hidden">
+                    {paginated.map((e) => {
+                      const score = scoreForId(e.id);
+                      const fee = Number(e.consultation_fees || 0);
+                      return (
+                        <div key={e.id} className="flex items-start justify-between gap-3 p-4">
+                          <div className="min-w-0 flex-1 space-y-1.5">
+                            <div className="flex items-start gap-1.5">
+                              <Stethoscope className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: BRAND_TEAL }} />
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-black">
                                   {e.first_name} {e.last_name}
+                                </p>
+                                <p className="truncate text-[11px] text-slate-500">{formatExpertType(e.expert_type)}</p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-5 text-[11px] text-slate-500">
+                              <span className="inline-flex items-center gap-1">
+                                <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
+                                {e.province || '–'}
+                              </span>
+                              {e.phone_masked && (
+                                <span className="inline-flex items-center gap-1">
+                                  <Phone className="h-3 w-3 shrink-0 text-slate-400" />
+                                  {e.phone_masked}
                                 </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="break-words leading-tight text-slate-500">
-                              {formatExpertType(e.expert_type)}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-start gap-1">
-                                <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" />
-                                <span className="break-words leading-tight text-slate-500">{e.province || '–'}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="break-words leading-tight text-slate-500">{e.phone_masked || '–'}</TableCell>
-                            <TableCell className="break-all leading-tight text-slate-500">{e.email_masked || '–'}</TableCell>
-                            <TableCell className="whitespace-nowrap text-right text-black">
-                              {fee > 0 ? `R${fee.toLocaleString('en-ZA')}` : '–'}
-                            </TableCell>
-                            <TableCell>
+                              )}
+                              {e.email_masked && (
+                                <span className="inline-flex items-center gap-1 break-all">
+                                  <Mail className="h-3 w-3 shrink-0 text-slate-400" />
+                                  {e.email_masked}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 pl-5 pt-0.5">
+                              <span className="text-xs font-semibold text-black">
+                                {fee > 0 ? `R${fee.toLocaleString('en-ZA')}` : '–'}
+                              </span>
                               <div className="flex items-center gap-1.5">
                                 <Progress value={score} className="h-1.5 w-10" />
                                 <span className="text-[11px] font-medium text-black">{score}</span>
                               </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openEdit(e.id)}
-                                className="h-7 w-7 rounded-none p-0"
-                                title={`Edit ${e.first_name} ${e.last_name}`}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEdit(e.id)}
+                            className="h-8 shrink-0 rounded-none border-black/15 px-2.5"
+                            title={`Edit ${e.first_name} ${e.last_name}`}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
               <AdminPagination
                 page={currentPage}
@@ -451,29 +554,6 @@ const AdminExpertNetwork: React.FC = () => {
               />
             </AdminCard>
           </TabsContent>
-
-          <TabsContent value="new-expert" className="mt-0 focus-visible:outline-none">
-            <Suspense fallback={<TabFallback />}>
-              <ExpertFormModule />
-            </Suspense>
-          </TabsContent>
-
-          {editExpertId && (
-            <TabsContent value="edit-expert" className="mt-0 focus-visible:outline-none">
-              <Suspense fallback={<TabFallback />}>
-                <ExpertFormModule
-                  key={editExpertId}
-                  editExpertId={editExpertId}
-                  onSaved={() => {
-                    setEditExpertId(null);
-                    setActiveTab('overview');
-                    setLoading(true);
-                    refetchExperts();
-                  }}
-                />
-              </Suspense>
-            </TabsContent>
-          )}
 
           <TabsContent value="credit-control" className="mt-0 focus-visible:outline-none">
             <Suspense fallback={<TabFallback />}>
@@ -488,6 +568,64 @@ const AdminExpertNetwork: React.FC = () => {
           </TabsContent>
         </div>
       </Tabs>
+
+      {/* New Expert — docked sliding panel, identical mechanics to the
+          Appointment Engine's "New Appointment" sheet: staff can glance at
+          the directory behind it, cancel, or save, and land back exactly
+          where they were instead of losing their place in a tab or being
+          bounced to a different route. */}
+      <Sheet open={isNewExpertOpen} onOpenChange={setIsNewExpertOpen}>
+        <SheetContent
+          side="right"
+          className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-3xl"
+        >
+          <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+            <SheetTitle className="flex items-center gap-2 text-black">
+              <PlusCircle className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+              New Expert
+            </SheetTitle>
+            <SheetDescription>Add a panel expert to the directory without leaving the network view.</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 px-4 py-4 sm:px-6">
+            <Suspense fallback={<PanelFallback />}>
+              <ExpertFormModule
+                onSaved={() => { setIsNewExpertOpen(false); refetchExperts(); }}
+                onCancel={() => setIsNewExpertOpen(false)}
+              />
+            </Suspense>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Edit Expert — same docked sliding panel, opened either from the
+          directory's pencil action or from an /admin/experts?edit=<id>
+          deep link. */}
+      <Sheet open={!!editExpertId} onOpenChange={(open) => { if (!open) closeEditPanel(); }}>
+        <SheetContent
+          side="right"
+          className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-3xl"
+        >
+          <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+            <SheetTitle className="flex items-center gap-2 text-black">
+              <Pencil className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+              Edit Expert
+            </SheetTitle>
+            <SheetDescription>Update this expert's profile and fees without leaving the network view.</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 px-4 py-4 sm:px-6">
+            {editExpertId && (
+              <Suspense fallback={<PanelFallback />}>
+                <ExpertFormModule
+                  key={editExpertId}
+                  editExpertId={editExpertId}
+                  onSaved={() => { closeEditPanel(); refetchExperts(); }}
+                  onCancel={closeEditPanel}
+                />
+              </Suspense>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </AdminPage>
   );
 };
