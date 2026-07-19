@@ -1,5 +1,15 @@
 import React, { useState, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+// Docked sliding panel, not a centered pop-up — consistent with every other
+// panel in the Admin Portal (Sheet is the same Radix dialog primitive under
+// the hood, only the presentation differs).
+import {
+  Sheet as Dialog,
+  SheetContent as DialogContent,
+  SheetHeader as DialogHeader,
+  SheetTitle as DialogTitle,
+  SheetDescription as DialogDescription,
+  SheetFooter as DialogFooter,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -300,15 +310,15 @@ export const ExpertStatementPreviewDialog: React.FC<ExpertStatementPreviewDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Preview Expert Statement</DialogTitle>
-          <DialogDescription>
+      <DialogContent side="right" className="brand-legal-theme flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-2xl">
+        <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4 text-left">
+          <DialogTitle className="text-base font-bold text-black">Preview Expert Statement</DialogTitle>
+          <DialogDescription className="text-xs text-slate-500">
             Review and edit the email before sending to {expertData.expert_name}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="flex-1 space-y-4 px-5 py-5">
           <div className="space-y-2">
             <Label htmlFor="to-email">To</Label>
             <Input
@@ -354,7 +364,7 @@ export const ExpertStatementPreviewDialog: React.FC<ExpertStatementPreviewDialog
           </div>
 
           {/* Attachments Section */}
-          <div className="border rounded-lg p-4 space-y-3">
+          <div className="border border-black/10 rounded-none p-4 space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="font-medium flex items-center gap-2">
                 <Paperclip className="h-4 w-4" />
@@ -437,9 +447,10 @@ export const ExpertStatementPreviewDialog: React.FC<ExpertStatementPreviewDialog
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 border-t border-black/10 px-5 py-4 sm:justify-end">
           <Button
             variant="outline"
+            className="rounded-none border-black/15"
             onClick={handleDownloadPDF}
             disabled={sending}
           >
@@ -448,12 +459,13 @@ export const ExpertStatementPreviewDialog: React.FC<ExpertStatementPreviewDialog
           </Button>
           <Button
             variant="outline"
+            className="rounded-none border-black/15"
             onClick={() => onOpenChange(false)}
             disabled={sending}
           >
             Cancel
           </Button>
-          <Button onClick={handleSend} disabled={sending || !toEmail}>
+          <Button className="rounded-none" onClick={handleSend} disabled={sending || !toEmail}>
             {sending ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
