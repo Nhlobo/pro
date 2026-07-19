@@ -32,7 +32,16 @@ interface Claimant {
   };
 }
 
-const ClaimantList: React.FC = () => {
+interface ClaimantListProps {
+  /** Rendered inside the Admin Attorney CRM's "All Claimants" tab instead of
+   *  as its own route. Suppresses the standalone page chrome (SEO tags,
+   *  "Back to Dashboard" button, footer) and adopts the flat enterprise
+   *  table styling used across the rest of the CRM, so the tab reads as
+   *  one continuous screen instead of a page nested inside a page. */
+  embedded?: boolean;
+}
+
+const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
   const [claimants, setClaimants] = useState<Claimant[]>([]);
   const [filteredClaimants, setFilteredClaimants] = useState<Claimant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -239,6 +248,171 @@ const ClaimantList: React.FC = () => {
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/claimant-list';
 
+  const toolbar = (
+    <div className={embedded ? "flex flex-wrap items-center justify-end gap-2" : "mb-6 flex items-center justify-between"}>
+      {!embedded && (
+        <Button variant="outline" asChild>
+          <Link to="/" className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Link>
+        </Button>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        {selectedClaimants.size > 0 && (
+          <Button
+            variant="destructive"
+            size={embedded ? "sm" : "default"}
+            onClick={handleDeleteSelected}
+            disabled={isDeleting}
+            className={embedded ? "rounded-none" : ""}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete ({selectedClaimants.size})
+          </Button>
+        )}
+        <Button asChild size={embedded ? "sm" : "default"} className={embedded ? "rounded-none bg-black hover:bg-black/90" : ""}>
+          <Link to="/claimant" className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Add New Claimant
+          </Link>
+        </Button>
+        <Button
+          variant="outline"
+          size={embedded ? "sm" : "default"}
+          onClick={handleExportPDF}
+          disabled={isExporting}
+          className={embedded ? "flex items-center gap-2 rounded-none border-black/15" : "flex items-center gap-2"}
+        >
+          <Download className="h-4 w-4" />
+          {isExporting ? "Exporting..." : "Export PDF"}
+        </Button>
+      </div>
+    </div>
+  );
+
+  const listCard = (
+    <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
+      <CardHeader className={embedded ? "border-b border-black/10" : ""}>
+        <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <span>Claimants ({filteredClaimants.length})</span>
+          <div className="relative w-full sm:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search claimants..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className={embedded ? "rounded-none border-black/15 pl-9" : "pl-9"}
+            />
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className={embedded ? "p-0" : undefined}>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-muted-foreground">Loading claimants...</div>
+          </div>
+        ) : filteredClaimants.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              {searchTerm ? "No claimants found matching your search." : "No claimants found."}
+            </p>
+            {!searchTerm && (
+              <Button asChild className={embedded ? "mt-4 rounded-none bg-black hover:bg-black/90" : "mt-4"}>
+                <Link to="/claimant">Add First Claimant</Link>
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table className={embedded ? "text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]" : undefined}>
+              <TableHeader className={embedded ? "sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]" : undefined}>
+                <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedClaimants.size === filteredClaimants.length && filteredClaimants.length > 0}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead>Auto ID</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Contact Number</TableHead>
+                  <TableHead>Referring Attorney</TableHead>
+                  <TableHead>Date Added</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-16">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredClaimants.map((claimant) => (
+                  <TableRow key={claimant.id} className={embedded ? "hover:bg-black/[0.02]" : undefined}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedClaimants.has(claimant.id)}
+                        onCheckedChange={(checked) => handleSelectClaimant(claimant.id, checked as boolean)}
+                      />
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      <Badge variant="outline">{claimant.auto_id}</Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {claimant.first_name} {claimant.last_name}
+                    </TableCell>
+                    <TableCell>
+                      {claimant.contact_number || (
+                        <span className="text-muted-foreground">N/A</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {claimant.referring_attorneys?.name || (
+                        <span className="text-muted-foreground">N/A</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {format(new Date(claimant.created_at), "dd/MM/yyyy")}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="default">Active</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { setEditingClaimant(claimant); setEditDialogOpen(true); }}
+                        title="Edit claimant"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  const editDialog = (
+    <EditClaimantDialog
+      claimant={editingClaimant}
+      open={editDialogOpen}
+      onOpenChange={setEditDialogOpen}
+      onSaved={fetchClaimants}
+    />
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        {toolbar}
+        {listCard}
+        {editDialog}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
@@ -248,150 +422,10 @@ const ClaimantList: React.FC = () => {
       </Helmet>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <Button variant="outline" asChild>
-            <Link to="/" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
-          
-          <div className="flex items-center gap-3">
-            {selectedClaimants.size > 0 && (
-              <Button
-                variant="destructive"
-                onClick={handleDeleteSelected}
-                disabled={isDeleting}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete ({selectedClaimants.size})
-              </Button>
-            )}
-            <Button asChild>
-              <Link to="/claimant" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Add New Claimant
-              </Link>
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={handleExportPDF}
-              disabled={isExporting}
-              className="flex items-center gap-2"
-            >
-              <Download className="h-4 w-4" />
-              {isExporting ? "Exporting..." : "Export PDF"}
-            </Button>
-          </div>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>Claimants ({filteredClaimants.length})</span>
-              <div className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search claimants..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-64"
-                />
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-muted-foreground">Loading claimants...</div>
-              </div>
-            ) : filteredClaimants.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">
-                  {searchTerm ? "No claimants found matching your search." : "No claimants found."}
-                </p>
-                {!searchTerm && (
-                  <Button asChild className="mt-4">
-                    <Link to="/claimant">Add First Claimant</Link>
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12">
-                        <Checkbox
-                          checked={selectedClaimants.size === filteredClaimants.length && filteredClaimants.length > 0}
-                          onCheckedChange={handleSelectAll}
-                        />
-                      </TableHead>
-                      <TableHead>Auto ID</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Contact Number</TableHead>
-                      <TableHead>Referring Attorney</TableHead>
-                      <TableHead>Date Added</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="w-16">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredClaimants.map((claimant) => (
-                      <TableRow key={claimant.id}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedClaimants.has(claimant.id)}
-                            onCheckedChange={(checked) => handleSelectClaimant(claimant.id, checked as boolean)}
-                          />
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">
-                          <Badge variant="outline">{claimant.auto_id}</Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {claimant.first_name} {claimant.last_name}
-                        </TableCell>
-                        <TableCell>
-                          {claimant.contact_number || (
-                            <span className="text-muted-foreground">N/A</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {claimant.referring_attorneys?.name || (
-                            <span className="text-muted-foreground">N/A</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {format(new Date(claimant.created_at), "dd/MM/yyyy")}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="default">Active</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => { setEditingClaimant(claimant); setEditDialogOpen(true); }}
-                            title="Edit claimant"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {toolbar}
+        {listCard}
       </main>
-      <EditClaimantDialog
-        claimant={editingClaimant}
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        onSaved={fetchClaimants}
-      />
+      {editDialog}
       <CompanyFooter />
     </div>
   );
