@@ -51,7 +51,14 @@ type LawFirm = { id: string; name: string; contact_person?: string };
 
 const CLAIMANT_DEFAULTS = { first_name: "", last_name: "", contact_number: "", referring_attorney_id: "", auto_id: "" };
 
-const ClaimantForm: React.FC = () => {
+interface ClaimantFormProps {
+  /** Rendered inside the Admin Attorney CRM's "New Claimant" tab instead of
+   *  as its own route — drops the standalone page chrome and matches the
+   *  CRM's flat enterprise card styling. */
+  embedded?: boolean;
+}
+
+const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false }) => {
   const { toast } = useToast();
   const [lawFirms, setLawFirms] = useState<LawFirm[]>([]);
   const [currentLawFirm, setCurrentLawFirm] = useState<LawFirm | null>(null);
@@ -251,6 +258,186 @@ const ClaimantForm: React.FC = () => {
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/claimant';
 
+  const formCard = (
+    <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
+      <CardContent className="p-6">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 max-w-2xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <FormField
+                control={form.control}
+                name="first_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First name *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="e.g. John" 
+                        {...field} 
+                        maxLength={100}
+                        disabled={isEditMode} // Prevent name changes in edit mode
+                        className={embedded ? "rounded-none border-black/15" : ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                    {isEditMode && (
+                      <p className="text-xs text-muted-foreground">
+                        Names cannot be changed once created
+                      </p>
+                    )}
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="last_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Surname *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="e.g. Doe" 
+                        {...field} 
+                        maxLength={100}
+                        disabled={isEditMode} // Prevent name changes in edit mode
+                        className={embedded ? "rounded-none border-black/15" : ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                    {isEditMode && (
+                      <p className="text-xs text-muted-foreground">
+                        Names cannot be changed once created
+                      </p>
+                    )}
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="contact_number"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contact number (optional)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="e.g. 012 345 6789" 
+                      {...field} 
+                      maxLength={20}
+                      className={embedded ? "rounded-none border-black/15" : ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="referring_attorney_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Referring Attorney {isEditMode && <span className="text-xs text-muted-foreground">(Cannot be changed)</span>}</FormLabel>
+                   <FormControl>
+                     <Select 
+                       onValueChange={field.onChange} 
+                       value={field.value}
+                       disabled={isEditMode} // Prevent changing attorney in edit mode
+                     >
+                       <SelectTrigger className={embedded ? "z-50 rounded-none border-black/15" : "z-50"}>
+                         <SelectValue placeholder="Select a referring attorney" />
+                       </SelectTrigger>
+                       <SelectContent className="z-[60] bg-background border shadow-lg">
+                         {lawFirms.length === 0 ? (
+                           <div className="px-2 py-1 text-sm text-muted-foreground">
+                             No attorneys available. Please add attorneys first.
+                           </div>
+                         ) : (
+                           lawFirms.map((firm) => (
+                             <SelectItem key={firm.id} value={firm.id}>
+                               <div className="flex flex-col">
+                                 <span className="font-medium">{firm.name}</span>
+                                 {firm.contact_person && (
+                                   <span className="text-xs text-muted-foreground">
+                                     Contact: {firm.contact_person}
+                                   </span>
+                                 )}
+                               </div>
+                             </SelectItem>
+                           ))
+                         )}
+                       </SelectContent>
+                     </Select>
+                   </FormControl>
+                  <FormMessage />
+                  {isEditMode && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      The referring attorney cannot be changed to protect data integrity.
+                    </p>
+                  )}
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-[1fr,auto] gap-3 items-end">
+              <FormField
+                control={form.control}
+                name="auto_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Auto ID</FormLabel>
+                    <FormControl>
+                      <Input readOnly placeholder="Generate from name" {...field} className={embedded ? "rounded-none border-black/15" : ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="button" variant="secondary" onClick={onGenerateId} className={embedded ? "rounded-none" : ""}>
+                Generate ID
+              </Button>
+            </div>
+
+             <div className="flex items-center gap-3">
+               <Button type="submit" disabled={loading} className={embedded ? "rounded-none bg-black hover:bg-black/90" : ""}>{loading ? "Saving..." : "Save Claimant"}</Button>
+               {embedded ? (
+                 <p className="text-xs text-muted-foreground">
+                   Saved claimants appear immediately in the "All Claimants" tab.
+                 </p>
+               ) : (
+                 <>
+                   <Button asChild variant="outline">
+                     <Link to="/claimant-list">View Claimant List</Link>
+                   </Button>
+                   <Button asChild variant="outline">
+                     <Link to="/">Back to Dashboard</Link>
+                   </Button>
+                 </>
+               )}
+             </div>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-black">New Claimant</h2>
+            <p className="text-xs text-slate-500">Capture claimant details and link to the referring attorney.</p>
+          </div>
+          <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} />
+        </div>
+        {formCard}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
@@ -270,157 +457,7 @@ const ClaimantForm: React.FC = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6">
-        <Card>
-          <CardContent className="p-6">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 max-w-2xl">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                   <FormField
-                    control={form.control}
-                    name="first_name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First name *</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="e.g. John" 
-                            {...field} 
-                            maxLength={100}
-                            disabled={isEditMode} // Prevent name changes in edit mode
-                          />
-                        </FormControl>
-                        <FormMessage />
-                        {isEditMode && (
-                          <p className="text-xs text-muted-foreground">
-                            Names cannot be changed once created
-                          </p>
-                        )}
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="last_name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Surname *</FormLabel>
-                        <FormControl>
-                          <Input 
-                            placeholder="e.g. Doe" 
-                            {...field} 
-                            maxLength={100}
-                            disabled={isEditMode} // Prevent name changes in edit mode
-                          />
-                        </FormControl>
-                        <FormMessage />
-                        {isEditMode && (
-                          <p className="text-xs text-muted-foreground">
-                            Names cannot be changed once created
-                          </p>
-                        )}
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="contact_number"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contact number (optional)</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="e.g. 012 345 6789" 
-                          {...field} 
-                          maxLength={20}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="referring_attorney_id"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Referring Attorney {isEditMode && <span className="text-xs text-muted-foreground">(Cannot be changed)</span>}</FormLabel>
-                       <FormControl>
-                         <Select 
-                           onValueChange={field.onChange} 
-                           value={field.value}
-                           disabled={isEditMode} // Prevent changing attorney in edit mode
-                         >
-                           <SelectTrigger className="z-50">
-                             <SelectValue placeholder="Select a referring attorney" />
-                           </SelectTrigger>
-                           <SelectContent className="z-[60] bg-background border shadow-lg">
-                             {lawFirms.length === 0 ? (
-                               <div className="px-2 py-1 text-sm text-muted-foreground">
-                                 No attorneys available. Please add attorneys first.
-                               </div>
-                             ) : (
-                               lawFirms.map((firm) => (
-                                 <SelectItem key={firm.id} value={firm.id}>
-                                   <div className="flex flex-col">
-                                     <span className="font-medium">{firm.name}</span>
-                                     {firm.contact_person && (
-                                       <span className="text-xs text-muted-foreground">
-                                         Contact: {firm.contact_person}
-                                       </span>
-                                     )}
-                                   </div>
-                                 </SelectItem>
-                               ))
-                             )}
-                           </SelectContent>
-                         </Select>
-                       </FormControl>
-                      <FormMessage />
-                      {isEditMode && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          The referring attorney cannot be changed to protect data integrity.
-                        </p>
-                      )}
-                    </FormItem>
-                  )}
-                />
-
-                <div className="grid grid-cols-1 md:grid-cols-[1fr,auto] gap-3 items-end">
-                  <FormField
-                    control={form.control}
-                    name="auto_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Auto ID</FormLabel>
-                        <FormControl>
-                          <Input readOnly placeholder="Generate from name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="button" variant="secondary" onClick={onGenerateId}>
-                    Generate ID
-                  </Button>
-                </div>
-
-                 <div className="flex items-center gap-3">
-                   <Button type="submit" disabled={loading}>{loading ? "Saving..." : "Save Claimant"}</Button>
-                   <Button asChild variant="outline">
-                     <Link to="/claimant-list">View Claimant List</Link>
-                   </Button>
-                   <Button asChild variant="outline">
-                     <Link to="/">Back to Dashboard</Link>
-                   </Button>
-                 </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+        {formCard}
       </main>
       <CompanyFooter />
     </div>
