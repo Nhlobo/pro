@@ -523,3 +523,5 @@ const ExternalResultCard: React.FC<{ result: ExternalResult }> = ({ result: r })
     </AdminCardBody>
   </AdminCard>
 );
+
+export default AdminFindExperts;
