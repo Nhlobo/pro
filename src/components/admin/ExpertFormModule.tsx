@@ -5,9 +5,11 @@ import MedicalExpertFormPage from '@/pages/MedicalExpertFormPage';
 interface ExpertFormModuleProps {
   editExpertId?: string | null;
   onSaved?: () => void;
+  /** Close the host panel without saving (used by the docked sliding sheet). */
+  onCancel?: () => void;
 }
 
-const ExpertFormModule: React.FC<ExpertFormModuleProps> = ({ editExpertId, onSaved }) => {
+const ExpertFormModule: React.FC<ExpertFormModuleProps> = ({ editExpertId, onSaved, onCancel }) => {
   const [, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -23,9 +25,7 @@ const ExpertFormModule: React.FC<ExpertFormModuleProps> = ({ editExpertId, onSav
   }, [editExpertId]);
 
   return (
-    <div className="mt-2 [&>div>div:first-child]:hidden [&>nav]:hidden [&>footer]:hidden">
-      <MedicalExpertFormPage editExpertId={editExpertId} onSaved={onSaved} />
-    </div>
+    <MedicalExpertFormPage editExpertId={editExpertId} onSaved={onSaved} onCancel={onCancel} embedded />
   );
 };
 
