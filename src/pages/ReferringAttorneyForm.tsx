@@ -59,7 +59,13 @@ const RA_FORM_DEFAULTS = {
   address: "", attorneyRole: "" as any, province: "" as any, matterType: "" as any, autoCode: "",
 };
 
-const ReferringAttorneyForm = () => {
+interface ReferringAttorneyFormProps {
+  /** Rendered inside the Admin Attorney CRM's "New Attorney" tab instead of
+   *  as its own route. */
+  embedded?: boolean;
+}
+
+const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded = false }) => {
   const { toast } = useToast();
   const { id } = useParams();
   const navigate = useNavigate();
@@ -463,58 +469,39 @@ const ReferringAttorneyForm = () => {
 
   const canonicalUrl = typeof window !== "undefined" ? window.location.href : "https://example.com/referring-attorney";
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>Referring Attorney Form | Medico-Legal</title>
-        <meta
-          name="description"
-          content="Capture referring attorney details, attorney role (Plaintiff/Defendant), province, and matter type (MVA, Med Neg, Both)."
-        />
-        <link rel="canonical" href={canonicalUrl} />
-      </Helmet>
-
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <Button variant="outline" asChild>
-            <Link to="/" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
+  const pageHeading = (
+    <>
+      <header className={embedded ? "mb-4 flex flex-wrap items-start justify-between gap-3" : "mb-6 flex flex-wrap items-start justify-between gap-3"}>
+        <div>
+          <h1 className={embedded ? "text-base font-semibold text-black" : "text-2xl md:text-3xl font-bold"}>
+            {isEditing ? 'Edit Referring Attorney' : embedded ? 'New Referring Attorney' : 'Referring Attorney Form'}
+          </h1>
+          <p className={embedded ? "text-xs text-slate-500 mt-1" : "text-muted-foreground mt-1"}>
+            {isEditing ? 'Update referring attorney details and matter types.' : 'Enter referring attorney details and the type of matters handled.'}
+          </p>
         </div>
+        {!isEditing && (
+          <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} className="mt-2" />
+        )}
+      </header>
 
-        <header className="mb-6 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">
-              {isEditing ? 'Edit Referring Attorney' : 'Referring Attorney Form'}
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              {isEditing ? 'Update referring attorney details and matter types.' : 'Enter referring attorney details and the type of matters handled.'}
-            </p>
-          </div>
+      {isLoadingData ? (
+        <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
+          <CardContent className="p-12 text-center">
+            <p className="text-muted-foreground">Loading attorney data...</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Tabs defaultValue="single" className="w-full">
           {!isEditing && (
-            <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} className="mt-2" />
+            <TabsList className={embedded ? "grid w-full max-w-md grid-cols-2 rounded-none border border-black/10 bg-white p-1" : "grid w-full max-w-md grid-cols-2"}>
+              <TabsTrigger value="single" className={embedded ? "rounded-none data-[state=active]:bg-black data-[state=active]:text-white" : ""}>Single Entry</TabsTrigger>
+              <TabsTrigger value="bulk" className={embedded ? "rounded-none data-[state=active]:bg-black data-[state=active]:text-white" : ""}>Bulk Upload</TabsTrigger>
+            </TabsList>
           )}
-        </header>
 
-        {isLoadingData ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <p className="text-muted-foreground">Loading attorney data...</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Tabs defaultValue="single" className="w-full">
-            {!isEditing && (
-              <TabsList className="grid w-full max-w-md grid-cols-2">
-                <TabsTrigger value="single">Single Entry</TabsTrigger>
-                <TabsTrigger value="bulk">Bulk Upload</TabsTrigger>
-              </TabsList>
-            )}
-
-          <TabsContent value="single">
-            <Card>
+        <TabsContent value="single">
+          <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
               <CardContent className="p-6">
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 md:grid-cols-2">
@@ -717,7 +704,7 @@ const ReferringAttorneyForm = () => {
 
           {!isEditing && (
             <TabsContent value="bulk">
-            <Card>
+            <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
               <CardContent className="p-6">
                 <div className="space-y-6">
                   <div>
@@ -780,6 +767,34 @@ const ReferringAttorneyForm = () => {
           )}
           </Tabs>
         )}
+    </>
+  );
+
+  if (embedded) {
+    return <div className="space-y-4">{pageHeading}</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>Referring Attorney Form | Medico-Legal</title>
+        <meta
+          name="description"
+          content="Capture referring attorney details, attorney role (Plaintiff/Defendant), province, and matter type (MVA, Med Neg, Both)."
+        />
+        <link rel="canonical" href={canonicalUrl} />
+      </Helmet>
+
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-6">
+          <Button variant="outline" asChild>
+            <Link to="/" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Link>
+          </Button>
+        </div>
+        {pageHeading}
       </main>
       <CompanyFooter />
     </div>
