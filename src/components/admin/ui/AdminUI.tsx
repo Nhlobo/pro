@@ -2,6 +2,9 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 /**
@@ -302,3 +305,79 @@ export const AdminSectionLabel: React.FC<{ children: React.ReactNode }> = ({ chi
     <span className="h-px flex-1 bg-black/10" />
   </div>
 );
+
+/* ------------------------------------------------------------------ */
+/* Search input — one visual definition for every "search this list"  */
+/* affordance in the Admin Portal (Expert Directory, Attorney CRM,    */
+/* Finance, Case Management, …). Icon-left, flat hairline border.     */
+/* ------------------------------------------------------------------ */
+
+export const AdminSearchInput: React.FC<{
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  className?: string;
+  inputClassName?: string;
+}> = ({ value, onChange, placeholder = 'Search…', className, inputClassName }) => (
+  <div className={cn('relative', className)}>
+    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+    <Input
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={cn('rounded-none border-black/15 pl-9 focus-visible:ring-[#00BAAD]/30', inputClassName)}
+    />
+  </div>
+);
+
+/* ------------------------------------------------------------------ */
+/* Pagination footer — shared by every paginated table so the "N–M of */
+/* T" counter, page-size control, and prev/next buttons look and      */
+/* behave identically everywhere they appear.                         */
+/* ------------------------------------------------------------------ */
+
+export const AdminPagination: React.FC<{
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  totalItems: number;
+  startIndex: number;
+  endIndex: number;
+  className?: string;
+}> = ({ page, totalPages, onPageChange, totalItems, startIndex, endIndex, className }) => {
+  if (totalItems === 0) return null;
+  return (
+    <div className={cn('flex flex-col-reverse items-center justify-between gap-3 border-t border-black/10 px-4 py-3 sm:flex-row', className)}>
+      <p className="text-xs text-slate-500">
+        Showing <span className="font-medium text-black">{startIndex + 1}</span>–
+        <span className="font-medium text-black">{Math.min(endIndex, totalItems)}</span> of{' '}
+        <span className="font-medium text-black">{totalItems}</span>
+      </p>
+      {totalPages > 1 && (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-none border-black/15 px-2.5"
+            onClick={() => onPageChange(Math.max(1, page - 1))}
+            disabled={page <= 1}
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <span className="text-xs font-medium text-slate-500">
+            Page {page} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-none border-black/15 px-2.5"
+            onClick={() => onPageChange(Math.min(totalPages, page + 1))}
+            disabled={page >= totalPages}
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+};
