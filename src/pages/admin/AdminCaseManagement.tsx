@@ -145,15 +145,15 @@ const AdminCaseManagement: React.FC = () => {
           </div>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <p className="text-xl font-bold text-emerald-600">{readyCount}</p>
+              <p className="text-xl font-bold text-success">{readyCount}</p>
               <p className="text-xs text-slate-500">Expert Reports Ready</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-amber-600">{awaitingCount}</p>
+              <p className="text-xl font-bold text-warning">{awaitingCount}</p>
               <p className="text-xs text-slate-500">Awaiting Reports</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-red-600">{missingCount}</p>
+              <p className="text-xl font-bold text-destructive">{missingCount}</p>
               <p className="text-xs text-slate-500">Missing Documents</p>
             </div>
           </div>
