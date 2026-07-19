@@ -498,7 +498,7 @@ const ExternalResultCard: React.FC<{ result: ExternalResult }> = ({ result: r })
         {(r.sources?.length ?? 0) > 1 ? (
           <div className="flex flex-wrap gap-x-3 gap-y-1.5">
             {r.sources!.slice(0, 6).map((s) => (
-              
+              <a
                 key={s.url}
                 href={s.url}
                 target="_blank"
@@ -508,3 +508,18 @@ const ExternalResultCard: React.FC<{ result: ExternalResult }> = ({ result: r })
                 {s.host}<ExternalLink className="h-3 w-3" />
               </a>
             ))}
+          </div>
+        ) : (
+          <a
+            href={r.source_url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-slate-500 underline hover:text-black"
+          >
+            View source <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </div>
+    </AdminCardBody>
+  </AdminCard>
+);
