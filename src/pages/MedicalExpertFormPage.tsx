@@ -79,7 +79,22 @@ const formSchema = z.object({
   cvDocument: z.any().optional(),
 });
 
-const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void; editExpertId?: string | null } = {}) => {
+const MedicalExpertFormPage = ({
+  onSaved,
+  editExpertId,
+  onCancel,
+  embedded = false,
+}: {
+  onSaved?: () => void;
+  editExpertId?: string | null;
+  /** Close the host panel (sliding sheet) without saving. Only relevant when embedded. */
+  onCancel?: () => void;
+  /** True when rendered inside a docked panel (e.g. the Expert Network sliding
+   *  sheet) rather than as its own standalone routed page. Suppresses the
+   *  page chrome (title/meta, full-bleed background, "Back to Directory"
+   *  link, footer) that only makes sense for the standalone route. */
+  embedded?: boolean;
+} = {}) => {
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const { expertId: routeExpertId } = useParams();
@@ -479,7 +494,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           description: "The expert you're trying to edit could not be found.",
           variant: "destructive",
         });
-        navigate('/medical-expert-directory');
+        if (onCancel) onCancel(); else navigate('/medical-expert-directory');
       }
     } catch (error) {
       console.error('Error loading expert:', error);
@@ -488,7 +503,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
         description: "Failed to load expert data for editing.",
         variant: "destructive",
       });
-      navigate('/medical-expert-directory');
+      if (onCancel) onCancel(); else navigate('/medical-expert-directory');
     } finally {
       setLoadingExpert(false);
     }
@@ -896,7 +911,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       } else {
         navigate('/recently-added-experts');
       }
-      
+
     } catch (error) {
       console.error('Error saving expert:', error);
       toast({
@@ -911,6 +926,8 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
       if (isEditMode) {
         if (onSaved) {
           onSaved();
+        } else if (onCancel) {
+          onCancel();
         } else {
           navigate('/medical-expert-directory');
         }
@@ -921,7 +938,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={embedded ? '' : 'min-h-screen bg-background'}>
       <Helmet>
         <title>{isEditMode ? 'Edit Medical Expert' : 'Add Medical Expert'} | Medico-Legal</title>
         <meta
@@ -930,35 +947,59 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
         />
       </Helmet>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <Link 
-            to="/medical-expert-directory" 
-            className="inline-flex items-center gap-2 text-primary hover:text-primary/80 mb-4"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Directory
-          </Link>
-          
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
-              {isEditMode ? 'Edit Medical Expert' : 'Add Medical Expert'}
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                <Shield className="h-4 w-4 mr-1" />
-                Secure Form
-              </Badge>
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              {isEditMode 
-                ? 'Update medical expert information and qualifications'
-                : 'Add a new medical expert to the directory with complete information and qualifications'
-              }
-            </p>
+      <main className={embedded ? '' : 'container mx-auto px-4 py-8'}>
+        {embedded ? (
+          // Docked-panel mode (Expert Network sliding sheet): the host panel
+          // already supplies its own title/description, so this component
+          // only needs a lightweight, unambiguous way out — a real Cancel
+          // action wired to onCancel, instead of a "Back to Directory" link
+          // that used to navigate the whole app away from /admin/experts.
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+              <Shield className="h-3.5 w-3.5 mr-1" />
+              Secure Form
+            </Badge>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => { if (onCancel) onCancel(); }}
+              className="text-muted-foreground"
+            >
+              <X className="h-4 w-4 mr-1.5" />
+              Cancel
+            </Button>
           </div>
-        </div>
+        ) : (
+          <div className="mb-8">
+            <Link
+              to="/medical-expert-directory"
+              className="inline-flex items-center gap-2 text-primary hover:text-primary/80 mb-4"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Directory
+            </Link>
+
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
+                {isEditMode ? 'Edit Medical Expert' : 'Add Medical Expert'}
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                  <Shield className="h-4 w-4 mr-1" />
+                  Secure Form
+                </Badge>
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                {isEditMode
+                  ? 'Update medical expert information and qualifications'
+                  : 'Add a new medical expert to the directory with complete information and qualifications'
+                }
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Medical Expert Form */}
-        <Card>
+        <Card className={embedded ? 'border-black/10 rounded-none shadow-none' : undefined}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>
@@ -1664,6 +1705,8 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
                              });
                              if (onSaved) {
                                onSaved();
+                             } else if (onCancel) {
+                               onCancel();
                              } else {
                                navigate('/medical-expert-directory');
                              }
@@ -1846,7 +1889,7 @@ const MedicalExpertFormPage = ({ onSaved, editExpertId }: { onSaved?: () => void
           </Card>
         )}
       </main>
-      <CompanyFooter />
+      {!embedded && <CompanyFooter />}
     </div>
   );
 };
