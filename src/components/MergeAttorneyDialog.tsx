@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertTriangle, Building2, Users, FileText } from "lucide-react";
+import { BRAND_TEAL } from "@/components/admin/ui/AdminUI";
 
 interface DuplicateAttorney {
   duplicate_group: number;
@@ -156,10 +157,10 @@ export default function MergeAttorneyDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto rounded-none border-black/10">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
+              <Building2 className="h-5 w-5" style={{ color: BRAND_TEAL }} />
               Merge Duplicate Referring Attorneys
             </DialogTitle>
             <DialogDescription>
@@ -179,16 +180,16 @@ export default function MergeAttorneyDialog({
             </div>
           ) : (
             <div className="space-y-6">
-              <Badge variant="outline" className="text-sm">
+              <Badge variant="outline" className="rounded-none border-black/15 text-sm">
                 {Object.keys(groupedDuplicates).length} duplicate group(s) found
               </Badge>
               {Object.entries(groupedDuplicates).map(([group, attorneys]) => (
-                <Card key={group} className="border-destructive/50">
+                <Card key={group} className="rounded-none border-destructive/40 shadow-none">
                   <CardHeader className="pb-3">
                     <CardTitle className="flex items-center gap-2 text-base">
                       <AlertTriangle className="h-4 w-4 text-destructive" />
                       {attorneys[0].name}
-                      <Badge variant="destructive">{attorneys.length} records</Badge>
+                      <Badge variant="destructive" className="rounded-none">{attorneys.length} records</Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -203,10 +204,10 @@ export default function MergeAttorneyDialog({
                       {attorneys.map((att) => (
                         <div
                           key={att.attorney_id}
-                          className={`flex items-center space-x-3 p-3 rounded-lg border ${
+                          className={`flex items-center space-x-3 p-3 border ${
                             selectedPrimary[Number(group)] === att.attorney_id
-                              ? "border-primary bg-primary/5"
-                              : "border-border"
+                              ? "border-black bg-black/[0.03]"
+                              : "border-black/10"
                           }`}
                         >
                           <RadioGroupItem value={att.attorney_id} id={att.attorney_id} />
@@ -215,9 +216,9 @@ export default function MergeAttorneyDialog({
                               <div>
                                 <span className="font-medium">{att.name}</span>
                                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                  {att.contact_person && <Badge variant="outline">{att.contact_person}</Badge>}
-                                  {att.province && <Badge variant="secondary">{att.province}</Badge>}
-                                  {att.code && <Badge variant="outline" className="text-[10px]">Code: {att.code}</Badge>}
+                                  {att.contact_person && <Badge variant="outline" className="rounded-none border-black/15">{att.contact_person}</Badge>}
+                                  {att.province && <Badge variant="secondary" className="rounded-none">{att.province}</Badge>}
+                                  {att.code && <Badge variant="outline" className="rounded-none border-black/15 text-[10px]">Code: {att.code}</Badge>}
                                 </div>
                               </div>
                               <div className="text-right text-sm">
@@ -243,6 +244,7 @@ export default function MergeAttorneyDialog({
                       onClick={() => handleMergeGroup(Number(group))}
                       variant="destructive"
                       size="sm"
+                      className="rounded-none"
                       disabled={!selectedPrimary[Number(group)]}
                     >
                       Merge & Delete Duplicates
@@ -254,13 +256,13 @@ export default function MergeAttorneyDialog({
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+            <Button variant="outline" className="rounded-none border-black/15" onClick={() => onOpenChange(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <AlertDialog open={!!confirmMerge} onOpenChange={() => setConfirmMerge(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-none border-black/10">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
@@ -276,11 +278,11 @@ export default function MergeAttorneyDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={merging}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={merging} className="rounded-none">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={executeMerge}
               disabled={merging}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="rounded-none bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {merging ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Merging...</>
@@ -293,4 +295,4 @@ export default function MergeAttorneyDialog({
       </AlertDialog>
     </>
   );
-}
+  }
