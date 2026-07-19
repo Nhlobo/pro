@@ -37,7 +37,13 @@ type ReferringAttorney = {
   created_at: string;
 };
 
-const ReferringAttorneyList = () => {
+interface ReferringAttorneyListProps {
+  /** Rendered inside the Admin Attorney CRM's "All Attorneys" tab instead of
+   *  as its own route. */
+  embedded?: boolean;
+}
+
+const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded = false }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { isAdmin } = usePermissions();
@@ -204,6 +210,163 @@ const ReferringAttorneyList = () => {
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/referring-attorney-list';
 
+  const directoryCard = (
+    <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
+      <CardHeader className={embedded ? "border-b border-black/10" : ""}>
+        <CardTitle className="flex items-center gap-2">
+          <Building2 className="h-5 w-5" />
+          Referring Attorneys Directory
+        </CardTitle>
+        <div className="relative max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by name, contact, code, or province..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className={embedded ? "rounded-none border-black/15 pl-9" : "pl-9"}
+          />
+        </div>
+      </CardHeader>
+      <CardContent className={embedded ? "p-0" : undefined}>
+        <div className="overflow-x-auto">
+          <Table className={embedded ? "text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]" : undefined}>
+            <TableHeader className={embedded ? "sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]" : undefined}>
+              <TableRow>
+                <TableHead>Code</TableHead>
+                <TableHead>Referring Attorney Name</TableHead>
+                <TableHead>Contact Person</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Province</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Date Captured</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="text-center py-8">
+                    Loading attorneys...
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredAttorneys.map((attorney) => (
+                  <TableRow key={attorney.id} className={`${isDuplicateName(attorney.name) ? "bg-destructive/5" : embedded ? "hover:bg-black/[0.02]" : ""}`}>
+                    <TableCell className="font-medium">{attorney.code}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {isDuplicateName(attorney.name) && (
+                          <span className="text-destructive text-lg" title="Exact duplicate name detected - please correct or delete one entry">
+                            🚩
+                          </span>
+                        )}
+                        <span>{attorney.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{attorney.contact_person}</TableCell>
+                    <TableCell>
+                      <SecureDataDisplay
+                        data={attorney.phone_masked}
+                        type="phone"
+                        label=""
+                        showIcon={false}
+                        requiresPermission="view_referring_attorney_contacts"
+                        className="text-sm"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <SecureDataDisplay
+                        data={attorney.email_masked}
+                        type="email"
+                        label=""
+                        showIcon={false}
+                        requiresPermission="view_referring_attorney_contacts"
+                        className="text-sm"
+                      />
+                    </TableCell>
+                    <TableCell>{attorney.province}</TableCell>
+                    <TableCell>
+                      {getRoleBadge(attorney.attorney_role)}
+                    </TableCell>
+                    <TableCell>
+                      {attorney.created_at && (
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          {format(new Date(attorney.created_at), 'dd/MM/yyyy HH:mm')}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(attorney.id)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {isAdmin() && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteClick(attorney)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        
+        {filteredAttorneys.length === 0 && !loading && (
+          <div className="text-center py-8 text-muted-foreground">
+            No referring attorneys found. {searchTerm && "Try adjusting your search terms."}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
+  const deleteDialog = (
+    <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will permanently delete the attorney "{attorneyToDelete?.name}" and all associated data.
+            This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <Button asChild size="sm" className="rounded-none bg-black hover:bg-black/90">
+            <Link to="/referring-attorney">Add New Attorney</Link>
+          </Button>
+        </div>
+        {directoryCard}
+        {deleteDialog}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
@@ -234,144 +397,10 @@ const ReferringAttorneyList = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5" />
-              Referring Attorneys Directory
-            </CardTitle>
-            <div className="flex items-center gap-2 max-w-sm">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, contact, code, or province..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Code</TableHead>
-                    <TableHead>Referring Attorney Name</TableHead>
-                    <TableHead>Contact Person</TableHead>
-                    <TableHead>Phone</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Province</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Date Captured</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center py-8">
-                        Loading attorneys...
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredAttorneys.map((attorney) => (
-                      <TableRow key={attorney.id} className={isDuplicateName(attorney.name) ? "bg-destructive/5" : ""}>
-                        <TableCell className="font-medium">{attorney.code}</TableCell>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            {isDuplicateName(attorney.name) && (
-                              <span className="text-destructive text-lg" title="Exact duplicate name detected - please correct or delete one entry">
-                                🚩
-                              </span>
-                            )}
-                            <span>{attorney.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>{attorney.contact_person}</TableCell>
-                        <TableCell>
-                          <SecureDataDisplay
-                            data={attorney.phone_masked}
-                            type="phone"
-                            label=""
-                            showIcon={false}
-                            requiresPermission="view_referring_attorney_contacts"
-                            className="text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <SecureDataDisplay
-                            data={attorney.email_masked}
-                            type="email"
-                            label=""
-                            showIcon={false}
-                            requiresPermission="view_referring_attorney_contacts"
-                            className="text-sm"
-                          />
-                        </TableCell>
-                        <TableCell>{attorney.province}</TableCell>
-                        <TableCell>
-                          {getRoleBadge(attorney.attorney_role)}
-                        </TableCell>
-                        <TableCell>
-                          {attorney.created_at && (
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Calendar className="h-3 w-3" />
-                              {format(new Date(attorney.created_at), 'dd/MM/yyyy HH:mm')}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(attorney.id)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            {isAdmin() && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteClick(attorney)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-            
-            {filteredAttorneys.length === 0 && !loading && (
-              <div className="text-center py-8 text-muted-foreground">
-                No referring attorneys found. {searchTerm && "Try adjusting your search terms."}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {directoryCard}
       </main>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the attorney "{attorneyToDelete?.name}" and all associated data.
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {deleteDialog}
 
       <CompanyFooter />
     </div>
