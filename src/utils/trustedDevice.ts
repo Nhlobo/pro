@@ -287,7 +287,7 @@ export function getLastUnlockAgeMs() { try { const at = Number(sessionStorage.ge
  * @param userId - The user ID used to filter the devices
  * @returns Trusted device records ordered by creation time, or an empty array if retrieval fails
  */
-export async function fetchServerDevices(userId?: string) { try { let q = supabase.from('trusted_devices' as any).select('id, credential_id, device_label, platform, user_agent, last_used_at, revoked_at, created_at').order('created_at', { ascending: false }); if (userId) q = q.eq('user_id', userId); const { data, error } = await q; if (error) throw error; return (data ?? []) as ServerTrustedDevice[]; } catch (e) { console.warn('trusted device server fetch failed', e); return []; } }
+export async function fetchServerDevices(userId?: string) { try { let q = supabase.from('trusted_devices').select('id, credential_id, device_label, platform, user_agent, last_used_at, revoked_at, created_at').order('created_at', { ascending: false }); if (userId) q = q.eq('user_id', userId); const { data, error } = await q; if (error) throw error; return (data ?? []) as ServerTrustedDevice[]; } catch (e) { console.warn('trusted device server fetch failed', e); return []; } }
 /**
  * Revokes a server-side trusted device with a specified reason.
  *
