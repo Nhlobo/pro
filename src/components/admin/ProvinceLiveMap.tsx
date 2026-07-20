@@ -7,6 +7,7 @@ import type { ProvinceStatusData } from '@/hooks/useDashboardStats';
 // here). Install with: npm install leaflet
 
 const BRAND_TEAL = '#00BAAD';
+const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
 
 const STATUS_COLORS = {
   resolved: '#1E9E4A', // green — successful
@@ -80,11 +81,52 @@ interface Props {
   loading?: boolean;
 }
 
+/**
+ * The same 3D mark from the page header, but now living on the map itself —
+ * echoing the "delivery team" brand watermark pattern (bottom-left, over the
+ * live view). It tilts off cursor movement across the *entire* map, not just
+ * its own small footprint, so it reads as one connected, alive surface.
+ */
+const MapBrandMark: React.FC<{ tilt: { x: number; y: number } }> = ({ tilt }) => (
+  <div style={{ perspective: '500px' }} className="pointer-events-none absolute bottom-3 left-3 z-[2]">
+    <div
+      style={{
+        transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+        transition: 'transform 150ms ease-out',
+      }}
+      className="flex items-center gap-2 rounded-full bg-white/90 py-1.5 pl-1.5 pr-3 shadow-lg backdrop-blur-sm"
+    >
+      <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white">
+        <img src={logoSrc} alt="Kutlwano & Associate" className="h-full w-full object-contain p-1" />
+      </div>
+      <div className="leading-none">
+        <p className="text-[11px] font-bold text-black">Kutlwano & Associate</p>
+        <p className="text-[9px] font-medium uppercase tracking-wide" style={{ color: BRAND_TEAL }}>
+          Live operations
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
 const ProvinceLiveMap: React.FC<Props> = ({ data, loading }) => {
   const mapElRef = useRef<HTMLDivElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markersRef = useRef<L.Marker[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+
+  const handleMapMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    setTilt({
+      x: Math.max(-8, Math.min(8, (cy - e.clientY) / 60)),
+      y: Math.max(-8, Math.min(8, (e.clientX - cx) / 60)),
+    });
+  };
 
   const byName = new Map<string, ProvinceStatusData>();
   (data ?? []).forEach((d) => byName.set(d.name, d));
@@ -155,11 +197,22 @@ const ProvinceLiveMap: React.FC<Props> = ({ data, loading }) => {
   const selected = selectedLoc ? byName.get(selectedLoc.name) : undefined;
 
   return (
-    <div className="relative h-[520px] w-full overflow-hidden rounded-lg md:h-[640px]">
+    <div
+      ref={wrapRef}
+      onMouseMove={handleMapMove}
+      onMouseLeave={() => setTilt({ x: 0, y: 0 })}
+      // `isolate` gives this card its own stacking context, so Leaflet's
+      // internal panes/popups/controls (which use z-index up to 1000
+      // internally) are contained inside it and can never climb above the
+      // portal's mobile sidebar drawer (z-40) or its backdrop (z-30).
+      className="relative isolate h-[70vh] max-h-[640px] min-h-[380px] w-full overflow-hidden rounded-none border border-black/10"
+    >
       <div ref={mapElRef} className="h-full w-full" />
 
+      {!selectedLoc && <MapBrandMark tilt={tilt} />}
+
       {/* Floating KPI strip — glass pills over the map, not a card grid below it */}
-      <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap gap-2">
+      <div className="pointer-events-none absolute left-3 top-3 z-[2] flex flex-wrap gap-2">
         {STATUS_ORDER.map((key) => {
           const total = (data ?? []).reduce((s, p) => s + p[key], 0);
           return (
@@ -177,7 +230,7 @@ const ProvinceLiveMap: React.FC<Props> = ({ data, loading }) => {
 
       {/* Province detail — slides in over the map like a floating card, not a boxed panel beside it */}
       {selectedLoc && (
-        <div className="absolute bottom-3 left-3 right-3 max-w-xs rounded-xl bg-white/95 p-4 shadow-lg backdrop-blur-sm md:left-auto md:right-3">
+        <div className="absolute bottom-3 left-3 right-3 z-[3] max-w-xs rounded-xl bg-white/95 p-4 shadow-lg backdrop-blur-sm md:left-auto md:right-3">
           <div className="mb-2 flex items-start justify-between">
             <div>
               <div className="text-[10px] font-semibold uppercase tracking-[0.15em]" style={{ color: BRAND_TEAL }}>
