@@ -18,12 +18,12 @@ export interface CaseTypeData {
   pctLastYear: number;
 }
 
-/** Per-province breakdown by resolution status, feeding the map pins on the operations dashboard. */
+/** Per-province breakdown feeding the map pins on the operations dashboard. */
 export interface ProvinceStatusData {
   name: string;
   resolved: number;
-  inProgress: number;
   pending: number;
+  failed: number;
   total: number;
 }
 
@@ -249,14 +249,20 @@ export const useDashboardStats = () => {
         }))
         .sort((a, b) => b.count - a.count);
 
-      // Fetch every report's status alongside the province of the referring
-      // attorney on its linked appointment, so the operations map can show
-      // resolved / in-progress / pending pins per province.
+      // Fetch every report's status, creation date, and the province of the
+      // referring attorney on its linked appointment, so the operations map
+      // can show a resolved / pending / failed (overdue) pin per province.
+      const thirtyDaysAgoIso = (() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        return d.toISOString();
+      })();
+
       const { data: reportsWithProvince } = await supabase
         .from('expert_reports')
-        .select('report_status, appointments!expert_reports_appointment_id_fkey(referring_attorneys!appointments_referring_attorney_id_fkey(province))');
+        .select('report_status, created_at, appointments!expert_reports_appointment_id_fkey(referring_attorneys!appointments_referring_attorney_id_fkey(province))');
 
-      const provinceStatusCounts: Record<string, { resolved: number; inProgress: number; pending: number }> = {};
+      const provinceStatusCounts: Record<string, { resolved: number; pending: number; failed: number }> = {};
       (reportsWithProvince || []).forEach((report: any) => {
         const rawProvince = report.appointments?.referring_attorneys?.province;
         const province = normalizeProvince(rawProvince);
@@ -266,16 +272,28 @@ export const useDashboardStats = () => {
         if (!bucket) return;
 
         if (!provinceStatusCounts[province]) {
-          provinceStatusCounts[province] = { resolved: 0, inProgress: 0, pending: 0 };
+          provinceStatusCounts[province] = { resolved: 0, pending: 0, failed: 0 };
         }
-        provinceStatusCounts[province][bucket] += 1;
+
+        if (bucket === 'resolved') {
+          provinceStatusCounts[province].resolved += 1;
+        } else {
+          // pending or inProgress: overdue (30+ days old) counts as failed/red,
+          // still-on-time counts as pending/amber.
+          const isOverdue = report.created_at && report.created_at < thirtyDaysAgoIso;
+          if (isOverdue) {
+            provinceStatusCounts[province].failed += 1;
+          } else {
+            provinceStatusCounts[province].pending += 1;
+          }
+        }
       });
 
       const provinceStatusData: ProvinceStatusData[] = Object.entries(provinceStatusCounts)
         .map(([name, counts]) => ({
           name,
           ...counts,
-          total: counts.resolved + counts.inProgress + counts.pending,
+          total: counts.resolved + counts.pending + counts.failed,
         }))
         .sort((a, b) => b.total - a.total);
 
