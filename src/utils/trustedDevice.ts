@@ -133,8 +133,24 @@ export function openBiometricDeviceSettings(): boolean {
     // it simply fails silently. `S.browser_fallback_url` gives Android somewhere to go
     // if no app resolves the intent (e.g. some OEM security-settings skins), instead of
     // that same silent no-op.
+    //
+    // IMPORTANT: this is deliberately NOT `window.location.href = intentUrl`. Assigning
+    // location.href forces a real top-level navigation attempt on this exact tab, which
+    // is both less reliably honored across Android browsers (Chrome's own docs call this
+    // out) and, worse, can cause some browsers to tear down and recreate this tab's JS
+    // context when the user returns from Settings. Our Supabase auth token lives in
+    // sessionStorage (intentionally — see client.ts), which does not survive that
+    // teardown, so that path was silently signing people out. Chrome's documented
+    // pattern is to trigger the intent via a real, briefly-appended anchor click instead,
+    // which hands off to the Settings app without navigating this page away.
     const fallback = encodeURIComponent(window.location.href);
-    window.location.href = `intent://#Intent;action=android.settings.SECURITY_SETTINGS;S.browser_fallback_url=${fallback};end`;
+    const intentUrl = `intent://#Intent;action=android.settings.SECURITY_SETTINGS;S.browser_fallback_url=${fallback};end`;
+    const link = document.createElement('a');
+    link.href = intentUrl;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    window.setTimeout(() => link.remove(), 0);
     return true;
   } catch (e) {
     console.warn('failed to open platform biometric settings', e);
