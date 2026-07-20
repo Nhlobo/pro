@@ -27,6 +27,7 @@ export interface PermissionsContextValue {
   permissions: Permission[];
   userRole: string | null;
   loading: boolean;
+  roleResolutionFailed: boolean;
   hasPermission: (permissionName: string) => boolean;
   canAccessData: (dataType: 'attorney' | 'claimant' | 'appointment' | 'document', ownerId?: string) => boolean;
   getAccessDenialMessage: (context?: string) => string;
@@ -81,6 +82,10 @@ const usePermissionsState = (): PermissionsContextValue => {
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // True only when an authenticated, provisioned user comes back with no
+  // resolvable role after retries — a data/config problem to surface
+  // explicitly, not a normal "regular user" state.
+  const [roleResolutionFailed, setRoleResolutionFailed] = useState(false);
 
   // Check if user has a specific permission
   const hasPermission = (permissionName: string): boolean => {
@@ -187,28 +192,55 @@ const usePermissionsState = (): PermissionsContextValue => {
     return userRole === 'medical_expert';
   };
 
+  // Every user in this system is provisioned by an administrator (a row in
+  // `user_roles` is created at that time), so an authenticated session that
+  // comes back with NO role should never happen in normal operation. If it
+  // does, it's almost always a timing race right after login/token refresh
+  // (the RPC firing a beat before the new session/role row is visible), not
+  // a real "roleless" account. Retry briefly before treating it as a genuine
+  // problem, so we don't drop a properly-provisioned user into the
+  // unclassified fallback dashboard just because of a momentary hiccup.
+  const ROLE_FETCH_RETRIES = 3;
+  const ROLE_FETCH_RETRY_DELAY_MS = 400;
+
+  const fetchRoleWithRetry = async (): Promise<{ role: string | null; failed: boolean }> => {
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt <= ROLE_FETCH_RETRIES; attempt++) {
+      const { data: roleData, error: roleError } = await supabase.rpc('get_current_user_role');
+
+      if (!roleError && roleData) {
+        return { role: roleData as string, failed: false };
+      }
+      lastError = roleError;
+
+      if (attempt < ROLE_FETCH_RETRIES) {
+        await new Promise((resolve) => setTimeout(resolve, ROLE_FETCH_RETRY_DELAY_MS));
+      }
+    }
+
+    console.error(
+      'get_current_user_role returned no role after retries — this should not happen for a provisioned account:',
+      lastError
+    );
+    return { role: null, failed: true };
+  };
+
   // Fetch user permissions and role
   const fetchPermissions = async () => {
     if (!user) {
       setUserRole(null);
       setPermissions([]);
+      setRoleResolutionFailed(false);
       setLoading(false);
       return;
     }
 
     try {
       setLoading(true);
-      
-      // Fetch user role from secure user_roles table via RPC function
-      const { data: roleData, error: roleError } = await supabase
-        .rpc('get_current_user_role');
 
-      if (roleError) {
-        console.error('Error fetching role:', roleError);
-        setUserRole('user');
-      } else {
-        setUserRole(roleData || 'user');
-      }
+      const { role, failed } = await fetchRoleWithRetry();
+      setUserRole(role || 'user');
+      setRoleResolutionFailed(failed);
 
       // Get user permissions
       const { data: userPermissions } = await supabase
@@ -220,6 +252,7 @@ const usePermissionsState = (): PermissionsContextValue => {
     } catch (error) {
       console.error('Error fetching permissions:', error);
       setUserRole('user');
+      setRoleResolutionFailed(true);
       setPermissions([]);
     } finally {
       setLoading(false);
@@ -428,6 +461,7 @@ const usePermissionsState = (): PermissionsContextValue => {
     permissions,
     userRole,
     loading,
+    roleResolutionFailed,
     hasPermission,
     isAdmin,
     isEmployee,
