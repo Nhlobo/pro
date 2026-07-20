@@ -1,6 +1,5 @@
 // src/pages/admin/AdminCaseManagement.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
@@ -75,6 +74,25 @@ const AdminCaseManagement: React.FC = () => {
     [assessments]
   );
 
+  // Animated readout for the readiness bar/number — counts up (eased) to the
+  // real value instead of snapping to it, so the hero metric reads as "live"
+  // on load and whenever the underlying data changes.
+  const [displayedReadiness, setDisplayedReadiness] = useState(0);
+  useEffect(() => {
+    const target = trialReadiness;
+    const duration = 900;
+    const startTime = performance.now();
+    let raf: number;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startTime) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplayedReadiness(Math.round(target * eased));
+      if (progress < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [trialReadiness]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return assessments.filter((a) => {
@@ -138,11 +156,31 @@ const AdminCaseManagement: React.FC = () => {
       <AdminCard>
         <AdminCardHeader icon={Scale} title="Trial Readiness Overview" description="Panel-wide reporting completion snapshot" />
         <AdminCardBody>
-          <div className="mb-4 flex items-center gap-4">
-            <div className="flex-1">
-              <Progress value={trialReadiness} className="h-3" />
+          <style>{`
+            @keyframes admin-case-readiness-sweep {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(400%); }
+            }
+            .admin-case-readiness-sweep {
+              animation: admin-case-readiness-sweep 2.2s ease-in-out infinite;
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .admin-case-readiness-sweep { animation: none; }
+            }
+          `}</style>
+          <div className="mb-4">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Panel Readiness</span>
+              <span className="text-2xl font-bold tabular-nums" style={{ color: BRAND_TEAL }}>{displayedReadiness}%</span>
             </div>
-            <span className="text-lg font-bold" style={{ color: BRAND_TEAL }}>{trialReadiness}%</span>
+            <div className="h-5 w-full overflow-hidden bg-black/5">
+              <div
+                className="relative h-full overflow-hidden"
+                style={{ width: `${displayedReadiness}%`, backgroundColor: BRAND_TEAL }}
+              >
+                <div className="admin-case-readiness-sweep absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+              </div>
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <AdminStatCard label="Expert Reports Ready" value={readyCount} icon={CheckCircle2} loading={loading} />
