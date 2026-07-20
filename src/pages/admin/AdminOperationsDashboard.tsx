@@ -1,12 +1,12 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
 import ProvinceLiveMap from '@/components/admin/ProvinceLiveMap';
+import { AdminPage, AdminPill, BRAND_TEAL } from '@/components/admin/ui/AdminUI';
 import {
   Calendar, FileText, Clock, Users, AlertTriangle, CheckCircle2, FileSignature,
   ChevronUp, ChevronDown, type LucideIcon,
 } from 'lucide-react';
 
-const BRAND_TEAL = '#00BAAD';
 const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
 
 const CASE_TYPE_COLORS = [
@@ -25,7 +25,8 @@ const lastYear = currentYear - 1;
 /**
  * The mark in the corner of the home page — tilts in 3D toward the cursor.
  * A small "this system is alive" cue on the one page every other screen
- * in the portal returns to.
+ * in the portal returns to, and the same mark reappears on the map itself
+ * (see ProvinceLiveMap's MapBrandMark) so the two feel like one live surface.
  */
 const LiveMark: React.FC = () => {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -48,7 +49,7 @@ const LiveMark: React.FC = () => {
       onMouseMove={handleMove}
       onMouseLeave={() => setTilt({ x: 0, y: 0 })}
       style={{ perspective: '400px' }}
-      className="h-10 w-10 flex-shrink-0"
+      className="h-10 w-10 shrink-0"
     >
       <div
         style={{ transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`, transition: 'transform 150ms ease-out' }}
@@ -70,7 +71,7 @@ interface StatPillData {
 const StatPill = React.memo(function StatPill({ stat, loading }: { stat: StatPillData; loading: boolean }) {
   const Icon = stat.icon;
   return (
-    <div className="flex items-center gap-2 whitespace-nowrap border-r border-black/10 px-3 py-1 last:border-r-0">
+    <div className="flex items-center gap-2 whitespace-nowrap border-r border-black/10 px-3 py-1.5 last:border-r-0">
       <Icon className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} />
       <span className="text-sm font-bold tabular-nums text-black">{loading ? '–' : stat.value}</span>
       <span className="text-[11px] text-slate-500">{stat.label}</span>
@@ -89,7 +90,7 @@ const CaseTypeRow = React.memo(function CaseTypeRow({ ct, maxCount, color }: { c
     <div className="space-y-1 py-1.5">
       <div className="flex items-center justify-between">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: color }} />
+          <div className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
           <span className="truncate text-xs font-medium text-black">{ct.type}</span>
         </div>
         <span className="text-xs font-semibold" style={{ color }}>{ct.count}</span>
@@ -123,19 +124,21 @@ const AdminOperationsDashboard: React.FC = () => {
   }, [stats.caseTypeData]);
 
   return (
-    <div className="space-y-3">
-      {/* Header row — mark + title on the left, the slim KPI strip on the right */}
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-center gap-3">
+    <AdminPage>
+      {/* Header — same eyebrow/title pattern as every other admin page, plus
+          the live mark that ties this page to the map below it. */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
           <LiveMark />
-          <div>
+          <div className="min-w-0">
             <div className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: BRAND_TEAL }}>
               Operations
             </div>
-            <h1 className="text-xl font-bold text-black">Operations Dashboard</h1>
+            <h1 className="truncate text-xl font-bold text-black md:text-2xl">Operations Dashboard</h1>
+            <p className="text-xs text-slate-500 md:text-sm">Live case load across every province</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-center overflow-x-auto rounded-full border border-black/10 bg-white">
+        <div className="flex max-w-full flex-wrap items-center overflow-x-auto rounded-full border border-black/10 bg-white">
           {statPills.map((stat) => (
             <StatPill key={stat.label} stat={stat} loading={loading} />
           ))}
@@ -144,23 +147,26 @@ const AdminOperationsDashboard: React.FC = () => {
 
       {/* The map is the dashboard — real streets, real pins, everything else floats on top of it */}
       {loading ? (
-        <div className="flex h-[520px] w-full items-center justify-center rounded-lg border border-black/10 md:h-[640px]">
-          <p className="text-sm text-slate-500">Loading case map...</p>
+        <div className="flex h-[70vh] max-h-[640px] min-h-[380px] w-full items-center justify-center border border-black/10">
+          <p className="text-sm text-slate-500">Loading case map…</p>
         </div>
       ) : (
         <ProvinceLiveMap data={stats.provinceStatusData} loading={loading} />
       )}
 
-      {/* Overdue alert — a floating banner, not a bordered card block */}
+      {/* Overdue alert — flat hairline block, matching the rest of the portal's alert treatment */}
       {stats.overdueReports > 0 && (
-        <div className="flex items-center gap-2 rounded-lg bg-warning/10 px-4 py-2 text-sm text-black">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0 text-warning" />
-          {stats.overdueReports} report{stats.overdueReports !== 1 ? 's' : ''} overdue — pending for more than 30 days
+        <div className="flex flex-wrap items-center gap-2 border border-warning/30 bg-warning/5 px-4 py-2.5 text-sm text-black">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-warning" />
+          <span className="flex-1">
+            {stats.overdueReports} report{stats.overdueReports !== 1 ? 's' : ''} overdue — pending for more than 30 days
+          </span>
+          <AdminPill tone="warning">Action required</AdminPill>
         </div>
       )}
 
       {/* Case type breakdown — tucked into a collapsible drawer instead of a permanent table */}
-      <div className="rounded-lg border border-black/10">
+      <div className="border border-black/10 bg-white">
         <button
           onClick={() => setDrawerOpen((v) => !v)}
           className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-medium text-black"
@@ -185,7 +191,7 @@ const AdminOperationsDashboard: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+    </AdminPage>
   );
 };
 
