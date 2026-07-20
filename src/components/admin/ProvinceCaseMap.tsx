@@ -35,14 +35,14 @@ function pinRadius(count: number): number {
 }
 
 interface Props {
-  data: ProvinceStatusData[];
+  data: ProvinceStatusData[] | undefined;
   loading?: boolean;
 }
 
 const ProvinceCaseMap: React.FC<Props> = ({ data, loading }) => {
   const byName = useMemo(() => {
     const m = new Map<string, ProvinceStatusData>();
-    data.forEach((d) => m.set(d.name, d));
+    (data ?? []).forEach((d) => m.set(d.name, d));
     return m;
   }, [data]);
 
