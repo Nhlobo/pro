@@ -18,6 +18,15 @@ export interface CaseTypeData {
   pctLastYear: number;
 }
 
+/** Per-province breakdown by resolution status, feeding the map pins on the operations dashboard. */
+export interface ProvinceStatusData {
+  name: string;
+  resolved: number;
+  inProgress: number;
+  pending: number;
+  total: number;
+}
+
 export interface DashboardStats {
   totalClaimants: number;
   totalAppointments: number;
@@ -27,6 +36,7 @@ export interface DashboardStats {
   completedAssessments: number;
   provincialData: ProvincialData[];
   caseTypeData: CaseTypeData[];
+  provinceStatusData: ProvinceStatusData[];
   overdueReports: number;
   // Prior year comparisons
   totalAppointmentsLastYear: number;
@@ -85,6 +95,27 @@ function normalizeMatterType(raw: string | null): string {
   return MATTER_TYPE_NORMALIZE[key] || raw.trim();
 }
 
+// Shared status buckets — used for both the KPI counts above and the
+// per-province map breakdown below, so the two never drift apart.
+const PENDING_STATUSES = ['pending', 'not_received', 'under_review', 'Pending', 'Not Received'];
+const IN_PROGRESS_STATUSES = [
+  'in_progress', 'initial_stage', 'Initial Stage', 'Preparing Report', 'preparing_report',
+  'Report On Final Stage', 'report_on_final_stage',
+  'taken_out', 'Taken Out', 'Report Submitted On AOD', 'report_submitted_on_aod',
+  'Report Submitted Without Full Payment', 'report_submitted_without_full_payment',
+];
+const RESOLVED_STATUSES = [
+  'completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted',
+  'report_fully_paid_submitted', 'Report Submitted', 'report_submitted',
+];
+
+function statusBucket(status: string): 'pending' | 'inProgress' | 'resolved' | null {
+  if (PENDING_STATUSES.includes(status)) return 'pending';
+  if (IN_PROGRESS_STATUSES.includes(status)) return 'inProgress';
+  if (RESOLVED_STATUSES.includes(status)) return 'resolved';
+  return null;
+}
+
 export const useDashboardStats = () => {
   const [stats, setStats] = useState<DashboardStats>({
     totalClaimants: 0,
@@ -95,6 +126,7 @@ export const useDashboardStats = () => {
     completedAssessments: 0,
     provincialData: [],
     caseTypeData: [],
+    provinceStatusData: [],
     overdueReports: 0,
     totalAppointmentsLastYear: 0,
     pendingReportsLastYear: 0,
@@ -217,6 +249,36 @@ export const useDashboardStats = () => {
         }))
         .sort((a, b) => b.count - a.count);
 
+      // Fetch every report's status alongside the province of the referring
+      // attorney on its linked appointment, so the operations map can show
+      // resolved / in-progress / pending pins per province.
+      const { data: reportsWithProvince } = await supabase
+        .from('expert_reports')
+        .select('report_status, appointments!expert_reports_appointment_id_fkey(referring_attorneys!appointments_referring_attorney_id_fkey(province))');
+
+      const provinceStatusCounts: Record<string, { resolved: number; inProgress: number; pending: number }> = {};
+      (reportsWithProvince || []).forEach((report: any) => {
+        const rawProvince = report.appointments?.referring_attorneys?.province;
+        const province = normalizeProvince(rawProvince);
+        if (province === 'Unknown') return;
+
+        const bucket = statusBucket(report.report_status);
+        if (!bucket) return;
+
+        if (!provinceStatusCounts[province]) {
+          provinceStatusCounts[province] = { resolved: 0, inProgress: 0, pending: 0 };
+        }
+        provinceStatusCounts[province][bucket] += 1;
+      });
+
+      const provinceStatusData: ProvinceStatusData[] = Object.entries(provinceStatusCounts)
+        .map(([name, counts]) => ({
+          name,
+          ...counts,
+          total: counts.resolved + counts.inProgress + counts.pending,
+        }))
+        .sort((a, b) => b.total - a.total);
+
       // Count overdue reports (pending/in_progress older than 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -264,6 +326,7 @@ export const useDashboardStats = () => {
         completedAssessments: completedCount || 0,
         provincialData,
         caseTypeData,
+        provinceStatusData,
         overdueReports: overdueCount || 0,
         totalAppointmentsLastYear: (lastYearAppts || []).length,
         pendingReportsLastYear: pendingCountLastYear || 0,
