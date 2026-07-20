@@ -25,7 +25,7 @@ import BrandedPageLoader from "@/components/BrandedPageLoader";
 
 const Index = () => {
   const { user, signOut } = useAuth();
-  const { isReferringAttorney, isAdmin, isSalesConsultant, loading } = usePermissions();
+  const { isReferringAttorney, isAdmin, isSalesConsultant, isMedicalExpert, loading, roleResolutionFailed, refetch } = usePermissions();
   const { stats, loading: statsLoading, refetchStats } = useDashboardStats();
   const { profile: userProfile, error: profileError } = useUserProfile(user ?? null);
   const [refreshing, setRefreshing] = useState(false);
@@ -37,6 +37,7 @@ const Index = () => {
   const admin = isAdmin();
   const referringAttorney = isReferringAttorney();
   const salesConsultant = isSalesConsultant();
+  const medicalExpert = isMedicalExpert();
 
   useEffect(() => {
     if (profileError) toast.error(`Could not load your profile: ${profileError}`);
@@ -48,6 +49,27 @@ const Index = () => {
       navigate("/admin", { replace: true });
     }
   }, [loading, admin, referringAttorney, navigate]);
+
+  // Medical experts have their own portal — previously this role had no
+  // redirect here at all, so a medical expert who ever landed on /dashboard
+  // directly (bookmark, race on first login, etc.) would fall through to
+  // the generic placeholder dashboard below instead of their real portal.
+  useEffect(() => {
+    if (!loading && medicalExpert) {
+      navigate("/expert-portal", { replace: true });
+    }
+  }, [loading, medicalExpert, navigate]);
+
+  // Every account here is provisioned by an administrator, so a role that
+  // still fails to resolve after usePermissions' internal retries is a real
+  // problem, not a normal state — surface it loudly instead of quietly
+  // rendering the generic dashboard shell, which is what made this look like
+  // a "hidden"/unexplained screen to staff.
+  useEffect(() => {
+    if (!loading && roleResolutionFailed) {
+      toast.error("We couldn't confirm your account's access level. Contact your administrator if this continues.");
+    }
+  }, [loading, roleResolutionFailed]);
 
   const handleRefresh = async () => {
     if (refreshing) return;
@@ -81,6 +103,45 @@ const Index = () => {
   // so it never has a chance to flash on screen first.
   if (admin) {
     return <BrandedPageLoader message="Loading…" />;
+  }
+
+  // Same treatment for medical experts — being redirected to /expert-portal
+  // by the effect above, so show a loader rather than the generic dashboard.
+  if (medicalExpert) {
+    return <BrandedPageLoader message="Loading…" />;
+  }
+
+  // Role genuinely couldn't be resolved even after retries. Every account in
+  // this system is created by an administrator with a role attached, so this
+  // means something is actually wrong with this account's setup — show that
+  // plainly instead of the full dashboard shell (with its menus, stats, and
+  // quick actions) which implied this was a normal, working screen.
+  if (roleResolutionFailed) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <Helmet>
+          <title>Account Setup Required - Medico-Legal Assessment System</title>
+        </Helmet>
+        <Card className="max-w-md w-full bg-gradient-card border-border/50 shadow-soft">
+          <CardHeader>
+            <CardTitle>We couldn't confirm your access level</CardTitle>
+            <CardDescription className="mt-2">
+              Your account is signed in, but no role is currently assigned to it. This should not happen for an
+              account added by an administrator — please contact your system administrator so they can check your
+              role in User Management, or try refreshing below.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col sm:flex-row gap-2">
+            <Button onClick={() => refetch()} className="gap-2">
+              Try again
+            </Button>
+            <Button variant="outline" onClick={() => signOut()}>
+              Sign out
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
