@@ -4756,42 +4756,6 @@ export type Database = {
           },
         ]
       }
-      trusted_devices: {
-        Row: {
-          created_at: string
-          device_name: string | null
-          device_token_hash: string
-          expires_at: string
-          id: string
-          ip_address: string | null
-          last_seen_at: string
-          user_agent: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          device_name?: string | null
-          device_token_hash: string
-          expires_at?: string
-          id?: string
-          ip_address?: string | null
-          last_seen_at?: string
-          user_agent?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          device_name?: string | null
-          device_token_hash?: string
-          expires_at?: string
-          id?: string
-          ip_address?: string | null
-          last_seen_at?: string
-          user_agent?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       user_activity_time: {
         Row: {
           activity_key: string
