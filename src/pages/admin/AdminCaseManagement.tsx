@@ -1,9 +1,10 @@
 // src/pages/admin/AdminCaseManagement.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { Scale, ClipboardList, FileCheck2, FileClock, FolderKanban, Gavel, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Scale, ClipboardList, FileCheck2, FileClock, FolderKanban, Gavel, CheckCircle2, Clock, XCircle, Stethoscope, Briefcase } from 'lucide-react';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 import {
   AdminPage,
@@ -11,6 +12,7 @@ import {
   AdminCard,
   AdminCardHeader,
   AdminCardBody,
+  AdminStatCard,
   AdminPill,
   AdminEmptyState,
   AdminSearchInput,
@@ -26,13 +28,6 @@ const STAGE_CONFIG: { key: string; name: string; icon: typeof FolderKanban; matc
 ];
 
 const PAGE_SIZE = 15;
-
-// Geometry for the "Panel Readiness" radial gauge — plain SVG (no chart
-// library) to match the flat, dependency-free visual language the rest of
-// the Admin Portal already uses. Circumference is derived once from the
-// radius so the arc math has a single source of truth.
-const READINESS_RING_RADIUS = 52;
-const READINESS_RING_CIRCUMFERENCE = 2 * Math.PI * READINESS_RING_RADIUS;
 
 const AdminCaseManagement: React.FC = () => {
   const [assessments, setAssessments] = useState<any[]>([]);
@@ -143,64 +138,16 @@ const AdminCaseManagement: React.FC = () => {
       <AdminCard>
         <AdminCardHeader icon={Scale} title="Trial Readiness Overview" description="Panel-wide reporting completion snapshot" />
         <AdminCardBody>
-          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-stretch sm:gap-8">
-            {/* Radial readiness gauge */}
-            <div className="flex shrink-0 flex-col items-center gap-2 sm:border-r sm:border-black/10 sm:pr-8">
-              <div className="relative flex h-28 w-28 items-center justify-center sm:h-32 sm:w-32">
-                <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r={READINESS_RING_RADIUS}
-                    fill="none"
-                    strokeWidth="10"
-                    stroke="currentColor"
-                    className="text-black/10"
-                  />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r={READINESS_RING_RADIUS}
-                    fill="none"
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                    stroke={BRAND_TEAL}
-                    strokeDasharray={READINESS_RING_CIRCUMFERENCE}
-                    strokeDashoffset={READINESS_RING_CIRCUMFERENCE - (trialReadiness / 100) * READINESS_RING_CIRCUMFERENCE}
-                    style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-2xl font-bold text-black sm:text-3xl">{trialReadiness}%</span>
-                </div>
-              </div>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Panel Readiness</p>
+          <div className="mb-4 flex items-center gap-4">
+            <div className="flex-1">
+              <Progress value={trialReadiness} className="h-3" />
             </div>
-
-            {/* Stat breakdown */}
-            <div className="grid w-full flex-1 grid-cols-3 divide-x divide-black/10">
-              <div className="flex flex-col items-center gap-1 px-2 text-center sm:items-start sm:px-6 sm:text-left">
-                <div className="flex items-center gap-1.5 text-success">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span className="text-2xl font-bold">{readyCount}</span>
-                </div>
-                <p className="text-[11px] leading-tight text-slate-500">Expert Reports Ready</p>
-              </div>
-              <div className="flex flex-col items-center gap-1 px-2 text-center sm:items-start sm:px-6 sm:text-left">
-                <div className="flex items-center gap-1.5 text-warning">
-                  <Clock className="h-4 w-4 shrink-0" />
-                  <span className="text-2xl font-bold">{awaitingCount}</span>
-                </div>
-                <p className="text-[11px] leading-tight text-slate-500">Awaiting Reports</p>
-              </div>
-              <div className="flex flex-col items-center gap-1 px-2 text-center sm:items-start sm:px-6 sm:text-left">
-                <div className="flex items-center gap-1.5 text-destructive">
-                  <XCircle className="h-4 w-4 shrink-0" />
-                  <span className="text-2xl font-bold">{missingCount}</span>
-                </div>
-                <p className="text-[11px] leading-tight text-slate-500">Missing Documents</p>
-              </div>
-            </div>
+            <span className="text-lg font-bold" style={{ color: BRAND_TEAL }}>{trialReadiness}%</span>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <AdminStatCard label="Expert Reports Ready" value={readyCount} icon={CheckCircle2} loading={loading} />
+            <AdminStatCard label="Awaiting Reports" value={awaitingCount} icon={Clock} loading={loading} />
+            <AdminStatCard label="Missing Documents" value={missingCount} icon={XCircle} loading={loading} />
           </div>
         </AdminCardBody>
       </AdminCard>
@@ -231,44 +178,81 @@ const AdminCaseManagement: React.FC = () => {
             description="Try a different search term or clear the stage filter."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
-              <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
-                <TableRow>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Claimant</TableHead>
-                  <TableHead>Expert</TableHead>
-                  <TableHead>Attorney</TableHead>
-                  <TableHead>Stage</TableHead>
-                  <TableHead>Report</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginated.map((a) => (
-                  <TableRow key={a.appointment_id} className="hover:bg-black/[0.02]">
-                    <TableCell className="whitespace-nowrap font-mono text-slate-500">{a.claimant_auto_id}</TableCell>
-                    <TableCell className="font-medium text-black">{a.claimant_name}</TableCell>
-                    <TableCell className="text-slate-500">{a.expert_name}</TableCell>
-                    <TableCell className="text-slate-500">{a.referring_attorney}</TableCell>
-                    <TableCell>
-                      <AdminPill>{a.case_status || 'scheduled'}</AdminPill>
-                    </TableCell>
-                    <TableCell>
-                      <AdminPill
-                        tone={
-                          a.report_status === 'completed' ? 'success'
-                          : a.report_status === 'in_progress' ? 'warning'
-                          : 'neutral'
-                        }
-                      >
-                        {a.report_status || 'pending'}
-                      </AdminPill>
-                    </TableCell>
+          <>
+            {/* ≥md: full data table */}
+            <div className="hidden overflow-x-auto md:block">
+              <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
+                <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Claimant</TableHead>
+                    <TableHead>Expert</TableHead>
+                    <TableHead>Attorney</TableHead>
+                    <TableHead>Stage</TableHead>
+                    <TableHead>Report</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {paginated.map((a) => (
+                    <TableRow key={a.appointment_id} className="align-top hover:bg-black/[0.02]">
+                      <TableCell className="whitespace-nowrap font-mono text-slate-500">{a.claimant_auto_id}</TableCell>
+                      <TableCell className="font-medium text-black">{a.claimant_name}</TableCell>
+                      <TableCell className="text-slate-500">{a.expert_name}</TableCell>
+                      <TableCell className="text-slate-500">{a.referring_attorney}</TableCell>
+                      <TableCell>
+                        <AdminPill>{a.case_status || 'scheduled'}</AdminPill>
+                      </TableCell>
+                      <TableCell>
+                        <AdminPill
+                          tone={
+                            a.report_status === 'completed' ? 'success'
+                            : a.report_status === 'in_progress' ? 'warning'
+                            : 'neutral'
+                          }
+                        >
+                          {a.report_status || 'pending'}
+                        </AdminPill>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* <md: stacked card list, one per case */}
+            <div className="divide-y divide-black/10 md:hidden">
+              {paginated.map((a) => (
+                <div key={a.appointment_id} className="space-y-1.5 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="truncate text-sm font-semibold text-black">{a.claimant_name}</p>
+                    <span className="shrink-0 font-mono text-[11px] text-slate-500">{a.claimant_auto_id}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+                    <span className="inline-flex items-center gap-1">
+                      <Stethoscope className="h-3 w-3 shrink-0 text-slate-400" />
+                      {a.expert_name || '–'}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Briefcase className="h-3 w-3 shrink-0 text-slate-400" />
+                      {a.referring_attorney || '–'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <AdminPill>{a.case_status || 'scheduled'}</AdminPill>
+                    <AdminPill
+                      tone={
+                        a.report_status === 'completed' ? 'success'
+                        : a.report_status === 'in_progress' ? 'warning'
+                        : 'neutral'
+                      }
+                    >
+                      {a.report_status || 'pending'}
+                    </AdminPill>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
         <AdminPagination
           page={currentPage}
