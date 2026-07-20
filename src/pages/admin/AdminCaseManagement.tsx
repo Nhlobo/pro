@@ -1,10 +1,9 @@
 // src/pages/admin/AdminCaseManagement.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
-import { Scale, ClipboardList, FileCheck2, FileClock, FolderKanban, Gavel } from 'lucide-react';
+import { Scale, ClipboardList, FileCheck2, FileClock, FolderKanban, Gavel, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 import {
   AdminPage,
@@ -27,6 +26,13 @@ const STAGE_CONFIG: { key: string; name: string; icon: typeof FolderKanban; matc
 ];
 
 const PAGE_SIZE = 15;
+
+// Geometry for the "Panel Readiness" radial gauge — plain SVG (no chart
+// library) to match the flat, dependency-free visual language the rest of
+// the Admin Portal already uses. Circumference is derived once from the
+// radius so the arc math has a single source of truth.
+const READINESS_RING_RADIUS = 52;
+const READINESS_RING_CIRCUMFERENCE = 2 * Math.PI * READINESS_RING_RADIUS;
 
 const AdminCaseManagement: React.FC = () => {
   const [assessments, setAssessments] = useState<any[]>([]);
@@ -137,24 +143,63 @@ const AdminCaseManagement: React.FC = () => {
       <AdminCard>
         <AdminCardHeader icon={Scale} title="Trial Readiness Overview" description="Panel-wide reporting completion snapshot" />
         <AdminCardBody>
-          <div className="mb-4 flex items-center gap-4">
-            <div className="flex-1">
-              <Progress value={trialReadiness} className="h-3" />
+          <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-stretch sm:gap-8">
+            {/* Radial readiness gauge */}
+            <div className="flex shrink-0 flex-col items-center gap-2 sm:border-r sm:border-black/10 sm:pr-8">
+              <div className="relative flex h-28 w-28 items-center justify-center sm:h-32 sm:w-32">
+                <svg viewBox="0 0 120 120" className="h-full w-full -rotate-90">
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r={READINESS_RING_RADIUS}
+                    fill="none"
+                    strokeWidth="10"
+                    stroke="currentColor"
+                    className="text-black/10"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r={READINESS_RING_RADIUS}
+                    fill="none"
+                    strokeWidth="10"
+                    strokeLinecap="round"
+                    stroke={BRAND_TEAL}
+                    strokeDasharray={READINESS_RING_CIRCUMFERENCE}
+                    strokeDashoffset={READINESS_RING_CIRCUMFERENCE - (trialReadiness / 100) * READINESS_RING_CIRCUMFERENCE}
+                    style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-2xl font-bold text-black sm:text-3xl">{trialReadiness}%</span>
+                </div>
+              </div>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Panel Readiness</p>
             </div>
-            <span className="text-lg font-bold" style={{ color: BRAND_TEAL }}>{trialReadiness}%</span>
-          </div>
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div>
-              <p className="text-xl font-bold text-success">{readyCount}</p>
-              <p className="text-xs text-slate-500">Expert Reports Ready</p>
-            </div>
-            <div>
-              <p className="text-xl font-bold text-warning">{awaitingCount}</p>
-              <p className="text-xs text-slate-500">Awaiting Reports</p>
-            </div>
-            <div>
-              <p className="text-xl font-bold text-destructive">{missingCount}</p>
-              <p className="text-xs text-slate-500">Missing Documents</p>
+
+            {/* Stat breakdown */}
+            <div className="grid w-full flex-1 grid-cols-3 divide-x divide-black/10">
+              <div className="flex flex-col items-center gap-1 px-2 text-center sm:items-start sm:px-6 sm:text-left">
+                <div className="flex items-center gap-1.5 text-success">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <span className="text-2xl font-bold">{readyCount}</span>
+                </div>
+                <p className="text-[11px] leading-tight text-slate-500">Expert Reports Ready</p>
+              </div>
+              <div className="flex flex-col items-center gap-1 px-2 text-center sm:items-start sm:px-6 sm:text-left">
+                <div className="flex items-center gap-1.5 text-warning">
+                  <Clock className="h-4 w-4 shrink-0" />
+                  <span className="text-2xl font-bold">{awaitingCount}</span>
+                </div>
+                <p className="text-[11px] leading-tight text-slate-500">Awaiting Reports</p>
+              </div>
+              <div className="flex flex-col items-center gap-1 px-2 text-center sm:items-start sm:px-6 sm:text-left">
+                <div className="flex items-center gap-1.5 text-destructive">
+                  <XCircle className="h-4 w-4 shrink-0" />
+                  <span className="text-2xl font-bold">{missingCount}</span>
+                </div>
+                <p className="text-[11px] leading-tight text-slate-500">Missing Documents</p>
+              </div>
             </div>
           </div>
         </AdminCardBody>
