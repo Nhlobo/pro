@@ -1,6 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
-import ProvinceLiveMap from '@/components/admin/ProvinceLiveMap';
 import { AdminPage, AdminPill, BRAND_TEAL } from '@/components/admin/ui/AdminUI';
 import {
   Calendar, FileText, Clock, Users, AlertTriangle, CheckCircle2, FileSignature,
@@ -8,6 +7,16 @@ import {
 } from 'lucide-react';
 
 const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
+
+// Same three status colors the old live-map pins used — kept identical so
+// "green/amber/red" still means the same thing everywhere in the portal.
+const STATUS_COLORS = {
+  resolved: '#1E9E4A', // green
+  pending: '#E2A030',  // amber
+  failed: '#DC3545',   // red
+} as const;
+type StatusKey = keyof typeof STATUS_COLORS;
+const STATUS_ORDER: StatusKey[] = ['resolved', 'pending', 'failed'];
 
 const CASE_TYPE_COLORS = [
   BRAND_TEAL,
@@ -58,6 +67,201 @@ const LiveMark: React.FC = () => {
       >
         <img src={logoSrc} alt="Kutlwano & Associate" className="h-full w-full object-contain p-1" />
       </div>
+    </div>
+  );
+};
+
+/**
+ * Same "this is live" clock treatment used across the portal (pulsing teal
+ * dot + monospace time), just re-themed in white for use over the dark
+ * gradient hero below instead of a light card.
+ */
+function useLiveClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return now;
+}
+
+/**
+ * The dashboard's new middle section — the same full-bleed teal→blue
+ * gradient brand panel used on the left half of the Auth screen ("We touch
+ * a file. We change lives."), brought over wholesale in place of the old
+ * live map. Desktop/large-screen only (hidden lg:flex, exactly like the
+ * Auth aside) since it's a wide two-column-shaped hero, not something that
+ * folds down cleanly onto a phone screen.
+ */
+const OperationsHeroPanel: React.FC<{
+  statPills: StatPillData[];
+  loading: boolean;
+  statusCounts: StatusCounts;
+  total: number;
+}> = ({ statPills, loading, statusCounts, total }) => {
+  const now = useLiveClock();
+  const time = now.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const date = now.toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  return (
+    <div className="relative hidden min-h-[70vh] flex-1 -mx-3 flex-col justify-between overflow-hidden gradient-nav p-10 text-white sm:-mx-4 lg:-mx-6 lg:flex">
+      <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+
+      {/* Red/amber/green file-pin wallpaper — same glyph and colors the
+          live map used to plot per province, now just a scattered backdrop
+          whose green/amber/red mix tracks the real resolved/pending/failed
+          totals instead of literal coordinates. */}
+      <FilePinBackground counts={statusCounts} total={total} target={34} />
+
+      <div className="relative z-10 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="rounded-full bg-white/15 p-2 ring-2 ring-white/30 backdrop-blur">
+            <img src={logoSrc} alt="Kutlwano & Associate" className="h-12 w-12 object-contain" />
+          </div>
+          <div>
+            <div className="text-lg font-bold tracking-wide">Medico-Legal Pro</div>
+            <div className="text-xs text-white/80">Kutlwano &amp; Associate</div>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end gap-1.5">
+          <p className="text-xs text-white/70">{date}</p>
+          <div className="flex items-center gap-2 border border-white/20 bg-white/10 px-3 py-1.5 backdrop-blur">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/60 opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+            </span>
+            <Clock className="h-3.5 w-3.5 text-white/70" />
+            <span className="font-mono text-sm font-semibold tabular-nums">{time}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="relative z-10 space-y-4">
+        <h1 className="text-4xl font-bold leading-tight xl:text-5xl">
+          We touch a file.<br />We change lives.
+        </h1>
+        <p className="max-w-md text-sm text-white/85 xl:text-base">
+          Every case above is a person waiting on an answer — operations keeps that promise moving, province by province, file by file.
+        </p>
+      </div>
+
+      <div className="relative z-10 flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-white/15 pt-4 text-xs text-white/80">
+        {statPills.map((stat) => {
+          const Icon = stat.icon;
+          return (
+            <span key={stat.label} className="flex items-center gap-1.5">
+              <Icon className="h-3.5 w-3.5 text-white/70" />
+              <span className="font-bold tabular-nums text-white">{loading ? '–' : stat.value}</span>
+              {stat.label}
+            </span>
+          );
+        })}
+        <span className="ml-auto text-white/60">© {now.getFullYear()} Kutlwano &amp; Associate (Pty) Ltd</span>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * The case-file pin glyph from the old live map (rounded map-pin silhouette
+ * with a small document icon inside) — same shape, just freed from Leaflet
+ * so it can be dropped in as plain background art instead of a real marker.
+ */
+const FilePinGlyph: React.FC<{ color: string }> = ({ color }) => (
+  <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg">
+    <path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.3 21.7 0 14 0z" fill={color} />
+    <circle cx="14" cy="13" r="9" fill="white" />
+    <path d="M10.5 8.7h5l2 2v9.1a0.8 0.8 0 0 1-0.8 0.8h-6.4a0.8 0.8 0 0 1-0.8-0.8V9.5a0.8 0.8 0 0 1 0.8-0.8z" fill="none" stroke={color} strokeWidth="1.1" />
+    <path d="M15.5 8.7v2h2" fill="none" stroke={color} strokeWidth="1.1" />
+    <line x1="11.6" y1="14.2" x2="16.4" y2="14.2" stroke={color} strokeWidth="1" />
+    <line x1="11.6" y1="16.3" x2="16.4" y2="16.3" stroke={color} strokeWidth="1" />
+    <line x1="11.6" y1="18.4" x2="14.8" y2="18.4" stroke={color} strokeWidth="1" />
+  </svg>
+);
+
+/** Small deterministic PRNG (mulberry32) so the scatter looks random but
+ * never reshuffles/flickers between renders of the same pin index. */
+function mulberry32(seed: number) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+interface StatusCounts { resolved: number; pending: number; failed: number }
+
+/**
+ * Wallpaper of file pins scattered behind the hero content — this is the
+ * "style with logic" part: it isn't a random decoration, the *mix* of
+ * green/amber/red on screen is driven by the real resolved/pending/failed
+ * totals, same as the KPI strip that used to float on top of the live map.
+ * Faint + pointer-events-none so it reads as texture, not a second map.
+ */
+const FilePinBackground: React.FC<{ counts: StatusCounts; total: number; target?: number }> = ({ counts, total, target = 30 }) => {
+  const pins = useMemo(() => {
+    const TARGET = target; // roughly how many glyphs fill the panel at a readable density
+    const sum = counts.resolved + counts.pending + counts.failed;
+    // While stats are still loading (sum === 0) fall back to an even split
+    // so the panel isn't blank — as soon as real data lands this reflows
+    // to the true proportions.
+    const ratios = sum > 0
+      ? { resolved: counts.resolved / sum, pending: counts.pending / sum, failed: counts.failed / sum }
+      : { resolved: 1 / 3, pending: 1 / 3, failed: 1 / 3 };
+
+    const perStatus = STATUS_ORDER.map((key) => ({
+      key,
+      count: ratios[key] > 0 ? Math.max(1, Math.round(ratios[key] * TARGET)) : 0,
+    }));
+
+    const list: { key: StatusKey; x: number; y: number; size: number; rotate: number; opacity: number }[] = [];
+    perStatus.forEach(({ key, count }) => {
+      for (let i = 0; i < count; i++) {
+        list.push({ key, x: 0, y: 0, size: 0, rotate: 0, opacity: 0 });
+      }
+    });
+
+    // Seeded shuffle + placement — stable across re-renders, changes only
+    // when the underlying totals actually change (see the dependency array).
+    const rand = mulberry32(list.length * 7919 + total);
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    return list.map((pin, i) => {
+      const r = mulberry32(i * 104729 + total);
+      return {
+        ...pin,
+        x: r() * 100,
+        y: r() * 100,
+        size: 22 + r() * 30,
+        rotate: r() * 24 - 12,
+        opacity: 0.18 + r() * 0.22,
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counts.resolved, counts.pending, counts.failed, total, target]);
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+      {pins.map((pin, i) => (
+        <div
+          key={i}
+          className="absolute"
+          style={{
+            left: `${pin.x}%`,
+            top: `${pin.y}%`,
+            width: pin.size,
+            transform: `translate(-50%, -50%) rotate(${pin.rotate}deg)`,
+            opacity: pin.opacity,
+          }}
+        >
+          <FilePinGlyph color={STATUS_COLORS[pin.key]} />
+        </div>
+      ))}
     </div>
   );
 };
@@ -124,6 +328,19 @@ const AdminOperationsDashboard: React.FC = () => {
     return Math.max(...stats.caseTypeData.map((c) => c.count)) || 1;
   }, [stats.caseTypeData]);
 
+  // Same resolved/pending/failed totals the old map pins encoded, just
+  // summed across every province instead of plotted on one — this is what
+  // drives the green/amber/red mix in the hero's pin wallpaper.
+  const statusCounts: StatusCounts = useMemo(() => {
+    const totals: StatusCounts = { resolved: 0, pending: 0, failed: 0 };
+    (stats.provinceStatusData ?? []).forEach((p) => {
+      totals.resolved += p.resolved;
+      totals.pending += p.pending;
+      totals.failed += p.failed;
+    });
+    return totals;
+  }, [stats.provinceStatusData]);
+
   return (
     // `flex flex-col` (on top of AdminPage's default space-y-4/6 rhythm)
     // plus a viewport-height floor is what makes the map genuinely
@@ -154,21 +371,28 @@ const AdminOperationsDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* The map is the dashboard — full-screen, edge-to-edge (negative
-          margins cancel the portal's side/bottom padding), dark, locked to
-          South Africa, with the brand + live clock living on the map itself. */}
-      <div className="relative -mx-3 min-h-[70vh] flex-1 sm:-mx-4 lg:-mx-6">
-        {loading ? (
-          <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-slate-100">
-            <p className="text-sm text-slate-500">Loading case map…</p>
+      {/* Middle section — the Auth page's left brand panel ("We touch a
+          file. We change lives."), reused here as the dashboard's hero
+          instead of the old live map. Desktop/large-screen only, same as
+          on the Auth page. */}
+      <OperationsHeroPanel statPills={statPills} loading={loading} statusCounts={statusCounts} total={stats.totalClaimants} />
+
+      {/* Compact stand-in for anything below `lg`, where the wide gradient
+          hero above is hidden — keeps the page from going blank on
+          tablet/mobile without trying to cram the two-column hero in.
+          Carries the same red/amber/green pin wallpaper at a lighter
+          density so the two versions still feel like one design. */}
+      <div className="relative flex min-h-[40vh] flex-1 flex-col items-center justify-center gap-3 overflow-hidden border border-black/10 bg-white p-8 text-center lg:hidden">
+        <FilePinBackground counts={statusCounts} total={stats.totalClaimants} target={14} />
+        <div className="relative z-10 flex flex-col items-center gap-3">
+          <div className="rounded-full bg-gradient-to-br from-[#00BAAD] to-white p-2 ring-2 ring-[#00BAAD]/40">
+            <img src={logoSrc} alt="Kutlwano & Associate" className="h-14 w-14 object-contain" />
           </div>
-        ) : (
-          <ProvinceLiveMap
-            data={stats.provinceStatusData}
-            loading={loading}
-            className="absolute inset-0 isolate overflow-hidden"
-          />
-        )}
+          <h2 className="text-lg font-bold text-black">We touch a file. We change lives.</h2>
+          <p className="max-w-xs text-sm text-slate-500">
+            The full operations view is available on desktop and large screens. Use the stats above to track today's case load.
+          </p>
+        </div>
       </div>
 
       {/* Overdue alert — flat hairline block, matching the rest of the portal's alert treatment */}
