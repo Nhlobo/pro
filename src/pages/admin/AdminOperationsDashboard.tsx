@@ -26,7 +26,7 @@ const lastYear = currentYear - 1;
  * The mark in the corner of the home page — tilts in 3D toward the cursor.
  * A small "this system is alive" cue on the one page every other screen
  * in the portal returns to. The map below now carries the main branding
- * (logo + live clock on its own dark glass panel), so this stays a quiet
+ * (logo + live clock on its own floating card), so this stays a quiet
  * header accent rather than duplicating that.
  */
 const LiveMark: React.FC = () => {
@@ -130,7 +130,11 @@ const AdminOperationsDashboard: React.FC = () => {
     // full-screen: it's a flex-1 child, so it always eats every pixel left
     // over after the header row and (when present) the alert/drawer below —
     // on every screen size, without a single hard-coded height to fight.
-    <AdminPage className="flex min-h-[calc(100vh-3.5rem)] flex-col">
+    // The 7rem subtracted here is the portal's shared two-row gradient
+    // header above this page (it replaced the old fixed 56px search bar) —
+    // it's an estimate since that header's real height flexes slightly with
+    // content/breakpoint, so this is a floor, not a pixel-perfect match.
+    <AdminPage className="flex min-h-[calc(100vh-7rem)] flex-col">
       {/* Header — same eyebrow/title pattern as every other admin page */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
@@ -155,8 +159,8 @@ const AdminOperationsDashboard: React.FC = () => {
           South Africa, with the brand + live clock living on the map itself. */}
       <div className="relative -mx-3 min-h-[70vh] flex-1 sm:-mx-4 lg:-mx-6">
         {loading ? (
-          <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[#0a0a0a]">
-            <p className="text-sm text-white/60">Loading case map…</p>
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-slate-100">
+            <p className="text-sm text-slate-500">Loading case map…</p>
           </div>
         ) : (
           <ProvinceLiveMap
