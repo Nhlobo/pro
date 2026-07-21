@@ -11,6 +11,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useNotifications, Notification } from '@/hooks/useNotifications';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { formatDistanceToNow } from 'date-fns';
 
 // Map a notification to the page that should open when the user clicks it.
@@ -112,7 +113,9 @@ export const NotificationCenter: React.FC = () => {
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <>
+      <GlassBackdrop show={open} onClick={() => setOpen(false)} zIndex={40} />
+      <Popover open={open} onOpenChange={setOpen}>
 
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
@@ -190,6 +193,7 @@ export const NotificationCenter: React.FC = () => {
           )}
         </ScrollArea>
       </PopoverContent>
-    </Popover>
+      </Popover>
+    </>
   );
 };
