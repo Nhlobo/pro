@@ -28,7 +28,6 @@ import {
   User,
   ChevronLeft,
   Menu,
-  Search,
   ChevronDown,
   Settings,
   Building2,
@@ -282,61 +281,31 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
         {/* Skip to content link — visible on keyboard focus */}
         <a href="#main-content" className="skip-link">Skip to main content</a>
 
-        {/* Top bar — branded gradient on all internal pages except Operations Dashboard */}
-        {location.pathname === '/admin' ? (
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-card/80 px-3 backdrop-blur-sm sm:gap-3 sm:px-4 lg:px-6">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-11 w-11 shrink-0 lg:hidden"
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open menu"
-              aria-expanded={mobileOpen}
-              aria-controls="admin-mobile-sidebar"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-
-            <div className="min-w-0 flex-1">
-              <div className="relative w-full max-w-xs sm:max-w-sm" data-tour="global-search">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <label htmlFor="admin-global-search" className="sr-only">Search</label>
-                <input
-                  id="admin-global-search"
-                  type="search"
-                  placeholder="Search…"
-                  className="h-10 w-full rounded-lg border border-border bg-muted/50 pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                />
-              </div>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-              <div className="hidden sm:block">
-                <TourLauncher steps={ADMIN_TOUR} storageKey={ADMIN_TOUR_KEY} compact />
-              </div>
-              <div data-tour="portal-switcher" className="hidden md:block"><PortalSwitcher /></div>
-              <div data-tour="notifications"><NotificationCenter /></div>
-            </div>
-          </header>
-        ) : (
-          <header className="sticky top-0 z-30 gradient-nav text-white shadow-md">
-            <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 lg:px-6">
-              {/* Row 1: eyebrow + right actions (back, notifications) */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/85 sm:text-xs sm:tracking-[0.28em]">
-                    Medico-Legal Pro
-                  </div>
-                  <h1
-                    className="mt-0.5 break-words font-bold leading-tight text-white
-                               text-[clamp(1.15rem,5.5vw,2rem)] sm:text-[clamp(1.4rem,3.5vw,2.25rem)]"
-                    title={resolvePageTitle(location.pathname)}
-                  >
-                    {resolvePageTitle(location.pathname)}
-                  </h1>
+        {/* Top bar — the same branded teal/blue gradient on every admin page,
+            Operations Dashboard included, so the whole portal shares one
+            header instead of Operations Dashboard having its own separate,
+            search-bar version. */}
+        <header className="sticky top-0 z-30 gradient-nav text-white shadow-md">
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 lg:px-6">
+            {/* Row 1: eyebrow + right actions (back, notifications) */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/85 sm:text-xs sm:tracking-[0.28em]">
+                  Medico-Legal Pro
                 </div>
+                <h1
+                  className="mt-0.5 break-words font-bold leading-tight text-white
+                             text-[clamp(1.15rem,5.5vw,2rem)] sm:text-[clamp(1.4rem,3.5vw,2.25rem)]"
+                  title={resolvePageTitle(location.pathname)}
+                >
+                  {resolvePageTitle(location.pathname)}
+                </h1>
+              </div>
 
-                <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+                {/* Circular on the Operations Dashboard itself — "back to
+                    Operations Dashboard" makes no sense while already on it. */}
+                {location.pathname !== '/admin' && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -350,33 +319,34 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
                     </span>
                     <span className="text-xs font-semibold uppercase tracking-wide sm:hidden">Back</span>
                   </Button>
-                  <div className="hidden sm:block">
-                    <TourLauncher steps={ADMIN_TOUR} storageKey={ADMIN_TOUR_KEY} compact />
-                  </div>
-                  <div data-tour="portal-switcher" className="hidden md:block"><PortalSwitcher /></div>
-                  <div data-tour="notifications"><NotificationCenter /></div>
+                )}
+                <div className="hidden sm:block">
+                  <TourLauncher steps={ADMIN_TOUR} storageKey={ADMIN_TOUR_KEY} compact />
                 </div>
-              </div>
-
-              {/* Row 2: bottom-left hamburger (opens sidebar drawer on mobile/tablet) */}
-              <div className="flex items-center justify-between gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 shrink-0 border border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white lg:hidden"
-                  onClick={() => setMobileOpen(true)}
-                  aria-label="Open navigation menu"
-                  aria-expanded={mobileOpen}
-                  aria-controls="admin-mobile-sidebar"
-                >
-                  <Menu className="h-5 w-5" />
-                </Button>
-                <div className="hidden lg:block" />
-                <div className="h-0.5 flex-1 rounded-full bg-white/15" />
+                <div data-tour="portal-switcher" className="hidden md:block"><PortalSwitcher /></div>
+                <div data-tour="notifications"><NotificationCenter /></div>
               </div>
             </div>
-          </header>
-        )}
+
+            {/* Row 2: bottom-left hamburger (opens sidebar drawer on mobile/tablet) */}
+            <div className="flex items-center justify-between gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 border border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white lg:hidden"
+                onClick={() => setMobileOpen(true)}
+                aria-label="Open navigation menu"
+                aria-expanded={mobileOpen}
+                aria-controls="admin-mobile-sidebar"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+              <div className="hidden lg:block" />
+              <div className="h-0.5 flex-1 rounded-full bg-white/15" />
+            </div>
+          </div>
+        </header>
+
 
         <div className="min-w-0 p-3 sm:p-4 lg:p-6">{children}</div>
       </main>
