@@ -25,8 +25,9 @@ const lastYear = currentYear - 1;
 /**
  * The mark in the corner of the home page — tilts in 3D toward the cursor.
  * A small "this system is alive" cue on the one page every other screen
- * in the portal returns to, and the same mark reappears on the map itself
- * (see ProvinceLiveMap's MapBrandMark) so the two feel like one live surface.
+ * in the portal returns to. The map below now carries the main branding
+ * (logo + live clock on its own dark glass panel), so this stays a quiet
+ * header accent rather than duplicating that.
  */
 const LiveMark: React.FC = () => {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -124,9 +125,13 @@ const AdminOperationsDashboard: React.FC = () => {
   }, [stats.caseTypeData]);
 
   return (
-    <AdminPage>
-      {/* Header — same eyebrow/title pattern as every other admin page, plus
-          the live mark that ties this page to the map below it. */}
+    // `flex flex-col` (on top of AdminPage's default space-y-4/6 rhythm)
+    // plus a viewport-height floor is what makes the map genuinely
+    // full-screen: it's a flex-1 child, so it always eats every pixel left
+    // over after the header row and (when present) the alert/drawer below —
+    // on every screen size, without a single hard-coded height to fight.
+    <AdminPage className="flex min-h-[calc(100vh-3.5rem)] flex-col">
+      {/* Header — same eyebrow/title pattern as every other admin page */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           <LiveMark />
@@ -145,14 +150,22 @@ const AdminOperationsDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* The map is the dashboard — real streets, real pins, everything else floats on top of it */}
-      {loading ? (
-        <div className="flex h-[70vh] max-h-[640px] min-h-[380px] w-full items-center justify-center border border-black/10">
-          <p className="text-sm text-slate-500">Loading case map…</p>
-        </div>
-      ) : (
-        <ProvinceLiveMap data={stats.provinceStatusData} loading={loading} />
-      )}
+      {/* The map is the dashboard — full-screen, edge-to-edge (negative
+          margins cancel the portal's side/bottom padding), dark, locked to
+          South Africa, with the brand + live clock living on the map itself. */}
+      <div className="relative -mx-3 min-h-[70vh] flex-1 sm:-mx-4 lg:-mx-6">
+        {loading ? (
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden bg-[#0a0a0a]">
+            <p className="text-sm text-white/60">Loading case map…</p>
+          </div>
+        ) : (
+          <ProvinceLiveMap
+            data={stats.provinceStatusData}
+            loading={loading}
+            className="absolute inset-0 isolate overflow-hidden"
+          />
+        )}
+      </div>
 
       {/* Overdue alert — flat hairline block, matching the rest of the portal's alert treatment */}
       {stats.overdueReports > 0 && (
