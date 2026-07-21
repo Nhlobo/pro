@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { Clock } from 'lucide-react';
 import type { ProvinceStatusData } from '@/hooks/useDashboardStats';
 
 // NOTE: requires `leaflet` and `react-leaflet`-free usage (raw leaflet only
@@ -8,8 +9,10 @@ import type { ProvinceStatusData } from '@/hooks/useDashboardStats';
 
 const BRAND_TEAL = '#00BAAD';
 // Full wordmark lockup, transparent background, high-resolution — the one
-// legible piece of branding meant to sit large on top of the dark map.
-const logoWordmarkSrc = '/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png';
+// legible piece of branding meant to sit large on top of the map. Drop the
+// file at this exact path/name in the repo (public/lovable-uploads/) and it
+// picks it up automatically — no code change needed.
+const logoWordmarkSrc = '/lovable-uploads/logo-transparent.png';
 
 const STATUS_COLORS = {
   resolved: '#1E9E4A', // green — successful
@@ -94,10 +97,13 @@ interface Props {
 }
 
 /**
- * Ticking clock + date, styled for the dark glass panel. Re-renders once a
- * second off a single interval — the "this is live" cue for the whole page.
+ * Live time, styled the same way as the pill on the Appointment Engine page
+ * (pulsing teal dot + clock icon + monospace time) — one consistent "this is
+ * live" treatment across the portal instead of two different clock designs.
+ * Ticks off a single interval; the date line above it rides the same clock
+ * so both stay in sync and nothing drifts out at midnight.
  */
-const LiveClock: React.FC = () => {
+const MapLiveStatus: React.FC = () => {
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -119,45 +125,39 @@ const LiveClock: React.FC = () => {
   });
 
   return (
-    <div>
-      <div className="flex items-center gap-1.5">
-        <span className="relative flex h-1.5 w-1.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+    <div className="flex flex-col items-start gap-1.5">
+      <p className="text-xs font-medium text-slate-500 sm:text-sm">{date}</p>
+      <div className="flex items-center gap-2 border border-black/10 bg-black/[0.03] px-3 py-1.5">
+        <span className="relative flex h-2 w-2 shrink-0">
+          <span
+            className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
+            style={{ backgroundColor: BRAND_TEAL }}
+          />
+          <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: BRAND_TEAL }} />
         </span>
-        <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-white/60">
-          Live · South Africa
-        </span>
+        <Clock className="h-3.5 w-3.5 text-slate-400" />
+        <span className="font-mono text-sm font-semibold tabular-nums text-black sm:text-base">{time}</span>
       </div>
-      <p className="mt-1.5 font-mono text-3xl font-bold tabular-nums text-white sm:text-4xl">
-        {time}
-      </p>
-      <p className="mt-1 text-sm text-white/70">{date}</p>
     </div>
   );
 };
 
 /**
- * The dark glass brand panel — a piece of the map (roughly half) given over
- * entirely to identity: a black gradient/glassmorphism wash, the full logo
- * lockup sitting large and clear on top of it, and the live clock/date
- * beneath. Sits across the top on narrow screens, down one side on wide
- * ones, so it always reads as "half the map" rather than a corner sticker.
+ * The brand card — a compact floating panel in the map's top-left corner,
+ * not a wash across half the map: the map itself is the background, this is
+ * just identity sitting on top of it. Bigger logo, then date, then the live
+ * clock beneath it, on a frosted white card that stays legible over the
+ * light basemap without hiding the province pins behind it.
  */
 const MapBrandPanel: React.FC = () => (
-  <div
-    className="pointer-events-none absolute inset-x-0 top-0 z-[2] h-[46%] bg-gradient-to-b from-black/85 via-black/55 to-transparent sm:inset-y-0 sm:left-auto sm:right-0 sm:h-full sm:w-1/2 sm:bg-gradient-to-l sm:from-black/85 sm:via-black/60 sm:to-transparent lg:w-[45%] backdrop-blur-[2px]"
-    aria-hidden="true"
-  >
-    <div className="flex h-full w-full flex-col items-start justify-start gap-4 p-4 sm:items-end sm:justify-end sm:p-8 lg:p-10">
+  <div className="pointer-events-none absolute left-3 top-3 z-[2] max-w-[calc(100%-1.5rem)] sm:left-4 sm:top-4">
+    <div className="pointer-events-auto inline-flex max-w-full flex-col items-start gap-2.5 rounded-xl border border-black/10 bg-white/95 p-3 shadow-lg ring-1 ring-black/[0.02] backdrop-blur-md sm:gap-3 sm:p-4">
       <img
         src={logoWordmarkSrc}
         alt="Kutlwano & Associate"
-        className="h-10 w-auto max-w-[220px] object-contain drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] sm:h-14 sm:max-w-[300px] lg:h-16 lg:max-w-[340px]"
+        className="h-14 w-auto max-w-[210px] object-contain sm:h-16 sm:max-w-[260px] lg:h-20 lg:max-w-[300px]"
       />
-      <div className="sm:text-right">
-        <LiveClock />
-      </div>
+      <MapLiveStatus />
     </div>
   </div>
 );
@@ -181,7 +181,12 @@ const ProvinceLiveMap: React.FC<Props> = ({ data, loading, className }) => {
     const map = L.map(mapElRef.current, {
       zoomSnap: 0.05,
       zoomControl: false,
-      attributionControl: true,
+      // Attribution control intentionally off per client request — note for
+      // future maintainers: CARTO/OpenStreetMap's free tiles normally
+      // require on-map attribution under their usage terms, so if this ever
+      // needs to move to heavier/paid traffic, re-check that provider's
+      // current policy before staying attribution-free.
+      attributionControl: false,
       dragging: false,
       scrollWheelZoom: false,
       doubleClickZoom: false,
@@ -191,10 +196,11 @@ const ProvinceLiveMap: React.FC<Props> = ({ data, loading, className }) => {
       inertia: false,
     });
 
-    // CartoDB Dark Matter — dark, low-noise basemap with real streets/terrain.
+    // CartoDB Positron — clean, light basemap with real streets/terrain so
+    // the map itself reads as an airy background instead of a dark slab.
     // Free, no API key. For heavier production traffic, swap for a paid
     // tile provider (MapTiler / Mapbox) with your own key instead.
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
       subdomains: 'abcd',
       maxZoom: 19,
@@ -271,8 +277,8 @@ const ProvinceLiveMap: React.FC<Props> = ({ data, loading, className }) => {
         'relative isolate h-[70vh] max-h-[640px] min-h-[380px] w-full overflow-hidden border border-black/10'
       }
     >
-      {/* Dark-theme overrides for Leaflet's own chrome (tooltips, attribution),
-          scoped to this map only so nothing else in the portal is affected. */}
+      {/* Dark tooltip chrome reads well over both the light basemap and the
+          colored pins, scoped to this map only so nothing else is affected. */}
       <style>{`
         .ops-live-map .leaflet-tooltip {
           background: rgba(10, 10, 10, 0.9);
@@ -283,22 +289,16 @@ const ProvinceLiveMap: React.FC<Props> = ({ data, loading, className }) => {
           box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
         .ops-live-map .leaflet-tooltip-top:before { border-top-color: rgba(10, 10, 10, 0.9); }
-        .ops-live-map .leaflet-control-attribution {
-          background: rgba(0, 0, 0, 0.55);
-          color: rgba(255, 255, 255, 0.55);
-          backdrop-filter: blur(2px);
-        }
-        .ops-live-map .leaflet-control-attribution a { color: rgba(255, 255, 255, 0.75); }
       `}</style>
 
       <div ref={mapElRef} className="ops-live-map h-full w-full" />
 
       <MapBrandPanel />
 
-      {/* Floating KPI strip — glass pills over the map. Sits below the brand
-          panel on phones (panel spans the top there) and beside it on wider
-          screens (panel moves to the right side). */}
-      <div className="pointer-events-none absolute bottom-3 left-3 z-[3] flex flex-wrap gap-2 sm:bottom-auto sm:top-3">
+      {/* Floating KPI strip — glass pills over the map, top-right on every
+          breakpoint so they never fight the brand card (always top-left,
+          and compact now rather than a full-width band on mobile). */}
+      <div className="pointer-events-none absolute right-3 top-3 z-[3] flex flex-wrap justify-end gap-2">
         {STATUS_ORDER.map((key) => {
           const total = (data ?? []).reduce((s, p) => s + p[key], 0);
           return (
@@ -316,7 +316,7 @@ const ProvinceLiveMap: React.FC<Props> = ({ data, loading, className }) => {
 
       {/* Province detail — slides in over the map like a floating card, kept
           to the bottom-left on every screen so it never fights the brand
-          panel (top on mobile, right on desktop) for space. */}
+          card (always top-left) or the KPI strip (always top-right). */}
       {selectedLoc && (
         <div className="absolute bottom-3 left-3 right-3 z-[4] max-w-xs rounded-xl bg-black/80 p-4 text-white shadow-lg ring-1 ring-white/10 backdrop-blur-md sm:right-auto">
           <div className="mb-2 flex items-start justify-between gap-4">
