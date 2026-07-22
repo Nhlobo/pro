@@ -25,6 +25,17 @@ import {
  * only the two buttons below count as a response. Otherwise the countdown
  * could never actually complete (e.g. if the mouse happens to be resting
  * over the page).
+ *
+ * Backgrounded tabs/apps: browsers throttle or fully suspend our interval
+ * while the tab/app is hidden, so it can't reliably notice 15 minutes have
+ * passed while you're away. Worse, the very tap/click used to bring the
+ * app back to the foreground fires as a normal activity event and would
+ * silently reset the clock before the interval ever got a chance to check
+ * it — so the warning would never show even after a long absence. To fix
+ * this, a `visibilitychange` listener checks elapsed idle time the moment
+ * the page becomes visible again, and opens the warning immediately if
+ * we've already blown past the threshold, before any resuming tap can
+ * reset it.
  */
 const IDLE_WARNING_MS = 15 * 60 * 1000;
 const COUNTDOWN_SECONDS = 60;
@@ -44,6 +55,20 @@ const IdleLogoutGuard = () => {
     lastActivityRef.current = Date.now();
   }, []);
 
+  // Runs the instant the tab/app becomes visible again — before any
+  // resuming click/touch event can reach recordActivity and reset the
+  // clock. If we were away for 15+ minutes, show the warning right away
+  // instead of silently letting the resuming tap count as "activity".
+  const checkIdleOnResume = useCallback(() => {
+    if (document.hidden) return;
+    if (warningOpenRef.current) return;
+    const idleFor = Date.now() - lastActivityRef.current;
+    if (idleFor >= IDLE_WARNING_MS) {
+      setSecondsLeft(COUNTDOWN_SECONDS);
+      setWarningOpen(true);
+    }
+  }, []);
+
   const stayActive = useCallback(() => {
     lastActivityRef.current = Date.now();
     setSecondsLeft(COUNTDOWN_SECONDS);
@@ -60,6 +85,7 @@ const IdleLogoutGuard = () => {
     ACTIVITY_EVENTS.forEach((evt) =>
       window.addEventListener(evt, recordActivity, { passive: true })
     );
+    document.addEventListener('visibilitychange', checkIdleOnResume);
 
     const tick = window.setInterval(() => {
       if (!warningOpenRef.current) {
@@ -81,9 +107,10 @@ const IdleLogoutGuard = () => {
 
     return () => {
       ACTIVITY_EVENTS.forEach((evt) => window.removeEventListener(evt, recordActivity));
+      document.removeEventListener('visibilitychange', checkIdleOnResume);
       window.clearInterval(tick);
     };
-  }, [user, recordActivity, signOut]);
+  }, [user, recordActivity, checkIdleOnResume, signOut]);
 
   if (!user) return null;
 
