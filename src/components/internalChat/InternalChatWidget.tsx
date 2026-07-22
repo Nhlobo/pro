@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { MessageSquare, ArrowLeft, Plus, Send, CheckCheck, Megaphone, Users, User, Minus, X, Maximize2 } from 'lucide-react';
+import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { cn } from '@/lib/utils';
 
 export const InternalChatWidget: React.FC = () => {
@@ -44,6 +45,8 @@ export const InternalChatWidget: React.FC = () => {
 
   return (
     <>
+      <GlassBackdrop show={mode === 'open'} onClick={() => setMode('minimized')} zIndex={40} />
+
       {/* Closed: floating action button */}
       {mode === 'closed' && (
         <Button
