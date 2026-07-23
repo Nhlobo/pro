@@ -1,6 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -9,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, Users, ChevronDown, ChevronUp, CalendarIcon, History, MapPin, Home } from "lucide-react";
+import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, Users, ChevronDown, ChevronUp, CalendarIcon, History, MapPin, Home, BarChart3 } from "lucide-react";
 import { Link } from 'react-router-dom';
 import { useSalesIncentives, SalesConsultant, ConsultantStrike, getTargetForConsultant, formatDateOnlyForDisplay } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -19,6 +17,15 @@ import IncentiveTable from '@/components/sales/IncentiveTable';
 import IncentiveRules from '@/components/sales/IncentiveRules';
 import StrikeTracker from '@/components/sales/StrikeTracker';
 import TeamTargetsCard from '@/components/sales/TeamTargetsCard';
+import {
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminPill,
+  AdminStatCard,
+  AdminEmptyState,
+  BRAND_TEAL,
+} from '@/components/admin/ui/AdminUI';
 
 import { RandSign } from "@/components/icons/RandSign";
 const SECTION_KEYS = ['teamTargets', 'incentiveStructure', 'strikeTracker'] as const;
@@ -206,8 +213,11 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-2 border-black/10"
+          style={{ borderTopColor: BRAND_TEAL }}
+        />
       </div>
     );
   }
@@ -216,43 +226,49 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => 
   const showIndividual = !admin || selectedConsultantId !== 'all';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Sales Dashboard</h1>
-          <p className="text-muted-foreground">
-            {admin
-              ? selectedConsultantId === 'all'
-                ? `All Consultants • ${monthName} payout • ${periodLabel}`
-                : `${viewingConsultant?.name || ''} • ${monthName} payout • ${periodLabel}`
-              : `${consultant?.name || 'Loading...'} • ${monthName} payout • ${periodLabel}`
-            }
-          </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/5">
+            <BarChart3 className="h-5 w-5" style={{ color: BRAND_TEAL }} />
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold text-black md:text-2xl">Sales Dashboard</h1>
+            <p className="truncate text-xs text-slate-500 md:text-sm">
+              {admin
+                ? selectedConsultantId === 'all'
+                  ? `All Consultants • ${monthName} payout • ${periodLabel}`
+                  : `${viewingConsultant?.name || ''} • ${monthName} payout • ${periodLabel}`
+                : `${consultant?.name || 'Loading...'} • ${monthName} payout • ${periodLabel}`
+              }
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {!embedded && (
-            <Button asChild variant="outline" size="sm" className="h-9 gap-2">
+            <Button asChild variant="outline" size="sm" className="h-9 gap-2 rounded-none border-black/15">
               <Link to="/">
                 <Home className="h-4 w-4" />
                 Home
               </Link>
             </Button>
           )}
-          <Button asChild variant="outline" size="sm" className="h-9 gap-2">
+          <Button asChild variant="outline" size="sm" className="h-9 gap-2 rounded-none border-black/15">
             <Link to="/availability-heatmap">
               <MapPin className="h-4 w-4" />
-              Availability Heatmap
+              <span className="hidden sm:inline">Availability Heatmap</span>
+              <span className="sm:hidden">Heatmap</span>
             </Link>
           </Button>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("h-9 justify-start gap-2 text-left font-normal", !selectedPayoutDate && "text-muted-foreground")}>
+              <Button variant="outline" className={cn("h-9 justify-start gap-2 rounded-none border-black/15 text-left font-normal", !selectedPayoutDate && "text-muted-foreground")}>
                 <CalendarIcon className="h-4 w-4" />
                 {selectedDateLabel}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
+            <PopoverContent className="w-auto rounded-none p-0" align="end">
               <Calendar
                 mode="single"
                 selected={selectedPayoutDate}
@@ -264,7 +280,7 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => 
           </Popover>
           {admin ? (
             <Select value={selectedConsultantId} onValueChange={setSelectedConsultantId}>
-              <SelectTrigger className="w-[220px] h-9">
+              <SelectTrigger className="h-9 w-[200px] rounded-none border-black/15 sm:w-[220px]">
                 <SelectValue placeholder="Select consultant" />
               </SelectTrigger>
               <SelectContent>
@@ -276,151 +292,193 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => 
             </Select>
           ) : (
             <>
-              <Badge variant="outline" className="capitalize">{consultant?.type || 'N/A'}</Badge>
-              {consultant?.region && <Badge variant="secondary">{consultant.region}</Badge>}
+              <AdminPill tone="neutral" className="capitalize">{consultant?.type || 'N/A'}</AdminPill>
+              {consultant?.region && <AdminPill tone="teal">{consultant.region}</AdminPill>}
             </>
           )}
         </div>
       </div>
 
       {/* Section Visibility Toggles */}
-      <Card>
-        <CardContent className="pt-4 pb-3">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-foreground">Show / Hide Sections</p>
-            {hiddenCount > 0 && (
-              <Badge variant="outline" className="text-[10px]">{hiddenCount} hidden</Badge>
-            )}
+      <AdminCard>
+        <AdminCardBody>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Show / Hide Sections</p>
+            {hiddenCount > 0 && <AdminPill tone="neutral">{hiddenCount} hidden</AdminPill>}
           </div>
           <div className="flex flex-wrap gap-2">
             {SECTION_KEYS.map(key => {
               const visible = sectionVisibility[key];
               return (
-                <Button
+                <button
                   key={key}
-                  size="sm"
-                  variant={visible ? 'default' : 'outline'}
-                  className="h-8 text-xs gap-1.5"
+                  type="button"
                   onClick={() => toggleSection(key)}
+                  className={cn(
+                    'inline-flex h-8 shrink-0 items-center gap-1.5 border px-3 text-xs font-medium transition-colors duration-150',
+                    visible ? 'border-black bg-black text-white' : 'border-black/15 text-slate-600 hover:text-black'
+                  )}
                 >
                   {visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
                   {SECTION_LABELS[key]}
-                </Button>
+                </button>
               );
             })}
           </div>
-        </CardContent>
-      </Card>
+        </AdminCardBody>
+      </AdminCard>
 
       {/* Admin Team Overview Table (when "All Consultants" selected) */}
       {admin && selectedConsultantId === 'all' && (
-        <Card>
-          <CardContent className="pt-4">
-            <div
-              className="flex items-center justify-between cursor-pointer select-none mb-3"
-              onClick={() => setTeamOverviewOpen(!teamOverviewOpen)}
-            >
+        <AdminCard>
+          <AdminCardHeader
+            icon={Users}
+            title={`Team Overview — ${monthName} payout`}
+            description={periodLabel}
+            actions={
               <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold text-foreground">Team Overview — {monthName} payout • {periodLabel}</h3>
-                <Badge variant="outline" className="text-[10px]">{teamData.length} consultants</Badge>
+                <AdminPill tone="neutral">{teamData.length} consultants</AdminPill>
+                <button
+                  type="button"
+                  onClick={() => setTeamOverviewOpen(!teamOverviewOpen)}
+                  className="text-slate-400 transition-colors hover:text-black"
+                  aria-label={teamOverviewOpen ? 'Collapse team overview' : 'Expand team overview'}
+                >
+                  {teamOverviewOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
               </div>
-              {teamOverviewOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-            </div>
+            }
+          />
 
-            {teamOverviewOpen && (
-              <>
-                {/* Summary cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                  <div className="p-3 rounded-lg border bg-muted/30">
-                    <p className="text-[11px] text-muted-foreground">Total Deals</p>
-                    <p className="text-2xl font-bold text-foreground">{teamData.reduce((s, d) => s + d.totalAppts, 0)}</p>
-                  </div>
-                  <div className="p-3 rounded-lg border bg-muted/30">
-                    <p className="text-[11px] text-muted-foreground">Total Earnings</p>
-                    <p className="text-2xl font-bold text-foreground">R{teamData.reduce((s, d) => s + d.totalEarnings, 0).toLocaleString()}</p>
-                  </div>
-                  <div className="p-3 rounded-lg border bg-muted/30">
-                    <p className="text-[11px] text-muted-foreground">Targets Met</p>
-                    <p className="text-2xl font-bold text-foreground">{teamData.filter(d => d.targetMet).length}/{teamData.length}</p>
-                  </div>
-                  <div className="p-3 rounded-lg border bg-muted/30">
-                    <p className="text-[11px] text-muted-foreground">Active Strikes</p>
-                    <p className="text-2xl font-bold text-foreground">{teamData.reduce((s, d) => s + d.activeStrikes, 0)}</p>
-                  </div>
-                </div>
+          {teamOverviewOpen && (
+            <AdminCardBody className="space-y-4">
+              {/* Summary tiles */}
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <AdminStatCard
+                  label="Total Deals"
+                  value={teamData.reduce((s, d) => s + d.totalAppts, 0)}
+                  icon={Briefcase}
+                />
+                <AdminStatCard
+                  label="Total Earnings"
+                  value={`R${teamData.reduce((s, d) => s + d.totalEarnings, 0).toLocaleString()}`}
+                  icon={RandSign}
+                />
+                <AdminStatCard
+                  label="Targets Met"
+                  value={`${teamData.filter(d => d.targetMet).length}/${teamData.length}`}
+                  icon={TrendingUp}
+                />
+                <AdminStatCard
+                  label="Active Strikes"
+                  value={teamData.reduce((s, d) => s + d.activeStrikes, 0)}
+                  icon={AlertTriangle}
+                />
+              </div>
 
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead className="text-xs font-semibold">Consultant</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Type</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">RAF</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Med Neg</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Total Deals</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Earnings</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Strikes</TableHead>
-                        <TableHead className="text-xs font-semibold text-center">Target / Payout</TableHead>
-                        <TableHead className="text-xs font-semibold w-20"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {teamData.length > 0 ? teamData.map(d => (
-                        <TableRow key={d.consultant.id} className="hover:bg-muted/30">
-                          <TableCell className="font-medium text-sm">{d.consultant.name}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="outline" className="text-[10px] capitalize">{d.consultant.type}</Badge>
-                          </TableCell>
-                          <TableCell className="text-center text-sm text-blue-600 dark:text-blue-400 font-medium">{d.rafAppts}</TableCell>
-                          <TableCell className="text-center text-sm text-teal-600 dark:text-teal-400 font-medium">{d.mednegAppts}</TableCell>
-                          <TableCell className="text-center text-sm font-bold">{d.totalAppts}</TableCell>
-                          <TableCell className="text-center text-sm font-medium">R{d.totalEarnings.toLocaleString()}</TableCell>
-                          <TableCell className="text-center">
-                            {d.activeStrikes > 0 ? (
-                              <Badge variant="destructive" className="text-[10px]">{d.activeStrikes}</Badge>
-                            ) : (
-                              <span className="text-xs text-muted-foreground">0</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="text-[10px] text-muted-foreground mb-1">Min {d.target}</div>
-                            {d.targetMet ? (
-                              <Badge variant="default" className="text-[10px]">Met ✓</Badge>
-                            ) : (
-                              <Badge variant="destructive" className="text-[10px]">Not met</Badge>
-                            )}
-                            <div className="mt-1">
-                              <Badge variant={d.payoutUnlocked ? 'secondary' : 'outline'} className="text-[10px]">
-                                Payout {d.payoutUnlocked ? 'on' : `4+`}
-                              </Badge>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 text-xs"
-                              onClick={() => setSelectedConsultantId(d.consultant.id)}
-                            >
-                              View
-                            </Button>
-                          </TableCell>
+              {teamData.length === 0 ? (
+                <AdminEmptyState icon={Users} title="No active sales consultants found" />
+              ) : (
+                <>
+                  {/* Desktop table */}
+                  <div className="hidden overflow-x-auto md:block">
+                    <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
+                      <TableHeader>
+                        <TableRow className="bg-black/[0.02]">
+                          <TableHead>Consultant</TableHead>
+                          <TableHead className="text-center">Type</TableHead>
+                          <TableHead className="text-center">RAF</TableHead>
+                          <TableHead className="text-center">Med Neg</TableHead>
+                          <TableHead className="text-center">Total Deals</TableHead>
+                          <TableHead className="text-center">Earnings</TableHead>
+                          <TableHead className="text-center">Strikes</TableHead>
+                          <TableHead className="text-center">Target / Payout</TableHead>
+                          <TableHead className="w-16" />
                         </TableRow>
-                      )) : (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
-                            No active sales consultants found
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                      </TableHeader>
+                      <TableBody>
+                        {teamData.map(d => (
+                          <TableRow key={d.consultant.id} className="hover:bg-black/[0.02]">
+                            <TableCell className="font-medium text-black">{d.consultant.name}</TableCell>
+                            <TableCell className="text-center">
+                              <AdminPill tone="neutral" className="capitalize">{d.consultant.type}</AdminPill>
+                            </TableCell>
+                            <TableCell className="text-center text-black">{d.rafAppts}</TableCell>
+                            <TableCell className="text-center font-medium" style={{ color: BRAND_TEAL }}>{d.mednegAppts}</TableCell>
+                            <TableCell className="text-center font-bold text-black">{d.totalAppts}</TableCell>
+                            <TableCell className="text-center text-black">R{d.totalEarnings.toLocaleString()}</TableCell>
+                            <TableCell className="text-center">
+                              {d.activeStrikes > 0 ? (
+                                <AdminPill tone="destructive">{d.activeStrikes}</AdminPill>
+                              ) : (
+                                <span className="text-[11px] text-slate-400">0</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="mb-1 text-[10px] text-slate-400">Min {d.target}</div>
+                              <AdminPill tone={d.targetMet ? 'success' : 'warning'}>{d.targetMet ? 'Met' : 'Not met'}</AdminPill>
+                              <div className="mt-1">
+                                <AdminPill tone={d.payoutUnlocked ? 'teal' : 'neutral'}>
+                                  Payout {d.payoutUnlocked ? 'on' : '4+'}
+                                </AdminPill>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 rounded-none text-xs"
+                                onClick={() => setSelectedConsultantId(d.consultant.id)}
+                              >
+                                View
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Mobile cards */}
+                  <div className="divide-y divide-black/10 md:hidden">
+                    {teamData.map(d => (
+                      <button
+                        key={d.consultant.id}
+                        type="button"
+                        onClick={() => setSelectedConsultantId(d.consultant.id)}
+                        className="block w-full py-3 text-left"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-sm font-semibold text-black">{d.consultant.name}</p>
+                          <AdminPill tone="neutral" className="shrink-0 capitalize">{d.consultant.type}</AdminPill>
+                        </div>
+                        <div className="mt-1 flex flex-wrap gap-x-3 text-[11px] text-slate-500">
+                          <span>RAF {d.rafAppts}</span>
+                          <span>Med Neg {d.mednegAppts}</span>
+                          <span className="font-semibold text-black">{d.totalAppts} total</span>
+                        </div>
+                        <div className="mt-1.5 flex items-center justify-between">
+                          <span className="text-[11px] font-medium text-black">R{d.totalEarnings.toLocaleString()}</span>
+                          {d.activeStrikes > 0 ? (
+                            <AdminPill tone="destructive">{d.activeStrikes} strikes</AdminPill>
+                          ) : (
+                            <span className="text-[11px] text-slate-400">0 strikes</span>
+                          )}
+                        </div>
+                        <div className="mt-1.5 flex items-center justify-between">
+                          <AdminPill tone={d.targetMet ? 'success' : 'warning'}>
+                            Min {d.target} · {d.targetMet ? 'Met' : 'Not met'}
+                          </AdminPill>
+                          <span className="text-[11px] font-medium" style={{ color: BRAND_TEAL }}>View →</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </AdminCardBody>
+          )}
+        </AdminCard>
       )}
 
       {/* Individual Consultant View */}
@@ -429,22 +487,26 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => 
           {/* Admin viewing another consultant - show badge */}
           {admin && (
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="capitalize">{viewingConsultant.type}</Badge>
-              {viewingConsultant.region && <Badge variant="secondary">{viewingConsultant.region}</Badge>}
-              <Button size="sm" variant="ghost" className="text-xs ml-auto" onClick={() => setSelectedConsultantId('all')}>
+              <AdminPill tone="neutral" className="capitalize">{viewingConsultant.type}</AdminPill>
+              {viewingConsultant.region && <AdminPill tone="teal">{viewingConsultant.region}</AdminPill>}
+              <button
+                type="button"
+                className="ml-auto text-xs font-medium text-slate-500 hover:text-black"
+                onClick={() => setSelectedConsultantId('all')}
+              >
                 ← Back to Overview
-              </Button>
+              </button>
             </div>
           )}
 
           {canManageStrikes && (
-            <Card>
-              <CardContent className="pt-4 space-y-3">
+            <AdminCard>
+              <AdminCardBody className="space-y-3">
                 <div className="flex flex-col gap-3 md:flex-row md:items-end">
                   <div className="space-y-1 md:w-44">
-                    <p className="text-xs font-medium text-muted-foreground">Strike type</p>
+                    <p className="text-[11px] font-medium text-slate-500">Strike type</p>
                     <Select value={strikeType} onValueChange={(value) => setStrikeType(value as 'verbal' | 'written' | 'dismissal')}>
-                      <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-9 rounded-none border-black/15"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="verbal">Verbal</SelectItem>
                         <SelectItem value="written">Written</SelectItem>
@@ -452,25 +514,26 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => 
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-1 flex-1">
-                    <p className="text-xs font-medium text-muted-foreground">Admin reason</p>
-                    <Textarea value={strikeReason} onChange={(e) => setStrikeReason(e.target.value)} className="min-h-9" />
+                  <div className="flex-1 space-y-1">
+                    <p className="text-[11px] font-medium text-slate-500">Admin reason</p>
+                    <Textarea value={strikeReason} onChange={(e) => setStrikeReason(e.target.value)} className="min-h-9 rounded-none border-black/15" />
                   </div>
                   <Button
                     onClick={() => setPendingStrikeAction({ action: 'issue', type: strikeType, reason: strikeReason || 'Admin override' })}
                     disabled={strikeSaving}
-                    className="md:w-36"
+                    className="rounded-none md:w-36"
                   >
                     Issue Strike
                   </Button>
                 </div>
                 {viewStrikes.length > 0 && (
-                  <div className="flex flex-wrap gap-2 border-t pt-3">
+                  <div className="flex flex-wrap gap-2 border-t border-black/10 pt-3">
                     {viewStrikes.map(strike => (
                       <Button
                         key={strike.id}
                         size="sm"
                         variant="outline"
+                        className="rounded-none border-black/15"
                         disabled={strikeSaving}
                         onClick={() => setPendingStrikeAction({ action: 'override', strike, reason: strikeReason || 'Admin override - strike removed' })}
                       >
@@ -479,219 +542,202 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => 
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </AdminCardBody>
+            </AdminCard>
           )}
 
           {/* Performance Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Deals Closed (Selected Period)</p>
-                    <p className="text-3xl font-bold">{totalAppts}</p>
-                  </div>
-                  <Briefcase className="h-8 w-8 text-primary opacity-70" />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <AdminCard className="min-w-0 overflow-hidden p-3 md:p-4">
+              <div className="flex items-center justify-between">
+                <div className="min-w-0">
+                  <p className="text-[11px] text-slate-500">Deals Closed (Selected Period)</p>
+                  <p className="text-xl font-bold text-black md:text-2xl">{totalAppts}</p>
                 </div>
-                <div className="mt-3 space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Target: {viewingTarget}</span>
-                    <span>{Math.round(progressPct)}%</span>
-                  </div>
-                  <Progress value={progressPct} className="h-2" />
+                <div className="shrink-0 rounded-full bg-black/5 p-2">
+                  <Briefcase className="h-4 w-4" style={{ color: BRAND_TEAL }} />
                 </div>
-                <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
-                  <span className="text-blue-600 dark:text-blue-400 font-medium">RAF: {rafAppts}</span>
-                  <span className="text-teal-600 dark:text-teal-400 font-medium">Med Neg: {mednegAppts}</span>
-                  <span>Payout from {payoutEligibilityTarget}+</span>
+              </div>
+              <div className="mt-3 space-y-1">
+                <div className="flex justify-between text-[11px] text-slate-500">
+                  <span>Target: {viewingTarget}</span>
+                  <span>{Math.round(progressPct)}%</span>
                 </div>
-              </CardContent>
-            </Card>
+                <Progress value={progressPct} className="h-1.5" />
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+                <span className="font-medium text-black">RAF: {rafAppts}</span>
+                <span className="font-medium" style={{ color: BRAND_TEAL }}>Med Neg: {mednegAppts}</span>
+                <span>Payout from {payoutEligibilityTarget}+</span>
+              </div>
+            </AdminCard>
 
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">RAF Earnings</p>
-                    <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                      R{incentive.raf.toLocaleString()}
-                    </p>
-                  </div>
-                  <TrendingUp className="h-8 w-8 text-blue-500 opacity-70" />
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {rafAppts} deals × R{incentive.rafRate?.toLocaleString() || 0}/deal
-                </p>
-              </CardContent>
-            </Card>
+            <AdminStatCard
+              label="RAF Earnings"
+              value={`R${incentive.raf.toLocaleString()}`}
+              icon={TrendingUp}
+              hint={`${rafAppts} deals × R${incentive.rafRate?.toLocaleString() || 0}/deal`}
+            />
 
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Med Neg Earnings</p>
-                    <p className="text-3xl font-bold text-teal-600 dark:text-teal-400">
-                      R{incentive.medneg.toLocaleString()}
-                    </p>
-                  </div>
-                  <Award className="h-8 w-8 text-teal-500 opacity-70" />
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {mednegAppts} deals × R{incentive.mednegRate?.toLocaleString() || 0}/deal
-                </p>
-              </CardContent>
-            </Card>
+            <AdminStatCard
+              label="Med Neg Earnings"
+              value={`R${incentive.medneg.toLocaleString()}`}
+              icon={Award}
+              hint={`${mednegAppts} deals × R${incentive.mednegRate?.toLocaleString() || 0}/deal`}
+            />
 
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Active Strikes</p>
-                    <p className="text-3xl font-bold">{viewStrikes.length}/3</p>
-                  </div>
-                  <AlertTriangle className={`h-8 w-8 opacity-70 ${viewStrikes.length > 0 ? 'text-destructive' : 'text-muted-foreground'}`} />
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {viewStrikes.length === 0 ? 'Good standing' : `${viewStrikes.length} warning(s) active`}
-                </p>
-              </CardContent>
-            </Card>
+            <AdminStatCard
+              label="Active Strikes"
+              value={`${viewStrikes.length}/3`}
+              icon={AlertTriangle}
+              hint={viewStrikes.length === 0 ? 'Good standing' : `${viewStrikes.length} warning(s) active`}
+            />
           </div>
 
           {/* Earnings Breakdown Card */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-2 mb-4">
-                <RandSign className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold text-foreground">
-                  Earnings Breakdown — {monthName} {currentYear}
-                </h3>
-              </div>
-
-              <p className="text-[11px] text-muted-foreground mb-3">
-                Based on <strong>{totalAppts}</strong> scheduled assessment(s) attributed to {admin ? viewingConsultant.name : 'you'} in {periodLabel}
+          <AdminCard>
+            <AdminCardHeader icon={RandSign} title={`Earnings Breakdown — ${monthName} ${currentYear}`} />
+            <AdminCardBody className="space-y-4">
+              <p className="text-[11px] text-slate-500">
+                Based on <span className="font-semibold text-black">{totalAppts}</span> scheduled assessment(s) attributed to {admin ? viewingConsultant.name : 'you'} in {periodLabel}
               </p>
-              
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Appointment Split</p>
-              <div className="grid grid-cols-2 gap-3 mb-5">
-                <div className="p-4 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-800">
-                  <p className="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">RAF Deals</p>
-                  <p className="text-3xl font-bold text-foreground">{rafAppts}</p>
-                  <p className="text-sm text-muted-foreground">
-                    × R{incentive.rafRate?.toLocaleString() || 0} = <span className="font-semibold text-blue-600 dark:text-blue-400">R{incentive.raf.toLocaleString()}</span>
-                  </p>
-                </div>
-                <div className="p-4 rounded-lg border border-teal-200 bg-teal-50 dark:bg-teal-950/30 dark:border-teal-800">
-                  <p className="text-xs font-medium text-teal-600 dark:text-teal-400 mb-1">Med Neg Deals</p>
-                  <p className="text-3xl font-bold text-foreground">{mednegAppts}</p>
-                  <p className="text-sm text-muted-foreground">
-                    × R{incentive.mednegRate?.toLocaleString() || 0} = <span className="font-semibold text-teal-600 dark:text-teal-400">R{incentive.medneg.toLocaleString()}</span>
-                  </p>
+
+              <div>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Appointment Split</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="border border-black/10 p-3">
+                    <p className="mb-1 text-[11px] font-medium text-slate-500">RAF Deals</p>
+                    <p className="text-2xl font-bold text-black">{rafAppts}</p>
+                    <p className="text-xs text-slate-500">
+                      × R{incentive.rafRate?.toLocaleString() || 0} = <span className="font-semibold text-black">R{incentive.raf.toLocaleString()}</span>
+                    </p>
+                  </div>
+                  <div className="border border-black/10 p-3">
+                    <p className="mb-1 text-[11px] font-medium text-slate-500">Med Neg Deals</p>
+                    <p className="text-2xl font-bold text-black">{mednegAppts}</p>
+                    <p className="text-xs text-slate-500">
+                      × R{incentive.mednegRate?.toLocaleString() || 0} = <span className="font-semibold" style={{ color: BRAND_TEAL }}>R{incentive.medneg.toLocaleString()}</span>
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Total Payout</p>
-              <p className="text-3xl font-bold text-foreground">R{incentive.total.toLocaleString()}</p>
-              <p className="text-sm text-muted-foreground mb-3">
-                Incentive tier: {incentive.label} • Based on {totalAppts} closed deal(s)
-              </p>
-              <div className="flex items-center gap-4 text-sm">
-                <span>
-                  Target: {totalAppts >= viewingTarget ? (
-                    <Badge variant="default" className="ml-1">Met ✓</Badge>
-                  ) : (
-                    <Badge variant="destructive" className="ml-1">Not met ✕</Badge>
-                  )}
-                </span>
-                <span>
-                  Incentive: {payoutUnlocked ? (
-                    <span className="font-medium text-primary">Unlocked</span>
-                  ) : (
-                    <span className="font-medium text-muted-foreground">Locked</span>
-                  )}
-                </span>
+              <div>
+                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total Payout</p>
+                <p className="text-3xl font-bold text-black">R{incentive.total.toLocaleString()}</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Incentive tier: {incentive.label} • Based on {totalAppts} closed deal(s)
+                </p>
               </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">Closed deal details</h3>
-                  <p className="text-xs text-muted-foreground">{periodLabel} • allocated by scheduled assessment consultant</p>
-                </div>
-                <Badge variant="outline">{visibleDeals.length} deals</Badge>
+              <div className="flex flex-wrap items-center gap-2 border-t border-black/10 pt-3 text-xs text-slate-500">
+                <span>Target:</span>
+                <AdminPill tone={totalAppts >= viewingTarget ? 'success' : 'destructive'}>
+                  {totalAppts >= viewingTarget ? 'Met' : 'Not met'}
+                </AdminPill>
+                <span className="ml-3">Incentive:</span>
+                <AdminPill tone={payoutUnlocked ? 'teal' : 'neutral'}>
+                  {payoutUnlocked ? 'Unlocked' : 'Locked'}
+                </AdminPill>
               </div>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead className="text-xs font-semibold">Closed</TableHead>
-                      <TableHead className="text-xs font-semibold">Claimant</TableHead>
-                      <TableHead className="text-xs font-semibold">Matter</TableHead>
-                      <TableHead className="text-xs font-semibold">Referring Attorney</TableHead>
-                      <TableHead className="text-xs font-semibold">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {visibleDeals.length > 0 ? visibleDeals.map(deal => (
-                      <TableRow key={deal.appointment_id}>
-                        <TableCell className="text-sm">{new Date(deal.closed_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</TableCell>
-                        <TableCell className="text-sm font-medium">{deal.claimant_name}<span className="block text-[11px] text-muted-foreground">{deal.claimant_auto_id}</span></TableCell>
-                        <TableCell className="text-sm">{deal.matter_type || 'RAF'}</TableCell>
-                        <TableCell className="text-sm">{deal.referring_attorney}</TableCell>
-                        <TableCell><Badge variant="secondary" className="text-[10px]">{deal.payment_status || 'Payment Received'}</Badge></TableCell>
+            </AdminCardBody>
+          </AdminCard>
+
+          {/* Closed deal details */}
+          <AdminCard>
+            <AdminCardHeader
+              icon={Briefcase}
+              title="Closed deal details"
+              description={`${periodLabel} • allocated by scheduled assessment consultant`}
+              actions={<AdminPill tone="neutral">{visibleDeals.length} deals</AdminPill>}
+            />
+            {visibleDeals.length === 0 ? (
+              <AdminEmptyState icon={Briefcase} title="No closed scheduled assessments found" description="Nothing has been allocated to this period yet." />
+            ) : (
+              <>
+                {/* Desktop table */}
+                <div className="hidden overflow-x-auto md:block">
+                  <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
+                    <TableHeader>
+                      <TableRow className="bg-black/[0.02]">
+                        <TableHead>Closed</TableHead>
+                        <TableHead>Claimant</TableHead>
+                        <TableHead>Matter</TableHead>
+                        <TableHead>Referring Attorney</TableHead>
+                        <TableHead>Status</TableHead>
                       </TableRow>
-                    )) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">No closed scheduled assessments found for this period</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between gap-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <History className="h-5 w-5 text-primary" />
-                  <h3 className="text-lg font-semibold text-foreground">Strike and override history</h3>
+                    </TableHeader>
+                    <TableBody>
+                      {visibleDeals.map(deal => (
+                        <TableRow key={deal.appointment_id} className="hover:bg-black/[0.02]">
+                          <TableCell className="text-slate-500">{new Date(deal.closed_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}</TableCell>
+                          <TableCell className="font-medium text-black">
+                            {deal.claimant_name}
+                            <span className="block text-[11px] text-slate-400">{deal.claimant_auto_id}</span>
+                          </TableCell>
+                          <TableCell className="text-slate-500">{deal.matter_type || 'RAF'}</TableCell>
+                          <TableCell className="text-slate-500">{deal.referring_attorney}</TableCell>
+                          <TableCell><AdminPill tone="success">{deal.payment_status || 'Payment Received'}</AdminPill></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-                <Badge variant="outline">{viewStrikeHistory.length} actions</Badge>
-              </div>
-              <div className="space-y-3">
-                {viewStrikeHistory.length > 0 ? viewStrikeHistory.map(item => (
-                  <div key={item.id} className="rounded-md border bg-muted/30 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={item.action === 'issued' ? 'destructive' : 'secondary'} className="capitalize">
-                          {item.action}
-                        </Badge>
-                        {item.strike_type && <span className="text-sm font-semibold capitalize text-foreground">{item.strike_type} strike</span>}
+
+                {/* Mobile cards */}
+                <div className="divide-y divide-black/10 md:hidden">
+                  {visibleDeals.map(deal => (
+                    <div key={deal.appointment_id} className="p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-black">{deal.claimant_name}</p>
+                          <p className="text-[11px] text-slate-400">{deal.claimant_auto_id}</p>
+                        </div>
+                        <AdminPill tone="success" className="shrink-0">{deal.payment_status || 'Paid'}</AdminPill>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(item.created_at).toLocaleString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                      <p className="mt-1.5 text-[11px] text-slate-500">{deal.matter_type || 'RAF'} · {deal.referring_attorney}</p>
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        Closed {new Date(deal.closed_date).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
+                      </p>
                     </div>
-                    <div className="mt-2 grid gap-1 text-xs text-muted-foreground md:grid-cols-2">
-                      <p>Performed by: <span className="font-medium text-foreground">{item.performed_by_name || 'Admin user'}</span></p>
-                      <p>Payout: <span className="font-medium text-foreground">{item.payout_month && item.payout_year ? `${new Date(item.payout_year, item.payout_month - 1).toLocaleString('en-ZA', { month: 'long' })} ${item.payout_year}` : 'Not linked'}</span></p>
+                  ))}
+                </div>
+              </>
+            )}
+          </AdminCard>
+
+          {/* Strike / override history */}
+          <AdminCard>
+            <AdminCardHeader
+              icon={History}
+              title="Strike and override history"
+              actions={<AdminPill tone="neutral">{viewStrikeHistory.length} actions</AdminPill>}
+            />
+            <AdminCardBody className="space-y-3">
+              {viewStrikeHistory.length > 0 ? viewStrikeHistory.map(item => (
+                <div key={item.id} className="border border-black/10 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <AdminPill tone={item.action === 'issued' ? 'destructive' : 'success'} className="capitalize">
+                        {item.action}
+                      </AdminPill>
+                      {item.strike_type && <span className="text-sm font-semibold capitalize text-black">{item.strike_type} strike</span>}
                     </div>
-                    {item.reason && <p className="mt-2 text-sm text-foreground break-words">{item.reason}</p>}
+                    <span className="text-[11px] text-slate-400">
+                      {new Date(item.created_at).toLocaleString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </span>
                   </div>
-                )) : (
-                  <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-                    No strike or override history recorded for this consultant.
+                  <div className="mt-2 grid gap-1 text-[11px] text-slate-500 md:grid-cols-2">
+                    <p>Performed by: <span className="font-medium text-black">{item.performed_by_name || 'Admin user'}</span></p>
+                    <p>Payout: <span className="font-medium text-black">{item.payout_month && item.payout_year ? `${new Date(item.payout_year, item.payout_month - 1).toLocaleString('en-ZA', { month: 'long' })} ${item.payout_year}` : 'Not linked'}</span></p>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  {item.reason && <p className="mt-2 text-xs text-black break-words">{item.reason}</p>}
+                </div>
+              )) : (
+                <AdminEmptyState icon={History} title="No strike or override history" description="Nothing has been recorded for this consultant yet." />
+              )}
+            </AdminCardBody>
+          </AdminCard>
         </>
       )}
 
@@ -706,7 +752,7 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => 
 
       {/* Incentive Structure & Rules Side by Side */}
       {sectionVisibility.incentiveStructure && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 md:gap-6">
           <IncentiveTable
             tiers={tiers}
             isAdmin={admin}
@@ -717,19 +763,19 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => 
       )}
 
       {/* Strike Tracker */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {sectionVisibility.strikeTracker && (
+      {sectionVisibility.strikeTracker && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 md:gap-6">
           <StrikeTracker
             strikes={viewingConsultant
               ? (allStrikes.length > 0 ? allStrikes : strikes).filter(s => s.consultant_id === viewingConsultant.id)
               : strikes
             }
           />
-        )}
-      </div>
+        </div>
+      )}
 
       <AlertDialog open={!!pendingStrikeAction} onOpenChange={(open) => !open && setPendingStrikeAction(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-none">
           <AlertDialogHeader>
             <AlertDialogTitle>
               Confirm {pendingStrikeAction?.action === 'override' ? 'strike override' : 'strike issuance'}
@@ -739,17 +785,17 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => 
             </AlertDialogDescription>
           </AlertDialogHeader>
           {pendingStrikeAction && viewingConsultant && (
-            <div className="space-y-3 rounded-md border bg-muted/30 p-4 text-sm">
-              <div className="flex justify-between gap-4"><span className="text-muted-foreground">Consultant</span><span className="font-medium text-right">{viewingConsultant.name}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-muted-foreground">Payout period</span><span className="font-medium text-right">{monthName} payout • {periodLabel}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-muted-foreground">Action</span><span className="font-medium text-right capitalize">{pendingStrikeAction.action}</span></div>
-              <div className="flex justify-between gap-4"><span className="text-muted-foreground">Strike type</span><span className="font-medium text-right capitalize">{pendingStrikeAction.action === 'issue' ? pendingStrikeAction.type : pendingStrikeAction.strike.type}</span></div>
-              <div className="space-y-1"><span className="text-muted-foreground">Selected reason</span><p className="font-medium text-foreground break-words">{pendingStrikeAction.reason}</p></div>
+            <div className="space-y-3 border border-black/10 bg-black/[0.02] p-4 text-sm">
+              <div className="flex justify-between gap-4"><span className="text-slate-500">Consultant</span><span className="text-right font-medium text-black">{viewingConsultant.name}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-slate-500">Payout period</span><span className="text-right font-medium text-black">{monthName} payout • {periodLabel}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-slate-500">Action</span><span className="text-right font-medium capitalize text-black">{pendingStrikeAction.action}</span></div>
+              <div className="flex justify-between gap-4"><span className="text-slate-500">Strike type</span><span className="text-right font-medium capitalize text-black">{pendingStrikeAction.action === 'issue' ? pendingStrikeAction.type : pendingStrikeAction.strike.type}</span></div>
+              <div className="space-y-1"><span className="text-slate-500">Selected reason</span><p className="break-words font-medium text-black">{pendingStrikeAction.reason}</p></div>
             </div>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={strikeSaving}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmPendingStrikeAction} disabled={strikeSaving}>
+            <AlertDialogCancel disabled={strikeSaving} className="rounded-none">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPendingStrikeAction} disabled={strikeSaving} className="rounded-none">
               Confirm Submit
             </AlertDialogAction>
           </AlertDialogFooter>
