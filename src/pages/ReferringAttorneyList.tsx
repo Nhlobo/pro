@@ -24,6 +24,8 @@ import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { usePermissions } from "@/hooks/usePermissions";
+import { AdminPagination, AdminEmptyState } from "@/components/admin/ui/AdminUI";
+import { cn } from "@/lib/utils";
 
 type ReferringAttorney = {
   id: string;
@@ -53,6 +55,8 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [attorneyToDelete, setAttorneyToDelete] = useState<ReferringAttorney | null>(null);
   const [duplicateNames, setDuplicateNames] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 12;
 
   useEffect(() => {
     fetchAttorneys();
@@ -138,6 +142,12 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
     (attorney.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (attorney.province || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
+  const totalPages = Math.max(1, Math.ceil(filteredAttorneys.length / PAGE_SIZE));
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pageEnd = pageStart + PAGE_SIZE;
+  const pagedAttorneys = embedded ? filteredAttorneys.slice(pageStart, pageEnd) : filteredAttorneys;
 
   const getMatterTypeBadge = (matterType: string) => {
     switch (matterType) {
@@ -228,103 +238,202 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
         </div>
       </CardHeader>
       <CardContent className={embedded ? "p-0" : undefined}>
-        <div className="overflow-x-auto">
-          <Table className={embedded ? "text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]" : undefined}>
-            <TableHeader className={embedded ? "sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]" : undefined}>
-              <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Referring Attorney Name</TableHead>
-                <TableHead>Contact Person</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Province</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Date Captured</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">
-                    Loading attorneys...
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredAttorneys.map((attorney) => (
-                  <TableRow key={attorney.id} className={`${isDuplicateName(attorney.name) ? "bg-destructive/5" : embedded ? "hover:bg-black/[0.02]" : ""}`}>
-                    <TableCell className="font-medium">{attorney.code}</TableCell>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
+        {embedded ? (
+          // Paginated card list — every attorney's details stay fully
+          // readable on a phone without a sideways-scrolling 9-column
+          // table, and pagination keeps this from turning into an
+          // endless vertical scroll once the directory grows.
+          loading ? (
+            <div className="space-y-2 p-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-20 animate-pulse bg-black/[0.03]" />
+              ))}
+            </div>
+          ) : pagedAttorneys.length === 0 ? (
+            <AdminEmptyState
+              icon={Building2}
+              title="No referring attorneys found"
+              description={searchTerm ? "Try adjusting your search terms." : "Attorneys you add will appear here."}
+            />
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-px bg-black/10 p-px sm:grid-cols-2 xl:grid-cols-3">
+                {pagedAttorneys.map((attorney) => (
+                  <div
+                    key={attorney.id}
+                    className={cn(
+                      "flex flex-col gap-2.5 bg-white p-4 transition-colors hover:bg-black/[0.02]",
+                      isDuplicateName(attorney.name) && "bg-destructive/5"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-1.5">
                         {isDuplicateName(attorney.name) && (
-                          <span className="text-destructive text-lg" title="Exact duplicate name detected - please correct or delete one entry">
-                            🚩
+                          <span className="text-destructive" title="Exact duplicate name detected — please correct or delete one entry">🚩</span>
+                        )}
+                        <span className="truncate font-semibold text-black">{attorney.name}</span>
+                      </div>
+                      <span className="shrink-0 text-[11px] font-medium text-slate-400">{attorney.code}</span>
+                    </div>
+
+                    <div className="space-y-1 text-xs text-slate-500">
+                      <div className="truncate"><span className="text-slate-400">Contact </span>{attorney.contact_person || '–'}</div>
+                      <div className="flex items-center gap-1.5">
+                        <SecureDataDisplay
+                          data={attorney.phone_masked}
+                          type="phone"
+                          label=""
+                          showIcon={false}
+                          requiresPermission="view_referring_attorney_contacts"
+                          className="text-xs"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5 truncate">
+                        <SecureDataDisplay
+                          data={attorney.email_masked}
+                          type="email"
+                          label=""
+                          showIcon={false}
+                          requiresPermission="view_referring_attorney_contacts"
+                          className="text-xs"
+                        />
+                      </div>
+                      <div className="truncate"><span className="text-slate-400">Province </span>{attorney.province || '–'}</div>
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-black/5 pt-2.5">
+                      <div className="flex items-center gap-2">
+                        {getRoleBadge(attorney.attorney_role)}
+                        {attorney.created_at && (
+                          <span className="flex items-center gap-1 text-[11px] text-slate-400">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(attorney.created_at), 'dd/MM/yy')}
                           </span>
                         )}
-                        <span>{attorney.name}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>{attorney.contact_person}</TableCell>
-                    <TableCell>
-                      <SecureDataDisplay
-                        data={attorney.phone_masked}
-                        type="phone"
-                        label=""
-                        showIcon={false}
-                        requiresPermission="view_referring_attorney_contacts"
-                        className="text-sm"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <SecureDataDisplay
-                        data={attorney.email_masked}
-                        type="email"
-                        label=""
-                        showIcon={false}
-                        requiresPermission="view_referring_attorney_contacts"
-                        className="text-sm"
-                      />
-                    </TableCell>
-                    <TableCell>{attorney.province}</TableCell>
-                    <TableCell>
-                      {getRoleBadge(attorney.attorney_role)}
-                    </TableCell>
-                    <TableCell>
-                      {attorney.created_at && (
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          {format(new Date(attorney.created_at), 'dd/MM/yyyy HH:mm')}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(attorney.id)}
-                        >
-                          <Pencil className="h-4 w-4" />
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEdit(attorney.id)}>
+                          <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         {isAdmin() && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteClick(attorney)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleDeleteClick(attorney)}>
+                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
                           </Button>
                         )}
                       </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <AdminPagination
+                page={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={filteredAttorneys.length}
+                startIndex={pageStart}
+                endIndex={pageEnd}
+              />
+            </>
+          )
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Referring Attorney Name</TableHead>
+                  <TableHead>Contact Person</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Province</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Date Captured</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="text-center py-8">
+                      Loading attorneys...
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-        
-        {filteredAttorneys.length === 0 && !loading && (
+                ) : (
+                  filteredAttorneys.map((attorney) => (
+                    <TableRow key={attorney.id} className={isDuplicateName(attorney.name) ? "bg-destructive/5" : ""}>
+                      <TableCell className="font-medium">{attorney.code}</TableCell>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {isDuplicateName(attorney.name) && (
+                            <span className="text-destructive text-lg" title="Exact duplicate name detected - please correct or delete one entry">
+                              🚩
+                            </span>
+                          )}
+                          <span>{attorney.name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{attorney.contact_person}</TableCell>
+                      <TableCell>
+                        <SecureDataDisplay
+                          data={attorney.phone_masked}
+                          type="phone"
+                          label=""
+                          showIcon={false}
+                          requiresPermission="view_referring_attorney_contacts"
+                          className="text-sm"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <SecureDataDisplay
+                          data={attorney.email_masked}
+                          type="email"
+                          label=""
+                          showIcon={false}
+                          requiresPermission="view_referring_attorney_contacts"
+                          className="text-sm"
+                        />
+                      </TableCell>
+                      <TableCell>{attorney.province}</TableCell>
+                      <TableCell>
+                        {getRoleBadge(attorney.attorney_role)}
+                      </TableCell>
+                      <TableCell>
+                        {attorney.created_at && (
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {format(new Date(attorney.created_at), 'dd/MM/yyyy HH:mm')}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(attorney.id)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          {isAdmin() && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteClick(attorney)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {!embedded && filteredAttorneys.length === 0 && !loading && (
           <div className="text-center py-8 text-muted-foreground">
             No referring attorneys found. {searchTerm && "Try adjusting your search terms."}
           </div>
