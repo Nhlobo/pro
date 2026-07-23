@@ -1,10 +1,11 @@
 // src/pages/admin/AdminAttorneyCRM.tsx
-import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from '@/components/ui/carousel';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Users,
@@ -17,16 +18,16 @@ import {
   GitMerge,
   CheckCircle,
   BarChart3,
+  MapPin,
+  ChevronRight,
 } from 'lucide-react';
 import MergeAttorneyDialog from '@/components/MergeAttorneyDialog';
 import { usePermissions } from '@/hooks/usePermissions';
 import { RandSign } from '@/components/icons/RandSign';
 import {
   AdminPage,
-  AdminHeader,
   AdminCard,
   AdminCardHeader,
-  AdminCardBody,
   AdminPill,
   AdminEmptyState,
   AdminTabList,
@@ -62,6 +63,11 @@ const TabFallback = () => (
   </div>
 );
 
+// Fade + rise-in whenever a tab becomes active — a light-weight "slide"
+// feel between panels without pulling in an animation library.
+const TAB_CONTENT_CLASS =
+  'mt-0 focus-visible:outline-none data-[state=active]:animate-in data-[state=active]:fade-in data-[state=active]:slide-in-from-bottom-1 data-[state=active]:duration-300';
+
 type TierKey = 'all' | 'preferred' | 'active' | 'occasional' | 'new';
 
 const assignTier = (index: number, total: number): TierKey => {
@@ -96,15 +102,101 @@ const hashOf = (id: string): number => {
 };
 const scoreForId = (id: string) => 70 + (hashOf(id) % 30);
 
-const PAGE_SIZE = 25;
+/** Cards-per-slide adapts to viewport so a "page" of the carousel never
+ *  needs its own internal scroll — swipe/arrow moves to the next page
+ *  instead of scrolling a tall table or list. */
+const usePageSize = () => {
+  const compute = () => {
+    if (typeof window === 'undefined') return 6;
+    if (window.matchMedia('(min-width: 1024px)').matches) return 9;
+    if (window.matchMedia('(min-width: 640px)').matches) return 6;
+    return 4;
+  };
+  const [size, setSize] = useState(compute);
+  useEffect(() => {
+    const mqs = [window.matchMedia('(min-width: 1024px)'), window.matchMedia('(min-width: 640px)')];
+    const onChange = () => setSize(compute());
+    mqs.forEach((mq) => mq.addEventListener('change', onChange));
+    return () => mqs.forEach((mq) => mq.removeEventListener('change', onChange));
+  }, []);
+  return size;
+};
 
-const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
+type TieredAttorney = AttorneyRow & { tier: TierKey };
+
+const AttorneyCard: React.FC<{ attorney: TieredAttorney; onOpen: (id: string) => void }> = ({ attorney, onOpen }) => {
+  const meta = TIER_META[attorney.tier as Exclude<TierKey, 'all'>];
+  const score = scoreForId(attorney.id);
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(attorney.id)}
+      aria-label={`Open ${attorney.name}`}
+      className="group flex h-full w-full flex-col gap-2.5 border border-black/10 bg-white p-3.5 text-left transition-colors hover:border-black/25 hover:bg-black/[0.015] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00BAAD]/40"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5">
+            <Building2 className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-black">{attorney.name}</p>
+            <p className="truncate text-[11px] text-slate-500">{attorney.contact_person || 'No contact on file'}</p>
+          </div>
+        </div>
+        <ChevronRight className="mt-1.5 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500" />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        <AdminPill tone={TIER_PILL_TONE[attorney.tier]}>{meta.label}</AdminPill>
+        <AdminPill tone="success">
+          <RandSign className="mr-0.5 h-3 w-3" />
+          Paid
+        </AdminPill>
+      </div>
+
+      <div className="mt-auto flex items-center justify-between gap-2 border-t border-black/5 pt-2 text-[11px] text-slate-500">
+        <span className="inline-flex min-w-0 items-center gap-1">
+          <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
+          <span className="truncate">{attorney.province || 'No province on file'}</span>
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-1">
+          <TrendingUp className="h-3 w-3 text-emerald-600" />
+          <span className="font-medium text-emerald-700">{score}</span>
+        </span>
+      </div>
+    </button>
+  );
+};
+
+const AttorneyCardGridSkeleton: React.FC<{ count: number }> = ({ count }) => (
+  <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+    {Array.from({ length: count }).map((_, i) => (
+      <div key={i} className="space-y-3 border border-black/10 p-3.5">
+        <div className="flex items-center gap-2.5">
+          <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Skeleton className="h-3.5 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        </div>
+        <Skeleton className="h-5 w-2/3" />
+        <Skeleton className="h-3 w-full" />
+      </div>
+    ))}
+  </div>
+);
+
+const CRMOverview: React.FC<{ hideList?: boolean }> = ({ hideList }) => {
+  const navigate = useNavigate();
   const [attorneys, setAttorneys] = useState<AttorneyRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedTier, setSelectedTier] = useState<TierKey>('all');
   const [showMergeDialog, setShowMergeDialog] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [api, setApi] = useState<CarouselApi>();
+  const [slideIndex, setSlideIndex] = useState(0);
+  const pageSize = usePageSize();
 
   const fetchAttorneys = async () => {
     const { data } = await supabase
@@ -118,7 +210,7 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
   useEffect(() => { fetchAttorneys(); }, []);
 
   const attorneyTiers = useMemo(
-    () => attorneys.map((a, i) => ({ ...a, tier: assignTier(i, attorneys.length) })),
+    (): TieredAttorney[] => attorneys.map((a, i) => ({ ...a, tier: assignTier(i, attorneys.length) })),
     [attorneys]
   );
 
@@ -139,16 +231,41 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
     });
   }, [attorneyTiers, search, selectedTier]);
 
-  useEffect(() => { setCurrentPage(1); }, [search, selectedTier]);
+  const pages = useMemo(() => {
+    if (filtered.length === 0) return [[] as TieredAttorney[]];
+    const chunks: TieredAttorney[][] = [];
+    for (let i = 0; i < filtered.length; i += pageSize) chunks.push(filtered.slice(i, i + pageSize));
+    return chunks;
+  }, [filtered, pageSize]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const startIndex = (currentPage - 1) * PAGE_SIZE;
-  const endIndex = startIndex + PAGE_SIZE;
-  const paginated = useMemo(() => filtered.slice(startIndex, endIndex), [filtered, startIndex, endIndex]);
+  // Whenever the underlying set of pages changes (search, tier filter,
+  // viewport-driven page size, or fresh data), snap the carousel back to
+  // the first slide and let it re-measure its slide count.
+  useEffect(() => {
+    if (!api) return;
+    api.reInit();
+    api.scrollTo(0);
+    setSlideIndex(0);
+  }, [pages, api]);
+
+  useEffect(() => {
+    if (!api) return;
+    const onSelect = () => setSlideIndex(api.selectedScrollSnap());
+    onSelect();
+    api.on('select', onSelect);
+    api.on('reInit', onSelect);
+    return () => { api.off('select', onSelect); };
+  }, [api]);
+
+  const openAttorney = useCallback((id: string) => navigate(`/referring-attorney/${id}`), [navigate]);
+
+  const totalPages = pages.length;
+  const startIndex = slideIndex * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filtered.length);
 
   return (
     <div className="mt-4 space-y-4">
-      {/* Tier tiles — click to filter the table below */}
+      {/* Tier tiles — click to filter the list below */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {(Object.keys(TIER_META) as Exclude<TierKey, 'all'>[]).map((key) => {
           const meta = TIER_META[key];
@@ -176,7 +293,7 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
         })}
       </div>
 
-      {!hideTable && (
+      {!hideList && (
         <>
           <MergeAttorneyDialog
             open={showMergeDialog}
@@ -214,72 +331,38 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
               }
             />
             {loading ? (
-              <div className="space-y-2 p-4">
-                {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
-              </div>
-            ) : paginated.length === 0 ? (
+              <AttorneyCardGridSkeleton count={pageSize} />
+            ) : filtered.length === 0 ? (
               <AdminEmptyState
                 icon={Building2}
                 title="No attorneys found"
                 description="Try a different search term or clear the tier filter."
               />
             ) : (
-              <div className="overflow-x-auto">
-                <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
-                  <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
-                    <TableRow>
-                      <TableHead>Firm</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Province</TableHead>
-                      <TableHead>Tier</TableHead>
-                      <TableHead>Score</TableHead>
-                      <TableHead>Deposit</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginated.map((a) => {
-                      const meta = TIER_META[a.tier as Exclude<TierKey, 'all'>];
-                      const score = scoreForId(a.id);
-                      return (
-                        <TableRow key={a.id} className="hover:bg-black/[0.02]">
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
-                              <span className="font-medium text-black">{a.name}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-slate-500">{a.contact_person || '–'}</TableCell>
-                          <TableCell className="text-slate-500">{a.province || '–'}</TableCell>
-                          <TableCell>
-                            <AdminPill tone={TIER_PILL_TONE[a.tier]}>{meta.label}</AdminPill>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <TrendingUp className="h-3 w-3 text-emerald-600" />
-                              <span className="font-medium text-emerald-700">{score}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <AdminPill tone="success">
-                              <RandSign className="mr-0.5 h-3 w-3" />
-                              Paid
-                            </AdminPill>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+              <Carousel setApi={setApi} opts={{ align: 'start', watchDrag: totalPages > 1 }} className="w-full">
+                <CarouselContent className="-ml-0">
+                  {pages.map((page, pageIdx) => (
+                    <CarouselItem key={pageIdx} className="basis-full pl-0">
+                      <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {page.map((a) => (
+                          <AttorneyCard key={a.id} attorney={a} onOpen={openAttorney} />
+                        ))}
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+              </Carousel>
             )}
-            <AdminPagination
-              page={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-              totalItems={filtered.length}
-              startIndex={startIndex}
-              endIndex={endIndex}
-            />
+            {!loading && filtered.length > 0 && (
+              <AdminPagination
+                page={slideIndex + 1}
+                totalPages={totalPages}
+                onPageChange={(p) => api?.scrollTo(p - 1)}
+                totalItems={filtered.length}
+                startIndex={startIndex}
+                endIndex={endIndex}
+              />
+            )}
           </AdminCard>
         </>
       )}
@@ -340,26 +423,27 @@ const AdminAttorneyCRM: React.FC = () => {
 
   return (
     <AdminPage className="max-w-7xl">
-      <AdminHeader
-        eyebrow="Relationships"
-        title="Attorney CRM"
-        description="Attorneys, claimants, outreach & pitchlog management"
-        icon={Users}
-        actions={
-          closedDealsCount > 0 ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClosedDealsClick}
-              className="rounded-none border-black/15"
-            >
-              <CheckCircle className="mr-1.5 h-4 w-4 text-emerald-600" />
-              <span className="font-semibold">{closedDealsCount}</span>
-              <span className="ml-1 text-slate-500">Closed Deals</span>
-            </Button>
-          ) : undefined
-        }
-      />
+      {/* No in-page title block here on purpose — the sticky teal header
+          above already carries "Attorney CRM". This slim row only adds
+          what that header doesn't: a one-line orientation note and the
+          page's one primary action. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs text-slate-500 sm:text-sm">
+          Attorneys, claimants, outreach &amp; pitchlog management
+        </p>
+        {closedDealsCount > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClosedDealsClick}
+            className="shrink-0 self-start rounded-none border-black/15 sm:self-auto"
+          >
+            <CheckCircle className="mr-1.5 h-4 w-4 text-emerald-600" />
+            <span className="font-semibold">{closedDealsCount}</span>
+            <span className="ml-1 text-slate-500">Closed Deals</span>
+          </Button>
+        )}
+      </div>
 
       <Tabs
         value={activeTab}
@@ -383,41 +467,41 @@ const AdminAttorneyCRM: React.FC = () => {
         </AdminTabList>
 
         <div className="mt-0">
-          <TabsContent value="sales-dashboard" className="mt-0 focus-visible:outline-none">
+          <TabsContent value="sales-dashboard" className={TAB_CONTENT_CLASS}>
             <Suspense fallback={<TabFallback />}>
               <SalesDashboardModule />
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="overview" className="mt-0 focus-visible:outline-none">
-            <CRMOverview hideTable={isSales} />
+          <TabsContent value="overview" className={TAB_CONTENT_CLASS}>
+            <CRMOverview hideList={isSales} />
           </TabsContent>
 
-          <TabsContent value="pitchlog" className="mt-0 focus-visible:outline-none">
+          <TabsContent value="pitchlog" className={TAB_CONTENT_CLASS}>
             <Suspense fallback={<TabFallback />}>
               <AttorneyPitchlogModule defaultTab={pitchlogDefaultTab} />
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="new-claimant" className="mt-0 focus-visible:outline-none">
+          <TabsContent value="new-claimant" className={TAB_CONTENT_CLASS}>
             <Suspense fallback={<TabFallback />}>
               <ClaimantFormModule />
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="all-claimants" className="mt-0 focus-visible:outline-none">
+          <TabsContent value="all-claimants" className={TAB_CONTENT_CLASS}>
             <Suspense fallback={<TabFallback />}>
               <ClaimantListModule />
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="new-attorney" className="mt-0 focus-visible:outline-none">
+          <TabsContent value="new-attorney" className={TAB_CONTENT_CLASS}>
             <Suspense fallback={<TabFallback />}>
               <ReferringAttorneyFormModule />
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="all-attorneys" className="mt-0 focus-visible:outline-none">
+          <TabsContent value="all-attorneys" className={TAB_CONTENT_CLASS}>
             <Suspense fallback={<TabFallback />}>
               <ReferringAttorneyListModule />
             </Suspense>
