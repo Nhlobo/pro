@@ -1,7 +1,8 @@
 // src/pages/admin/AdminAttorneyCRM.tsx
-import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,17 +18,19 @@ import {
   CheckCircle,
   BarChart3,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MergeAttorneyDialog from '@/components/MergeAttorneyDialog';
 import { usePermissions } from '@/hooks/usePermissions';
 import { RandSign } from '@/components/icons/RandSign';
 import {
   AdminPage,
+  AdminHeader,
   AdminCard,
   AdminCardHeader,
+  AdminCardBody,
   AdminPill,
   AdminEmptyState,
+  AdminTabList,
   AdminTabTrigger,
   AdminSearchInput,
   AdminPagination,
@@ -51,7 +54,7 @@ interface AttorneyRow {
 }
 
 const TabFallback = () => (
-  <div className="space-y-4 border border-black/10 bg-white p-4">
+  <div className="space-y-4 p-1">
     <div className="flex items-center justify-between">
       <Skeleton className="h-4 w-40" />
       <Skeleton className="h-8 w-24" />
@@ -94,7 +97,7 @@ const hashOf = (id: string): number => {
 };
 const scoreForId = (id: string) => 70 + (hashOf(id) % 30);
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 15;
 
 const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
   const [attorneys, setAttorneys] = useState<AttorneyRow[]>([]);
@@ -145,28 +148,23 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
   const paginated = useMemo(() => filtered.slice(startIndex, endIndex), [filtered, startIndex, endIndex]);
 
   return (
-    <div className="mt-4 space-y-4">
-      {/* Tier tiles — click to filter the list below */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div className="space-y-4">
+      {/* Tier tiles — click to filter the list below (same tile chrome as AdminStatCard) */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {(Object.keys(TIER_META) as Exclude<TierKey, 'all'>[]).map((key) => {
           const meta = TIER_META[key];
           const isActive = selectedTier === key;
           return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setSelectedTier(isActive ? 'all' : key)}
-              className="text-left"
-            >
-              <AdminCard className={`h-full transition-colors hover:border-black/25 ${isActive ? 'border-black' : ''}`}>
-                <div className="flex items-center gap-3 px-4 py-3.5">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/5">
-                    <meta.icon className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+            <button key={key} type="button" onClick={() => setSelectedTier(isActive ? 'all' : key)} className="text-left">
+              <AdminCard className={cn('min-w-0 overflow-hidden transition-colors hover:border-black/25', isActive && 'border-black')}>
+                <div className="min-w-0 px-3 pb-3 pt-3 md:px-4">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="rounded-full bg-black/5 p-1.5 md:p-2">
+                      <meta.icon className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xl font-bold text-black">{loading ? '–' : tierCounts[key]}</p>
-                    <p className="truncate text-[11px] text-slate-500">{meta.label}</p>
-                  </div>
+                  <p className="text-xl font-bold tabular-nums text-black md:text-2xl">{loading ? '–' : tierCounts[key]}</p>
+                  <p className="text-[11px] leading-tight text-slate-500">{meta.label}</p>
                 </div>
               </AdminCard>
             </button>
@@ -188,8 +186,8 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
               title="Referring Attorneys"
               description={
                 selectedTier === 'all'
-                  ? `${filtered.length} attorneys`
-                  : `${filtered.length} attorneys · filtered by ${TIER_META[selectedTier as Exclude<TierKey, 'all'>].label}`
+                  ? `${filtered.length} attorney${filtered.length === 1 ? '' : 's'}`
+                  : `${filtered.length} attorney${filtered.length === 1 ? '' : 's'} · filtered by ${TIER_META[selectedTier as Exclude<TierKey, 'all'>].label}`
               }
               actions={
                 <>
@@ -202,7 +200,7 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="shrink-0 rounded-none border-black/15"
+                    className="shrink-0 rounded-none"
                     onClick={() => setShowMergeDialog(true)}
                   >
                     <GitMerge className="mr-1.5 h-3.5 w-3.5" />
@@ -212,9 +210,9 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
               }
             />
             {loading ? (
-              <div className="space-y-2 p-4">
-                {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
-              </div>
+              <AdminCardBody className="space-y-2">
+                {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+              </AdminCardBody>
             ) : paginated.length === 0 ? (
               <AdminEmptyState
                 icon={Building2}
@@ -222,46 +220,64 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
                 description="Try a different search term or clear the tier filter."
               />
             ) : (
-              // Card grid instead of a wide table — every field stays readable
-              // without horizontal or long vertical scrolling, and it scales
-              // cleanly from a single phone column up to a 3-up desktop grid.
-              <div className="grid grid-cols-1 gap-px bg-black/10 p-px sm:grid-cols-2 xl:grid-cols-3">
-                {paginated.map((a) => {
-                  const meta = TIER_META[a.tier as Exclude<TierKey, 'all'>];
-                  const score = scoreForId(a.id);
-                  return (
-                    <div key={a.id} className="flex flex-col gap-2.5 bg-white p-4 transition-colors hover:bg-black/[0.02]">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <Building2 className="h-4 w-4 shrink-0 text-slate-400" />
-                          <span className="truncate font-semibold text-black">{a.name}</span>
+              <>
+                {/* Desktop table */}
+                <div className="hidden overflow-x-auto md:block">
+                  <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
+                    <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
+                      <TableRow>
+                        <TableHead>Attorney</TableHead>
+                        <TableHead>Tier</TableHead>
+                        <TableHead>Contact</TableHead>
+                        <TableHead>Province</TableHead>
+                        <TableHead className="text-right">Score</TableHead>
+                        <TableHead className="text-right">Deposit</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginated.map((a) => {
+                        const meta = TIER_META[a.tier as Exclude<TierKey, 'all'>];
+                        const score = scoreForId(a.id);
+                        return (
+                          <TableRow key={a.id} className="hover:bg-black/[0.02]">
+                            <TableCell className="font-medium text-black">{a.name}</TableCell>
+                            <TableCell><AdminPill tone={TIER_PILL_TONE[a.tier]}>{meta.label}</AdminPill></TableCell>
+                            <TableCell className="text-slate-500">{a.contact_person || '–'}</TableCell>
+                            <TableCell className="text-slate-500">{a.province || '–'}</TableCell>
+                            <TableCell className="text-right text-emerald-700">{score}</TableCell>
+                            <TableCell className="text-right">
+                              <AdminPill tone="success"><RandSign className="mr-0.5 h-3 w-3" />Paid</AdminPill>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {/* Mobile cards — same rows, no sideways scroll */}
+                <div className="divide-y divide-black/10 md:hidden">
+                  {paginated.map((a) => {
+                    const meta = TIER_META[a.tier as Exclude<TierKey, 'all'>];
+                    const score = scoreForId(a.id);
+                    return (
+                      <div key={a.id} className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="truncate text-sm font-semibold text-black">{a.name}</p>
+                          <AdminPill tone={TIER_PILL_TONE[a.tier]} className="shrink-0">{meta.label}</AdminPill>
                         </div>
-                        <AdminPill tone={TIER_PILL_TONE[a.tier]} className="shrink-0">{meta.label}</AdminPill>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          {a.contact_person || '–'} · {a.province || '–'}
+                        </p>
+                        <div className="mt-2 flex items-center justify-between">
+                          <span className="text-[11px] font-medium text-emerald-700">{score} score</span>
+                          <AdminPill tone="success"><RandSign className="mr-0.5 h-3 w-3" />Paid</AdminPill>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-slate-500">
-                        <div className="truncate">
-                          <span className="text-slate-400">Contact </span>
-                          {a.contact_person || '–'}
-                        </div>
-                        <div className="truncate">
-                          <span className="text-slate-400">Province </span>
-                          {a.province || '–'}
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between border-t border-black/5 pt-2.5">
-                        <div className="flex items-center gap-1">
-                          <TrendingUp className="h-3 w-3 text-emerald-600" />
-                          <span className="text-xs font-medium text-emerald-700">{score} score</span>
-                        </div>
-                        <AdminPill tone="success">
-                          <RandSign className="mr-0.5 h-3 w-3" />
-                          Paid
-                        </AdminPill>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
             <AdminPagination
               page={currentPage}
@@ -278,36 +294,13 @@ const CRMOverview: React.FC<{ hideTable?: boolean }> = ({ hideTable }) => {
   );
 };
 
-/* ------------------------------------------------------------------ */
-/* Module switcher — a permanently horizontally-sliding pill strip     */
-/* (not a breakpoint-dependent grid) so the seven CRM sections always  */
-/* read as "swipe/scroll to see more" instead of getting cramped at    */
-/* tablet widths. The active pill is kept centred in view, and swiping */
-/* left/right anywhere in the panel below also advances tabs — giving  */
-/* the whole page a native, sliding, app-like feel on touch devices.   */
-/* ------------------------------------------------------------------ */
-
-interface CRMTab {
-  value: string;
-  label: string;
-  icon: LucideIcon;
-  badge?: string;
-}
-
-const SWIPE_MIN_DISTANCE = 55;
-const SWIPE_MAX_OFF_AXIS = 40;
-
 const AdminAttorneyCRM: React.FC = () => {
   const { isSalesConsultant } = usePermissions();
   const isSales = isSalesConsultant();
   const [activeTab, setActiveTab] = useState('sales-dashboard');
   const [pitchlogDefaultTab, setPitchlogDefaultTab] = useState<string | undefined>(undefined);
-  const [slideDir, setSlideDir] = useState<'left' | 'right'>('right');
 
-  const tabStripRef = useRef<HTMLDivElement>(null);
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-
-  // Fetch closed deals count (pitchlog entries matched to referring attorneys with scheduled appointments)
+  // Closed deals count (pitchlog entries matched to referring attorneys with scheduled appointments)
   const { data: closedDealsCount = 0 } = useQuery({
     queryKey: ['crm-closed-deals-count'],
     queryFn: async () => {
@@ -347,143 +340,87 @@ const AdminAttorneyCRM: React.FC = () => {
     },
   });
 
-  const CRM_TABS: CRMTab[] = useMemo(() => [
-    { value: 'sales-dashboard', label: 'Sales Dashboard', icon: BarChart3 },
-    { value: 'pitchlog', label: 'Pitchlog', icon: Briefcase, badge: closedDealsCount > 0 ? `${closedDealsCount} closed` : undefined },
-    { value: 'overview', label: 'CRM Overview', icon: Building2 },
-    { value: 'new-claimant', label: 'New Claimant', icon: UserPlus },
-    { value: 'all-claimants', label: 'All Claimants', icon: List },
-    { value: 'new-attorney', label: 'New Attorney', icon: UserPlus },
-    { value: 'all-attorneys', label: 'All Attorneys', icon: Users },
-  ], [closedDealsCount]);
-
-  const goToTab = (value: string) => {
-    const fromIndex = CRM_TABS.findIndex((t) => t.value === activeTab);
-    const toIndex = CRM_TABS.findIndex((t) => t.value === value);
-    setSlideDir(toIndex >= fromIndex ? 'right' : 'left');
+  const handleTabChange = (value: string) => {
     setActiveTab(value);
     if (value !== 'pitchlog') setPitchlogDefaultTab(undefined);
   };
 
-  // Keep the active pill scrolled into view as tabs change (e.g. via the
-  // "Closed Deals" shortcut, which jumps straight to Pitchlog).
-  useEffect(() => {
-    const active = tabStripRef.current?.querySelector('[data-state="active"]') as HTMLElement | null;
-    active?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-  }, [activeTab]);
-
   const handleClosedDealsClick = () => {
     setPitchlogDefaultTab('sales-report');
-    goToTab('pitchlog');
+    setActiveTab('pitchlog');
   };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    touchStartRef.current = { x: t.clientX, y: t.clientY };
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const start = touchStartRef.current;
-    touchStartRef.current = null;
-    if (!start) return;
-
-    // Don't hijack swipes that start on something meant to be dragged/
-    // scrolled itself (inputs, sliders, horizontally-scrollable tables).
-    const target = e.target as HTMLElement;
-    if (target.closest('input, textarea, select, [role="slider"], .overflow-x-auto, [data-swipe-ignore]')) return;
-
-    const t = e.changedTouches[0];
-    const dx = t.clientX - start.x;
-    const dy = t.clientY - start.y;
-    if (Math.abs(dx) < SWIPE_MIN_DISTANCE || Math.abs(dy) > SWIPE_MAX_OFF_AXIS) return;
-
-    const currentIndex = CRM_TABS.findIndex((t) => t.value === activeTab);
-    if (dx < 0 && currentIndex < CRM_TABS.length - 1) {
-      goToTab(CRM_TABS[currentIndex + 1].value);
-    } else if (dx > 0 && currentIndex > 0) {
-      goToTab(CRM_TABS[currentIndex - 1].value);
-    }
-  };
-
-  const slideClass = slideDir === 'right' ? 'animate-slide-in-right' : 'animate-slide-in-left';
 
   return (
     <AdminPage className="max-w-7xl">
-      {/* Slim contextual bar — the sticky teal header above already carries
-          the "Attorney CRM" title, so this row only adds what it doesn't:
-          a one-line description and the closed-deals shortcut. */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs text-slate-500 sm:text-sm">
-          Attorneys, claimants, outreach &amp; pitchlog management
-        </p>
-        {closedDealsCount > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClosedDealsClick}
-            className="w-fit rounded-none border-black/15"
-          >
-            <CheckCircle className="mr-1.5 h-4 w-4 text-emerald-600" />
-            <span className="font-semibold">{closedDealsCount}</span>
-            <span className="ml-1 text-slate-500">Closed Deals</span>
-          </Button>
-        )}
-      </div>
+      <AdminHeader
+        eyebrow="Attorney CRM"
+        title="Attorney CRM"
+        description="Attorneys, claimants, outreach & pitchlog management"
+        icon={Users}
+        actions={
+          closedDealsCount > 0 ? (
+            <Button variant="outline" size="sm" className="rounded-none" onClick={handleClosedDealsClick}>
+              <CheckCircle className="mr-1.5 h-4 w-4 text-emerald-600" />
+              <span className="font-semibold">{closedDealsCount}</span>
+              <span className="ml-1 text-slate-500">Closed Deals</span>
+            </Button>
+          ) : undefined
+        }
+      />
 
-      <Tabs value={activeTab} onValueChange={goToTab} className="w-full">
-        <div
-          ref={tabStripRef}
-          className="sticky top-0 z-20 -mx-3 overflow-x-auto scroll-smooth px-3 py-2 sm:mx-0 sm:px-0
-                     [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden
-                     bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80"
-        >
-          <TabsList className="flex h-auto w-max items-stretch gap-1 rounded-none border border-black/10 bg-white p-1">
-            {CRM_TABS.map((t) => (
-              <AdminTabTrigger key={t.value} value={t.value} label={t.label} icon={t.icon} badge={t.badge} />
-            ))}
-          </TabsList>
-        </div>
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+        <AdminTabList sticky columns={7}>
+          <AdminTabTrigger value="sales-dashboard" label="Sales Dashboard" icon={BarChart3} center />
+          <AdminTabTrigger
+            value="pitchlog"
+            label="Pitchlog"
+            icon={Briefcase}
+            badge={closedDealsCount > 0 ? `${closedDealsCount} closed` : undefined}
+            center
+          />
+          <AdminTabTrigger value="overview" label="CRM Overview" icon={Building2} center />
+          <AdminTabTrigger value="new-claimant" label="New Claimant" icon={UserPlus} center />
+          <AdminTabTrigger value="all-claimants" label="All Claimants" icon={List} center />
+          <AdminTabTrigger value="new-attorney" label="New Attorney" icon={UserPlus} center />
+          <AdminTabTrigger value="all-attorneys" label="All Attorneys" icon={Users} center />
+        </AdminTabList>
 
-        <div
-          className="mt-3"
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          <TabsContent value="sales-dashboard" className={cn('mt-0 focus-visible:outline-none', slideClass)}>
+        <div className="mt-4">
+          <TabsContent value="sales-dashboard" className="mt-0 focus-visible:outline-none">
             <Suspense fallback={<TabFallback />}>
               <SalesDashboardModule />
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="overview" className={cn('mt-0 focus-visible:outline-none', slideClass)}>
+          <TabsContent value="overview" className="mt-0 focus-visible:outline-none">
             <CRMOverview hideTable={isSales} />
           </TabsContent>
 
-          <TabsContent value="pitchlog" className={cn('mt-0 focus-visible:outline-none', slideClass)}>
+          <TabsContent value="pitchlog" className="mt-0 focus-visible:outline-none">
             <Suspense fallback={<TabFallback />}>
               <AttorneyPitchlogModule defaultTab={pitchlogDefaultTab} />
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="new-claimant" className={cn('mt-0 focus-visible:outline-none', slideClass)}>
+          <TabsContent value="new-claimant" className="mt-0 focus-visible:outline-none">
             <Suspense fallback={<TabFallback />}>
               <ClaimantFormModule />
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="all-claimants" className={cn('mt-0 focus-visible:outline-none', slideClass)}>
+          <TabsContent value="all-claimants" className="mt-0 focus-visible:outline-none">
             <Suspense fallback={<TabFallback />}>
               <ClaimantListModule />
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="new-attorney" className={cn('mt-0 focus-visible:outline-none', slideClass)}>
+          <TabsContent value="new-attorney" className="mt-0 focus-visible:outline-none">
             <Suspense fallback={<TabFallback />}>
               <ReferringAttorneyFormModule />
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="all-attorneys" className={cn('mt-0 focus-visible:outline-none', slideClass)}>
+          <TabsContent value="all-attorneys" className="mt-0 focus-visible:outline-none">
             <Suspense fallback={<TabFallback />}>
               <ReferringAttorneyListModule />
             </Suspense>
