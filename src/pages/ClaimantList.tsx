@@ -17,6 +17,8 @@ import EditClaimantDialog from "@/components/EditClaimantDialog";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
+import { AdminPagination, AdminEmptyState } from "@/components/admin/ui/AdminUI";
+import { cn } from "@/lib/utils";
 
 interface Claimant {
   id: string;
@@ -51,8 +53,10 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingClaimant, setEditingClaimant] = useState<Claimant | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
   const confirm = useConfirm();
+  const PAGE_SIZE = 12;
 
   const fetchClaimants = async () => {
     try {
@@ -132,6 +136,12 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
       setFilteredClaimants(filtered);
     }
   }, [searchTerm, claimants]);
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
+  const totalPages = Math.max(1, Math.ceil(filteredClaimants.length / PAGE_SIZE));
+  const pageStart = (currentPage - 1) * PAGE_SIZE;
+  const pageEnd = pageStart + PAGE_SIZE;
+  const pagedClaimants = embedded ? filteredClaimants.slice(pageStart, pageEnd) : filteredClaimants;
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -323,10 +333,68 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
               </Button>
             )}
           </div>
+        ) : embedded ? (
+          // Paginated card list — keeps every claimant's key fields visible
+          // at a glance on any screen size, no sideways scroll and no
+          // never-ending vertical list.
+          <>
+            <div className="grid grid-cols-1 gap-px bg-black/10 p-px sm:grid-cols-2 xl:grid-cols-3">
+              {pagedClaimants.map((claimant) => (
+                <div key={claimant.id} className="flex flex-col gap-2.5 bg-white p-4 transition-colors hover:bg-black/[0.02]">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Checkbox
+                        checked={selectedClaimants.has(claimant.id)}
+                        onCheckedChange={(checked) => handleSelectClaimant(claimant.id, checked as boolean)}
+                      />
+                      <span className="truncate font-semibold text-black">
+                        {claimant.first_name} {claimant.last_name}
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 font-mono text-[10px]">{claimant.auto_id}</Badge>
+                  </div>
+                  <div className="space-y-1 text-xs text-slate-500">
+                    <div className="truncate">
+                      <span className="text-slate-400">Contact </span>
+                      {claimant.contact_number || 'N/A'}
+                    </div>
+                    <div className="truncate">
+                      <span className="text-slate-400">Attorney </span>
+                      {claimant.referring_attorneys?.name || 'N/A'}
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Added </span>
+                      {format(new Date(claimant.created_at), "dd/MM/yyyy")}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-black/5 pt-2.5">
+                    <Badge variant="default">Active</Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => { setEditingClaimant(claimant); setEditDialogOpen(true); }}
+                      title="Edit claimant"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <AdminPagination
+              page={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={filteredClaimants.length}
+              startIndex={pageStart}
+              endIndex={pageEnd}
+            />
+          </>
         ) : (
           <div className="overflow-x-auto">
-            <Table className={embedded ? "text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]" : undefined}>
-              <TableHeader className={embedded ? "sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]" : undefined}>
+            <Table>
+              <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
@@ -345,7 +413,7 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
               </TableHeader>
               <TableBody>
                 {filteredClaimants.map((claimant) => (
-                  <TableRow key={claimant.id} className={embedded ? "hover:bg-black/[0.02]" : undefined}>
+                  <TableRow key={claimant.id}>
                     <TableCell>
                       <Checkbox
                         checked={selectedClaimants.has(claimant.id)}
