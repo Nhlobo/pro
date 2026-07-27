@@ -63,11 +63,20 @@ interface ReferringAttorneyFormProps {
   /** Rendered inside the Admin Attorney CRM's "New Attorney" tab instead of
    *  as its own route. */
   embedded?: boolean;
+  /** Overrides the `:id` route param. Used when this form is hosted inside a
+   *  sliding panel (e.g. the attorney list's Edit panel) rather than the
+   *  standalone `/referring-attorney/:id` route. */
+  attorneyId?: string;
+  /** Called after a create or update succeeds. Used when this form is
+   *  hosted inside a sliding panel so the caller can close the panel and
+   *  refresh its data. */
+  onSaved?: () => void;
 }
 
-const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded = false }) => {
+const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded = false, attorneyId, onSaved }) => {
   const { toast } = useToast();
-  const { id } = useParams();
+  const { id: routeId } = useParams();
+  const id = attorneyId ?? routeId;
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBulkUploading, setIsBulkUploading] = useState(false);
@@ -161,7 +170,7 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
           description: "Failed to load attorney data.",
           variant: "destructive",
         });
-        navigate('/referring-attorney-list');
+        if (!embedded) navigate('/referring-attorney-list');
       } finally {
         setIsLoadingData(false);
       }
@@ -337,8 +346,12 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
           title: "Attorney updated",
           description: `${values.lawFirmName} has been updated successfully.`,
         });
-        
-        navigate('/referring-attorney-list');
+
+        if (embedded) {
+          onSaved?.();
+        } else {
+          navigate('/referring-attorney-list');
+        }
       } else {
         // Create new attorney
         const { error } = await supabase
@@ -353,6 +366,7 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
         });
         clearDraft(); // Clear saved draft after successful save
         form.reset(RA_FORM_DEFAULTS);
+        onSaved?.();
       }
     } catch (error: any) {
       toast({
