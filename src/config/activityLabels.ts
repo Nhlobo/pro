@@ -4,7 +4,6 @@
 const PREFIX_LABELS: Array<[string, string]> = [
   ["/admin/sales-performance", "Sales Performance Reports"],
   ["/admin/attorney-crm", "Attorney CRM"],
-  ["/admin/cases", "Case Management"],
   ["/admin/experts", "Expert Network"],
   ["/admin/find-experts", "Find Experts"],
   ["/admin/find-attorneys", "Find Attorneys"],
