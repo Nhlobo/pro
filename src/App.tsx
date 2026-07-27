@@ -112,7 +112,6 @@ const ExpertProfile = lazy(() => import("./pages/expert-portal/ExpertProfile"));
 // Admin Portal Pages
 const AdminOperationsDashboard = lazy(() => import("./pages/admin/AdminOperationsDashboard"));
 const AdminAttorneyCRM = lazy(() => import("./pages/admin/AdminAttorneyCRM"));
-const AdminCaseManagement = lazy(() => import("./pages/admin/AdminCaseManagement"));
 const AdminExpertNetwork = lazy(() => import("./pages/admin/AdminExpertNetwork"));
 const AdminFindExperts = lazy(() => import("./pages/admin/AdminFindExperts"));
 
@@ -204,7 +203,6 @@ const App = () => (
                 {/* ============ ADMIN PORTAL ============ */}
                 <Route path="/admin" element={<AdminPortalRoute><AdminOperationsDashboard /></AdminPortalRoute>} />
                 <Route path="/admin/attorney-crm" element={<AdminPortalRoute><AdminAttorneyCRM /></AdminPortalRoute>} />
-                <Route path="/admin/cases" element={<AdminPortalRoute><AdminCaseManagement /></AdminPortalRoute>} />
                 <Route path="/admin/experts" element={<AdminPortalRoute><AdminExpertNetwork /></AdminPortalRoute>} />
                 <Route path="/admin/find-experts" element={<AdminPortalRoute><AdminFindExperts /></AdminPortalRoute>} />
                 
