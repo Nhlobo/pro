@@ -11,7 +11,6 @@
 import {
   LayoutDashboard,
   Users,
-  Briefcase,
   Stethoscope,
   Search,
   MapPin,
@@ -64,18 +63,6 @@ export const ADMIN_MODULES: AdminModule[] = [
     permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
   },
   {
-    key: 'cases',
-    title: 'Case Management',
-    href: '/admin/cases',
-    group: 'Core',
-    icon: Briefcase,
-    description: 'Claimant cases, AOD, progress tracking',
-    permissions: [
-      { category: 'Case Management' },
-      { category: 'Claimant Management' },
-    ],
-  },
-  {
     key: 'experts',
     title: 'Expert Network',
     href: '/admin/experts',
@@ -121,8 +108,16 @@ export const ADMIN_MODULES: AdminModule[] = [
     href: '/admin/reports',
     group: 'Workflow',
     icon: FileText,
-    description: 'Expert and assessment reports',
-    permissions: [{ category: 'Report Management' }],
+    description: 'Case stage tracking, trial readiness, and expert/assessment reports (merged with the former Case Management module)',
+    // Internal staff (employees) get visibility into this dashboard alongside
+    // admins — sales consultants and other external-facing roles are left out
+    // since this surfaces claimant-level case and report detail.
+    roles: ['admin', 'employee'],
+    permissions: [
+      { category: 'Report Management' },
+      { category: 'Case Management' },
+      { category: 'Claimant Management' },
+    ],
   },
   {
     key: 'reporting',
