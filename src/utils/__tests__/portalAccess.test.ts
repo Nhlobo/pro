@@ -25,7 +25,6 @@ const ALL_ROLES: AppRole[] = [
 
 const ADMIN_ROUTES = [
   '/admin',
-  '/admin/cases',
   '/admin/experts',
   '/admin/reports',
   '/admin/documents',
@@ -112,7 +111,6 @@ describe('Portal access — admin portal gating', () => {
       '/admin',
       '/admin/iam',
       '/admin/system-control',
-      '/admin/cases',
       '/admin/experts',
       '/admin/reports',
       '/admin/analytics',
