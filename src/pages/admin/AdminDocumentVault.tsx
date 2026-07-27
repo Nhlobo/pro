@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import {
   FolderLock, FileText, Shield, Eye, Upload, Lock, Download, Search, RefreshCw,
   CheckCircle2, XCircle, Clock, Filter, Trash2, EyeOff, ExternalLink, ShieldCheck,
@@ -356,6 +357,28 @@ const AdminDocumentVault: React.FC = () => {
     if (activeTab === 'experts') return matchesSearch && matchesType && matchesStatus && matchesExpert && matchesExpertType && isExpertDoc(d);
     return matchesSearch && matchesType && matchesStatus && matchesExpert && matchesExpertType;
   });
+
+  // Group documents by claimant so each claimant's Medical Records, ID Copies,
+  // Expert Reports, etc. can be found together under their own name — used by
+  // the "By Claimant" tab below.
+  const NO_CLAIMANT_KEY = '__unlinked__';
+  const claimantGroups = React.useMemo(() => {
+    const groups = new Map<string, { claimantId: string | null; claimantName: string; docs: DocumentRecord[] }>();
+    for (const doc of filteredDocs) {
+      const key = doc.claimant_id || NO_CLAIMANT_KEY;
+      const name = doc.claimant_name || 'Unlinked Documents';
+      if (!groups.has(key)) {
+        groups.set(key, { claimantId: doc.claimant_id || null, claimantName: name, docs: [] });
+      }
+      groups.get(key)!.docs.push(doc);
+    }
+    // Alphabetical by claimant name; the "unlinked" bucket always goes last.
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.claimantId === null) return 1;
+      if (b.claimantId === null) return -1;
+      return a.claimantName.localeCompare(b.claimantName);
+    });
+  }, [filteredDocs]);
 
   const stats = {
     total: documents.length,
@@ -743,6 +766,7 @@ const AdminDocumentVault: React.FC = () => {
   // used on Finance / Appointment Engine / System Control.
   const tabDefs = [
     { value: 'all', label: 'All', badge: stats.total, show: true },
+    { value: 'by_claimant', label: 'By Claimant', badge: claimantGroups.filter(g => g.claimantId).length, show: true },
     { value: 'pending', label: 'Pending', badge: stats.pending, show: isAdminOrEmployee },
     { value: 'approved', label: 'Approved', badge: stats.approved, show: true },
     { value: 'declined', label: 'Declined', badge: stats.declined, show: isAdminOrEmployee },
@@ -877,6 +901,67 @@ const AdminDocumentVault: React.FC = () => {
                   title="No documents found"
                   description="Try adjusting your search or filters, or upload a new document."
                 />
+              ) : activeTab === 'by_claimant' ? (
+                <div className="divide-y divide-black/10 max-h-[70vh] overflow-y-auto">
+                  <Accordion type="multiple" className="w-full">
+                    {claimantGroups.map(group => (
+                      <AccordionItem
+                        key={group.claimantId || NO_CLAIMANT_KEY}
+                        value={group.claimantId || NO_CLAIMANT_KEY}
+                        className="border-b border-black/10 px-4"
+                      >
+                        <AccordionTrigger className="py-3 hover:no-underline">
+                          <div className="flex min-w-0 items-center gap-2 text-left">
+                            {group.claimantId ? (
+                              <Users className="h-4 w-4 shrink-0" style={{ color: '#00BAAD' }} />
+                            ) : (
+                              <FolderLock className="h-4 w-4 shrink-0 text-slate-400" />
+                            )}
+                            <span className="truncate font-semibold text-black">{group.claimantName}</span>
+                            <AdminPill tone="neutral" className="ml-1 shrink-0">
+                              {group.docs.length} document{group.docs.length === 1 ? '' : 's'}
+                            </AdminPill>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-2 pb-3">
+                            {group.docs.map(doc => (
+                              <div
+                                key={doc.id}
+                                className="flex flex-wrap items-center justify-between gap-2 border border-black/10 bg-black/[0.015] px-3 py-2"
+                              >
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <FileText className="h-3.5 w-3.5 shrink-0" style={{ color: '#00BAAD' }} />
+                                  <div className="min-w-0">
+                                    <p className="truncate text-xs font-medium text-black" title={doc.file_name}>{doc.file_name}</p>
+                                    <p className="mt-0.5 text-[10px] text-slate-500">
+                                      {format(parseISO(doc.created_at), 'dd MMM yyyy')}
+                                      {doc.expert_name ? ` · ${doc.expert_name}` : ''}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-1.5">
+                                  <AdminPill tone="neutral">{getDocTypeLabel(doc.document_type)}</AdminPill>
+                                  {getStatusBadge(doc.approval_status)}
+                                  {isAdminOrEmployee && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none hover:bg-black/5" style={{ color: '#00BAAD' }} onClick={() => handlePreview(doc)} title="View document">
+                                      <Eye className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                  {(!isAttorney || doc.document_type === 'Expert Report') && doc.approval_status === 'approved' && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none hover:bg-black/5" onClick={() => handleDownload(doc)} title="Download">
+                                      <Download className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </div>
               ) : (
                 <>
                   {/* Desktop / wide-tablet table — avoids the column-overlap that a
