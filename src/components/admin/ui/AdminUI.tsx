@@ -274,13 +274,13 @@ export const AdminTabTrigger: React.FC<{
   <TabsTrigger
     value={value}
     className={cn(
-      'group relative flex min-h-[44px] shrink-0 items-center gap-1.5 whitespace-nowrap rounded-none px-3 py-2 text-xs font-medium text-slate-500 transition-colors duration-150 hover:text-black data-[state=active]:bg-black data-[state=active]:text-white data-[state=active]:shadow-none sm:text-sm',
+      'group relative flex min-h-[44px] min-w-0 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-none px-3 py-2 text-xs font-medium text-slate-500 transition-colors duration-150 hover:text-black data-[state=active]:bg-black data-[state=active]:text-white data-[state=active]:shadow-none sm:min-w-0 sm:text-sm',
       center && 'sm:justify-center',
       className
     )}
   >
     {Icon && <Icon className="h-3.5 w-3.5 shrink-0" />}
-    <span className="truncate">{label}</span>
+    <span className="min-w-0 truncate">{label}</span>
     {badge !== undefined && badge !== null && badge !== 0 && (
       <span
         className="ml-0.5 flex h-4 min-w-[16px] shrink-0 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white transition-colors duration-150 group-data-[state=active]:bg-white group-data-[state=active]:text-black"
