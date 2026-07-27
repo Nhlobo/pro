@@ -56,9 +56,13 @@ interface ClaimantFormProps {
    *  as its own route — drops the standalone page chrome and matches the
    *  CRM's flat enterprise card styling. */
   embedded?: boolean;
+  /** Called after a claimant is saved successfully. Used when this form is
+   *  hosted inside a sliding panel (e.g. the "Add New Claimant" sheet on the
+   *  claimant list) so the caller can close the panel and refresh its data. */
+  onSaved?: () => void;
 }
 
-const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false }) => {
+const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }) => {
   const { toast } = useToast();
   const [lawFirms, setLawFirms] = useState<LawFirm[]>([]);
   const [currentLawFirm, setCurrentLawFirm] = useState<LawFirm | null>(null);
@@ -249,6 +253,7 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false }) => {
       });
       clearDraft(); // Clear the draft after successful submit
       form.reset(CLAIMANT_DEFAULTS);
+      onSaved?.();
     } catch (e: any) {
       toast({ title: "Error", description: e.message ?? "Failed to create claimant", variant: "destructive" });
     } finally {
