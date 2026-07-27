@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Pencil } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -99,12 +100,21 @@ const EditClaimantDialog: React.FC<EditClaimantDialogProps> = ({ claimant, open,
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Edit Claimant</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-md"
+      >
+        <SheetHeader className="space-y-0 border-b border-black/10 px-5 py-4 text-left">
+          <SheetTitle className="flex items-center gap-2 text-base font-bold text-black">
+            <Pencil className="h-4 w-4" />
+            Edit Claimant
+          </SheetTitle>
+          <SheetDescription className="text-xs text-slate-500">
+            Update this claimant's details without leaving the list.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 space-y-4 px-5 py-4">
           <div className="space-y-2">
             <Label htmlFor="edit-first-name">First Name</Label>
             <Input id="edit-first-name" value={firstName} onChange={e => setFirstName(e.target.value)} maxLength={100} />
@@ -122,12 +132,12 @@ const EditClaimantDialog: React.FC<EditClaimantDialogProps> = ({ claimant, open,
             <p className="text-xs text-muted-foreground mt-1">Referring attorney cannot be changed to protect data integrity.</p>
           </div>
         </div>
-        <DialogFooter>
+        <SheetFooter className="border-t border-black/10 px-5 py-4 sm:justify-end">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancel</Button>
           <Button onClick={handleSave} disabled={loading}>{loading ? 'Saving...' : 'Save Changes'}</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 };
 
