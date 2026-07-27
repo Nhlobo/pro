@@ -39,6 +39,8 @@ export interface DashboardStats {
   provinceStatusData: ProvinceStatusData[];
   overdueReports: number;
   // Prior year comparisons
+  totalClaimantsThisYear: number;
+  totalClaimantsLastYear: number;
   totalAppointmentsLastYear: number;
   pendingReportsLastYear: number;
   reportsInProgressLastYear: number;
@@ -128,6 +130,8 @@ export const useDashboardStats = () => {
     caseTypeData: [],
     provinceStatusData: [],
     overdueReports: 0,
+    totalClaimantsThisYear: 0,
+    totalClaimantsLastYear: 0,
     totalAppointmentsLastYear: 0,
     pendingReportsLastYear: 0,
     reportsInProgressLastYear: 0,
@@ -180,6 +184,20 @@ export const useDashboardStats = () => {
       const currentYearStart = `${currentYear}-01-01`;
       const lastYearStart = `${lastYear}-01-01`;
       const lastYearEnd = `${lastYear}-12-31T23:59:59`;
+
+      // New cases opened this year vs the same period last year — this is
+      // what the Active Cases trend badge on the operations dashboard is
+      // measured against (the 277 headline itself stays all-time).
+      const { count: claimantsThisYearCount } = await supabase
+        .from('claimants')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', currentYearStart);
+
+      const { count: claimantsLastYearCount } = await supabase
+        .from('claimants')
+        .select('*', { count: 'exact', head: true })
+        .gte('created_at', lastYearStart)
+        .lte('created_at', lastYearEnd);
 
       // Fetch current year appointments with province
       const { data: currentYearAppts } = await supabase
@@ -346,6 +364,8 @@ export const useDashboardStats = () => {
         caseTypeData,
         provinceStatusData,
         overdueReports: overdueCount || 0,
+        totalClaimantsThisYear: claimantsThisYearCount || 0,
+        totalClaimantsLastYear: claimantsLastYearCount || 0,
         totalAppointmentsLastYear: (lastYearAppts || []).length,
         pendingReportsLastYear: pendingCountLastYear || 0,
         reportsInProgressLastYear: inProgressCountLastYear || 0,
