@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Helmet } from "react-helmet-async";
 import {
   FileText, Search, RefreshCw, Eye, Send, CheckCircle2,
-  Clock, AlertCircle, Star, Filter, Mail, Activity, Paperclip, X, FileDown, Wifi, WifiOff
+  Clock, AlertCircle, Star, Filter, Mail, Activity, Paperclip, X, FileDown, Wifi, WifiOff,
+  Scale, ClipboardList, FolderKanban, Gavel, FileClock, FileCheck2, XCircle, Stethoscope, Briefcase
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -35,7 +37,27 @@ import {
   AdminLoadingState,
   AdminTabList,
   AdminTabTrigger,
+  AdminSearchInput,
+  AdminPagination,
+  BRAND_TEAL,
 } from "@/components/admin/ui/AdminUI";
+
+// ============================================================================
+// Case Pipeline (merged in from the former standalone "Case Management" admin
+// page — Case Management and Report Management tracked the same underlying
+// claimant/assessment/report data from two different angles, so per product
+// direction they are now one function: Report Management. This section's
+// data-fetching (get_scheduled_assessments_secure RPC) and every stage rule
+// below is copied over UNCHANGED from the old page — nothing backend-side
+// was touched, only where the UI lives.
+// ============================================================================
+const CASE_STAGE_CONFIG: { key: string; name: string; icon: typeof FolderKanban; match: (a: any) => boolean }[] = [
+  { key: 'intake', name: 'Intake', icon: FolderKanban, match: (a) => a.case_status === 'scheduled' },
+  { key: 'assessment', name: 'Assessment', icon: Gavel, match: (a) => a.case_status === 'in_progress' },
+  { key: 'report_pending', name: 'Report Pending', icon: FileClock, match: (a) => a.report_status === 'not_received' },
+  { key: 'report_submitted', name: 'Report Submitted', icon: FileCheck2, match: (a) => a.report_status === 'completed' },
+];
+const CASE_PAGE_SIZE = 15;
 
 // ============================================================================
 // Data-fetching / business logic (Supabase reads & writes) below is functionally
@@ -389,6 +411,86 @@ const ReportManagement: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastUpdate]);
 
+  // --- Case Pipeline tab state/data (merged from the old Case Management page) ---
+  const [caseAssessments, setCaseAssessments] = useState<any[]>([]);
+  const [casesLoading, setCasesLoading] = useState(true);
+  const [caseSearch, setCaseSearch] = useState('');
+  const [caseStageFilter, setCaseStageFilter] = useState<string | null>(null);
+  const [caseCurrentPage, setCaseCurrentPage] = useState(1);
+
+  const fetchCaseAssessments = useCallback(async () => {
+    const { data } = await supabase.rpc('get_scheduled_assessments_secure');
+    setCaseAssessments(data || []);
+    setCasesLoading(false);
+  }, []);
+
+  useEffect(() => { fetchCaseAssessments(); }, [fetchCaseAssessments]);
+
+  // Reuses the same realtime tick the Reports tab listens to above — one
+  // appointments/expert_reports change refreshes both tabs' data.
+  useEffect(() => {
+    if (isFirstSyncTick.current) return;
+    if (isPageLocked) return;
+    if (lastSyncedTable && !['appointments', 'expert_reports'].includes(lastSyncedTable)) return;
+    fetchCaseAssessments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastUpdate]);
+
+  const caseStages = useMemo(
+    () => CASE_STAGE_CONFIG.map((s) => ({ ...s, count: caseAssessments.filter(s.match).length })),
+    [caseAssessments]
+  );
+
+  const caseTrialReadiness = useMemo(() => {
+    if (caseAssessments.length === 0) return 0;
+    const submitted = caseAssessments.filter((a) => a.report_status === 'completed').length;
+    return Math.min(99, Math.round((submitted / caseAssessments.length) * 100) || 55);
+  }, [caseAssessments]);
+
+  const caseReadyCount = useMemo(() => caseAssessments.filter((a) => a.report_status === 'completed').length, [caseAssessments]);
+  const caseAwaitingCount = useMemo(() => caseAssessments.filter((a) => a.report_status === 'not_received').length, [caseAssessments]);
+  const caseMissingCount = useMemo(
+    () => caseAssessments.filter((a) => !a.report_status || a.report_status === 'missing').length,
+    [caseAssessments]
+  );
+
+  const [caseDisplayedReadiness, setCaseDisplayedReadiness] = useState(0);
+  useEffect(() => {
+    const target = caseTrialReadiness;
+    const duration = 900;
+    const startTime = performance.now();
+    let raf: number;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - startTime) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCaseDisplayedReadiness(Math.round(target * eased));
+      if (progress < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [caseTrialReadiness]);
+
+  const caseFiltered = useMemo(() => {
+    const q = caseSearch.trim().toLowerCase();
+    return caseAssessments.filter((a) => {
+      const matchesSearch = !q ||
+        a.claimant_name?.toLowerCase().includes(q) ||
+        a.claimant_auto_id?.toLowerCase().includes(q) ||
+        a.expert_name?.toLowerCase().includes(q) ||
+        a.referring_attorney?.toLowerCase().includes(q);
+      const stage = CASE_STAGE_CONFIG.find((s) => s.key === caseStageFilter);
+      const matchesStage = !stage || stage.match(a);
+      return matchesSearch && matchesStage;
+    });
+  }, [caseAssessments, caseSearch, caseStageFilter]);
+
+  useEffect(() => { setCaseCurrentPage(1); }, [caseSearch, caseStageFilter]);
+
+  const caseTotalPages = Math.max(1, Math.ceil(caseFiltered.length / CASE_PAGE_SIZE));
+  const caseStartIndex = (caseCurrentPage - 1) * CASE_PAGE_SIZE;
+  const caseEndIndex = caseStartIndex + CASE_PAGE_SIZE;
+  const casePaginated = useMemo(() => caseFiltered.slice(caseStartIndex, caseEndIndex), [caseFiltered, caseStartIndex, caseEndIndex]);
+
   const filteredReports = reports.filter((r) => {
     const matchesSearch =
       !searchTerm ||
@@ -713,14 +815,14 @@ const ReportManagement: React.FC = () => {
     <ProtectedRoute>
       <Helmet>
         <title>Report Management - Medico-Legal Assessment System</title>
-        <meta name="description" content="Manage medico-legal expert reports with version control, delivery tracking, and review workflows." />
+        <meta name="description" content="Track case stages, and manage medico-legal expert reports with version control, delivery tracking, and review workflows." />
       </Helmet>
       <div className="min-h-screen bg-background">
         <AdminPage className="max-w-7xl px-4 py-6 md:px-6">
           <AdminHeader
             eyebrow="Reports"
             title="Report Management"
-            description="Track, deliver, and review medico-legal expert reports"
+            description="Case stage tracking, trial readiness, and expert report delivery — all in one place"
             icon={FileText}
             actions={
               <>
@@ -794,10 +896,11 @@ const ReportManagement: React.FC = () => {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <AdminTabList columns={3}>
+            <AdminTabList columns={4}>
               <AdminTabTrigger value="all-reports" label="All Reports" icon={FileText} badge={stats.total} center />
               <AdminTabTrigger value="deliveries" label="Deliveries" icon={Send} badge={stats.delivered} center />
               <AdminTabTrigger value="reviews" label="Reviews" icon={Star} badge={stats.reviewed} center />
+              <AdminTabTrigger value="case-pipeline" label="Case Pipeline" icon={Scale} badge={caseAssessments.length} center />
             </AdminTabList>
 
             {/* All Reports Tab */}
@@ -1056,6 +1159,183 @@ const ReportManagement: React.FC = () => {
                     </TableBody>
                   </Table>
                 )}
+              </AdminCard>
+            </TabsContent>
+
+            {/* Case Pipeline Tab — merged in from the former standalone Case
+                Management admin page (stage tracking, trial readiness, and
+                the same active-cases list, unchanged). */}
+            <TabsContent value="case-pipeline" className="mt-4 space-y-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {caseStages.map((stage) => {
+                  const isActive = caseStageFilter === stage.key;
+                  return (
+                    <button
+                      key={stage.key}
+                      type="button"
+                      onClick={() => setCaseStageFilter(isActive ? null : stage.key)}
+                      className="text-left transition-colors"
+                    >
+                      <AdminCard className={`h-full transition-colors hover:border-black/25 ${isActive ? 'border-black' : ''}`}>
+                        <div className="flex items-start justify-between px-4 pb-3 pt-4">
+                          <div>
+                            <p className="text-xl font-bold text-black md:text-2xl">{casesLoading ? '–' : stage.count}</p>
+                            <p className="text-[11px] text-slate-500">{stage.name}</p>
+                          </div>
+                          <div className="rounded-full bg-black/5 p-1.5">
+                            <stage.icon className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+                          </div>
+                        </div>
+                      </AdminCard>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <AdminCard>
+                <AdminCardHeader icon={Scale} title="Trial Readiness Overview" description="Panel-wide reporting completion snapshot" />
+                <AdminCardBody>
+                  <style>{`
+                    @keyframes admin-case-readiness-sweep {
+                      0% { transform: translateX(-100%); }
+                      100% { transform: translateX(400%); }
+                    }
+                    .admin-case-readiness-sweep {
+                      animation: admin-case-readiness-sweep 2.2s ease-in-out infinite;
+                    }
+                    @media (prefers-reduced-motion: reduce) {
+                      .admin-case-readiness-sweep { animation: none; }
+                    }
+                  `}</style>
+                  <div className="mb-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Panel Readiness</span>
+                      <span className="text-2xl font-bold tabular-nums" style={{ color: BRAND_TEAL }}>{caseDisplayedReadiness}%</span>
+                    </div>
+                    <div className="h-5 w-full overflow-hidden bg-black/5">
+                      <div
+                        className="relative h-full overflow-hidden"
+                        style={{ width: `${caseDisplayedReadiness}%`, backgroundColor: BRAND_TEAL }}
+                      >
+                        <div className="admin-case-readiness-sweep absolute inset-y-0 left-0 w-1/4 bg-gradient-to-r from-transparent via-white/50 to-transparent" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <AdminStatCard label="Expert Reports Ready" value={caseReadyCount} icon={CheckCircle2} loading={casesLoading} />
+                    <AdminStatCard label="Awaiting Reports" value={caseAwaitingCount} icon={Clock} loading={casesLoading} />
+                    <AdminStatCard label="Missing Documents" value={caseMissingCount} icon={XCircle} loading={casesLoading} />
+                  </div>
+                </AdminCardBody>
+              </AdminCard>
+
+              <AdminCard>
+                <AdminCardHeader
+                  icon={ClipboardList}
+                  title="Active Cases"
+                  description={`${caseFiltered.length} case${caseFiltered.length === 1 ? '' : 's'}${caseStageFilter ? ` · filtered by ${CASE_STAGE_CONFIG.find(s => s.key === caseStageFilter)?.name}` : ''}`}
+                  actions={
+                    <AdminSearchInput
+                      value={caseSearch}
+                      onChange={setCaseSearch}
+                      placeholder="Search claimant, expert or attorney…"
+                      className="w-full sm:w-72"
+                    />
+                  }
+                />
+                {casesLoading ? (
+                  <div className="space-y-2 p-4">
+                    {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
+                  </div>
+                ) : casePaginated.length === 0 ? (
+                  <AdminEmptyState
+                    icon={ClipboardList}
+                    title="No cases match your filters"
+                    description="Try a different search term or clear the stage filter."
+                  />
+                ) : (
+                  <>
+                    <div className="hidden overflow-x-auto md:block">
+                      <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
+                        <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
+                          <TableRow>
+                            <TableHead>ID</TableHead>
+                            <TableHead>Claimant</TableHead>
+                            <TableHead>Expert</TableHead>
+                            <TableHead>Attorney</TableHead>
+                            <TableHead>Stage</TableHead>
+                            <TableHead>Report</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {casePaginated.map((a) => (
+                            <TableRow key={a.appointment_id} className="align-top hover:bg-black/[0.02]">
+                              <TableCell className="whitespace-nowrap font-mono text-slate-500">{a.claimant_auto_id}</TableCell>
+                              <TableCell className="font-medium text-black">{a.claimant_name}</TableCell>
+                              <TableCell className="text-slate-500">{a.expert_name}</TableCell>
+                              <TableCell className="text-slate-500">{a.referring_attorney}</TableCell>
+                              <TableCell>
+                                <AdminPill>{a.case_status || 'scheduled'}</AdminPill>
+                              </TableCell>
+                              <TableCell>
+                                <AdminPill
+                                  tone={
+                                    a.report_status === 'completed' ? 'success'
+                                    : a.report_status === 'in_progress' ? 'warning'
+                                    : 'neutral'
+                                  }
+                                >
+                                  {a.report_status || 'pending'}
+                                </AdminPill>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    <div className="divide-y divide-black/10 md:hidden">
+                      {casePaginated.map((a) => (
+                        <div key={a.appointment_id} className="space-y-1.5 p-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="truncate text-sm font-semibold text-black">{a.claimant_name}</p>
+                            <span className="shrink-0 font-mono text-[11px] text-slate-500">{a.claimant_auto_id}</span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
+                            <span className="inline-flex items-center gap-1">
+                              <Stethoscope className="h-3 w-3 shrink-0 text-slate-400" />
+                              {a.expert_name || '–'}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <Briefcase className="h-3 w-3 shrink-0 text-slate-400" />
+                              {a.referring_attorney || '–'}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                            <AdminPill>{a.case_status || 'scheduled'}</AdminPill>
+                            <AdminPill
+                              tone={
+                                a.report_status === 'completed' ? 'success'
+                                : a.report_status === 'in_progress' ? 'warning'
+                                : 'neutral'
+                              }
+                            >
+                              {a.report_status || 'pending'}
+                            </AdminPill>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+                <AdminPagination
+                  page={caseCurrentPage}
+                  totalPages={caseTotalPages}
+                  onPageChange={setCaseCurrentPage}
+                  totalItems={caseFiltered.length}
+                  startIndex={caseStartIndex}
+                  endIndex={caseEndIndex}
+                />
               </AdminCard>
             </TabsContent>
           </Tabs>
