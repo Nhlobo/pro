@@ -1,69 +1,248 @@
 import React from 'react';
-
-const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
-
-// Computed once at module load, not on every render — the year doesn't
-// change within a session, so there's no reason to touch `Date` per paint.
-const CURRENT_YEAR = new Date().getFullYear();
+import {
+  LayoutDashboard,
+  Users,
+  Calendar,
+  FileText,
+  Clock,
+  FileSignature,
+  BarChart3,
+  MapPin,
+  Tags,
+  ArrowUp,
+  ArrowDown,
+  Minus,
+} from 'lucide-react';
+import { useDashboardStats } from '@/hooks/useDashboardStats';
+import {
+  AdminPage,
+  AdminHeader,
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminStatCard,
+  AdminLoadingState,
+  BRAND_TEAL,
+} from '@/components/admin/ui/AdminUI';
 
 /**
- * Operations Dashboard body.
+ * Operations Dashboard — admin landing page.
  *
- * Mirrors the Auth.tsx brand panel (same gradient-nav wash, logo mark,
- * headline, footer) as the full-bleed body beneath the portal's shared
- * teal header — this is the "We touch a file. We change lives." screen,
- * now written for staff already inside the workspace rather than signing
- * in to it.
+ * Live case-load overview: current-year KPIs, each measured against the
+ * same period last year, plus a provincial and case-type breakdown so
+ * staff can see coverage gaps and matter-type mix at a glance. All of it
+ * is powered by useDashboardStats, which already computes this-year vs
+ * last-year figures from `appointments`, `expert_reports`, `claimants`
+ * and `referring_attorneys` — this page just renders it.
  */
-const AdminOperationsDashboard: React.FC = () => {
+
+const CURRENT_YEAR = new Date().getFullYear();
+const LAST_YEAR = CURRENT_YEAR - 1;
+
+/** Signed, rounded percentage change. Guards the 0-to-something case, which
+ * would otherwise divide by zero and read as a meaningless "Infinity%". */
+function pctChange(current: number, previous: number): { label: string; direction: 'up' | 'down' | 'flat' } {
+  if (previous === 0) {
+    if (current === 0) return { label: '0%', direction: 'flat' };
+    return { label: 'New', direction: 'up' };
+  }
+  const change = Math.round(((current - previous) / previous) * 100);
+  if (change === 0) return { label: '0%', direction: 'flat' };
+  return { label: `${change > 0 ? '+' : ''}${change}%`, direction: change > 0 ? 'up' : 'down' };
+}
+
+const TrendBadge: React.FC<{ current: number; previous: number }> = ({ current, previous }) => {
+  const { label, direction } = pctChange(current, previous);
+  const toneClass =
+    direction === 'up' ? 'text-success' : direction === 'down' ? 'text-destructive' : 'text-slate-400';
+  const Icon = direction === 'up' ? ArrowUp : direction === 'down' ? ArrowDown : Minus;
   return (
-    <div className="relative -m-3 flex min-h-[calc(100vh-8.5rem)] flex-col justify-between overflow-hidden gradient-nav p-5 text-white sm:-m-4 sm:min-h-[calc(100vh-9rem)] sm:p-8 lg:-m-6 lg:p-10">
-      {/* Ambient glow accents — decorative only, hidden from assistive tech
-          and excluded from pointer events / paint cost. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/10 blur-3xl sm:-right-32 sm:-top-32 sm:h-96 sm:w-96"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-white/10 blur-3xl sm:-bottom-24 sm:-left-24 sm:h-80 sm:w-80"
-      />
+    <span className={`inline-flex items-center gap-0.5 font-semibold ${toneClass}`}>
+      <Icon className="h-3 w-3" />
+      {label}
+    </span>
+  );
+};
 
-      <div className="relative flex items-center gap-3">
-        <div className="rounded-full bg-white/15 p-2 ring-2 ring-white/30 backdrop-blur">
-          <img
-            src={logoSrc}
-            alt="Kutlwano & Associate"
-            width={48}
-            height={48}
-            className="h-10 w-10 object-contain sm:h-12 sm:w-12"
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-          />
-        </div>
-        <div>
-          <div className="text-base font-bold tracking-wide sm:text-lg">Medico-Legal Pro</div>
-          <div className="text-xs text-white/80">Kutlwano &amp; Associate</div>
-        </div>
+/** One row of the Provincial Case Distribution panel: a stacked pair of
+ * bars (last year in grey, this year in teal) scaled to the larger of the
+ * two years' provincial totals so growth/shrinkage is visible at a glance. */
+const ProvinceRow: React.FC<{
+  name: string;
+  cases: number;
+  casesLastYear: number;
+  maxCases: number;
+}> = ({ name, cases, casesLastYear, maxCases }) => {
+  const widthThisYear = maxCases > 0 ? Math.max((cases / maxCases) * 100, cases > 0 ? 2 : 0) : 0;
+  const widthLastYear = maxCases > 0 ? Math.max((casesLastYear / maxCases) * 100, casesLastYear > 0 ? 2 : 0) : 0;
+
+  return (
+    <div className="py-2.5">
+      <div className="mb-1.5 flex items-center justify-between gap-2 text-xs">
+        <span className="font-medium text-black">{name}</span>
+        <span className="flex items-center gap-2 text-slate-500">
+          <span>
+            {LAST_YEAR}: <span className="font-medium text-black">{casesLastYear}</span>
+          </span>
+          <span>
+            {CURRENT_YEAR}: <span className="font-medium text-black">{cases}</span>
+          </span>
+          <TrendBadge current={cases} previous={casesLastYear} />
+        </span>
       </div>
-
-      <div className="relative max-w-2xl space-y-4">
-        <h1 className="text-[clamp(1.75rem,6vw,3rem)] font-bold leading-tight">
-          We touch a file.<br />We change lives.
-        </h1>
-        <p className="max-w-md text-sm leading-relaxed text-white/85 sm:max-w-lg sm:text-base xl:max-w-xl">
-          Every case that lands in this workspace carries a person on the other side of it —
-          waiting on a report, a referral, an answer. This is where that work gets done:
-          your active cases, appointments and reports, kept accurate and moving, so the
-          people counting on us are never left wondering where things stand.
-        </p>
-      </div>
-
-      <div className="relative text-xs text-white/70">
-        © {CURRENT_YEAR} Kutlwano &amp; Associate (Pty) Ltd
+      <div className="space-y-1">
+        <div className="h-1.5 w-full bg-black/5">
+          <div className="h-1.5 bg-black/20" style={{ width: `${widthLastYear}%` }} />
+        </div>
+        <div className="h-1.5 w-full bg-black/5">
+          <div className="h-1.5" style={{ width: `${widthThisYear}%`, backgroundColor: BRAND_TEAL }} />
+        </div>
       </div>
     </div>
+  );
+};
+
+const DOT_COLORS = ['#00BAAD', '#2563EB', '#16A34A', '#9333EA', '#D97706', '#DC2626', '#0EA5E9', '#EA580C'];
+
+const AdminOperationsDashboard: React.FC = () => {
+  const { stats, loading } = useDashboardStats();
+
+  const totalCaseTypeThisYear = stats.caseTypeData.reduce((sum, t) => sum + t.count, 0);
+  const totalCaseTypeLastYear = stats.caseTypeData.reduce((sum, t) => sum + t.countLastYear, 0);
+  const maxProvinceCases = Math.max(1, ...stats.provincialData.map((p) => Math.max(p.cases, p.casesLastYear)));
+
+  return (
+    <AdminPage>
+      <AdminHeader
+        eyebrow="Live case load overview"
+        title="Operations Dashboard"
+        description={`Operational metrics, ${CURRENT_YEAR} vs ${LAST_YEAR}`}
+        icon={LayoutDashboard}
+      />
+
+      {/* KPI row — each figure measured against the same point last year */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        <AdminStatCard
+          label="Active Cases"
+          value={loading ? '–' : stats.totalClaimants}
+          icon={Users}
+          loading={loading}
+          hint={!loading && <TrendBadge current={stats.totalClaimantsThisYear} previous={stats.totalClaimantsLastYear} />}
+        />
+        <AdminStatCard
+          label="Appointments"
+          value={loading ? '–' : stats.totalAppointments}
+          icon={Calendar}
+          loading={loading}
+          hint={!loading && <TrendBadge current={stats.totalAppointments} previous={stats.totalAppointmentsLastYear} />}
+        />
+        <AdminStatCard
+          label="Pending Reports"
+          value={loading ? '–' : stats.pendingReports}
+          icon={FileText}
+          loading={loading}
+          hint={!loading && <TrendBadge current={stats.pendingReports} previous={stats.pendingReportsLastYear} />}
+        />
+        <AdminStatCard
+          label="In Progress"
+          value={loading ? '–' : stats.reportsInProgress}
+          icon={Clock}
+          loading={loading}
+          hint={!loading && <TrendBadge current={stats.reportsInProgress} previous={stats.reportsInProgressLastYear} />}
+        />
+        <AdminStatCard
+          label="Reports Out"
+          value={loading ? '–' : stats.reportsTakenOut}
+          icon={FileSignature}
+          loading={loading}
+          hint={!loading && <TrendBadge current={stats.reportsTakenOut} previous={stats.reportsTakenOutLastYear} />}
+        />
+        <AdminStatCard
+          label="Completed"
+          value={loading ? '–' : stats.completedAssessments}
+          icon={BarChart3}
+          loading={loading}
+          hint={!loading && <TrendBadge current={stats.completedAssessments} previous={stats.completedAssessmentsLastYear} />}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Provincial Case Distribution */}
+        <AdminCard>
+          <AdminCardHeader
+            title="Provincial Case Distribution"
+            description="Appointment volume by referring attorney's province"
+            icon={MapPin}
+          />
+          <AdminCardBody>
+            {loading ? (
+              <AdminLoadingState label="Loading provincial data…" />
+            ) : stats.provincialData.length === 0 ? (
+              <p className="py-8 text-center text-xs text-slate-500">No appointment data yet.</p>
+            ) : (
+              <div className="divide-y divide-black/5">
+                {stats.provincialData.map((p) => (
+                  <ProvinceRow
+                    key={p.name}
+                    name={p.name}
+                    cases={p.cases}
+                    casesLastYear={p.casesLastYear}
+                    maxCases={maxProvinceCases}
+                  />
+                ))}
+              </div>
+            )}
+          </AdminCardBody>
+        </AdminCard>
+
+        {/* Case Type Breakdown */}
+        <AdminCard>
+          <AdminCardHeader title="Case Type Breakdown" description="Matter type mix, this year vs last" icon={Tags} />
+          <AdminCardBody>
+            {loading ? (
+              <AdminLoadingState label="Loading case type data…" />
+            ) : stats.caseTypeData.length === 0 ? (
+              <p className="py-8 text-center text-xs text-slate-500">No appointment data yet.</p>
+            ) : (
+              <>
+                <div className="mb-3 grid grid-cols-2 gap-3 border-b border-black/10 pb-3">
+                  <div>
+                    <p className="text-2xl font-bold text-black">{totalCaseTypeThisYear}</p>
+                    <p className="text-[11px] text-slate-500">{CURRENT_YEAR} total</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-slate-400">{totalCaseTypeLastYear}</p>
+                    <p className="text-[11px] text-slate-500">{LAST_YEAR} total</p>
+                  </div>
+                </div>
+                <div className="divide-y divide-black/5">
+                  {stats.caseTypeData.map((t, i) => (
+                    <div key={t.type} className="flex items-center justify-between gap-2 py-2 text-xs">
+                      <span className="flex min-w-0 items-center gap-2 font-medium text-black">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: DOT_COLORS[i % DOT_COLORS.length] }}
+                        />
+                        <span className="truncate">{t.type}</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2 text-slate-500">
+                        <span>
+                          {LAST_YEAR}: <span className="font-medium text-black">{t.countLastYear}</span>
+                        </span>
+                        <span>
+                          {CURRENT_YEAR}: <span className="font-medium text-black">{t.count}</span>
+                        </span>
+                        <TrendBadge current={t.count} previous={t.countLastYear} />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </AdminCardBody>
+        </AdminCard>
+      </div>
+    </AdminPage>
   );
 };
 
