@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense, lazy } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Plus, Search, Download, Trash2, Pencil } from "lucide-react";
@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useConfirm } from "@/hooks/useConfirm";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +21,27 @@ import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 import { AdminPagination, AdminEmptyState } from "@/components/admin/ui/AdminUI";
 import { cn } from "@/lib/utils";
+
+const ClaimantFormModule = lazy(() => import("@/components/admin/ClaimantFormModule"));
+
+/** Loading state shown inside the sliding panel while the form chunk loads —
+ *  mirrors the loading skeleton used by the other admin sliding panels
+ *  (e.g. Expert Network's "New Expert" panel) so every panel feels the same. */
+const PanelFallback = () => (
+  <div className="space-y-4 p-1">
+    <div className="flex items-center justify-between">
+      <Skeleton className="h-4 w-40" />
+      <Skeleton className="h-8 w-24" />
+    </div>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-full" />
+    </div>
+    <Skeleton className="h-48 w-full" />
+  </div>
+);
 
 interface Claimant {
   id: string;
@@ -53,6 +76,7 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [editingClaimant, setEditingClaimant] = useState<Claimant | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [isAddOpen, setIsAddOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
   const confirm = useConfirm();
@@ -281,11 +305,13 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
             Delete ({selectedClaimants.size})
           </Button>
         )}
-        <Button asChild size={embedded ? "sm" : "default"} className={embedded ? "rounded-none bg-black hover:bg-black/90" : ""}>
-          <Link to="/claimant" className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add New Claimant
-          </Link>
+        <Button
+          size={embedded ? "sm" : "default"}
+          className={cn("flex items-center gap-2", embedded && "rounded-none bg-black hover:bg-black/90")}
+          onClick={() => setIsAddOpen(true)}
+        >
+          <Plus className="h-4 w-4" />
+          Add New Claimant
         </Button>
         <Button
           variant="outline"
@@ -471,12 +497,46 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
     />
   );
 
+  // Add New Claimant — same docked sliding panel, identical mechanics to the
+  // other admin list pages (e.g. Expert Network's "New Expert" sheet), so
+  // staff can glance at the list behind it, cancel, or save without being
+  // bounced to a separate route.
+  const addSheet = (
+    <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
+      <SheetContent
+        side="right"
+        className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-2xl"
+      >
+        <SheetHeader className="border-b border-black/10 px-5 py-4 text-left">
+          <SheetTitle className="flex items-center gap-2 text-base font-bold text-black">
+            <Plus className="h-4 w-4" />
+            Add New Claimant
+          </SheetTitle>
+          <SheetDescription className="text-xs text-slate-500">
+            Capture claimant details and link to the referring attorney without leaving the list.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 px-5 py-4">
+          <Suspense fallback={<PanelFallback />}>
+            <ClaimantFormModule
+              onSaved={() => {
+                setIsAddOpen(false);
+                fetchClaimants();
+              }}
+            />
+          </Suspense>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+
   if (embedded) {
     return (
       <div className="space-y-4">
         {toolbar}
         {listCard}
         {editDialog}
+        {addSheet}
       </div>
     );
   }
@@ -494,6 +554,7 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
         {listCard}
       </main>
       {editDialog}
+      {addSheet}
       <CompanyFooter />
     </div>
   );
