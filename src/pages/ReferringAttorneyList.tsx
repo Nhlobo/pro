@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { SecureDataDisplay } from "@/components/SecureDataDisplay";
-import { ArrowLeft, Search, Building2, Pencil, Trash2, Calendar } from "lucide-react";
+import { ArrowLeft, Search, Building2, Pencil, Trash2, Calendar, Plus } from "lucide-react";
 import { format } from "date-fns";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +28,27 @@ import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { usePermissions } from "@/hooks/usePermissions";
 import { AdminPagination, AdminEmptyState } from "@/components/admin/ui/AdminUI";
 import { cn } from "@/lib/utils";
+
+const ReferringAttorneyFormModule = lazy(() => import("@/components/admin/ReferringAttorneyFormModule"));
+
+/** Loading state shown inside the sliding panels while the form chunk loads —
+ *  mirrors the fallback used by the other admin sliding panels (e.g.
+ *  Expert Network's "New Expert" panel) so every panel feels the same. */
+const PanelFallback = () => (
+  <div className="space-y-4 p-1">
+    <div className="flex items-center justify-between">
+      <Skeleton className="h-4 w-40" />
+      <Skeleton className="h-8 w-24" />
+    </div>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-full" />
+      <Skeleton className="h-9 w-full" />
+    </div>
+    <Skeleton className="h-48 w-full" />
+  </div>
+);
 
 type ReferringAttorney = {
   id: string;
@@ -47,7 +70,6 @@ interface ReferringAttorneyListProps {
 
 const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded = false }) => {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const { isAdmin } = usePermissions();
   const [searchTerm, setSearchTerm] = useState("");
   const [attorneys, setAttorneys] = useState<ReferringAttorney[]>([]);
@@ -56,6 +78,8 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
   const [attorneyToDelete, setAttorneyToDelete] = useState<ReferringAttorney | null>(null);
   const [duplicateNames, setDuplicateNames] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingAttorneyId, setEditingAttorneyId] = useState<string | null>(null);
   const PAGE_SIZE = 12;
 
   useEffect(() => {
@@ -215,7 +239,7 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
   };
 
   const handleEdit = (attorneyId: string) => {
-    navigate(`/referring-attorney/${attorneyId}`);
+    setEditingAttorneyId(attorneyId);
   };
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/referring-attorney-list';
@@ -462,16 +486,87 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
     </AlertDialog>
   );
 
+  // Add New Attorney — same docked sliding panel, identical mechanics to the
+  // other admin list pages (e.g. Expert Network's "New Expert" sheet), so
+  // staff can glance at the directory behind it, cancel, or save without
+  // being bounced to a separate route.
+  const addSheet = (
+    <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
+      <SheetContent
+        side="right"
+        className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-2xl"
+      >
+        <SheetHeader className="border-b border-black/10 px-5 py-4 text-left">
+          <SheetTitle className="flex items-center gap-2 text-base font-bold text-black">
+            <Plus className="h-4 w-4" />
+            Add New Attorney
+          </SheetTitle>
+          <SheetDescription className="text-xs text-slate-500">
+            Capture referring attorney details without leaving the directory.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 px-5 py-4">
+          <Suspense fallback={<PanelFallback />}>
+            <ReferringAttorneyFormModule
+              onSaved={() => {
+                setIsAddOpen(false);
+                fetchAttorneys();
+              }}
+            />
+          </Suspense>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+
+  // Edit Attorney — same docked sliding panel, opened from the directory's
+  // pencil action.
+  const editSheet = (
+    <Sheet open={!!editingAttorneyId} onOpenChange={(open) => { if (!open) setEditingAttorneyId(null); }}>
+      <SheetContent
+        side="right"
+        className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-2xl"
+      >
+        <SheetHeader className="border-b border-black/10 px-5 py-4 text-left">
+          <SheetTitle className="flex items-center gap-2 text-base font-bold text-black">
+            <Pencil className="h-4 w-4" />
+            Edit Attorney
+          </SheetTitle>
+          <SheetDescription className="text-xs text-slate-500">
+            Update this attorney's details without leaving the directory.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 px-5 py-4">
+          {editingAttorneyId && (
+            <Suspense fallback={<PanelFallback />}>
+              <ReferringAttorneyFormModule
+                key={editingAttorneyId}
+                attorneyId={editingAttorneyId}
+                onSaved={() => {
+                  setEditingAttorneyId(null);
+                  fetchAttorneys();
+                }}
+              />
+            </Suspense>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+
   if (embedded) {
     return (
       <div className="space-y-4">
         <div className="flex justify-end">
-          <Button asChild size="sm" className="rounded-none bg-black hover:bg-black/90">
-            <Link to="/referring-attorney">Add New Attorney</Link>
+          <Button size="sm" className="flex items-center gap-2 rounded-none bg-black hover:bg-black/90" onClick={() => setIsAddOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Add New Attorney
           </Button>
         </div>
         {directoryCard}
         {deleteDialog}
+        {addSheet}
+        {editSheet}
       </div>
     );
   }
@@ -496,10 +591,9 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
               </Button>
               <h1 className="text-2xl font-bold">Referring Attorney List</h1>
             </div>
-            <Button asChild>
-              <Link to="/referring-attorney">
-                Add New Attorney
-              </Link>
+            <Button className="flex items-center gap-2" onClick={() => setIsAddOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Add New Attorney
             </Button>
           </div>
         </div>
@@ -510,6 +604,8 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
       </main>
 
       {deleteDialog}
+      {addSheet}
+      {editSheet}
 
       <CompanyFooter />
     </div>
