@@ -16,7 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import type { DateRange } from 'react-day-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from '@/components/ui/sheet';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { 
@@ -960,10 +960,10 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
 
   // Reusable download selector component
   const ConsultantDownload = ({ onDownload }: { onDownload: (consultant: string) => void }) => (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {isAdmin() ? (
         <Select value={downloadConsultant} onValueChange={setDownloadConsultant}>
-          <SelectTrigger className="w-[200px] h-8 text-xs"><SelectValue placeholder="Select consultant" /></SelectTrigger>
+          <SelectTrigger className="h-8 w-[160px] text-xs sm:w-[200px]"><SelectValue placeholder="Select consultant" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Sales Consultants</SelectItem>
             {salesPersons.map(sp => <SelectItem key={sp} value={sp}>{sp}</SelectItem>)}
@@ -994,7 +994,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
 
 
   return (
-    <div className={embedded ? "" : "min-h-screen bg-background"}>
+    <div className={embedded ? "flex flex-col" : "min-h-screen flex flex-col bg-background"}>
       {!embedded && (
         <Helmet>
           <title>Attorney Pitchlog - Medico-Legal CRM</title>
@@ -1006,28 +1006,28 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
         ? "bg-black"
         : "bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal shadow-elegant border-b border-kutlwano-blue/30"}
       >
-        <div className={embedded ? "px-4 sm:px-6" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"}>
-          <div className="flex justify-between items-center h-14">
-            <div className="flex items-center space-x-4">
+        <div className={embedded ? "px-4 sm:px-6 py-3" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3"}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center space-x-4">
               {!embedded && (
                 <>
-                  <Button variant="ghost" size="sm" asChild className="text-white hover:bg-white/10">
+                  <Button variant="ghost" size="sm" asChild className="shrink-0 text-white hover:bg-white/10">
                     <Link to="/dashboard"><ArrowLeft className="h-4 w-4 mr-2" />Dashboard</Link>
                   </Button>
-                  <div className="h-6 w-px bg-white/30" />
+                  <div className="h-6 w-px shrink-0 bg-white/30" />
                 </>
               )}
-              <h1 className="text-sm font-semibold text-white">
+              <h1 className="truncate text-sm font-semibold text-white">
                 {embedded ? 'Pitchlog Tools' : 'Medico-Legal Attorney Pitchlog'}
               </h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
                 onClick={() => {
                   queryClient.invalidateQueries({ queryKey: ['attorney-pitchlog'] });
                   toast({ title: "Refreshed", description: "Pitchlog data has been refreshed." });
                 }}>
-                <RefreshCw className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />Refresh
+                <RefreshCw className={cn("h-4 w-4 sm:mr-2", isLoading && "animate-spin")} /><span className="hidden sm:inline">Refresh</span>
               </Button>
               {isAdmin() && (
                 <Button
@@ -1050,29 +1050,29 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
                     });
                   }}
                 >
-                  <AlertTriangle className="h-4 w-4 mr-2" />Scan Conflicts
+                  <AlertTriangle className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Scan Conflicts</span>
                 </Button>
               )}
               <PitchlogExcelUpload onUpload={(rows) => bulkInsertMutation.mutate(rows)} />
               <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
                 onClick={() => downloadPitchlogPdf(filteredEntries, monthLabel)}>
-                <FileText className="h-4 w-4 mr-2" />PDF
+                <FileText className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">PDF</span>
               </Button>
               <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20"
                 onClick={() => exportCSV(filteredEntries, `pitchlog-${filterMonthStr}`)}>
-                <Download className="h-4 w-4 mr-2" />CSV
+                <Download className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">CSV</span>
               </Button>
-              <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setForm({ ...emptyForm, sales_person: currentUserName || '' }); }}>
-                <DialogTrigger asChild>
+              <Sheet open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) setForm({ ...emptyForm, sales_person: currentUserName || '' }); }}>
+                <SheetTrigger asChild>
                   <Button size="sm" className="bg-white text-kutlwano-blue hover:bg-white/90 font-semibold">
-                    <Plus className="h-4 w-4 mr-2" />Log Pitch
+                    <Plus className="h-4 w-4 sm:mr-2" /><span className="hidden sm:inline">Log Pitch</span>
                   </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Log New Attorney Pitch</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleSubmit} className="space-y-4">
+                </SheetTrigger>
+                <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+                  <SheetHeader>
+                    <SheetTitle>Log New Attorney Pitch</SheetTitle>
+                  </SheetHeader>
+                  <form onSubmit={handleSubmit} className="mt-4 space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label>Date (auto-set to current) *</Label>
@@ -1156,26 +1156,26 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
                       <Label>Comment Sec 2</Label>
                       <Textarea value={form.comment_2} onChange={e => setForm(f => ({ ...f, comment_2: e.target.value }))} placeholder="Additional user comments..." rows={3} />
                     </div>
-                    <div className="flex justify-end gap-2">
+                    <SheetFooter className="flex-row justify-end gap-2 sm:justify-end">
                       <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
                       <Button type="submit" disabled={saveMutation.isPending}>
                         {saveMutation.isPending ? 'Saving...' : 'Log Pitch'}
                       </Button>
-                    </div>
+                    </SheetFooter>
                   </form>
-                </DialogContent>
-              </Dialog>
+                </SheetContent>
+              </Sheet>
             </div>
           </div>
         </div>
       </header>
 
-      <div className={embedded ? "px-0 py-4 space-y-4" : "max-w-7xl mx-auto px-4 py-6 space-y-6"}>
-        <div className="flex flex-wrap items-center gap-4">
+      <div className={embedded ? "flex-1 px-0 py-4 space-y-4 min-w-0" : "flex-1 w-full max-w-7xl mx-auto px-4 py-6 space-y-6 min-w-0"}>
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium">Period:</Label>
             <Select value={filterPeriod} onValueChange={(v) => setFilterPeriod(v as FilterPeriod)}>
-              <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-[120px] sm:w-[140px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="daily">Daily</SelectItem>
                 <SelectItem value="weekly">Weekly</SelectItem>
@@ -1192,9 +1192,9 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
             </Button>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className={cn("w-[240px] justify-center text-left font-medium text-sm")}>
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {periodRange.label}
+                <Button variant="outline" className={cn("w-[170px] justify-center text-left font-medium text-sm sm:w-[240px]")}>
+                  <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                  <span className="truncate">{periodRange.label}</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -1220,16 +1220,16 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
               value={customRange}
               onChange={setCustomRange}
               placeholder="Pick date range"
-              className="w-[260px]"
+              className="w-[190px] sm:w-[260px]"
             />
           </div>
           <div className="flex items-center gap-2">
             <Label className="text-sm font-medium">Sales Person:</Label>
             {isSalesConsultant() && !isAdmin() ? (
-              <Input value={currentUserName || ''} readOnly className="w-[180px] bg-muted cursor-not-allowed h-9" />
+              <Input value={currentUserName || ''} readOnly className="w-[140px] bg-muted cursor-not-allowed h-9 sm:w-[180px]" />
             ) : (
               <Select value={filterSalesPerson} onValueChange={setFilterSalesPerson}>
-                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[140px] sm:w-[180px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
                   {salesPersons.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -1237,13 +1237,13 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
               </Select>
             )}
           </div>
-          <div className="relative flex items-center ml-auto">
+          <div className="relative flex items-center w-full sm:ml-auto sm:w-auto">
             <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Global search: attorney / firm / contact..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 w-[280px] h-9"
+              className="w-full pl-9 h-9 sm:w-[280px]"
               title="Searches the full pitchlog across all months — ignores the date period filter"
             />
             {isGlobalSearch && (
@@ -1266,7 +1266,7 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
         )}
 
         <Tabs defaultValue={defaultTab || "pitchlog"} className="space-y-4">
-          <TabsList className="bg-muted flex-wrap">
+          <TabsList className="h-auto flex-wrap bg-muted">
             <TabsTrigger value="pitchlog">Pitchlog</TabsTrigger>
             <TabsTrigger value="potential">Potential Attorneys</TabsTrigger>
             <TabsTrigger value="sales-report">Sales Report & Analytics</TabsTrigger>
@@ -1284,9 +1284,9 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
           {/* PITCHLOG TABLE with inline editing */}
           <TabsContent value="pitchlog">
             <Card className="border-border/50 shadow-soft">
-              <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-kutlwano-blue" />Pitchlog — {isGlobalSearch ? `Search: "${searchTerm}"` : periodRange.label}</CardTitle>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <CardTitle className="flex flex-wrap items-center gap-2 break-words"><Target className="h-5 w-5 shrink-0 text-kutlwano-blue" />Pitchlog — {isGlobalSearch ? `Search: "${searchTerm}"` : periodRange.label}</CardTitle>
                   <CardDescription>{filteredEntries.length} {isGlobalSearch ? `entries across all months matching “${searchTerm}”` : `entries for ${periodRange.label}`} — click Edit icon on any row to edit inline</CardDescription>
                 </div>
                 <ConsultantDownload onDownload={(c) => downloadTabPdf(
@@ -1357,9 +1357,9 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
           {/* POTENTIAL ATTORNEYS TAB */}
           <TabsContent value="potential">
             <Card className="border-border/50 shadow-soft">
-              <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2"><Star className="h-5 w-5 text-amber-500" />Potential Attorneys</CardTitle>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <CardTitle className="flex items-center gap-2"><Star className="h-5 w-5 shrink-0 text-amber-500" />Potential Attorneys</CardTitle>
                   <CardDescription>{potentialAttorneys.length} attorneys marked as Potential or Interested</CardDescription>
                 </div>
                 <ConsultantDownload onDownload={(c) => downloadTabPdf(
@@ -1439,18 +1439,20 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
                       <p className="text-xs text-muted-foreground">Conversion Rate</p>
                     </div>
                   </div>
-                  <Table>
-                    <TableBody>
-                      <TableRow><TableCell className="font-medium">New Pitches</TableCell><TableCell className="text-right">{periodStats.pitched}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Follow-Ups Done</TableCell><TableCell className="text-right">{periodStats.followedUp}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Interested Firms</TableCell><TableCell className="text-right font-semibold">{periodStats.interested}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Province Coverage</TableCell><TableCell className="text-right">{periodStats.provinces} provinces</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">RAF Focus</TableCell><TableCell className="text-right">{periodStats.raf}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Med Neg Focus</TableCell><TableCell className="text-right">{periodStats.medNeg}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Top Provinces</TableCell><TableCell className="text-right text-sm">{periodStats.topProvinces}</TableCell></TableRow>
-                      <TableRow><TableCell className="font-medium">Top Challenges</TableCell><TableCell className="text-right text-sm">{periodStats.topChallenges}</TableCell></TableRow>
-                    </TableBody>
-                  </Table>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableBody>
+                        <TableRow><TableCell className="font-medium">New Pitches</TableCell><TableCell className="text-right">{periodStats.pitched}</TableCell></TableRow>
+                        <TableRow><TableCell className="font-medium">Follow-Ups Done</TableCell><TableCell className="text-right">{periodStats.followedUp}</TableCell></TableRow>
+                        <TableRow><TableCell className="font-medium">Interested Firms</TableCell><TableCell className="text-right font-semibold">{periodStats.interested}</TableCell></TableRow>
+                        <TableRow><TableCell className="font-medium">Province Coverage</TableCell><TableCell className="text-right">{periodStats.provinces} provinces</TableCell></TableRow>
+                        <TableRow><TableCell className="font-medium">RAF Focus</TableCell><TableCell className="text-right">{periodStats.raf}</TableCell></TableRow>
+                        <TableRow><TableCell className="font-medium">Med Neg Focus</TableCell><TableCell className="text-right">{periodStats.medNeg}</TableCell></TableRow>
+                        <TableRow><TableCell className="font-medium">Top Provinces</TableCell><TableCell className="text-right text-sm">{periodStats.topProvinces}</TableCell></TableRow>
+                        <TableRow><TableCell className="font-medium">Top Challenges</TableCell><TableCell className="text-right text-sm">{periodStats.topChallenges}</TableCell></TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
                 </CardContent>
               </Card>
 
@@ -1501,18 +1503,19 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
           {/* PERFORMANCE TAB */}
           <TabsContent value="performance">
             <Card className="border-border/50 shadow-soft">
-              <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 text-kutlwano-teal" />Sales Person Performance</CardTitle>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <CardTitle className="flex items-center gap-2"><Users className="h-5 w-5 shrink-0 text-kutlwano-teal" />Sales Person Performance</CardTitle>
                   <CardDescription>Individual pitch activity for {periodRange.label}</CardDescription>
                 </div>
                 <ConsultantDownload onDownload={(c) => downloadPerformancePdf(c)} />
               </CardHeader>
               <CardContent>
-                <Table>
+                <div className="overflow-x-auto">
+                  <Table>
                   <TableHeader>
                      <TableRow>
-982:                       <TableHead>Sales Person</TableHead>
+                      <TableHead>Sales Person</TableHead>
                       <TableHead className="text-center">Total Pitches</TableHead>
                       <TableHead className="text-center">New</TableHead>
                       <TableHead className="text-center">Re-Pitched</TableHead>
@@ -1546,7 +1549,8 @@ const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ defaultTab, embedde
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
