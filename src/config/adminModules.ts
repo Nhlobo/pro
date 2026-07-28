@@ -217,6 +217,16 @@ export const ADMIN_MODULES: AdminModule[] = [
     roles: ['admin'],
     permissions: [{ category: 'User Management', functionName: 'Manage Users' }],
   },
+  {
+    key: 'weekly-operations-report',
+    title: 'Weekly Operations Report',
+    href: '/admin/weekly-operations-report',
+    group: 'System',
+    icon: Mail,
+    description: 'Weekly expert payments & assessments booked summary',
+    roles: ['admin'],
+    permissions: [{ category: 'User Management', functionName: 'Manage Users' }],
+  },
   // Account
   {
     key: 'my-profile',
