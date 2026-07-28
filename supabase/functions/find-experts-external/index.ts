@@ -42,6 +42,53 @@ interface ExternalExpert {
   websites?: { url: string; host: string }[];
 }
 
+// --- Profession keyword map --------------------------------------------
+// Canonical keyword groups for every medico-legal profession the "Find
+// Experts" search supports. Two jobs:
+//  1. A result only counts as "on topic" for the requested expertType if
+//     one of its keywords appears (word-boundary matched) in the title/snippet.
+//  2. A result that clearly matches a *different* profession's keywords —
+//     and not the requested one — is a wrong-specialty hit and gets dropped,
+//     e.g. searching "Urologist" must never surface a Neurologist.
+// Keep this list in sync with MEDICO_LEGAL_PROFESSIONS in
+// src/hooks/useExpertSearch.tsx if new professions are added there.
+const PROFESSION_KEYWORDS: Record<string, string[]> = {
+  'Orthopaedic Surgeon': ['orthopaedic', 'orthopedic', 'orthopaedics', 'orthopedics', 'orthopod'],
+  'Neurosurgeon': ['neurosurgeon', 'neurosurgery', 'neurosurgical'],
+  'Occupational Therapist': ['occupational therapist', 'occupational therapy'],
+  'Clinical Psychologist': ['clinical psychologist', 'clinical psychology'],
+  'Industrial Psychologist': ['industrial psychologist', 'industrial psychology', 'organisational psychologist', 'organizational psychologist'],
+  'Psychiatrist': ['psychiatrist', 'psychiatry'],
+  'Neurologist': ['neurologist', 'neurology', 'neurological'],
+  'Plastic Surgeon': ['plastic surgeon', 'plastic surgery', 'reconstructive surgeon', 'reconstructive surgery'],
+  'General Surgeon': ['general surgeon', 'general surgery'],
+  'Speech Therapist': ['speech therapist', 'speech-language therapist', 'speech therapy', 'speech-language pathologist'],
+  'Audiologist': ['audiologist', 'audiology'],
+  'Physiotherapist': ['physiotherapist', 'physiotherapy', 'physical therapist'],
+  'Educational Psychologist': ['educational psychologist', 'educational psychology'],
+  'Actuary': ['actuary', 'actuarial', 'actuaries'],
+  'Nursing Expert': ['nursing expert', 'registered nurse', 'nursing specialist', 'clinical nurse specialist'],
+  'Emergency Medicine Specialist': ['emergency medicine', 'emergency physician', 'emergency medicine specialist'],
+  'Radiologist': ['radiologist', 'radiology'],
+  'Urologist': ['urologist', 'urology', 'urological'],
+  'Gynaecologist': ['gynaecologist', 'gynecologist', 'obstetrician', 'gynaecology', 'gynecology', 'obstetrics'],
+  'Paediatrician': ['paediatrician', 'pediatrician', 'paediatrics', 'pediatrics'],
+  'Dentist': ['dentist', 'dental surgeon', 'dentistry'],
+  'Maxillofacial Surgeon': ['maxillofacial surgeon', 'maxillofacial surgery', 'oral and maxillofacial'],
+  'Ophthalmologist': ['ophthalmologist', 'ophthalmology'],
+};
+
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Word-boundary match so short profession names can't false-positive inside
+// unrelated longer words (the bug this replaces: "urologist" is a plain
+// substring of "neurologist", so a naive .includes() check would wrongly
+// treat every neurologist result as a urologist match).
+const containsKeyword = (haystack: string, phrase: string): boolean => {
+  const re = new RegExp(`\\b${escapeRegExp(phrase.toLowerCase())}\\b`, 'i');
+  return re.test(haystack);
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -82,9 +129,15 @@ Deno.serve(async (req) => {
     if (!apiKey) return json({ error: 'FIRECRAWL_API_KEY not configured' }, 500);
 
     const locationParts = [city, province, 'South Africa'].filter(Boolean).join(', ');
-    const baseQuery = `${expertType} medico-legal expert ${locationParts} HPCSA RAF medical negligence`;
+    // "expert witness" is included directly in the query (not just scored
+    // after the fact) so the search itself is biased toward medico-legal
+    // expert witness listings rather than general medical directory noise.
+    const baseQuery = `${expertType} medico-legal expert witness ${locationParts} HPCSA RAF medical negligence`;
     // Always include Recomed and Medpages as dedicated source queries so results
     // from those directories surface even when general search misses them.
+    // These two stay focused on profession + location only: they're general
+    // medical directories rather than legal-focused ones, so requiring the
+    // "expert witness" phrase here would zero out otherwise-good matches.
     const recomedQuery = `site:recomed.co.za ${expertType} ${locationParts}`;
     const medpagesQuery = `site:medpages.co.za ${expertType} ${locationParts}`;
 
@@ -93,7 +146,7 @@ Deno.serve(async (req) => {
       const r = await fetch('https://api.firecrawl.dev/v2/search', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q, limit: perQueryLimit, lang: 'en', country: 'za' }),
+        body: JSON.stringify({ query: q, limit: perQueryLimit, lang: 'en', country: 'za', sources: ['web'] }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
@@ -136,7 +189,25 @@ Deno.serve(async (req) => {
       try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
     };
 
-    const expertWords = expertType.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+    // Keyword group for the requested profession — falls back to the raw
+    // expertType string for any custom/unlisted value so the search still
+    // works, just without the extra specificity guarantees.
+    const requestedKeywords = PROFESSION_KEYWORDS[expertType] ?? [expertType.toLowerCase()];
+    const matchesRequestedProfession = (text: string): boolean =>
+      requestedKeywords.some((k) => containsKeyword(text, k));
+    // True when the text is clearly about a *different* listed profession
+    // and doesn't also mention the one that was asked for — this is what
+    // keeps a search for "Urologist" from surfacing a Neurologist, or an
+    // "Orthopaedic Surgeon" search from surfacing a generic "surgeon" hit.
+    const matchesConflictingProfession = (text: string): boolean => {
+      if (matchesRequestedProfession(text)) return false;
+      for (const [prof, keywords] of Object.entries(PROFESSION_KEYWORDS)) {
+        if (prof === expertType) continue;
+        if (keywords.some((k) => containsKeyword(text, k))) return true;
+      }
+      return false;
+    };
+
     const provinceLower = province.toLowerCase();
     const cityLower = city.toLowerCase();
 
@@ -148,12 +219,15 @@ Deno.serve(async (req) => {
       // Trusted source boost
       if (trustedHosts.some((h) => host.includes(h))) score += 40;
 
-      // Profession relevance
-      for (const w of expertWords) {
-        if (haystack.includes(w)) score += 15;
-      }
+      // Profession relevance — specific to the requested specialty rather
+      // than generic words like "surgeon" or "therapist" that many
+      // unrelated professions share.
+      if (matchesRequestedProfession(haystack)) score += 35;
       if (haystack.includes('medico-legal') || haystack.includes('medico legal')) score += 20;
-      if (haystack.includes('expert witness') || haystack.includes('medico-legal report')) score += 10;
+      // "Expert witness" is the strongest possible signal that this person
+      // already works medico-legal cases, so it carries the biggest boost.
+      if (haystack.includes('expert witness')) score += 30;
+      if (haystack.includes('medico-legal report')) score += 10;
       if (haystack.includes('hpcsa')) score += 8;
       if (haystack.includes('raf') || haystack.includes('road accident fund')) score += 8;
       if (haystack.includes('negligence')) score += 6;
@@ -264,6 +338,13 @@ Deno.serve(async (req) => {
       const title = r.title || r.metadata?.title || 'Untitled';
       const snippet = r.description || r.snippet || r.metadata?.description || '';
       const haystack = `${title} ${snippet}`;
+
+      // Specificity gate: this result is clearly about a different
+      // profession (e.g. a Neurologist showing up in a Urologist search) —
+      // drop it outright rather than merely down-ranking it, so every
+      // profession + location search stays limited to that practicing field.
+      if (matchesConflictingProfession(haystack)) return;
+
       const detected = detectLocation(haystack);
       const host = getHost(url);
       const isTrusted = trustedHosts.some((h) => host.includes(h));
