@@ -27,7 +27,9 @@ import { formatExpertType, normalizeExpertType, matchesExpertType, getUniqueExpe
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { AODPreviewDialog } from "@/components/AODPreviewDialog";
 import { useAODWorkflow } from "@/hooks/useAODWorkflow";
+import { useShortTermAgreements } from "@/hooks/useShortTermAgreements";
 import { ShortTermAgreementPreview } from "@/components/ShortTermAgreementPreview";
+import { classifyPaymentTerms, resolveAgreementDurationMonths } from "@/utils/paymentTermsClassification";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 import DebtTrackerPanel from "@/components/DebtTrackerPanel";
@@ -106,6 +108,7 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
   const [showAODPreview, setShowAODPreview] = useState(false);
   const [pendingAODData, setPendingAODData] = useState(null);
   const { creating, aodId, createAODFromAppointment } = useAODWorkflow();
+  const { createAgreement: createShortTermAgreementRecord } = useShortTermAgreements();
   const [showShortTermAgreement, setShowShortTermAgreement] = useState(false);
   const [shortTermAgreementData, setShortTermAgreementData] = useState<any>(null);
 
@@ -593,34 +596,48 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
     toast.success('Appointment removed from queue');
   };
 
-  const shouldTriggerShortTermAgreement = (paymentTerms: string): boolean => {
-    const shortTermTriggers = [
-      "30 days", "60 days", "90 days", "120 days",
-      "6 months", "7 months", "8 months", "9 months", 
-      "10 months", "11 months", "12 months"
-    ];
-    return shortTermTriggers.some(term => 
-      paymentTerms?.toLowerCase().includes(term.toLowerCase())
-    );
+  const shouldTriggerShortTermAgreement = (paymentTerms: string, durationMonths?: string | number): boolean => {
+    return classifyPaymentTerms(paymentTerms, durationMonths) === "short-term";
   };
 
   const handleAODCreation = async (appointmentData: any) => {
     try {
-      const paymentTermsLower = appointmentData.payment_terms?.toLowerCase() || '';
       const agreementDuration = appointmentData.agreement_duration_months || 0;
-      
-      // Check if this requires AOD or Short-term agreement
-      const requiresAgreement = paymentTermsLower.includes('aod') || 
-                               paymentTermsLower.includes('short') ||
-                               agreementDuration > 0;
-      
-      if (!requiresAgreement) return;
+      const classification = classifyPaymentTerms(appointmentData.payment_terms, agreementDuration);
+
+      if (classification === 'immediate') return; // No agreement needed
 
       const totalContractValue = appointmentData.service_fee || 0;
       const depositAmount = appointmentData.deposit_amount || 0;
       const balance = totalContractValue - depositAmount;
 
       if (balance <= 0) return; // No balance, no agreement needed
+
+      if (classification === 'short-term') {
+        // Route to Short-Term Agreements (auto-groups by attorney + month,
+        // same behaviour as AOD documents below) instead of silently
+        // falling into an AOD document. This is what was missing for
+        // bulk-queued appointments with 30/60/90-day or short-term terms.
+        const resolvedDuration = resolveAgreementDurationMonths(appointmentData.payment_terms, agreementDuration) || 3;
+        const startDate = new Date(appointmentData.appointment_date);
+        const endDate = new Date(startDate);
+        endDate.setMonth(endDate.getMonth() + resolvedDuration);
+
+        await createShortTermAgreementRecord({
+          referring_attorney_id: appointmentData.referring_attorney_id,
+          agreement_method: 'email',
+          contract_description: `Short-Term Agreement for ${startDate.getMonth() + 1}/${startDate.getFullYear()}`,
+          contract_start_date: startDate.toISOString().split('T')[0],
+          contract_end_date: endDate.toISOString().split('T')[0],
+          total_contract_value: totalContractValue,
+          deposit_amount: depositAmount,
+          total_reports_agreed: 1,
+          payment_status: depositAmount >= totalContractValue ? 'paid' : 'pending',
+          status: 'active',
+          notes: `Auto-generated from appointment.\nAPPOINTMENT:${appointmentData.id}`,
+        });
+        return;
+      }
 
       // Create AOD document using the workflow hook
       await createAODFromAppointment({
@@ -1002,7 +1019,7 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
           const newAppointment = insertedAppointment[0];
           
           // Check if short-term agreement should be triggered
-          if (shouldTriggerShortTermAgreement(formData.paymentTerms)) {
+          if (shouldTriggerShortTermAgreement(formData.paymentTerms, formData.agreementDurationMonths)) {
             const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
             const selectedExpert = experts.find(e => e.id === formData.expertId);
 
@@ -1796,8 +1813,6 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
                   {formData.paymentTerms && (
                     <p className="text-xs text-slate-500">
                       {(() => {
-                        const paymentLower = formData.paymentTerms.toLowerCase();
-                        const duration = parseInt(formData.agreementDurationMonths) || 0;
                         const assessmentFees = parseFloat(formData.assessmentFees) || 0;
                         const rawDiscount = parseFloat(formData.discount) || 0;
                         const discount = formData.discountType === 'percentage'
@@ -1806,14 +1821,17 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
                         const finalFee = Math.max(0, assessmentFees - discount);
                         const hasBalance = finalFee - (parseFloat(formData.depositMade) || 0) > 0;
 
-                        if (paymentLower.includes('aod') && (duration === 0 || duration >= 12)) {
+                        if (!hasBalance) return null;
+
+                        const classification = classifyPaymentTerms(formData.paymentTerms, formData.agreementDurationMonths);
+                        if (classification === 'aod') {
                           return '📋 Will be synced to AOD Documents (12+ months agreement)';
-                        } else if ((duration > 0 && duration < 12) || paymentLower.includes('short')) {
+                        } else if (classification === 'short-term') {
                           return '📝 Will be synced to Short-Term Agreements (<12 months)';
-                        } else if (hasBalance) {
-                          return '💰 Outstanding balance detected - will be synced appropriately';
+                        } else if (classification === 'immediate') {
+                          return null; // Immediate payment - no agreement needed
                         }
-                        return null;
+                        return '💰 Outstanding balance detected - will be synced appropriately';
                       })()}
                     </p>
                   )}
