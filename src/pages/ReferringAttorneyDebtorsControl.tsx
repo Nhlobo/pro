@@ -88,10 +88,14 @@ const ReferringAttorneyDebtorsControl = () => {
   const [loading, setLoading] = useState(true);
   const [expandedAttorney, setExpandedAttorney] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  // Scope report/contract counts to a single financial year by default, so
+  // totals don't silently sum every AOD/short-term agreement ever created
+  // for an attorney (which previously produced inflated lifetime totals).
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
 
   useEffect(() => {
     fetchDebtorsData();
-  }, []);
+  }, [selectedYear]);
 
   useEffect(() => {
     let filtered = attorneysData;
@@ -216,9 +220,19 @@ const ReferringAttorneyDebtorsControl = () => {
         attorney.total_deposits += deposit;
       });
 
-      // Consolidate AOD documents per attorney (one consolidated contract per attorney)
+      // Consolidate AOD documents per attorney, scoped to the selected year
+      // (each AOD document is a separate month's contract - see
+      // useAODWorkflow.createAODFromAppointment - so an attorney can
+      // legitimately have several within one year, e.g. from bulk bookings).
+      const yearScopedAodDocs = selectedYear === "all"
+        ? aodDocs
+        : aodDocs?.filter(d => {
+            const dateStr = d.contract_start_date || d.created_at;
+            return dateStr && new Date(dateStr).getFullYear().toString() === selectedYear;
+          });
+
       const aodByAttorney = new Map<string, typeof aodDocs>();
-      aodDocs?.forEach(doc => {
+      yearScopedAodDocs?.forEach(doc => {
         if (!aodByAttorney.has(doc.referring_attorney_id)) {
           aodByAttorney.set(doc.referring_attorney_id, []);
         }
@@ -229,13 +243,16 @@ const ReferringAttorneyDebtorsControl = () => {
         const attorney = attorneyMap.get(attorneyId);
         if (!attorney) return;
 
-        // Consolidate: use highest contract value, sum all payments/deposits/reports
-        const maxContractValue = Math.max(...docs.map(d => Number(d.total_contract_value || 0)));
+        // Each doc is a separate contract for this year - sum everything,
+        // including contract value and reports agreed (previously Math.max
+        // was used here, which understated totals whenever an attorney had
+        // more than one AOD document in the period).
+        const totalContractValue = docs.reduce((s, d) => s + Number(d.total_contract_value || 0), 0);
         const totalPaymentsMade = docs.reduce((s, d) => s + Number(d.payments_made || 0), 0);
         const totalDepositAmt = docs.reduce((s, d) => s + Number(d.deposit_amount || 0), 0);
-        const totalReportsAgreed = Math.max(...docs.map(d => Number(d.total_reports_agreed || 0)));
+        const totalReportsAgreed = docs.reduce((s, d) => s + Number(d.total_reports_agreed || 0), 0);
         const totalReportsReleased = docs.reduce((s, d) => s + Number(d.reports_released || 0), 0);
-        const aodBalance = Math.max(0, maxContractValue - totalPaymentsMade - totalDepositAmt);
+        const aodBalance = Math.max(0, totalContractValue - totalPaymentsMade - totalDepositAmt);
 
         // Determine consolidated status
         const latestDoc = docs.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
@@ -247,7 +264,7 @@ const ReferringAttorneyDebtorsControl = () => {
 
         attorney.aod_documents.push({
           id: latestDoc.id,
-          total_contract_value: maxContractValue,
+          total_contract_value: totalContractValue,
           payments_made: totalPaymentsMade,
           deposit_amount: totalDepositAmt,
           balance: aodBalance,
@@ -259,13 +276,21 @@ const ReferringAttorneyDebtorsControl = () => {
           reports_released: totalReportsReleased,
         });
 
-        attorney.total_aod_value += maxContractValue;
+        attorney.total_aod_value += totalContractValue;
         attorney.total_aod_payments += totalPaymentsMade + totalDepositAmt;
       });
 
-      // Consolidate short-term agreements per attorney (one consolidated contract per attorney)
+      // Consolidate short-term agreements per attorney, scoped to the
+      // selected year - same reasoning as AOD documents above.
+      const yearScopedShortTerms = selectedYear === "all"
+        ? shortTerms
+        : shortTerms?.filter(st => {
+            const dateStr = st.contract_start_date || st.created_at;
+            return dateStr && new Date(dateStr).getFullYear().toString() === selectedYear;
+          });
+
       const stByAttorney = new Map<string, typeof shortTerms>();
-      shortTerms?.forEach(st => {
+      yearScopedShortTerms?.forEach(st => {
         if (!stByAttorney.has(st.referring_attorney_id)) {
           stByAttorney.set(st.referring_attorney_id, []);
         }
@@ -276,13 +301,14 @@ const ReferringAttorneyDebtorsControl = () => {
         const attorney = attorneyMap.get(attorneyId);
         if (!attorney) return;
 
-        // Consolidate: use highest contract value, sum all payments/deposits
-        const maxContractValue = Math.max(...sts.map(s => Number(s.total_contract_value || 0)));
+        // Each agreement is a separate contract for this year - sum
+        // everything (see AOD note above for why Math.max was wrong).
+        const totalContractValue = sts.reduce((s, st) => s + Number(st.total_contract_value || 0), 0);
         const totalDepositAmt = sts.reduce((s, st) => s + Number(st.deposit_amount || 0), 0);
         const totalPaymentsMade = sts.reduce((s, st) => s + Number(st.payments_made || 0), 0);
-        const totalReportsAgreed = Math.max(...sts.map(s => Number(s.total_reports_agreed || 0)));
+        const totalReportsAgreed = sts.reduce((s, st) => s + Number(st.total_reports_agreed || 0), 0);
         const totalReportsCompleted = sts.reduce((s, st) => s + Number(st.reports_completed || 0), 0);
-        const stBalance = Math.max(0, maxContractValue - totalPaymentsMade - totalDepositAmt);
+        const stBalance = Math.max(0, totalContractValue - totalPaymentsMade - totalDepositAmt);
 
         const latestSt = sts.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0];
         const consolidatedStatus = stBalance <= 0 ? "paid" : (totalPaymentsMade + totalDepositAmt > 0 ? "partial" : (latestSt.payment_status || "pending"));
@@ -292,7 +318,7 @@ const ReferringAttorneyDebtorsControl = () => {
 
         attorney.short_term_agreements.push({
           id: latestSt.id,
-          total_contract_value: maxContractValue,
+          total_contract_value: totalContractValue,
           deposit_amount: totalDepositAmt,
           payments_made: totalPaymentsMade,
           balance: stBalance,
@@ -303,7 +329,7 @@ const ReferringAttorneyDebtorsControl = () => {
           reports_completed: totalReportsCompleted,
         });
 
-        attorney.total_short_term_value += maxContractValue;
+        attorney.total_short_term_value += totalContractValue;
         attorney.total_short_term_payments += totalPaymentsMade + totalDepositAmt;
       });
 
@@ -518,6 +544,20 @@ const ReferringAttorneyDebtorsControl = () => {
                   <SelectItem value="all">All Attorneys</SelectItem>
                   <SelectItem value="owing">With Outstanding Balance</SelectItem>
                   <SelectItem value="paid">Fully Paid</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground whitespace-nowrap">Year:</span>
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger className="w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {[new Date().getFullYear() + 1, new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2].map((y) => (
+                    <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
