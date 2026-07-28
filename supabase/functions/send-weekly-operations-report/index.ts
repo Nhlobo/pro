@@ -1,6 +1,55 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
-import { sendEmail } from "../_shared/email.ts";
+import { Resend } from "npm:resend@4.0.0";
+
+interface EmailOptions {
+  to: string | string[];
+  subject: string;
+  html: string;
+  from?: string;
+}
+interface EmailResponse {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+// Self-contained email sender (inlined so this file has zero relative imports
+// and can be pasted directly into the Supabase Dashboard function editor).
+async function sendEmail(options: EmailOptions): Promise<EmailResponse> {
+  try {
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) {
+      console.error("Missing Resend API key");
+      return { success: false, error: "Resend API key is not configured" };
+    }
+    const resend = new Resend(resendApiKey);
+    const fromEmail = options.from || "Kutlwano & Associate <noreply@kamedico-legal.co.za>";
+    const recipients = Array.isArray(options.to) ? options.to : [options.to];
+
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: recipients,
+      subject: options.subject,
+      html: options.html,
+      reply_to: "info@kamedico-legal.co.za",
+      headers: {
+        "List-Unsubscribe": `<mailto:info@kamedico-legal.co.za?subject=Unsubscribe>`,
+        "X-Entity-Ref-ID": crypto.randomUUID(),
+      },
+    });
+
+    if (error) {
+      console.error("Resend API error:", error);
+      return { success: false, error: `Resend API error: ${error.message}` };
+    }
+
+    return { success: true, messageId: data?.id || "" };
+  } catch (error: any) {
+    console.error("Resend email error:", error);
+    return { success: false, error: error.message || "Failed to send email via Resend" };
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
