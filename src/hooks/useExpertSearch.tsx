@@ -65,6 +65,53 @@ const fuzzy = (haystack: string, needle: string) => {
   return haystack.toLowerCase().includes(needle.toLowerCase());
 };
 
+// Platform `medical_experts.expert_type` values are stored as free-form
+// snake_case (e.g. "orthopedic_surgeon", legacy "nurse", "emergency_medicine")
+// rather than the exact MEDICO_LEGAL_PROFESSIONS label, and can use either
+// British or American spelling. Each profession below lists every
+// normalized (lowercase, letters-only) form its expert_type is known to take.
+//
+// This replaces a previous "same first 6 letters" fallback that could
+// silently match the wrong specialty — e.g. a search for "Urologist" also
+// matched experts filed as "Neurologist", because "urologist" happens to be
+// a plain substring of "neurologist". Matching is exact-equality against
+// this alias set instead of substring, so that specific mismatch can't recur.
+const PROFESSION_MATCH_ALIASES: Record<string, string[]> = {
+  'Orthopaedic Surgeon': ['orthopaedicsurgeon', 'orthopedicsurgeon', 'orthopaedic', 'orthopedic'],
+  'Neurosurgeon': ['neurosurgeon'],
+  'Occupational Therapist': ['occupationaltherapist'],
+  'Clinical Psychologist': ['clinicalpsychologist'],
+  'Industrial Psychologist': ['industrialpsychologist'],
+  'Psychiatrist': ['psychiatrist'],
+  'Neurologist': ['neurologist'],
+  'Plastic Surgeon': ['plasticsurgeon', 'reconstructivesurgeon'],
+  'General Surgeon': ['generalsurgeon'],
+  'Speech Therapist': ['speechtherapist', 'speechlanguagetherapist'],
+  'Audiologist': ['audiologist'],
+  'Physiotherapist': ['physiotherapist', 'physicaltherapist'],
+  'Educational Psychologist': ['educationalpsychologist'],
+  'Actuary': ['actuary', 'actuarial'],
+  'Nursing Expert': ['nursingexpert', 'nurse', 'registerednurse'],
+  'Emergency Medicine Specialist': ['emergencymedicinespecialist', 'emergencymedicine'],
+  'Radiologist': ['radiologist'],
+  'Urologist': ['urologist'],
+  'Gynaecologist': ['gynaecologist', 'gynecologist', 'obstetrician'],
+  'Paediatrician': ['paediatrician', 'pediatrician'],
+  'Dentist': ['dentist'],
+  'Maxillofacial Surgeon': ['maxillofacialsurgeon', 'maxillofacial'],
+  'Ophthalmologist': ['ophthalmologist'],
+};
+
+const normalizeForMatch = (s: string) => (s || '').toLowerCase().replace(/[^a-z]/g, '');
+
+export const professionMatches = (expertType: string, profession: string): boolean => {
+  if (!profession) return true;
+  if (!expertType) return false;
+  const flat = normalizeForMatch(expertType);
+  const aliases = PROFESSION_MATCH_ALIASES[profession] ?? [normalizeForMatch(profession)];
+  return aliases.includes(flat);
+};
+
 interface SearchFilters {
   province: string;
   city: string;
@@ -145,11 +192,7 @@ export const useExpertSearch = () => {
       return ((data || []) as any[]).filter((e) => {
         if (e.medico_legal_only === false) return false;
         if (filters.city && e.city && !fuzzy(e.city, filters.city)) return false;
-        if (filters.profession && !fuzzy(e.expert_type || '', filters.profession.replace(/\s+/g, ''))) {
-          const flat = (e.expert_type || '').replace(/[_\s]/g, '').toLowerCase();
-          const want = filters.profession.replace(/[_\s]/g, '').toLowerCase();
-          if (!flat.includes(want.slice(0, 6))) return false;
-        }
+        if (!professionMatches(e.expert_type || '', filters.profession)) return false;
         const matters = (e.matter_types || []).map((m: string) => m.toLowerCase());
         if (matters.length > 0) {
           const ok = matters.some((m: string) =>
