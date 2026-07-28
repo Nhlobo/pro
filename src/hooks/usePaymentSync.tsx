@@ -203,11 +203,38 @@ export const syncShortTermPaymentToAppointments = async (
   paymentAmount: number,
   reportsCount: number,
   paymentType: string,
-  paymentDate: string
+  paymentDate: string,
+  paymentNotes?: string | null
 ) => {
-  const results = { appointmentsSynced: 0, aodSynced: false };
+  const results: { appointmentsSynced: number; aodSynced: boolean; paymentId: string | null } =
+    { appointmentsSynced: 0, aodSynced: false, paymentId: null };
 
   try {
+    // Record the payment itself against the agreement. This was previously
+    // missing entirely - payments were only reflected as side-effects on
+    // appointments/AOD, with no row in short_term_agreement_payments, which
+    // meant there was nothing to attach a Proof of Payment to.
+    const { data: userData } = await supabase.auth.getUser();
+    const { data: paymentRow, error: paymentInsertError } = await supabase
+      .from('short_term_agreement_payments')
+      .insert({
+        agreement_id: agreementId,
+        payment_amount: paymentAmount,
+        payment_type: paymentType,
+        payment_date: paymentDate,
+        reports_taken_out: reportsCount || 0,
+        payment_notes: paymentNotes || null,
+        recorded_by: userData.user?.id || null,
+      })
+      .select()
+      .single();
+
+    if (paymentInsertError) {
+      console.error('Error recording short-term agreement payment:', paymentInsertError);
+    } else {
+      results.paymentId = paymentRow?.id || null;
+    }
+
     if (paymentType !== 'deposit' && reportsCount > 0) {
       // Regular/Final payment — allocate to oldest pending short-term appointments
       const { data: appointments } = await supabase
