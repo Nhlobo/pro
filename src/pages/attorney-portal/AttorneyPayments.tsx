@@ -21,6 +21,7 @@ import {
   Clock
 } from "lucide-react";
 import { format } from 'date-fns';
+import { PaymentPopUploader } from "@/components/finance/PaymentPopUploader";
 
 import { RandSign } from "@/components/icons/RandSign";
 interface AODDocument {
@@ -306,6 +307,7 @@ const AttorneyPayments: React.FC = () => {
                           <TableHead>Type</TableHead>
                           <TableHead>Amount</TableHead>
                           <TableHead>Notes</TableHead>
+                          <TableHead>Proof of Payment</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -325,6 +327,14 @@ const AttorneyPayments: React.FC = () => {
                             </TableCell>
                             <TableCell className="text-muted-foreground">
                               {payment.payment_notes || '-'}
+                            </TableCell>
+                            <TableCell>
+                              <PaymentPopUploader
+                                recordType="aod_payment"
+                                recordId={payment.id}
+                                paymentReference={`Payment ${format(new Date(payment.payment_date), 'dd MMM yyyy')}`}
+                                canUpload={false}
+                              />
                             </TableCell>
                           </TableRow>
                         ))}
