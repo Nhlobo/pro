@@ -549,6 +549,12 @@ paths:
       summary: Email a finalised report to the referring attorney
       responses: { "200": { description: Sent } }
 
+  /send-weekly-operations-report:
+    post:
+      tags: [Email & Comms]
+      summary: Cron — weekly summary of expert payments made and assessments booked
+      responses: { "200": { description: Sent } }
+
   /send-notification:
     post:
       tags: [Email & Comms]
