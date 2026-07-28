@@ -146,6 +146,7 @@ const AdminExpertNetwork: React.FC = () => {
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [breakdownProvince, setBreakdownProvince] = useState<string | null>(null);
   const [expandedDiscipline, setExpandedDiscipline] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -301,7 +302,20 @@ const AdminExpertNetwork: React.FC = () => {
                     variant="outline"
                     size="sm"
                     className="rounded-none border-black/15 text-xs"
-                    onClick={() => { setShowBreakdown((v) => !v); if (showBreakdown) setProvinceSearch(''); }}
+                    onClick={() => {
+                      setShowBreakdown((v) => !v);
+                      if (showBreakdown) {
+                        // Hiding — reset selection so the next "Show" starts fresh.
+                        setProvinceSearch('');
+                        setBreakdownProvince(null);
+                        setExpandedDiscipline(null);
+                      } else if (!breakdownProvince && sortedProvinces.length > 0) {
+                        // Showing for the first time — default to the province with
+                        // the most experts so there's something useful on screen
+                        // immediately, without dumping every province at once.
+                        setBreakdownProvince(sortedProvinces[0][0]);
+                      }
+                    }}
                   >
                     {showBreakdown ? <ChevronUp className="mr-1.5 h-3.5 w-3.5" /> : <ChevronDown className="mr-1.5 h-3.5 w-3.5" />}
                     {showBreakdown ? 'Hide' : 'Show'} Breakdown
@@ -310,55 +324,102 @@ const AdminExpertNetwork: React.FC = () => {
               />
               {showBreakdown && (
                 <AdminCardBody className="space-y-4">
-                  <AdminSearchInput
-                    value={provinceSearch}
-                    onChange={setProvinceSearch}
-                    placeholder="Search province…"
-                    className="max-w-xs"
-                  />
                   {sortedProvinces.length === 0 ? (
-                    <AdminEmptyState icon={MapPin} title="No provinces match your search" />
+                    <AdminEmptyState icon={MapPin} title="No experts to break down yet" />
                   ) : (
-                    sortedProvinces.map(([province, disciplines]) => {
-                      const sortedDiscs = Object.entries(disciplines).sort((a: any, b: any) => b[1].count - a[1].count);
-                      const totalInProvince = sortedDiscs.reduce((s, [, d]: any) => s + d.count, 0);
-                      return (
-                        <div key={province} className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} />
-                            <span className="text-sm font-semibold text-black">{province}</span>
-                            <Badge variant="outline" className="rounded-none border-black/15 text-[10px] text-slate-500">
-                              {totalInProvince} experts
-                            </Badge>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 pl-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-                            {sortedDiscs.map(([type, data]: any) => {
-                              const key = `${province}-${type}`;
-                              const isExpanded = expandedDiscipline === key;
+                    <>
+                      {/* Province picker — one province's data on screen at a time
+                          instead of every province stacked together. */}
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <Select
+                          value={breakdownProvince ?? ''}
+                          onValueChange={(v) => setBreakdownProvince(v)}
+                        >
+                          <SelectTrigger className="h-10 w-full rounded-none border-black/15 sm:w-64">
+                            <MapPin className="mr-1 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                            <SelectValue placeholder="Pick a province…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {sortedProvinces.map(([province, disciplines]) => {
+                              const total = Object.values(disciplines).reduce((s, d: any) => s + d.count, 0);
                               return (
-                                <div
-                                  key={key}
-                                  className="cursor-pointer border border-black/10 bg-black/[0.02] p-2.5 transition-colors hover:border-black/25"
-                                  onClick={() => setExpandedDiscipline(isExpanded ? null : key)}
-                                >
-                                  <p className="text-base font-bold text-black">{data.count}</p>
-                                  <p className="truncate text-[10px] text-slate-500" title={type}>{type}</p>
-                                  {isExpanded && (
-                                    <div className="mt-2 max-h-32 space-y-1 overflow-y-auto border-t border-black/10 pt-2">
-                                      {data.experts.map((ex: any) => (
-                                        <p key={ex.id} className="truncate text-[10px] text-black">
-                                          {ex.first_name} {ex.last_name}
-                                        </p>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
+                                <SelectItem key={province} value={province}>
+                                  {province} · {total} expert{total === 1 ? '' : 's'}
+                                </SelectItem>
                               );
                             })}
-                          </div>
+                          </SelectContent>
+                        </Select>
+                        {/* Quick-pick chips for the top provinces, so switching
+                            doesn't always require opening the dropdown. */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {sortedProvinces.slice(0, 5).map(([province, disciplines]) => {
+                            const total = Object.values(disciplines).reduce((s, d: any) => s + d.count, 0);
+                            const isActive = breakdownProvince === province;
+                            return (
+                              <button
+                                key={province}
+                                type="button"
+                                onClick={() => setBreakdownProvince(province)}
+                                className={`border px-2.5 py-1 text-[11px] transition-colors ${
+                                  isActive
+                                    ? 'border-black bg-black text-white'
+                                    : 'border-black/15 bg-black/[0.02] text-slate-600 hover:border-black/30'
+                                }`}
+                              >
+                                {province} ({total})
+                              </button>
+                            );
+                          })}
                         </div>
-                      );
-                    })
+                      </div>
+
+                      {!breakdownProvince ? (
+                        <AdminEmptyState icon={MapPin} title="Pick a province above to see its discipline breakdown" />
+                      ) : !provinceGroups[breakdownProvince] ? (
+                        <AdminEmptyState icon={MapPin} title="No experts recorded for this province yet" />
+                      ) : (() => {
+                        const disciplines = provinceGroups[breakdownProvince];
+                        const sortedDiscs = Object.entries(disciplines).sort((a: any, b: any) => b[1].count - a[1].count);
+                        const totalInProvince = sortedDiscs.reduce((s, [, d]: any) => s + d.count, 0);
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} />
+                              <span className="text-sm font-semibold text-black">{breakdownProvince}</span>
+                              <Badge variant="outline" className="rounded-none border-black/15 text-[10px] text-slate-500">
+                                {totalInProvince} experts
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 pl-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                              {sortedDiscs.map(([type, data]: any) => {
+                                const key = `${breakdownProvince}-${type}`;
+                                const isExpanded = expandedDiscipline === key;
+                                return (
+                                  <div
+                                    key={key}
+                                    className="cursor-pointer border border-black/10 bg-black/[0.02] p-2.5 transition-colors hover:border-black/25"
+                                    onClick={() => setExpandedDiscipline(isExpanded ? null : key)}
+                                  >
+                                    <p className="text-base font-bold text-black">{data.count}</p>
+                                    <p className="truncate text-[10px] text-slate-500" title={type}>{type}</p>
+                                    {isExpanded && (
+                                      <div className="mt-2 max-h-32 space-y-1 overflow-y-auto border-t border-black/10 pt-2">
+                                        {data.experts.map((ex: any) => (
+                                          <p key={ex.id} className="truncate text-[10px] text-black">
+                                            {ex.first_name} {ex.last_name}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
                   )}
                 </AdminCardBody>
               )}
