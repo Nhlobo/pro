@@ -37,6 +37,7 @@ import { Card } from "@/components/ui/card";
 import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download, Loader2, Mail, FileCheck, AlertTriangle } from "lucide-react";
 import { useShortTermAgreements } from "@/hooks/useShortTermAgreements";
 import { syncShortTermPaymentToAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
+import { PaymentPopUploader } from "@/components/finance/PaymentPopUploader";
 import { ShortTermAgreementDialog } from "./ShortTermAgreementDialog";
 import { format, addMonths } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -83,6 +84,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
   
   // Payment capture state
   const [paymentAgreementId, setPaymentAgreementId] = useState<string | null>(null);
+  const [lastCapturedPaymentId, setLastCapturedPaymentId] = useState<string | null>(null);
   const [paymentAttorneyId, setPaymentAttorneyId] = useState<string>('');
   const [capturePaymentAmount, setCapturePaymentAmount] = useState('');
   const [capturePaymentType, setCapturePaymentType] = useState<'deposit' | 'regular' | 'final'>('regular');
@@ -313,6 +315,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     setCaptureReportsTaken('');
     setCapturePaymentDate(format(new Date(), 'yyyy-MM-dd'));
     setCapturePaymentNotes('');
+    setLastCapturedPaymentId(null);
     
     // Fetch linked assessments for this attorney
     const assessments = await fetchLinkedAssessments(agreement.referring_attorney_id);
@@ -348,18 +351,19 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
         amount,
         reports,
         capturePaymentType,
-        capturePaymentDate
+        capturePaymentDate,
+        capturePaymentNotes
       );
+      setLastCapturedPaymentId(syncResults.paymentId);
 
       if (capturePaymentType !== 'deposit' && syncResults.appointmentsSynced > 0) {
-        toast.success(`Payment R${amount.toLocaleString()} captured: ${syncResults.appointmentsSynced} assessment(s) updated, reports marked as taken out${syncResults.aodSynced ? ' & AOD updated' : ''}`);
+        toast.success(`Payment R${amount.toLocaleString()} captured: ${syncResults.appointmentsSynced} assessment(s) updated, reports marked as taken out${syncResults.aodSynced ? ' & AOD updated' : ''}. You can now attach a proof of payment below.`);
       } else if (capturePaymentType === 'deposit') {
-        toast.success(`Deposit R${amount.toLocaleString()} captured and allocated to assessment${syncResults.aodSynced ? ' & AOD updated' : ''}`);
+        toast.success(`Deposit R${amount.toLocaleString()} captured and allocated to assessment${syncResults.aodSynced ? ' & AOD updated' : ''}. You can now attach a proof of payment below.`);
       } else {
-        toast.success('Payment captured successfully');
+        toast.success('Payment captured successfully. You can now attach a proof of payment below.');
       }
 
-      setPaymentAgreementId(null);
       await refetch();
       triggerSync();
     } catch (error: any) {
@@ -1546,15 +1550,29 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
             </div>
           )}
 
+          {lastCapturedPaymentId && (
+            <div className="rounded-md border p-3 bg-muted/30">
+              <PaymentPopUploader
+                recordType="short_term_payment"
+                recordId={lastCapturedPaymentId}
+                paymentReference={`${attorneyNames[paymentAttorneyId || ''] || 'Attorney'} - ${capturePaymentDate}`}
+              />
+            </div>
+          )}
+
           <div className="flex justify-end gap-2 mt-2">
-            <Button variant="outline" onClick={() => setPaymentAgreementId(null)}>Cancel</Button>
-            <Button onClick={handleCapturePayment} disabled={capturingPayment}>
-              {capturingPayment ? (
-                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
-              ) : (
-                <><RandSign className="h-4 w-4 mr-2" /> Capture Payment</>
-              )}
+            <Button variant="outline" onClick={() => setPaymentAgreementId(null)}>
+              {lastCapturedPaymentId ? "Done" : "Cancel"}
             </Button>
+            {!lastCapturedPaymentId && (
+              <Button onClick={handleCapturePayment} disabled={capturingPayment}>
+                {capturingPayment ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
+                ) : (
+                  <><RandSign className="h-4 w-4 mr-2" /> Capture Payment</>
+                )}
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
