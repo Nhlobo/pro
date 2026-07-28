@@ -40,6 +40,7 @@ import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { syncAODPaymentToAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
+import { PaymentPopUploader } from "@/components/finance/PaymentPopUploader";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 import {
   AOD_LIFECYCLE_RULES_KEY,
@@ -113,6 +114,10 @@ export const AODGroupedView = () => {
   const [hideZeroBalance, setHideZeroBalance] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<'all' | LifecycleStatus>('all');
+  // Report/contract counts must be split by year (e.g. 2025 vs 2026) rather than
+  // summed across an attorney's entire history, which previously produced
+  // inflated lifetime totals (e.g. "55/202" instead of the correct per-year count).
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [expandedAttorneys, setExpandedAttorneys] = useState<string[]>([]);
   const [lifecycleRules, setLifecycleRules] = useState<AODLifecycleRules>(DEFAULT_AOD_LIFECYCLE_RULES);
 
@@ -146,6 +151,7 @@ export const AODGroupedView = () => {
 
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [lastRecordedPaymentId, setLastRecordedPaymentId] = useState<string | null>(null);
   const [paymentAttorney, setPaymentAttorney] = useState<{ id: string; name: string; aodId: string } | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentType, setPaymentType] = useState<'deposit' | 'regular' | 'final'>('regular');
@@ -297,12 +303,20 @@ export const AODGroupedView = () => {
   }, []);
 
   // Deduplicate records: Consolidate all AOD docs per attorney
+  // Records scoped to the selected financial year (or all years). This MUST
+  // happen before dedup/summing below, otherwise per-attorney totals would be
+  // summed across every year first and the year filter would do nothing.
+  const yearScopedRecords = useMemo(() => {
+    if (selectedYear === 'all') return aodRecords;
+    return aodRecords.filter((r) => r.month_sort.startsWith(selectedYear));
+  }, [aodRecords, selectedYear]);
+
   // Each AOD doc has its own contract value, deposits, and payments - we sum them all
   const deduplicatedRecords = useMemo(() => {
     const attorneyContracts = new Map<string, AODRecord>();
     
     // Sort by created_at ascending so first record becomes the base
-    const sortedRecords = [...aodRecords].sort((a, b) => 
+    const sortedRecords = [...yearScopedRecords].sort((a, b) => 
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
     
@@ -336,7 +350,7 @@ export const AODGroupedView = () => {
     });
     
     return Array.from(attorneyContracts.values());
-  }, [aodRecords]);
+  }, [yearScopedRecords]);
 
   // Filter records based on settings
   const filteredRecords = useMemo(() => {
@@ -513,6 +527,7 @@ export const AODGroupedView = () => {
     setReportsTakenOut("");
     setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
     setPaymentNotes("");
+    setLastRecordedPaymentId(null);
     setPaymentDialogOpen(true);
 
     // Fetch linked assessments
@@ -543,7 +558,7 @@ export const AODGroupedView = () => {
       setSubmittingPayment(true);
 
       // Insert payment record
-      const { error } = await supabase
+      const { data: insertedPayment, error } = await supabase
         .from("aod_payments")
         .insert({
           aod_document_id: paymentAttorney.aodId,
@@ -552,9 +567,12 @@ export const AODGroupedView = () => {
           payment_date: paymentDate,
           reports_taken_out: reports,
           payment_notes: paymentNotes || null,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
+      setLastRecordedPaymentId(insertedPayment?.id || null);
 
       // Sync to scheduled assessments
       const syncResults = await syncAODPaymentToAppointments(
@@ -602,14 +620,13 @@ export const AODGroupedView = () => {
       }
 
       if (paymentType !== 'deposit' && syncResults.appointmentsSynced > 0) {
-        toast.success(`Payment R${amount.toLocaleString()} recorded: ${syncResults.appointmentsSynced} assessment(s) updated`);
+        toast.success(`Payment R${amount.toLocaleString()} recorded: ${syncResults.appointmentsSynced} assessment(s) updated. You can now attach a proof of payment below.`);
       } else if (paymentType === 'deposit') {
-        toast.success(`Deposit R${amount.toLocaleString()} recorded. Allocate to specific appointments from Scheduled Assessments.`);
+        toast.success(`Deposit R${amount.toLocaleString()} recorded. Allocate to specific appointments from Scheduled Assessments. You can now attach a proof of payment below.`);
       } else {
-        toast.success("Payment recorded successfully");
+        toast.success("Payment recorded successfully. You can now attach a proof of payment below.");
       }
 
-      setPaymentDialogOpen(false);
       triggerSync();
     } catch (error: any) {
       console.error("Error recording payment:", error);
@@ -816,6 +833,21 @@ export const AODGroupedView = () => {
                   {s}
                 </Button>
               ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Label htmlFor="year-filter" className="text-sm whitespace-nowrap">Year:</Label>
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger id="year-filter" className="h-8 w-[120px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {[new Date().getFullYear() + 1, new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2].map((y) => (
+                    <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1136,14 +1168,26 @@ export const AODGroupedView = () => {
               </div>
             )}
 
+            {lastRecordedPaymentId && (
+              <div className="rounded-md border p-3 bg-muted/30">
+                <PaymentPopUploader
+                  recordType="aod_payment"
+                  recordId={lastRecordedPaymentId}
+                  paymentReference={`${paymentAttorney?.name || "Attorney"} - ${paymentDate}`}
+                />
+              </div>
+            )}
+
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
-                Cancel
+                {lastRecordedPaymentId ? "Done" : "Cancel"}
               </Button>
-              <Button onClick={handleRecordPayment} disabled={submittingPayment}>
-                {submittingPayment && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Record Payment
-              </Button>
+              {!lastRecordedPaymentId && (
+                <Button onClick={handleRecordPayment} disabled={submittingPayment}>
+                  {submittingPayment && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Record Payment
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
