@@ -136,6 +136,11 @@ const MedicalExpertFormPage = ({
   // Snapshot of the loaded expert record — used to diff non-fee field edits and
   // log them to the audit trail so every update keeps a record of what changed.
   const [loadedExpertSnapshot, setLoadedExpertSnapshot] = useState<Record<string, any> | null>(null);
+  // Legacy single `consultation_fees` value from records saved before fees were
+  // split into MVA/Med Neg/Per Hour columns. Kept separately (not shown as a form
+  // field) purely so a save never blanks out a pre-existing fee just because the
+  // split fields were empty on load — see loadExpertForEdit / onSubmit below.
+  const [legacyFeeFallback, setLegacyFeeFallback] = useState<number | null>(null);
 
   const [feeDateRange, setFeeDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedFeeType, setSelectedFeeType] = useState<string>("all");
@@ -441,6 +446,37 @@ const MedicalExpertFormPage = ({
           ...matterTypes.map(mapToSpecialization).filter(Boolean),
         ])) as string[];
 
+        // Records saved before fees were split into MVA / Med Neg / Per Hour /
+        // Merit columns only ever populated the original single `consultation_fees`
+        // column. If none of the new split columns have a value but the legacy
+        // column does, surface that legacy amount in the field it most likely
+        // belongs to (based on the expert's matter types) so the edit form isn't
+        // shown blank for an expert who clearly has a fee on record — and keep
+        // the raw legacy number in `legacyFeeFallback` so a save that doesn't
+        // touch any fee field preserves it instead of wiping it out.
+        const hasSplitFee =
+          data.consultation_fee_mva != null ||
+          data.consultation_fee_med_neg != null ||
+          data.consultation_fee_per_hour != null;
+        const legacyFee = (data as any).consultation_fees != null ? Number((data as any).consultation_fees) : null;
+        const usingLegacyFallback = !hasSplitFee && legacyFee != null;
+
+        let fallbackFeesMVA = "";
+        let fallbackFeesMedNeg = "";
+        let fallbackFeesPerHour = "";
+        if (usingLegacyFallback) {
+          if (matterTypes.includes("MVA")) {
+            fallbackFeesMVA = String(legacyFee);
+          } else if (matterTypes.includes("Med Neg")) {
+            fallbackFeesMedNeg = String(legacyFee);
+          } else {
+            // No matter type to disambiguate — show it as the per-hour/general
+            // fee so it's visible and editable rather than silently hidden.
+            fallbackFeesPerHour = String(legacyFee);
+          }
+        }
+        setLegacyFeeFallback(usingLegacyFallback ? legacyFee : null);
+
         form.reset({
           name: data.first_name,
           surname: data.last_name,
@@ -454,10 +490,10 @@ const MedicalExpertFormPage = ({
           email: data.email || "",
           address: data.practice_address || "",
           province: normalizeProvince(data.province),
-          feesMVA: data.consultation_fee_mva != null ? String(data.consultation_fee_mva) : "",
-          feesMedNeg: data.consultation_fee_med_neg != null ? String(data.consultation_fee_med_neg) : "",
+          feesMVA: data.consultation_fee_mva != null ? String(data.consultation_fee_mva) : fallbackFeesMVA,
+          feesMedNeg: data.consultation_fee_med_neg != null ? String(data.consultation_fee_med_neg) : fallbackFeesMedNeg,
           feesMerit: data.merit_fees != null ? String(data.merit_fees) : "",
-          feesPerHour: data.consultation_fee_per_hour != null ? String(data.consultation_fee_per_hour) : "",
+          feesPerHour: data.consultation_fee_per_hour != null ? String(data.consultation_fee_per_hour) : fallbackFeesPerHour,
           courtFee: data.court_fees != null ? String(data.court_fees) : "",
           addendumFee: (data as any).addendum_fees != null ? String((data as any).addendum_fees) : "",
           affidavitFee: (data as any).affidavit_fees != null ? String((data as any).affidavit_fees) : "",
@@ -639,8 +675,11 @@ const MedicalExpertFormPage = ({
       const jointMinutesFees = values.jointMinutesFee ? parseInt(values.jointMinutesFee.replace(/[^\d]/g, '')) : null;
 
       // Keep legacy `consultation_fees` in sync so the directory table updates correctly.
-      // Prefer Med Neg (if provided), else MVA, else per-hour.
-      const legacyConsultationFees = feesMedNeg ?? feesMva ?? feesPerHour;
+      // Prefer Med Neg (if provided), else MVA, else per-hour. If none of the split
+      // fields have a value, fall back to whatever legacy amount was already on the
+      // record (see loadExpertForEdit) instead of overwriting it with null — a save
+      // that doesn't touch the fee fields should never silently erase an existing fee.
+      const legacyConsultationFees = feesMedNeg ?? feesMva ?? feesPerHour ?? legacyFeeFallback;
 
       // Store province consistently in display format (matches directory filters)
       const formatProvinceForStorage = (province: z.infer<typeof formSchema>["province"]) => {
@@ -767,6 +806,11 @@ const MedicalExpertFormPage = ({
 
       // Clear saved draft data on successful submit
       clearSavedData();
+
+      // The legacy fee has now been saved into the proper split field (or the
+      // user explicitly left it as-is) — either way the fallback banner is no
+      // longer needed for this session.
+      setLegacyFeeFallback(null);
 
       // Refresh the "Previous" baseline to the values we just persisted so any
       // further edits compare against the latest saved amounts.
@@ -1399,6 +1443,14 @@ const MedicalExpertFormPage = ({
                       </FormItem>
                     )}
                   />
+
+                  {legacyFeeFallback != null && (
+                    <div className="md:col-span-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      This expert's fee was saved before fees were split by matter type. The original amount
+                      (R{legacyFeeFallback.toLocaleString('en-ZA')}) has been pre-filled below — review it and
+                      save to migrate it into the correct fee field.
+                    </div>
+                  )}
 
                   <FormField
                     control={form.control}
