@@ -128,6 +128,7 @@ const AdminIAM = lazy(() => import("./pages/admin/AdminIAM"));
 const AdminSupportHub = lazy(() => import("./pages/admin/AdminSupportHub"));
 const AdminSystemControl = lazy(() => import("./pages/admin/AdminSystemControl"));
 const SalesPerformanceReports = lazy(() => import("./pages/admin/SalesPerformanceReports"));
+const WeeklyOperationsReport = lazy(() => import("./pages/admin/WeeklyOperationsReport"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -218,6 +219,7 @@ const App = () => (
                 <Route path="/admin/iam" element={<AdminPortalRoute><AdminIAM /></AdminPortalRoute>} />
                 <Route path="/admin/system-control" element={<AdminPortalRoute><AdminSystemControl /></AdminPortalRoute>} />
                 <Route path="/admin/sales-performance" element={<AdminPortalRoute><SalesPerformanceReports /></AdminPortalRoute>} />
+                <Route path="/admin/weekly-operations-report" element={<AdminPortalRoute><WeeklyOperationsReport /></AdminPortalRoute>} />
                 <Route path="/admin/support" element={<AdminPortalRoute><AdminSupportHub /></AdminPortalRoute>} />
                 <Route path="/admin/my-profile" element={<AdminPortalRoute><MyProfile /></AdminPortalRoute>} />
 
