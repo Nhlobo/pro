@@ -38,6 +38,7 @@ function KpiCard({ label, value, hint }: { label: string; value: string | number
 
 function ProvinceCard({ province }: { province: ProvinceData }) {
   const meta = STATUS_META[province.status];
+  const hasExperts = province.experts > 0;
 
   return (
     <Card className={`h-full transition-colors ${statusCardClass[province.status]}`}>
@@ -50,8 +51,14 @@ function ProvinceCard({ province }: { province: ProvinceData }) {
 
       <CardContent className="space-y-3 text-sm">
         <div className="grid grid-cols-2 gap-2 text-muted-foreground">
-          <span>Total experts</span>
-          <span className="text-right font-medium text-foreground">{province.experts}</span>
+          <span>Expert available</span>
+          <span className={`text-right font-medium ${hasExperts ? 'text-foreground' : 'text-red-600 dark:text-red-400'}`}>
+            {hasExperts ? `Yes (${province.experts})` : 'No'}
+          </span>
+          <span>Experts used (12m)</span>
+          <span className="text-right font-medium text-foreground">
+            {hasExperts ? `${province.expertsUsed} of ${province.experts}` : '—'}
+          </span>
           <span>12m demand</span>
           <span className="text-right font-medium text-foreground">{province.demand}</span>
           <span>Primary experts</span>
@@ -60,18 +67,21 @@ function ProvinceCard({ province }: { province: ProvinceData }) {
 
         <Separator />
 
-        <div className="grid grid-cols-3 gap-2 text-xs">
-          <div className="rounded-md border p-2">
-            <p className="text-muted-foreground">RAF</p>
-            <p className="text-base font-semibold">{province.rafExperts}</p>
-          </div>
-          <div className="rounded-md border p-2">
-            <p className="text-muted-foreground">Med Neg</p>
-            <p className="text-base font-semibold">{province.medNegExperts}</p>
-          </div>
-          <div className="rounded-md border p-2">
-            <p className="text-muted-foreground">Both</p>
-            <p className="text-base font-semibold">{province.bothExperts}</p>
+        <div>
+          <p className="mb-2 text-xs text-muted-foreground">Business from this province (12m)</p>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="rounded-md border p-2">
+              <p className="text-muted-foreground">RAF</p>
+              <p className="text-base font-semibold">{province.rafBusiness}</p>
+            </div>
+            <div className="rounded-md border p-2">
+              <p className="text-muted-foreground">Med Neg</p>
+              <p className="text-base font-semibold">{province.medNegBusiness}</p>
+            </div>
+            <div className="rounded-md border p-2">
+              <p className="text-muted-foreground">Both</p>
+              <p className="text-base font-semibold">{province.bothBusiness}</p>
+            </div>
           </div>
         </div>
       </CardContent>
@@ -86,6 +96,7 @@ export default function AdminHeatmap() {
     refreshing,
     refetch,
     totalExperts,
+    totalExpertsUsed,
     totalDemand,
     criticalCount,
     balancedCount,
@@ -106,7 +117,7 @@ export default function AdminHeatmap() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Availability Heatmap</h1>
           <p className="text-sm text-muted-foreground">
-            Province-level expert supply vs attorney demand (last 12 months).
+            Province-level expert supply vs attorney demand (last 12 months). Each province appears once.
           </p>
         </div>
 
@@ -118,6 +129,7 @@ export default function AdminHeatmap() {
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="Total Experts" value={totalExperts} />
+        <KpiCard label="Experts Used (12m)" value={totalExpertsUsed} hint={`of ${totalExperts} registered`} />
         <KpiCard label="Total Demand (12m)" value={totalDemand} />
         <KpiCard label="Critical Provinces" value={criticalCount} hint="Immediate shortage pressure" />
         <KpiCard label="Balanced Provinces" value={balancedCount} />
@@ -159,4 +171,4 @@ export default function AdminHeatmap() {
       </section>
     </div>
   );
-}
+  }
