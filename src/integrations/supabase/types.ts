@@ -3737,13 +3737,18 @@ export type Database = {
           account_status: string
           created_at: string
           current_session_id: string | null
+          deactivated_at: string | null
+          deactivated_by: string | null
+          deactivation_reason: string | null
           email: string | null
           expert_id: string | null
           failed_login_count: number
           first_name: string | null
           force_security_setup: boolean
           id: string
+          is_active: boolean
           last_failed_login_at: string | null
+          last_login_at: string | null
           last_name: string | null
           locked_until: string | null
           must_reset_password: boolean
@@ -3759,13 +3764,18 @@ export type Database = {
           account_status?: string
           created_at?: string
           current_session_id?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivation_reason?: string | null
           email?: string | null
           expert_id?: string | null
           failed_login_count?: number
           first_name?: string | null
           force_security_setup?: boolean
           id: string
+          is_active?: boolean
           last_failed_login_at?: string | null
+          last_login_at?: string | null
           last_name?: string | null
           locked_until?: string | null
           must_reset_password?: boolean
@@ -3781,13 +3791,18 @@ export type Database = {
           account_status?: string
           created_at?: string
           current_session_id?: string | null
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivation_reason?: string | null
           email?: string | null
           expert_id?: string | null
           failed_login_count?: number
           first_name?: string | null
           force_security_setup?: boolean
           id?: string
+          is_active?: boolean
           last_failed_login_at?: string | null
+          last_login_at?: string | null
           last_name?: string | null
           locked_until?: string | null
           must_reset_password?: boolean
