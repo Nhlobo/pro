@@ -178,7 +178,7 @@ paths:
   /delete-user:
     post:
       tags: [Auth & Users]
-      summary: Soft-delete a user (admin only)
+      summary: Permanently delete a user (admin only)
       requestBody:
         required: true
         content:
@@ -192,6 +192,29 @@ paths:
         "200": { description: Deleted }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /deactivate-user:
+    post:
+      tags: [Auth & Users]
+      summary: Deactivate or reactivate a user without deleting the account (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, active]
+              properties:
+                userId: { type: string, format: uuid }
+                active: { type: boolean, description: "false = deactivate, true = reactivate" }
+                reason: { type: string, description: "Required when active is false" }
+      responses:
+        "200": { description: "Deactivated or reactivated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { description: Validation error (e.g. missing reason) }
 
   /user-management:
     post:
@@ -547,12 +570,6 @@ paths:
     post:
       tags: [Email & Comms]
       summary: Email a finalised report to the referring attorney
-      responses: { "200": { description: Sent } }
-
-  /send-weekly-operations-report:
-    post:
-      tags: [Email & Comms]
-      summary: Cron — weekly summary of expert payments made and assessments booked
       responses: { "200": { description: Sent } }
 
   /send-notification:
