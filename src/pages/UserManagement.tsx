@@ -5,6 +5,7 @@ import { useSecureReferringAttorneys } from '@/hooks/useSecureReferringAttorneys
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 // Every "popup" on this page is a docked side panel, not a centered modal —
 // Sheet is the same Radix dialog primitive under the hood, so behaviour,
@@ -34,6 +35,7 @@ import {
 } from 'lucide-react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { formatDateTimeShort } from '@/utils/dateTime';
 import EmployeeNotificationSettings from '@/components/EmployeeNotificationSettings';
 import FunctionPermissionsManager from '@/components/FunctionPermissionsManager';
 import { EmailConfigurationAlert } from '@/components/EmailConfigurationAlert';
@@ -101,6 +103,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
   const [userToDelete, setUserToDelete] = useState<UserProfile | null>(null);
+  const [userToDeactivate, setUserToDeactivate] = useState<UserProfile | null>(null);
+  const [isProcessingDeactivation, setIsProcessingDeactivation] = useState(false);
+  const [deactivationReason, setDeactivationReason] = useState('');
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [userToChangePassword, setUserToChangePassword] = useState<UserProfile | null>(null);
   const [showEmailConfigAlert, setShowEmailConfigAlert] = useState(false);
@@ -125,6 +130,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [filterRole, setFilterRole] = useState<string>('all');
   const [filterUserType, setFilterUserType] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [showFilters, setShowFilters] = useState(false);
   
   // Add user form state
@@ -231,8 +237,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
       
       const matchesRole = filterRole === 'all' || user.role === filterRole;
       const matchesUserType = filterUserType === 'all' || user.user_type === filterUserType;
+      const matchesStatus = filterStatus === 'all' || (filterStatus === 'active' ? user.is_active : !user.is_active);
       
-      return matchesSearch && matchesRole && matchesUserType;
+      return matchesSearch && matchesRole && matchesUserType && matchesStatus;
     })
     .sort((a, b) => {
       let comparison = 0;
@@ -258,15 +265,17 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
     setSearchTerm('');
     setFilterRole('all');
     setFilterUserType('all');
+    setFilterStatus('all');
     setSortBy('name');
     setSortOrder('asc');
   };
 
-  const hasActiveFilters = searchTerm || filterRole !== 'all' || filterUserType !== 'all' || sortBy !== 'name' || sortOrder !== 'asc';
+  const hasActiveFilters = searchTerm || filterRole !== 'all' || filterUserType !== 'all' || filterStatus !== 'all' || sortBy !== 'name' || sortOrder !== 'asc';
 
   const adminCount = users.filter(u => u.user_type === 'admin').length;
   const employeeCount = users.filter(u => u.user_type === 'employee').length;
   const attorneyCount = users.filter(u => u.user_type === 'referring_attorney').length;
+  const inactiveCount = users.filter(u => !u.is_active).length;
 
   const hasPermission = (permissionName: string): boolean => {
     return userPermissions.some(p => p.permission_name === permissionName && p.granted);
@@ -438,6 +447,90 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
       toast.error('Failed to delete user');
     } finally {
       setIsDeletingUser(false);
+    }
+  };
+
+  // Deactivate keeps the account (and its history/case links) intact but
+  // blocks sign-in — the recommended way to offboard someone who's left,
+  // as opposed to Delete which permanently removes the account.
+  const handleDeactivateUser = async () => {
+    if (!userToDeactivate) return;
+    if (!deactivationReason.trim()) {
+      toast.error('Please provide a reason for deactivating this account.');
+      return;
+    }
+
+    setIsProcessingDeactivation(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('deactivate-user', {
+        body: {
+          userId: userToDeactivate.id,
+          active: false,
+          reason: deactivationReason.trim(),
+        }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        toast.error('Failed to deactivate user');
+        return;
+      }
+
+      if (data?.error) {
+        console.error('User deactivation error:', data.error);
+        toast.error(data.error);
+        return;
+      }
+
+      if (data?.success) {
+        toast.success(`${data.user.email} has been deactivated and can no longer sign in.`);
+        setUserToDeactivate(null);
+        setDeactivationReason('');
+        fetchUsers();
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast.error('Failed to deactivate user');
+    } finally {
+      setIsProcessingDeactivation(false);
+    }
+  };
+
+  const handleReactivateUser = async (targetUser: UserProfile) => {
+    setIsProcessingDeactivation(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('deactivate-user', {
+        body: {
+          userId: targetUser.id,
+          active: true,
+        }
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        toast.error('Failed to reactivate user');
+        return;
+      }
+
+      if (data?.error) {
+        console.error('User reactivation error:', data.error);
+        toast.error(data.error);
+        return;
+      }
+
+      if (data?.success) {
+        toast.success(`${data.user.email} has been reactivated and can sign in again.`);
+        fetchUsers();
+        // Keep the Manage panel in sync if it's open on this user.
+        setSelectedUser(prev => (prev && prev.id === targetUser.id ? { ...prev, is_active: true, deactivated_at: null, deactivation_reason: null } : prev));
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error);
+      toast.error('Failed to reactivate user');
+    } finally {
+      setIsProcessingDeactivation(false);
     }
   };
 
@@ -652,11 +745,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
         />
 
         {/* Directory at a glance — the numbers a manager checks first, before drilling into any single record. */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           <AdminStatCard label="Total Users" value={users.length} icon={Users} />
           <AdminStatCard label="Administrators" value={adminCount} icon={ShieldCheck} />
           <AdminStatCard label="Company Employees" value={employeeCount} icon={UserCheck} />
           <AdminStatCard label="Referring Attorneys" value={attorneyCount} icon={Briefcase} />
+          <AdminStatCard label="Inactive Staff" value={inactiveCount} icon={UserX} />
         </div>
 
         {/* Search, filter & sort */}
@@ -668,7 +762,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
             actions={<AdminPill tone="neutral">{filteredUsers.length} of {users.length} users</AdminPill>}
           />
           <AdminCardBody className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <div className="lg:col-span-2">
                 <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                   Search users
@@ -705,6 +799,17 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="employee">Employee</SelectItem>
                     <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Status</label>
+                <Select value={filterStatus} onValueChange={(value: 'all' | 'active' | 'inactive') => setFilterStatus(value)}>
+                  <SelectTrigger className="mt-1 rounded-none"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -794,6 +899,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                       <TableHead>User</TableHead>
                       <TableHead>Type</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -825,6 +931,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                           </AdminPill>
                         </TableCell>
                         <TableCell className="text-sm capitalize text-slate-600">{(user.role || 'user').replace(/_/g, ' ')}</TableCell>
+                        <TableCell>
+                          <AdminPill tone={user.is_active ? 'success' : 'destructive'}>
+                            {user.is_active ? 'Active' : 'Inactive'}
+                          </AdminPill>
+                          <p className="mt-1 whitespace-nowrap text-[11px] text-slate-400">
+                            {user.last_login_at ? `Active ${formatDateTimeShort(user.last_login_at)}` : 'Never signed in'}
+                          </p>
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button
@@ -861,6 +975,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                                   <Key className="mr-2 h-3.5 w-3.5" /> Change Password
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
+                                {user.is_active ? (
+                                  <DropdownMenuItem onClick={() => setUserToDeactivate(user)}>
+                                    <UserX className="mr-2 h-3.5 w-3.5" /> Deactivate User
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem onClick={() => handleReactivateUser(user)}>
+                                    <UserCheck className="mr-2 h-3.5 w-3.5" /> Reactivate User
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem
                                   onClick={() => setUserToDelete(user)}
                                   className="text-destructive focus:text-destructive"
@@ -897,6 +1020,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                         {user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : 'No Name Set'}
                       </p>
                       <p className="truncate text-xs text-slate-500">{user.email}</p>
+                      {!user.is_active && (
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive">Inactive</p>
+                      )}
                     </div>
                     <AdminPill tone={USER_TYPE_TONE[user.user_type] || 'neutral'} className="shrink-0">
                       {USER_TYPE_LABEL[user.user_type] || user.user_type || 'User'}
@@ -924,11 +1050,17 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                           {user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : 'No Name Set'}
                         </p>
                         <p className="truncate text-xs text-slate-500">{user.email}</p>
+                        <p className="truncate text-[11px] text-slate-400">
+                          {user.last_login_at ? `Active ${formatDateTimeShort(user.last_login_at)}` : 'Never signed in'}
+                        </p>
                       </div>
                     </div>
-                    <AdminPill tone={USER_TYPE_TONE[user.user_type] || 'neutral'} className="shrink-0">
-                      {USER_TYPE_LABEL[user.user_type] || user.user_type || 'User'}
-                    </AdminPill>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <AdminPill tone={USER_TYPE_TONE[user.user_type] || 'neutral'}>
+                        {USER_TYPE_LABEL[user.user_type] || user.user_type || 'User'}
+                      </AdminPill>
+                      {!user.is_active && <AdminPill tone="destructive">Inactive</AdminPill>}
+                    </div>
                   </div>
 
                   {user.user_type === 'employee' && user.position && (
@@ -974,10 +1106,31 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                       <Link2 className="mr-1 h-3 w-3" />
                       Link Attorney
                     </Button>
+                    {user.is_active ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-none text-xs hover:bg-black/5"
+                        onClick={() => setUserToDeactivate(user)}
+                      >
+                        <UserX className="mr-1 h-3 w-3" />
+                        Deactivate
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-none text-xs hover:bg-black/5"
+                        onClick={() => handleReactivateUser(user)}
+                      >
+                        <UserCheck className="mr-1 h-3 w-3" />
+                        Reactivate
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="rounded-none text-xs text-destructive hover:bg-destructive/5 hover:text-destructive"
+                      className="col-span-2 rounded-none text-xs text-destructive hover:bg-destructive/5 hover:text-destructive"
                       onClick={() => setUserToDelete(user)}
                     >
                       <Trash2 className="mr-1 h-3 w-3" />
@@ -1006,6 +1159,14 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                 be available for reuse and can be registered again if needed (e.g., if this user was deleted by mistake).
               </DialogDescription>
             </DialogHeader>
+            {userToDelete?.is_active && (
+              <div className="mx-5 mt-4 flex items-start gap-2 border border-black/10 bg-black/[0.02] px-3 py-2.5">
+                <UserX className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                <p className="text-xs text-slate-500">
+                  Offboarding someone who's left? <strong className="text-black">Deactivate</strong> instead keeps their case history intact and can be reversed — Delete cannot.
+                </p>
+              </div>
+            )}
             <div className="mt-auto flex gap-2 border-t border-black/10 px-5 py-4">
               <Button
                 variant="outline"
@@ -1020,6 +1181,49 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                 className="flex-1 rounded-none bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 {isDeletingUser ? 'Deleting...' : 'Delete User'}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Shared deactivate confirmation — same one-panel-for-every-row pattern as delete. */}
+        <Dialog open={!!userToDeactivate} onOpenChange={(open) => { if (!open) { setUserToDeactivate(null); setDeactivationReason(''); } }}>
+          <DialogContent side="right" className="brand-legal-theme flex h-full w-full flex-col rounded-none border-black/10 p-0 shadow-none sm:max-w-md">
+            <DialogHeader className="space-y-0 border-b border-black/10 px-5 py-4">
+              <DialogTitle className="flex items-center gap-2 text-base font-bold text-black">
+                <UserX className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+                Deactivate user
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                <strong className="text-black">{userToDeactivate?.email}</strong> will no longer be able to sign in. Their account, case history and past activity are kept — this can be reversed at any time from the same menu.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <Label htmlFor="deactivation-reason" className="text-sm font-semibold text-black">Reason</Label>
+              <Textarea
+                id="deactivation-reason"
+                value={deactivationReason}
+                onChange={(e) => setDeactivationReason(e.target.value)}
+                placeholder="e.g. No longer with the company as of..."
+                className="mt-1 min-h-24 rounded-none border-black/15"
+              />
+              <p className="mt-1 text-xs text-slate-500">Recorded on the account and in the audit trail.</p>
+            </div>
+            <div className="mt-auto flex gap-2 border-t border-black/10 px-5 py-4">
+              <Button
+                variant="outline"
+                onClick={() => { setUserToDeactivate(null); setDeactivationReason(''); }}
+                className="flex-1 rounded-none border-black/15 text-black hover:bg-black/5"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeactivateUser}
+                disabled={isProcessingDeactivation || !deactivationReason.trim()}
+                className="flex-1 rounded-none text-white hover:opacity-90"
+                style={{ backgroundColor: BRAND_TEAL }}
+              >
+                {isProcessingDeactivation ? 'Deactivating...' : 'Deactivate User'}
               </Button>
             </div>
           </DialogContent>
@@ -1207,6 +1411,53 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                     <div className="border border-black/10 bg-black/[0.02] p-3">
                       <p className="text-sm font-medium text-black">{selectedUser.email}</p>
                       <p className="text-xs text-slate-500">ID: {selectedUser.id.slice(0, 8)}...</p>
+                    </div>
+
+                    {/* Account Status */}
+                    <div className="border border-black/10 p-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-semibold text-black">Account Status</Label>
+                        <AdminPill tone={selectedUser.is_active ? 'success' : 'destructive'}>
+                          {selectedUser.is_active ? 'Active' : 'Inactive'}
+                        </AdminPill>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {selectedUser.last_login_at
+                          ? `Last active ${formatDateTimeShort(selectedUser.last_login_at)}`
+                          : 'Never signed in'}
+                      </p>
+                      {!selectedUser.is_active && selectedUser.deactivation_reason && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          Deactivated{selectedUser.deactivated_at ? ` ${formatDateTimeShort(selectedUser.deactivated_at)}` : ''}: {selectedUser.deactivation_reason}
+                        </p>
+                      )}
+                      <div className="mt-2">
+                        {selectedUser.is_active ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full rounded-none border-black/15 text-black hover:bg-black/5"
+                            onClick={() => {
+                              setUserToDeactivate(selectedUser);
+                              setIsManageModalOpen(false);
+                            }}
+                          >
+                            <UserX className="mr-1.5 h-3.5 w-3.5" />
+                            Deactivate User
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full rounded-none border-black/15 text-black hover:bg-black/5"
+                            disabled={isProcessingDeactivation}
+                            onClick={() => handleReactivateUser(selectedUser)}
+                          >
+                            <UserCheck className="mr-1.5 h-3.5 w-3.5" />
+                            {isProcessingDeactivation ? 'Reactivating...' : 'Reactivate User'}
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Role Management */}
