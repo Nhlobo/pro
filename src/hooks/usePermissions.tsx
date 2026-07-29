@@ -21,6 +21,10 @@ export interface UserProfile {
   first_name: string | null;
   last_name: string | null;
   referring_attorney_id: string | null;
+  is_active: boolean;
+  deactivated_at: string | null;
+  deactivation_reason: string | null;
+  last_login_at: string | null;
 }
 
 export interface PermissionsContextValue {
@@ -77,7 +81,7 @@ export const usePermissions = (): PermissionsContextValue => {
 
 // Internal: the original hook logic, now used exactly once by PermissionsProvider.
 const usePermissionsState = (): PermissionsContextValue => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -242,6 +246,23 @@ const usePermissionsState = (): PermissionsContextValue => {
       setUserRole(role || 'user');
       setRoleResolutionFailed(failed);
 
+      // A session that was already open when an admin deactivated this
+      // account would otherwise keep working until its access token
+      // naturally expires and a background refresh gets rejected by the
+      // auth-layer ban (up to an hour later). Catch it here instead, on
+      // the next load/tab focus.
+      const { data: isActive } = await supabase.rpc('get_current_user_is_active');
+      if (isActive === false) {
+        toast({
+          title: "Account deactivated",
+          description: "Your account has been deactivated. Please contact your administrator.",
+          variant: "destructive"
+        });
+        setLoading(false);
+        setTimeout(() => signOut(), 1500);
+        return;
+      }
+
       // Get user permissions
       const { data: userPermissions } = await supabase
         .from('user_permissions')
@@ -307,7 +328,7 @@ const usePermissionsState = (): PermissionsContextValue => {
     try {
       const { data } = await supabase
         .from('profiles')
-        .select('id, email, role, user_type, position, first_name, last_name, referring_attorney_id')
+        .select('id, email, role, user_type, position, first_name, last_name, referring_attorney_id, is_active, deactivated_at, deactivation_reason, last_login_at')
         .order('created_at', { ascending: false });
 
       return data || [];
