@@ -12,7 +12,6 @@ services:
     name: medico-legal-pro
     runtime: static
     plan: free
-    region: frankfurt
     buildCommand: npm install --legacy-peer-deps && npm run build
     staticPublishPath: ./dist
     autoDeploy: true
