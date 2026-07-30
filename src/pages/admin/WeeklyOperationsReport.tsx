@@ -1,11 +1,20 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { usePermissions } from '@/hooks/usePermissions';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { FileText, Send, RefreshCw, Mail } from 'lucide-react';
+import { FileText, Send, RefreshCw, Mail, Printer, Download, Wrench, Search } from 'lucide-react';
 import { format } from 'date-fns';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { addBrandingToPDF, getStyledTableOptions } from '@/utils/pdfBranding';
 import {
   AdminPage,
   AdminHeader,
@@ -15,20 +24,48 @@ import {
   AdminPill,
   AdminEmptyState,
   AdminLoadingState,
+  AdminSectionLabel,
 } from '@/components/admin/ui/AdminUI';
+
+type PeriodType = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+
+const PERIOD_TYPES: { value: PeriodType; label: string }[] = [
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'yearly', label: 'Yearly' },
+];
 
 type WeeklyOpsReport = {
   id: string;
+  period_type: PeriodType;
   period_start: string;
   period_end: string;
   payments_count: number;
   payments_total: number;
   assessments_booked_count: number;
+  submitted_reports_count: number | null;
+  province_deals_closed: Record<string, number> | null;
+  top_expert_name: string | null;
+  top_expert_province: string | null;
+  top_expert_bookings_count: number | null;
+  is_combined: boolean | null;
+  generated_for_role: string | null;
+  report_html: string | null;
   recipients: string[];
   delivery_status: string;
   delivery_error: string | null;
   sent_at: string | null;
   created_at: string;
+};
+
+type CaseStatusRow = {
+  id: string;
+  appointment_date: string;
+  case_status: string | null;
+  claimant_id: string;
+  referring_attorney: string | null;
+  manually_reclassified_at: string | null;
 };
 
 const ZAR = (n: number) =>
@@ -42,9 +79,28 @@ const STATUS_TONE: Record<string, 'neutral' | 'teal' | 'success' | 'warning' | '
   pending: 'neutral',
 };
 
+const CASE_STATUS_OPTIONS = [
+  'pending', 'scheduled', 'confirmed', 'in_progress', 'completed', 'assessed', 'cancelled', 'taken_out', 'declined by expert',
+];
+
+const provinceSummary = (deals: Record<string, number> | null | undefined) => {
+  if (!deals || !Object.keys(deals).length) return '—';
+  return Object.entries(deals)
+    .sort((a, b) => b[1] - a[1])
+    .map(([p, c]) => `${p}: ${c}`)
+    .join(', ');
+};
+
 const WeeklyOperationsReport: React.FC = () => {
   const qc = useQueryClient();
+  const { isAdmin, userRole } = usePermissions();
   const [sending, setSending] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [periodType, setPeriodType] = useState<PeriodType>('weekly');
+  // "all" avoids the classic "totals look lower than expected" trap of an
+  // accidentally narrow year filter hiding most of the data set.
+  const [yearFilter, setYearFilter] = useState<string>('all');
+  const [reclassifyOpen, setReclassifyOpen] = useState(false);
 
   const { data: reports, isLoading } = useQuery({
     queryKey: ['weekly-operations-reports'],
@@ -53,11 +109,25 @@ const WeeklyOperationsReport: React.FC = () => {
         .from('weekly_operations_reports')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(25);
+        .limit(100);
       if (error) throw error;
-      return (data || []) as WeeklyOpsReport[];
+      return (data || []) as unknown as WeeklyOpsReport[];
     },
   });
+
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    (reports || []).forEach((r) => years.add(String(new Date(r.period_start).getFullYear())));
+    return Array.from(years).sort((a, b) => Number(b) - Number(a));
+  }, [reports]);
+
+  const filteredReports = useMemo(() => {
+    return (reports || []).filter((r) => {
+      if (r.period_type !== periodType) return false;
+      if (yearFilter !== 'all' && String(new Date(r.period_start).getFullYear()) !== yearFilter) return false;
+      return true;
+    });
+  }, [reports, periodType, yearFilter]);
 
   const sendTestReport = async () => {
     setSending(true);
@@ -67,12 +137,12 @@ const WeeklyOperationsReport: React.FC = () => {
       if (!adminEmail) throw new Error('No admin email on session');
 
       const { data, error } = await supabase.functions.invoke('send-weekly-operations-report', {
-        body: { sample_to: adminEmail },
+        body: { sample_to: adminEmail, period_type: periodType },
       });
       if (error) throw error;
 
       if (data?.delivery_status === 'sample_sent') {
-        toast.success(`Test report sent to ${adminEmail}`);
+        toast.success(`Test ${periodType} report sent to ${adminEmail}`);
       } else {
         toast.error(`Test send failed: ${data?.delivery_error || data?.delivery_status || 'unknown error'}`);
       }
@@ -83,13 +153,81 @@ const WeeklyOperationsReport: React.FC = () => {
     }
   };
 
+  const generateReport = async () => {
+    setGenerating(true);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const { data, error } = await supabase.functions.invoke('send-weekly-operations-report', {
+        body: { period_type: periodType, generated_by: auth.user?.id || null },
+      });
+      if (error) throw error;
+      if (data?.delivery_status === 'skipped') {
+        toast.warning(`Report generated but not emailed: ${data?.delivery_error || 'no recipients configured'}`);
+      } else if (data?.delivery_status === 'sent') {
+        toast.success(`${periodType[0].toUpperCase()}${periodType.slice(1)} report generated and sent`);
+      } else {
+        toast.error(`Report generation failed: ${data?.delivery_error || 'unknown error'}`);
+      }
+      qc.invalidateQueries({ queryKey: ['weekly-operations-reports'] });
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to generate report');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const printReport = (r: WeeklyOpsReport) => {
+    // Combined (company-wide) reports may only be printed/downloaded by admins.
+    if (r.is_combined !== false && !isAdmin()) {
+      toast.error('Only admins can print or download the combined report.');
+      return;
+    }
+    if (r.report_html) {
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(r.report_html);
+        win.document.close();
+        win.focus();
+        win.print();
+      }
+    } else {
+      toast.error('No stored report content available to print for this entry.');
+    }
+  };
+
+  const downloadReportPdf = (r: WeeklyOpsReport) => {
+    if (r.is_combined !== false && !isAdmin()) {
+      toast.error('Only admins can print or download the combined report.');
+      return;
+    }
+    const doc = new jsPDF();
+    const subtitle = `${format(new Date(r.period_start), 'dd MMM yyyy')} – ${format(new Date(r.period_end), 'dd MMM yyyy')} | ${r.is_combined === false ? `${r.generated_for_role || 'Staff'} view` : 'Combined (All Functions)'}`;
+    const startY = addBrandingToPDF(doc, `${r.period_type[0].toUpperCase()}${r.period_type.slice(1)} Operations Report`, subtitle);
+    autoTable(doc, {
+      startY,
+      head: [['Metric', 'Value']],
+      body: [
+        ['Expert Payments', String(r.payments_count)],
+        ['Total Amount Paid', ZAR(r.payments_total)],
+        ['Assessments Booked', String(r.assessments_booked_count)],
+        ['Reports Submitted', String(r.submitted_reports_count ?? 0)],
+        ['Province Deals Closed', provinceSummary(r.province_deals_closed)],
+        ['Most Booked Expert', r.top_expert_name ? `${r.top_expert_name} (${r.top_expert_province || 'province unknown'}) — ${r.top_expert_bookings_count} booking(s)` : '—'],
+        ['Delivery Status', r.delivery_status],
+        ['Recipients', (r.recipients || []).join(', ') || '—'],
+      ],
+      ...getStyledTableOptions(),
+    });
+    doc.save(`operations-report-${r.period_type}-${r.period_start}.pdf`);
+  };
+
   return (
     <AdminPage className="brand-legal-theme max-w-6xl">
       <AdminHeader
         eyebrow="System"
-        title="Weekly Operations Report"
+        title="Weekly / Monthly Operations Report"
         icon={Mail}
-        description="Automated weekly email summarising expert payments made and assessments booked — sent every Monday and kept here as a record."
+        description="Generate weekly, monthly, quarterly and yearly operations summaries — expert payments, assessments booked, reports submitted, and deals closed by province — with a full history retained per report."
         actions={
           <>
             <Button
@@ -101,80 +239,366 @@ const WeeklyOperationsReport: React.FC = () => {
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
+            {isAdmin() && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-none"
+                onClick={() => setReclassifyOpen(true)}
+              >
+                <Wrench className="mr-2 h-4 w-4" />
+                Reclassify Appointment
+              </Button>
+            )}
             <Button
+              variant="outline"
               size="sm"
-              className="rounded-none gradient-teal text-white"
+              className="rounded-none"
               onClick={sendTestReport}
               disabled={sending}
             >
               <Send className="mr-2 h-4 w-4" />
               {sending ? 'Sending…' : 'Send Test Report'}
             </Button>
+            <Button
+              size="sm"
+              className="rounded-none gradient-teal text-white"
+              onClick={generateReport}
+              disabled={generating}
+            >
+              <FileText className="mr-2 h-4 w-4" />
+              {generating ? 'Generating…' : `Generate ${periodType[0].toUpperCase()}${periodType.slice(1)} Report`}
+            </Button>
           </>
         }
       />
 
       <p className="text-xs text-slate-500">
-        "Send Test Report" emails a preview of this week's data to your own account only — it does not
-        send to the real recipient list and is not saved to the history below.
+        "Send Test Report" emails a preview of the current period's data to your own account only — it does not
+        send to the real recipient list and is not saved to the history below. "Generate Report" runs the report
+        for real, emails the configured recipients, and saves it to history.
       </p>
+
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-[160px]">
+          <AdminSectionLabel>Report Type</AdminSectionLabel>
+          <Select value={periodType} onValueChange={(v) => setPeriodType(v as PeriodType)}>
+            <SelectTrigger className="rounded-none border-black/15">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PERIOD_TYPES.map((p) => (
+                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="min-w-[140px]">
+          <AdminSectionLabel>Year</AdminSectionLabel>
+          <Select value={yearFilter} onValueChange={setYearFilter}>
+            <SelectTrigger className="rounded-none border-black/15">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Years</SelectItem>
+              {availableYears.map((y) => (
+                <SelectItem key={y} value={y}>{y}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {yearFilter !== 'all' && (
+          <p className="pb-2 text-xs text-amber-700">
+            Showing {yearFilter} only. If totals look lower than expected, switch back to "All Years" to see the complete data set.
+          </p>
+        )}
+      </div>
 
       <AdminCard>
         <AdminCardHeader
           title="Report History"
-          description="Every automatic weekly send is logged here for audit trail purposes."
+          description="Every generated report is logged here for audit trail purposes. Only admins can print or download the combined (company-wide) report — per-user reports are generated and delivered according to each staff member's function."
           icon={FileText}
         />
         <AdminCardBody className="p-0">
           {isLoading ? (
             <AdminLoadingState label="Loading report history…" />
-          ) : !reports?.length ? (
+          ) : !filteredReports?.length ? (
             <AdminEmptyState
               icon={Mail}
-              title="No reports sent yet"
-              description="The first automatic weekly report will appear here after it runs on Monday, or send a test above to check the setup now."
+              title="No reports for this filter"
+              description="Generate a report above, or switch the Report Type / Year filter to see existing history."
             />
           ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-black/10 hover:bg-transparent">
+                    <TableHead>Period</TableHead>
+                    <TableHead>Scope</TableHead>
+                    <TableHead>Payments</TableHead>
+                    <TableHead>Total Paid</TableHead>
+                    <TableHead>Assessments</TableHead>
+                    <TableHead>Reports Submitted</TableHead>
+                    <TableHead>Deals Closed by Province</TableHead>
+                    <TableHead>Most Booked Expert</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Sent</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredReports.map((r) => {
+                    const canPrintDownload = r.is_combined === false ? true : isAdmin();
+                    return (
+                      <TableRow key={r.id} className="border-black/10">
+                        <TableCell className="whitespace-nowrap">
+                          {format(new Date(r.period_start), 'dd MMM yyyy')} – {format(new Date(r.period_end), 'dd MMM yyyy')}
+                        </TableCell>
+                        <TableCell>
+                          <AdminPill tone={r.is_combined === false ? 'teal' : 'neutral'}>
+                            {r.is_combined === false ? (r.generated_for_role || 'Staff') : 'Combined'}
+                          </AdminPill>
+                        </TableCell>
+                        <TableCell>{r.payments_count}</TableCell>
+                        <TableCell>{ZAR(r.payments_total)}</TableCell>
+                        <TableCell>{r.assessments_booked_count}</TableCell>
+                        <TableCell>{r.submitted_reports_count ?? 0}</TableCell>
+                        <TableCell className="max-w-[220px] truncate" title={provinceSummary(r.province_deals_closed)}>
+                          {provinceSummary(r.province_deals_closed)}
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">
+                          {r.top_expert_name ? `${r.top_expert_name} (${r.top_expert_province || '—'})` : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <AdminPill tone={STATUS_TONE[r.delivery_status] || 'neutral'}>
+                            {r.delivery_status}
+                          </AdminPill>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {r.sent_at ? format(new Date(r.sent_at), 'dd MMM yyyy HH:mm') : '—'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {canPrintDownload ? (
+                            <div className="flex justify-end gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => printReport(r)} title="Print">
+                                <Printer className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => downloadReportPdf(r)} title="Download PDF">
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">Admin only</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </AdminCardBody>
+      </AdminCard>
+
+      {isAdmin() && (
+        <ReclassifyAppointmentDialog open={reclassifyOpen} onOpenChange={setReclassifyOpen} />
+      )}
+    </AdminPage>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Manual appointment reclassification
+//
+// Appointments created before this update are NOT automatically reclassified
+// — staff are still partly working from Lovable and have not all moved to
+// the app yet, so any historical records that were filed under the wrong
+// case status need to be corrected here by hand, with a visible audit trail.
+// ---------------------------------------------------------------------------
+const ReclassifyAppointmentDialog: React.FC<{ open: boolean; onOpenChange: (v: boolean) => void }> = ({ open, onOpenChange }) => {
+  const [search, setSearch] = useState('');
+  const [results, setResults] = useState<CaseStatusRow[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selected, setSelected] = useState<CaseStatusRow | null>(null);
+  const [newStatus, setNewStatus] = useState('');
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const runSearch = async () => {
+    if (!search.trim()) return;
+    setSearching(true);
+    try {
+      // Search by claimant name first, then fall back to a direct appointment ID match.
+      const { data: claimants } = await supabase
+        .from('claimants')
+        .select('id, first_name, last_name')
+        .or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%`)
+        .limit(10);
+      const claimantIds = (claimants || []).map((c: any) => c.id);
+
+      let query = supabase
+        .from('appointments')
+        .select('id, appointment_date, case_status, claimant_id, referring_attorney, manually_reclassified_at')
+        .is('deleted_at', null)
+        .order('appointment_date', { ascending: false })
+        .limit(20);
+
+      if (claimantIds.length) {
+        query = query.in('claimant_id', claimantIds);
+      } else {
+        query = query.eq('id', search.trim());
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setResults((data || []) as unknown as CaseStatusRow[]);
+      if (!data?.length) toast.info('No matching appointments found.');
+    } catch (e: any) {
+      toast.error(e.message || 'Search failed');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const saveReclassification = async () => {
+    if (!selected || !newStatus) return;
+    setSaving(true);
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user?.id || null;
+
+      const { error: updateErr } = await supabase
+        .from('appointments')
+        .update({
+          case_status: newStatus,
+          manually_reclassified_at: new Date().toISOString(),
+          manually_reclassified_by: userId,
+          reclassification_note: note || null,
+        })
+        .eq('id', selected.id);
+      if (updateErr) throw updateErr;
+
+      const { error: logErr } = await supabase.from('appointment_reclassification_log').insert({
+        appointment_id: selected.id,
+        previous_case_status: selected.case_status,
+        new_case_status: newStatus,
+        note: note || null,
+        changed_by: userId,
+      });
+      if (logErr) throw logErr;
+
+      toast.success('Appointment reclassified and logged.');
+      setSelected(null);
+      setNewStatus('');
+      setNote('');
+      setResults((prev) => prev.map((r) => (r.id === selected.id ? { ...r, case_status: newStatus, manually_reclassified_at: new Date().toISOString() } : r)));
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save reclassification');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl rounded-none">
+        <DialogHeader>
+          <DialogTitle>Reclassify Historical Appointment</DialogTitle>
+        </DialogHeader>
+        <p className="text-xs text-slate-500">
+          Appointments created before this update are not reclassified automatically. Search for the record below,
+          then correct its case status by hand. Every change is logged with who made it and when.
+        </p>
+
+        <div className="flex gap-2">
+          <Input
+            placeholder="Search by claimant name or appointment ID…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+            className="rounded-none border-black/15"
+          />
+          <Button onClick={runSearch} disabled={searching} className="rounded-none gradient-teal text-white">
+            <Search className="mr-2 h-4 w-4" />
+            {searching ? 'Searching…' : 'Search'}
+          </Button>
+        </div>
+
+        {results.length > 0 && (
+          <div className="max-h-56 overflow-y-auto border border-black/10">
             <Table>
               <TableHeader>
                 <TableRow className="border-black/10 hover:bg-transparent">
-                  <TableHead>Period</TableHead>
-                  <TableHead>Payments</TableHead>
-                  <TableHead>Total Paid</TableHead>
-                  <TableHead>Assessments Booked</TableHead>
-                  <TableHead>Recipients</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Referring Attorney</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Sent</TableHead>
+                  <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reports.map((r) => (
+                {results.map((r) => (
                   <TableRow key={r.id} className="border-black/10">
-                    <TableCell>
-                      {format(new Date(r.period_start), 'dd MMM yyyy')} – {format(new Date(r.period_end), 'dd MMM yyyy')}
+                    <TableCell>{format(new Date(r.appointment_date), 'dd MMM yyyy')}</TableCell>
+                    <TableCell className="max-w-[160px] truncate">{r.referring_attorney || '—'}</TableCell>
+                    <TableCell className="capitalize">
+                      {r.case_status || 'unknown'}
+                      {r.manually_reclassified_at && <span className="ml-1 text-[10px] text-amber-600">(manually corrected)</span>}
                     </TableCell>
-                    <TableCell>{r.payments_count}</TableCell>
-                    <TableCell>{ZAR(r.payments_total)}</TableCell>
-                    <TableCell>{r.assessments_booked_count}</TableCell>
-                    <TableCell className="max-w-[220px] truncate" title={(r.recipients || []).join(', ')}>
-                      {(r.recipients || []).length} recipient{(r.recipients || []).length === 1 ? '' : 's'}
-                    </TableCell>
-                    <TableCell>
-                      <AdminPill tone={STATUS_TONE[r.delivery_status] || 'neutral'}>
-                        {r.delivery_status}
-                      </AdminPill>
-                    </TableCell>
-                    <TableCell>
-                      {r.sent_at ? format(new Date(r.sent_at), 'dd MMM yyyy HH:mm') : '—'}
+                    <TableCell className="text-right">
+                      <Button size="sm" variant="outline" className="rounded-none" onClick={() => { setSelected(r); setNewStatus(r.case_status || ''); }}>
+                        Reclassify
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+          </div>
+        )}
+
+        {selected && (
+          <div className="space-y-3 border-t border-black/10 pt-3">
+            <div>
+              <Label className="text-xs">New Case Status</Label>
+              <Select value={newStatus} onValueChange={setNewStatus}>
+                <SelectTrigger className="rounded-none border-black/15">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CASE_STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Reason for correction</Label>
+              <Textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="e.g. Filed incorrectly while staff were still working in Lovable — correcting to match actual outcome."
+                className="rounded-none border-black/15"
+              />
+            </div>
+          </div>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" className="rounded-none" onClick={() => onOpenChange(false)}>Close</Button>
+          {selected && (
+            <Button
+              className="rounded-none gradient-teal text-white"
+              onClick={saveReclassification}
+              disabled={saving || !newStatus}
+            >
+              {saving ? 'Saving…' : 'Save Reclassification'}
+            </Button>
           )}
-        </AdminCardBody>
-      </AdminCard>
-    </AdminPage>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
