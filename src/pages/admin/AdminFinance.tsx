@@ -7,7 +7,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X, Landmark, FileStack, History } from "lucide-react";
 import { toast } from 'sonner';
-import { recalculateAODFromAppointments, recalculateShortTermFromAppointments, backfillShortTermAgreementsFromAppointments } from '@/hooks/usePaymentSync';
+import { recalculateAODFromAppointments, recalculateShortTermFromAppointments } from '@/hooks/usePaymentSync';
 import { RegularPaymentDialog } from '@/components/RegularPaymentDialog';
 import FinanceAuditTrail from '@/components/FinanceAuditTrail';
 import {
@@ -120,47 +120,42 @@ const AdminFinance: React.FC = () => {
     const aodSelect = 'id, file_name, total_contract_value, deposit_amount, payments_made, discount_amount, payment_status, referring_attorney_id, total_reports_agreed, reports_released, created_at, referring_attorneys!aod_documents_law_firm_id_fkey(name, is_system_company)';
     const stSelect = 'id, contract_description, total_contract_value, deposit_amount, payments_made, discount_amount, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed, debtor_law_firm_name, referring_attorneys(name, is_system_company)';
 
-    // Pick up any short-term matters that don't have an agreement record yet
-    // (bulk-imported appointments, edited payment terms, etc.) before reading
-    // the table, so the list below always reflects real appointments.
-    try {
-      await backfillShortTermAgreementsFromAppointments();
-    } catch (e) {
-      console.warn('[AdminFinance] short-term backfill failed (non-fatal)', e);
-    }
-
+    // Read the tables and paint the page immediately — don't make the person
+    // wait on a recalculation pass before they see anything.
     const [aodResult, stResult] = await Promise.all([
       supabase.from('aod_documents').select(aodSelect).order('created_at', { ascending: false }),
       supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }).limit(100),
     ]);
     const filtered = ((aodResult.data || []) as AodFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
     const filteredShortTerm = ((stResult.data || []) as ShortTermFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
-
-    // Auto-recalc from live appointments so any payment / discount captured in
-    // Scheduled Assessment is reflected on AOD + Short-term tables (best-effort).
-    try {
-      await Promise.all([
-        ...filtered.map((d) => recalculateAODFromAppointments(d.id, d.referring_attorney_id)),
-        ...filteredShortTerm.map((d) => recalculateShortTermFromAppointments(d.id, d.referring_attorney_id)),
-      ]);
-      const [aodResult2, stResult2] = await Promise.all([
-        supabase.from('aod_documents').select(aodSelect).order('created_at', { ascending: false }),
-        supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }).limit(100),
-      ]);
-      setAodDocs(((aodResult2.data || []) as AodFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company));
-      setShortTermDocs(((stResult2.data || []) as ShortTermFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company));
-    } catch (e) {
-      console.warn('[AdminFinance] auto-recalc failed (non-fatal)', e);
-      setAodDocs(filtered);
-      setShortTermDocs(filteredShortTerm);
-    }
+    setAodDocs(filtered);
+    setShortTermDocs(filteredShortTerm);
     setLoading(false);
+
+    // Recalculate from live appointments in the background so any payment /
+    // discount captured on Scheduled Assessment is reflected here — but as a
+    // quiet follow-up refresh, not something the page has to wait on.
+    (async () => {
+      try {
+        await Promise.all([
+          ...filtered.map((d) => recalculateAODFromAppointments(d.id, d.referring_attorney_id)),
+          ...filteredShortTerm.map((d) => recalculateShortTermFromAppointments(d.id, d.referring_attorney_id)),
+        ]);
+        const [aodResult2, stResult2] = await Promise.all([
+          supabase.from('aod_documents').select(aodSelect).order('created_at', { ascending: false }),
+          supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }).limit(100),
+        ]);
+        setAodDocs(((aodResult2.data || []) as AodFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company));
+        setShortTermDocs(((stResult2.data || []) as ShortTermFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company));
+      } catch (e) {
+        console.warn('[AdminFinance] background recalc failed (non-fatal)', e);
+      }
+    })();
   };
 
   const handleFullSync = async () => {
     setSyncing(true);
     try {
-      await backfillShortTermAgreementsFromAppointments();
       for (const doc of aodDocs) {
         await recalculateAODFromAppointments(doc.id, doc.referring_attorney_id);
       }
