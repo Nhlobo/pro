@@ -117,6 +117,20 @@ function getRangeForPeriod(periodType: PeriodType, ref: Date) {
   }
 }
 
+// Used by the daily cron ticks below to gate monthly/quarterly/yearly sends —
+// those crons fire every day and only actually generate a report on the last
+// day of the relevant period (mirrors the pattern in send-sales-performance-report).
+function isLastDayOfMonth(d: Date) {
+  const t = new Date(d); t.setDate(t.getDate() + 1);
+  return t.getMonth() !== d.getMonth();
+}
+function isLastDayOfQuarter(d: Date) {
+  return isLastDayOfMonth(d) && [2, 5, 8, 11].includes(d.getMonth());
+}
+function isLastDayOfYear(d: Date) {
+  return d.getMonth() === 11 && d.getDate() === 31;
+}
+
 interface PaymentRow {
   id: string;
   payment_date: string;
@@ -244,7 +258,7 @@ serve(async (req) => {
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const body = await req.json().catch(() => ({}));
-    const { preview = false, sample_to, generated_by = null } = body;
+    const { preview = false, generated_by = null } = body;
 
     const VALID_PERIOD_TYPES = ["weekly", "monthly", "quarterly", "yearly"] as const;
     if (body.period_type !== undefined && !VALID_PERIOD_TYPES.includes(body.period_type)) {
@@ -254,8 +268,23 @@ serve(async (req) => {
       );
     }
     const periodType: PeriodType = body.period_type ?? "weekly";
+    const { only_if_month_end = false, only_if_quarter_end = false, only_if_year_end = false } = body;
 
     const today = sastToday();
+
+    // Daily cron ticks for monthly/quarterly/yearly call in every day and only
+    // actually generate the report once the period has genuinely closed —
+    // this is a no-op response the rest of the day, not an error.
+    if (periodType === "monthly" && only_if_month_end && !isLastDayOfMonth(today)) {
+      return new Response(JSON.stringify({ skipped: true, reason: "not last day of month" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (periodType === "quarterly" && only_if_quarter_end && !isLastDayOfQuarter(today)) {
+      return new Response(JSON.stringify({ skipped: true, reason: "not last day of quarter" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    if (periodType === "yearly" && only_if_year_end && !isLastDayOfYear(today)) {
+      return new Response(JSON.stringify({ skipped: true, reason: "not last day of year" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const { start, end } = getRangeForPeriod(periodType, today);
 
     // ---- Payments made to experts this week ----
@@ -302,7 +331,7 @@ serve(async (req) => {
     // ---- Assessments booked this week (new appointments created in the period) ----
     const { data: bookingsRaw, error: bookErr } = await supabase
       .from("appointments")
-      .select("id, created_at, appointment_date, claimant_id, expert_id, referring_attorney, case_status, service_fee")
+      .select("id, created_at, appointment_date, claimant_id, expert_id, referring_attorney, referring_attorney_id, case_status, service_fee")
       .is("deleted_at", null)
       .gte("created_at", start.toISOString())
       .lte("created_at", end.toISOString())
@@ -311,16 +340,24 @@ serve(async (req) => {
 
     const bookingExpertIds = Array.from(new Set((bookingsRaw || []).map((b: any) => b.expert_id).filter(Boolean)));
     const bookingClaimantIds = Array.from(new Set((bookingsRaw || []).map((b: any) => b.claimant_id).filter(Boolean)));
+    const bookingRAIds = Array.from(new Set((bookingsRaw || []).map((b: any) => b.referring_attorney_id).filter(Boolean)));
 
     const { data: expertsForBookings } = bookingExpertIds.length
-      ? await supabase.from("medical_experts").select("id, first_name, last_name").in("id", bookingExpertIds)
+      ? await supabase.from("medical_experts").select("id, first_name, last_name, province").in("id", bookingExpertIds)
       : { data: [] as any[] };
     const { data: claimantsForBookings } = bookingClaimantIds.length
       ? await supabase.from("claimants").select("id, first_name, last_name").in("id", bookingClaimantIds)
       : { data: [] as any[] };
+    // Province comes from the referring attorney/firm, not from the appointment
+    // itself — appointments don't carry their own province column.
+    const { data: attorneysForBookings } = bookingRAIds.length
+      ? await supabase.from("referring_attorneys").select("id, province").in("id", bookingRAIds)
+      : { data: [] as any[] };
 
     const expertNameByIdB = new Map((expertsForBookings || []).map((e: any) => [e.id, `${e.first_name || ""} ${e.last_name || ""}`.trim()]));
+    const expertProvinceById = new Map((expertsForBookings || []).map((e: any) => [e.id, e.province || null]));
     const claimantNameByIdB = new Map((claimantsForBookings || []).map((c: any) => [c.id, `${c.first_name || ""} ${c.last_name || ""}`.trim()]));
+    const attorneyProvinceById = new Map((attorneysForBookings || []).map((a: any) => [a.id, a.province || null]));
 
     const bookings: BookingRow[] = (bookingsRaw || []).map((b: any) => ({
       id: b.id,
@@ -332,6 +369,36 @@ serve(async (req) => {
       case_status: b.case_status || "scheduled",
       service_fee: b.service_fee,
     }));
+
+    // ---- Deals (assessments booked) closed by province, grouped via the referring attorney's province ----
+    const provinceDealsClosed: Record<string, number> = {};
+    for (const b of (bookingsRaw || [])) {
+      const province = attorneyProvinceById.get(b.referring_attorney_id) || "Unspecified";
+      provinceDealsClosed[province] = (provinceDealsClosed[province] || 0) + 1;
+    }
+
+    // ---- Most-booked expert this period ----
+    const bookingCountByExpert: Record<string, number> = {};
+    for (const b of (bookingsRaw || [])) {
+      if (!b.expert_id) continue;
+      bookingCountByExpert[b.expert_id] = (bookingCountByExpert[b.expert_id] || 0) + 1;
+    }
+    let topExpertId: string | null = null;
+    let topExpertBookingsCount = 0;
+    for (const [expertId, count] of Object.entries(bookingCountByExpert)) {
+      if (count > topExpertBookingsCount) { topExpertId = expertId; topExpertBookingsCount = count; }
+    }
+    const topExpertName = topExpertId ? (expertNameByIdB.get(topExpertId) || null) : null;
+    const topExpertProvince = topExpertId ? (expertProvinceById.get(topExpertId) || null) : null;
+
+    // ---- Expert reports submitted in the period ----
+    const { count: submittedReportsCount, error: reportsErr } = await supabase
+      .from("expert_reports")
+      .select("id", { count: "exact", head: true })
+      .not("report_submitted_date", "is", null)
+      .gte("report_submitted_date", start.toISOString())
+      .lte("report_submitted_date", end.toISOString());
+    if (reportsErr) console.warn("Could not count submitted expert reports:", reportsErr);
 
     const html = buildHtml({ periodStart: start, periodEnd: end, payments, paymentsTotal, bookings });
 
@@ -374,14 +441,7 @@ serve(async (req) => {
 
     const periodLabel = `${periodType[0].toUpperCase()}${periodType.slice(1)}`;
 
-    if (sample_to) {
-      const subject = `[SAMPLE] ${periodLabel} Operations Summary — ${fmtDate(start)} to ${fmtDate(end)}`;
-      const sampleBanner = `<div style="background:#fef3c7;border:1px solid #f59e0b;color:#854d0e;padding:10px 14px;font-family:Arial,sans-serif;font-size:13px;text-align:center;font-weight:600;">SAMPLE PREVIEW — This is an admin preview of the ${periodType} operations report.</div>`;
-      const res = await sendEmail({ from: "Medico-Legal Pro <noreply@kamedico-legal.co.za>", to: [sample_to], subject, html: sampleBanner + html });
-      deliveryStatus = res.success ? "sample_sent" : "failed";
-      deliveryError = res.success ? null : (res.error || "Unknown send failure");
-      if (res.success) sentAt = new Date().toISOString();
-    } else if (!preview) {
+    if (!preview) {
       if (!recipients.length) {
         deliveryStatus = "skipped";
         deliveryError = "No recipients found (no admin/finance/director emails on file and no override configured)";
@@ -400,6 +460,13 @@ serve(async (req) => {
         payments_count: payments.length,
         payments_total: paymentsTotal,
         assessments_booked_count: bookings.length,
+        submitted_reports_count: submittedReportsCount ?? 0,
+        province_deals_closed: provinceDealsClosed,
+        top_expert_name: topExpertName,
+        top_expert_province: topExpertProvince,
+        top_expert_bookings_count: topExpertBookingsCount,
+        is_combined: true,
+        generated_for_role: null,
         recipients,
         report_html: html,
         delivery_status: deliveryStatus,
