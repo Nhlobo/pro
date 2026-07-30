@@ -222,17 +222,56 @@ const WeeklyOperationsReport: React.FC = () => {
       return;
     }
     const html = await fetchReportHtml(r.id);
-    if (html) {
-      const win = window.open('', '_blank');
-      if (win) {
-        win.document.write(html);
-        win.document.close();
-        win.focus();
-        win.print();
-      }
-    } else {
+    if (!html) {
       toast.error('No stored report content available to print for this entry.');
+      return;
     }
+    const win = window.open('', '_blank');
+    if (!win) {
+      toast.error("Pop-up blocked — allow pop-ups for this site to print, then try again.");
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+
+    // Wait for every image (the branding logo, etc.) to finish loading before
+    // printing. Calling print() right after document.write() can fire before
+    // an external image has actually loaded — that's why the logo sometimes
+    // showed up and sometimes didn't: it's a timing race, not a styling bug.
+    // A short safety timeout covers the case where an image is slow/blocked
+    // so printing never hangs waiting on it.
+    const triggerPrint = () => {
+      win.focus();
+      win.print();
+    };
+    const images = Array.from(win.document.images);
+    if (images.length === 0) {
+      triggerPrint();
+      return;
+    }
+    let settled = false;
+    let remaining = images.length;
+    const maybeDone = () => {
+      remaining -= 1;
+      if (remaining <= 0 && !settled) {
+        settled = true;
+        triggerPrint();
+      }
+    };
+    images.forEach((img) => {
+      if (img.complete) {
+        maybeDone();
+      } else {
+        img.addEventListener('load', maybeDone, { once: true });
+        img.addEventListener('error', maybeDone, { once: true });
+      }
+    });
+    setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        triggerPrint();
+      }
+    }, 2500);
   };
 
 
