@@ -706,7 +706,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
           )
         `)
         .is('deleted_at', null)
-        .eq('payment_terms', 'short-term'); // Only sync short-term payment appointments
+        .in('payment_terms', ['short-term', '30-days', '60-days', '90-days']); // Short-term + day-based terms all classify as short-term
 
       // Filter by specific attorney if provided
       if (specificAttorneyId) {
