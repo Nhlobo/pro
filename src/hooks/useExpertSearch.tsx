@@ -112,6 +112,91 @@ export const professionMatches = (expertType: string, profession: string): boole
   return aliases.includes(flat);
 };
 
+// Words that carry no location/profession meaning on their own — e.g. a
+// user typing "neurosurgeon expert witness" is just naming the profession
+// in the way lawyers refer to it ("we need an expert witness"), not
+// searching for someone literally called "witness". Strip these out before
+// trying to match a profession or province so the remaining tokens are the
+// actual search term.
+const QUERY_STOP_WORDS = new Set([
+  'expert', 'experts', 'witness', 'witnesses', 'find', 'search', 'for',
+  'a', 'an', 'the', 'near', 'in', 'at', 'specialist', 'specialists',
+  'medico-legal', 'medicolegal', 'medico', 'legal', 'around', 'me', 'please',
+  'need', 'looking', 'want', 'get', 'me', 'of', 'to',
+]);
+
+const tokenize = (s: string): string[] =>
+  (s || '')
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter(Boolean);
+
+export interface ParsedExpertQuery {
+  profession: string; // one of MEDICO_LEGAL_PROFESSIONS, or '' if none detected
+  province: string; // one of SA_PROVINCES, or '' if none detected
+  city: string; // best-effort leftover text (may be empty)
+}
+
+/**
+ * Parses a free-text query like "neurosurgeon expert witness" or
+ * "orthopaedic surgeon expert witness in Gauteng" into the same
+ * province / city / profession filters the structured search uses, so a
+ * single search box can drive the exact same query the dropdowns do.
+ *
+ * Matching is exact-alias based (reusing `professionMatches`), the same
+ * safeguard used for platform results, so "urologist expert witness" can
+ * never resolve to "Neurologist" the way a naive substring search would.
+ */
+export const parseExpertQuery = (query: string): ParsedExpertQuery => {
+  let tokens = tokenize(query);
+
+  // 1. Pull out a province, if named. Match on the province's own word set
+  //    (e.g. "western" + "cape") appearing anywhere in the query, remove
+  //    those words, and stop at the first match.
+  let province = '';
+  for (const p of SA_PROVINCES) {
+    const pWords = tokenize(p);
+    if (pWords.every((w) => tokens.includes(w))) {
+      province = p;
+      tokens = tokens.filter((t) => !pWords.includes(t));
+      break;
+    }
+  }
+
+  // 2. Drop filler words ("expert witness", "find", "near", ...).
+  const remainder = tokens.filter((t) => !QUERY_STOP_WORDS.has(t));
+
+  // 3. Try to match the *whole* remainder (joined, no spaces) against a
+  //    profession's known aliases first — this is how multi-word
+  //    professions like "Orthopaedic Surgeon" resolve correctly.
+  const remainderFlat = remainder.join('');
+  let profession = '';
+  let leftoverTokens = remainder;
+
+  if (remainderFlat) {
+    const wholeMatch = MEDICO_LEGAL_PROFESSIONS.find((p) => professionMatches(remainderFlat, p));
+    if (wholeMatch) {
+      profession = wholeMatch;
+      leftoverTokens = [];
+    } else {
+      // 4. Fall back to matching individual words (e.g. extra words like a
+      //    city name are mixed in: "neurosurgeon expert witness cape town").
+      for (let i = 0; i < remainder.length; i++) {
+        const match = MEDICO_LEGAL_PROFESSIONS.find((p) => professionMatches(remainder[i], p));
+        if (match) {
+          profession = match;
+          leftoverTokens = remainder.filter((_, idx) => idx !== i);
+          break;
+        }
+      }
+    }
+  }
+
+  const city = leftoverTokens.join(' ').trim();
+
+  return { profession, province, city };
+};
+
 interface SearchFilters {
   province: string;
   city: string;
@@ -151,6 +236,10 @@ export const useExpertSearch = () => {
   const [includeRecomed, setIncludeRecomed] = useState(true);
   const [includeMedpages, setIncludeMedpages] = useState(true);
   const [hasSearchedExternal, setHasSearchedExternal] = useState(false);
+
+  // Free-text "quick search" box — e.g. "neurosurgeon expert witness".
+  const [quickQuery, setQuickQuery] = useState('');
+  const [lastParsedQuery, setLastParsedQuery] = useState<ParsedExpertQuery | null>(null);
 
   const professionOptions = useMemo(() => {
     const q = professionQuery.toLowerCase();
@@ -258,9 +347,46 @@ export const useExpertSearch = () => {
     setCity('');
     setProfession('');
     setProfessionQuery('');
+    setQuickQuery('');
+    setLastParsedQuery(null);
     setHasSearchedExternal(false);
     externalSearchMutation.reset();
     internalSearchMutation.mutate({ province: '', city: '', profession: '' });
+  };
+
+  /**
+   * Runs a single free-text search — e.g. typing "neurosurgeon expert
+   * witness" — across the platform directory AND every external directory
+   * ("all platforms of experts"), the same way picking the dropdown filters
+   * and pressing Search would, but from one box. Parses the profession
+   * (ignoring boilerplate like "expert witness"), and province/city if
+   * named, then runs the exact same internal + external queries.
+   */
+  const runQuickSearch = (queryOverride?: string) => {
+    const q = (queryOverride ?? quickQuery).trim();
+    if (!q) return;
+
+    const parsed = parseExpertQuery(q);
+    setLastParsedQuery(parsed);
+
+    if (!parsed.profession) {
+      toast({
+        title: 'No profession recognised',
+        description: `Couldn't match "${q}" to a known expert type. Try e.g. "neurosurgeon expert witness".`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setProfession(parsed.profession);
+    setProfessionQuery(parsed.profession);
+    if (parsed.province) setProvince(parsed.province);
+    setCity(parsed.city);
+
+    const filters: SearchFilters = { profession: parsed.profession, province: parsed.province, city: parsed.city };
+    internalSearchMutation.mutate(filters);
+    setHasSearchedExternal(true);
+    externalSearchMutation.mutate({ filters });
   };
 
   // Initial platform search on mount — mirrors the previous behaviour of
@@ -309,6 +435,11 @@ export const useExpertSearch = () => {
     externalLimit, setExternalLimit,
     includeRecomed, setIncludeRecomed,
     includeMedpages, setIncludeMedpages,
+
+    // quick (free-text) search
+    quickQuery, setQuickQuery,
+    lastParsedQuery,
+    runQuickSearch,
 
     // actions
     runExternalSearch,
