@@ -10,8 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { FileText, Send, RefreshCw, Mail, Printer, Wrench, Search } from 'lucide-react';
+import { FileText, Send, RefreshCw, Mail, Printer, Download, Wrench, Search } from 'lucide-react';
 import { format } from 'date-fns';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import {
   AdminPage,
   AdminHeader,
@@ -215,10 +217,40 @@ const WeeklyOperationsReport: React.FC = () => {
     }
   };
 
+  // Shared by print and download: resolves once every image in the given
+  // root (the branding logo, etc.) has finished loading or failed, with a
+  // safety timeout so we never hang forever on a slow/blocked image.
+  const waitForImages = (root: Document | HTMLElement): Promise<void> => {
+    const images = Array.from(root.querySelectorAll ? root.querySelectorAll('img') : (root as Document).images);
+    if (images.length === 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      let settled = false;
+      let remaining = images.length;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      const maybeDone = () => {
+        remaining -= 1;
+        if (remaining <= 0) done();
+      };
+      images.forEach((img: HTMLImageElement) => {
+        if (img.complete) {
+          maybeDone();
+        } else {
+          img.addEventListener('load', maybeDone, { once: true });
+          img.addEventListener('error', maybeDone, { once: true });
+        }
+      });
+      setTimeout(done, 2500);
+    });
+  };
+
   const printReport = async (r: WeeklyOpsReport) => {
     // Combined (company-wide) reports may only be printed by admins.
     if (r.is_combined !== false && !isAdmin()) {
-      toast.error('Only admins can print the combined report.');
+      toast.error('Only admins can print or download the combined report.');
       return;
     }
     const html = await fetchReportHtml(r.id);
@@ -234,44 +266,67 @@ const WeeklyOperationsReport: React.FC = () => {
     win.document.write(html);
     win.document.close();
 
-    // Wait for every image (the branding logo, etc.) to finish loading before
-    // printing. Calling print() right after document.write() can fire before
-    // an external image has actually loaded — that's why the logo sometimes
-    // showed up and sometimes didn't: it's a timing race, not a styling bug.
-    // A short safety timeout covers the case where an image is slow/blocked
-    // so printing never hangs waiting on it.
-    const triggerPrint = () => {
-      win.focus();
-      win.print();
-    };
-    const images = Array.from(win.document.images);
-    if (images.length === 0) {
-      triggerPrint();
+    // Wait for images before printing — calling print() right after
+    // document.write() can fire before an external image has actually
+    // loaded, which is why the logo sometimes showed up and sometimes
+    // didn't. It's a timing race, not a styling bug.
+    await waitForImages(win.document);
+    win.focus();
+    win.print();
+  };
+
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const downloadReportPdf = async (r: WeeklyOpsReport) => {
+    // Combined (company-wide) reports may only be downloaded by admins.
+    if (r.is_combined !== false && !isAdmin()) {
+      toast.error('Only admins can download the combined report.');
       return;
     }
-    let settled = false;
-    let remaining = images.length;
-    const maybeDone = () => {
-      remaining -= 1;
-      if (remaining <= 0 && !settled) {
-        settled = true;
-        triggerPrint();
-      }
-    };
-    images.forEach((img) => {
-      if (img.complete) {
-        maybeDone();
-      } else {
-        img.addEventListener('load', maybeDone, { once: true });
-        img.addEventListener('error', maybeDone, { once: true });
-      }
-    });
-    setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        triggerPrint();
-      }
-    }, 2500);
+    const html = await fetchReportHtml(r.id);
+    if (!html) {
+      toast.error('No stored report content available to download for this entry.');
+      return;
+    }
+
+    setDownloadingId(r.id);
+
+    // Render the exact same styled report_html used by Print into an
+    // offscreen container, then rasterize that container into the PDF.
+    // This is deliberately NOT a separate hand-built table (that was the
+    // old behaviour and is why Print and Download used to look like two
+    // different documents) — both buttons now produce the same document.
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.left = '-10000px';
+    container.style.top = '0';
+    container.style.width = '680px'; // matches the report's own max-width
+    container.style.background = '#ffffff';
+    container.innerHTML = html;
+    document.body.appendChild(container);
+
+    try {
+      await waitForImages(container);
+
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      await new Promise<void>((resolve, reject) => {
+        doc.html(container, {
+          x: 20,
+          y: 20,
+          width: 555, // A4 width (595pt) minus ~20pt margins each side
+          windowWidth: 680,
+          autoPaging: 'text',
+          html2canvas: { scale: 0.82, useCORS: true, backgroundColor: '#ffffff' },
+          callback: () => resolve(),
+        } as any);
+      });
+      doc.save(`operations-report-${r.period_type}-${r.period_start}.pdf`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to generate PDF for this report.');
+    } finally {
+      document.body.removeChild(container);
+      setDownloadingId(null);
+    }
   };
 
 
@@ -375,7 +430,7 @@ const WeeklyOperationsReport: React.FC = () => {
       <AdminCard>
         <AdminCardHeader
           title="Report History"
-          description="Every generated report is logged here for audit trail purposes. Only admins can print the combined (company-wide) report — per-user reports are generated and delivered according to each staff member's function. Use your browser's Print dialog and choose \"Save as PDF\" to download a copy."
+          description="Every generated report is logged here for audit trail purposes. Only admins can print or download the combined (company-wide) report — per-user reports are generated and delivered according to each staff member's function."
           icon={FileText}
         />
         <AdminCardBody className="p-0">
@@ -439,8 +494,18 @@ const WeeklyOperationsReport: React.FC = () => {
                         <TableCell className="text-right">
                           {canPrint ? (
                             <div className="flex justify-end gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => printReport(r)} title="Print (use your browser's Print dialog to Save as PDF)">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => printReport(r)} title="Print">
                                 <Printer className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-none"
+                                onClick={() => downloadReportPdf(r)}
+                                disabled={downloadingId === r.id}
+                                title="Download PDF (same document as Print)"
+                              >
+                                <Download className={`h-4 w-4 ${downloadingId === r.id ? 'animate-pulse' : ''}`} />
                               </Button>
                             </div>
                           ) : (
