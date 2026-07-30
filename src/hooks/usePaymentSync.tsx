@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { classifyPaymentTerms } from "@/utils/paymentTermsClassification";
 
 /**
  * Bidirectional payment sync utility.
@@ -548,4 +549,151 @@ export const recalculateShortTermFromAppointments = async (
   } catch (error) {
     console.error('Error recalculating short-term from appointments:', error);
   }
+};
+
+// Backfill short-term agreements from real appointments.
+//
+// Historically, a `short_term_agreements` row was only ever created via the
+// New Appointment form's own trigger (or a manual "quick create" dialog).
+// Any appointment booked outside that path — a bulk/CSV upload, a direct
+// import, or an appointment whose payment terms were edited afterwards —
+// never got a matching agreement row, so it silently never showed up on
+// the Short-Term Agreements list even though it is a real short-term
+// matter. This scans every appointment, classifies its Terms of Payment
+// with the same logic used at booking time (classifyPaymentTerms), and
+// creates or extends the matching attorney/month agreement for any
+// appointment that isn't already linked to one — so the list always
+// reflects the appointments that actually exist.
+export const backfillShortTermAgreementsFromAppointments = async (): Promise<{ created: number; updated: number }> => {
+  const result = { created: 0, updated: 0 };
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return result;
+
+    const { data: appts } = await supabase
+      .from('appointments')
+      .select('id, referring_attorney_id, appointment_date, service_fee, deposit_amount, payment_status, payment_terms, agreement_duration_months, matter_type')
+      .is('deleted_at', null)
+      .not('payment_terms', 'is', null);
+
+    if (!appts || appts.length === 0) return result;
+
+    const shortTermAppts = appts.filter(
+      (a: any) => classifyPaymentTerms(a.payment_terms, a.agreement_duration_months) === 'short-term'
+    );
+    if (shortTermAppts.length === 0) return result;
+
+    // Never create agreements for the firm's own internal/system attorney records.
+    const { data: systemAttorneys } = await supabase
+      .from('referring_attorneys')
+      .select('id')
+      .eq('is_system_company', true);
+    const systemIds = new Set((systemAttorneys || []).map((a) => a.id));
+    const eligible = shortTermAppts.filter((a: any) => !systemIds.has(a.referring_attorney_id));
+    if (eligible.length === 0) return result;
+
+    const { data: existingAgreements } = await supabase
+      .from('short_term_agreements')
+      .select(
+        'id, referring_attorney_id, contract_start_date, notes, linked_appointment_ids, total_contract_value, deposit_amount, total_reports_agreed, payment_status'
+      );
+
+    // Every appointment already linked to an agreement — via the explicit
+    // linked_appointment_ids array or the older APPOINTMENT:<id> notes marker.
+    const covered = new Set<string>();
+    for (const ag of existingAgreements || []) {
+      for (const id of ((ag as any).linked_appointment_ids || []) as string[]) covered.add(id);
+      const matches = (ag.notes || '').match(/APPOINTMENT:([0-9a-fA-F-]{36})/g) || [];
+      for (const m of matches) covered.add(m.split(':')[1]);
+    }
+
+    const uncovered = eligible.filter((a: any) => !covered.has(a.id));
+    if (uncovered.length === 0) return result;
+
+    // Group by attorney + calendar month — the same "one agreement per
+    // attorney per month" convention already used when an agreement is
+    // created from the New Appointment form.
+    const groups: Record<string, any[]> = {};
+    for (const a of uncovered) {
+      const d = new Date(a.appointment_date);
+      const key = `${a.referring_attorney_id}__${d.getFullYear()}-${d.getMonth()}`;
+      (groups[key] ||= []).push(a);
+    }
+
+    for (const groupAppts of Object.values(groups)) {
+      const attorneyId = groupAppts[0].referring_attorney_id;
+      const startDate = new Date(groupAppts[0].appointment_date);
+      const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+      const monthEnd = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+      const monthStartStr = monthStart.toISOString().split('T')[0];
+      const monthEndStr = monthEnd.toISOString().split('T')[0];
+
+      const totalValue = groupAppts.reduce((s, a) => s + (Number(a.service_fee) || 0), 0);
+      const totalDeposit = groupAppts.reduce((s, a) => s + (Number(a.deposit_amount) || 0), 0);
+      const apptIds = groupAppts.map((a) => a.id);
+      const markers = apptIds.map((id) => `APPOINTMENT:${id}`).join('\n');
+      const matterTypes = Array.from(new Set(groupAppts.map((a) => a.matter_type).filter(Boolean)));
+
+      // An agreement may already exist for this attorney/month (created via
+      // the New Appointment flow) without yet covering every appointment in
+      // it — extend that one instead of creating a duplicate for the month.
+      const existingForMonth = (existingAgreements || []).find(
+        (ag: any) =>
+          ag.referring_attorney_id === attorneyId &&
+          ag.contract_start_date >= monthStartStr &&
+          ag.contract_start_date <= monthEndStr
+      );
+
+      if (existingForMonth) {
+        const newValue = (Number(existingForMonth.total_contract_value) || 0) + totalValue;
+        const newDeposit = (Number(existingForMonth.deposit_amount) || 0) + totalDeposit;
+        const mergedAppointmentIds = Array.from(
+          new Set([...(((existingForMonth as any).linked_appointment_ids as string[]) || []), ...apptIds])
+        );
+        await supabase
+          .from('short_term_agreements')
+          .update({
+            total_contract_value: newValue,
+            deposit_amount: newDeposit,
+            total_reports_agreed: (existingForMonth.total_reports_agreed || 0) + groupAppts.length,
+            payment_status: newDeposit >= newValue && newValue > 0 ? 'paid' : existingForMonth.payment_status,
+            notes: `${existingForMonth.notes || ''}\n${markers}`.trim(),
+            linked_appointment_ids: mergedAppointmentIds,
+            updated_at: new Date().toISOString(),
+          } as any)
+          .eq('id', existingForMonth.id);
+        result.updated++;
+        continue;
+      }
+
+      const endDate = new Date(monthStart);
+      endDate.setMonth(endDate.getMonth() + 3); // default short-term duration when none was specified
+
+      const { error: insertError } = await supabase.from('short_term_agreements').insert({
+        referring_attorney_id: attorneyId,
+        created_by: userData.user.id,
+        agreement_method: 'email',
+        contract_description: `Short-Term Agreement for ${monthStart.getMonth() + 1}/${monthStart.getFullYear()}`,
+        contract_start_date: monthStartStr,
+        contract_end_date: endDate.toISOString().split('T')[0],
+        total_contract_value: totalValue,
+        deposit_amount: totalDeposit,
+        total_reports_agreed: groupAppts.length,
+        payment_status: totalDeposit >= totalValue && totalValue > 0 ? 'paid' : totalDeposit > 0 ? 'partial' : 'pending',
+        status: 'active',
+        notes: `Auto-synced from existing appointments.\n${markers}`,
+        linked_appointment_ids: apptIds,
+        matter_types: matterTypes.length > 0 ? matterTypes : null,
+      } as any);
+
+      if (insertError) {
+        console.error('Error backfilling short-term agreement:', insertError);
+        continue;
+      }
+      result.created++;
+    }
+  } catch (error) {
+    console.error('Error backfilling short-term agreements from appointments:', error);
+  }
+  return result;
 };
