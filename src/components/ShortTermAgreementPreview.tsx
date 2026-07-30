@@ -109,12 +109,18 @@ export function ShortTermAgreementPreview({
           payment_status: "pending",
           status: "active",
           contract_description: formData.contractDescription,
-          notes: formData.notes || undefined,
+          // Link this agreement back to the appointment it was generated
+          // from — both the explicit array (used by recalculation) and the
+          // legacy notes marker (used when parsing items for display) — so
+          // it's recognised as covered instead of being picked up again by
+          // the short-term backfill and duplicated.
+          notes: `${formData.notes || ''}\nAPPOINTMENT:${appointmentData.id}`.trim(),
+          linked_appointment_ids: [appointmentData.id],
           payment_plan_structure: `Payment term: ${formData.paymentTerm}`,
           discount_amount: appointmentData.discount_amount || 0,
           discount_rate: appointmentData.discount_rate || 0,
           discount_reason: appointmentData.discount_type ? `Discount type: ${appointmentData.discount_type}` : null
-        })
+        } as any)
         .select()
         .single();
 
@@ -154,11 +160,14 @@ export function ShortTermAgreementPreview({
           total_contract_value: totalCost,
           deposit_amount: depositAmount,
           contract_description: formData.contractDescription,
-          notes: formData.notes || undefined,
+          // Keep the APPOINTMENT link marker intact — editing the visible
+          // notes text must not detach this agreement from its appointment.
+          notes: `${formData.notes || ''}\nAPPOINTMENT:${appointmentData.id}`.trim(),
+          linked_appointment_ids: [appointmentData.id],
           payment_plan_structure: `Payment term: ${formData.paymentTerm}`,
           discount_amount: appointmentData.discount_amount || 0,
           discount_rate: appointmentData.discount_rate || 0
-        })
+        } as any)
         .eq('id', agreementId);
 
       if (error) throw error;
