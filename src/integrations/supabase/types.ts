@@ -704,10 +704,13 @@ export type Database = {
           discount_type: string | null
           expert_id: string
           id: string
+          manually_reclassified_at: string | null
+          manually_reclassified_by: string | null
           matter_type: string | null
           payment_date: string | null
           payment_status: string | null
           payment_terms: string | null
+          reclassification_note: string | null
           referring_attorney: string
           referring_attorney_id: string
           sales_consultant_id: string | null
@@ -729,10 +732,13 @@ export type Database = {
           discount_type?: string | null
           expert_id: string
           id?: string
+          manually_reclassified_at?: string | null
+          manually_reclassified_by?: string | null
           matter_type?: string | null
           payment_date?: string | null
           payment_status?: string | null
           payment_terms?: string | null
+          reclassification_note?: string | null
           referring_attorney: string
           referring_attorney_id: string
           sales_consultant_id?: string | null
@@ -754,10 +760,13 @@ export type Database = {
           discount_type?: string | null
           expert_id?: string
           id?: string
+          manually_reclassified_at?: string | null
+          manually_reclassified_by?: string | null
           matter_type?: string | null
           payment_date?: string | null
           payment_status?: string | null
           payment_terms?: string | null
+          reclassification_note?: string | null
           referring_attorney?: string
           referring_attorney_id?: string
           sales_consultant_id?: string | null
@@ -794,6 +803,119 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      appointment_reclassification_log: {
+        Row: {
+          appointment_id: string
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_case_status: string
+          note: string | null
+          previous_case_status: string | null
+        }
+        Insert: {
+          appointment_id: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_case_status: string
+          note?: string | null
+          previous_case_status?: string | null
+        }
+        Update: {
+          appointment_id?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_case_status?: string
+          note?: string | null
+          previous_case_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_reclassification_log_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_operations_reports: {
+        Row: {
+          assessments_booked_count: number
+          created_at: string
+          delivery_error: string | null
+          delivery_status: string
+          generated_by: string | null
+          generated_for_role: string | null
+          generated_for_user_id: string | null
+          id: string
+          is_combined: boolean
+          payments_count: number
+          payments_total: number
+          period_end: string
+          period_start: string
+          period_type: string
+          province_deals_closed: Json
+          recipients: string[]
+          report_html: string | null
+          sent_at: string | null
+          submitted_reports_count: number
+          top_expert_bookings_count: number
+          top_expert_name: string | null
+          top_expert_province: string | null
+        }
+        Insert: {
+          assessments_booked_count?: number
+          created_at?: string
+          delivery_error?: string | null
+          delivery_status?: string
+          generated_by?: string | null
+          generated_for_role?: string | null
+          generated_for_user_id?: string | null
+          id?: string
+          is_combined?: boolean
+          payments_count?: number
+          payments_total?: number
+          period_end: string
+          period_start: string
+          period_type?: string
+          province_deals_closed?: Json
+          recipients?: string[]
+          report_html?: string | null
+          sent_at?: string | null
+          submitted_reports_count?: number
+          top_expert_bookings_count?: number
+          top_expert_name?: string | null
+          top_expert_province?: string | null
+        }
+        Update: {
+          assessments_booked_count?: number
+          created_at?: string
+          delivery_error?: string | null
+          delivery_status?: string
+          generated_by?: string | null
+          generated_for_role?: string | null
+          generated_for_user_id?: string | null
+          id?: string
+          is_combined?: boolean
+          payments_count?: number
+          payments_total?: number
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          province_deals_closed?: Json
+          recipients?: string[]
+          report_html?: string | null
+          sent_at?: string | null
+          submitted_reports_count?: number
+          top_expert_bookings_count?: number
+          top_expert_name?: string | null
+          top_expert_province?: string | null
+        }
+        Relationships: []
       }
       assessment_report_archives: {
         Row: {
