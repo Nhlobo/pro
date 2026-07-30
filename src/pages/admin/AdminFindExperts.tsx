@@ -53,6 +53,7 @@ const AdminFindExperts: React.FC = () => {
     external, loadingExternal, externalError, trustedTotal, externalTotal, hasSearchedExternal,
     trustedOnly, setTrustedOnly, externalLimit, setExternalLimit,
     includeRecomed, setIncludeRecomed, includeMedpages, setIncludeMedpages,
+    quickQuery, setQuickQuery, lastParsedQuery, runQuickSearch,
     runExternalSearch, handleSearch, handleReset, isSearching,
   } = useExpertSearch();
 
@@ -71,6 +72,47 @@ const AdminFindExperts: React.FC = () => {
         description="Search medico-legal experts available for RAF and Medical Negligence matters"
         icon={Search}
       />
+
+      {/* Quick search — e.g. "neurosurgeon expert witness" */}
+      <AdminCard className="mb-4">
+        <AdminCardBody className="space-y-2">
+          <Label htmlFor="quick-expert-search" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Quick Search
+          </Label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                id="quick-expert-search"
+                placeholder='e.g. "neurosurgeon expert witness" or "orthopaedic surgeon Gauteng"'
+                value={quickQuery}
+                onChange={(e) => setQuickQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') runQuickSearch(); }}
+                className="rounded-none border-black/15 pl-9"
+              />
+            </div>
+            <Button
+              className="rounded-none bg-black text-white hover:bg-black/90 shrink-0"
+              onClick={() => runQuickSearch()}
+              disabled={isSearching || !quickQuery.trim()}
+            >
+              {isSearching && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              <Search className="mr-1.5 h-3.5 w-3.5" />
+              Search
+            </Button>
+          </div>
+          <p className="text-xs text-slate-500">
+            Searches the platform directory and every external directory (all connected sources) at once. Say the specialty the way you would to a colleague — "expert witness" is understood and ignored.
+          </p>
+          {lastParsedQuery && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {lastParsedQuery.profession && <AdminPill tone="teal">Type: {lastParsedQuery.profession}</AdminPill>}
+              {lastParsedQuery.province && <AdminPill tone="neutral">Province: {lastParsedQuery.province}</AdminPill>}
+              {lastParsedQuery.city && <AdminPill tone="neutral">Location: {lastParsedQuery.city}</AdminPill>}
+            </div>
+          )}
+        </AdminCardBody>
+      </AdminCard>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
         {/* Filter rail */}
