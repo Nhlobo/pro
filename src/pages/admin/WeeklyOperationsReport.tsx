@@ -10,11 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { FileText, Send, RefreshCw, Mail, Printer, Download, Wrench, Search } from 'lucide-react';
+import { FileText, Send, RefreshCw, Mail, Printer, Wrench, Search } from 'lucide-react';
 import { format } from 'date-fns';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { addBrandingToPDF, getStyledTableOptions } from '@/utils/pdfBranding';
 import {
   AdminPage,
   AdminHeader,
@@ -116,7 +113,7 @@ const WeeklyOperationsReport: React.FC = () => {
         .from('weekly_operations_reports')
         // report_html deliberately excluded: it's the full rendered email body
         // (can be tens of KB per row) and this list never displays it. Fetched
-        // on demand instead, only for the row the user actually prints/downloads.
+        // on demand instead, only for the row the user actually prints.
         .select(REPORT_LIST_COLUMNS)
         .eq('period_type', periodType)
         .order('period_start', { ascending: false })
@@ -219,9 +216,9 @@ const WeeklyOperationsReport: React.FC = () => {
   };
 
   const printReport = async (r: WeeklyOpsReport) => {
-    // Combined (company-wide) reports may only be printed/downloaded by admins.
+    // Combined (company-wide) reports may only be printed by admins.
     if (r.is_combined !== false && !isAdmin()) {
-      toast.error('Only admins can print or download the combined report.');
+      toast.error('Only admins can print the combined report.');
       return;
     }
     const html = await fetchReportHtml(r.id);
@@ -238,31 +235,6 @@ const WeeklyOperationsReport: React.FC = () => {
     }
   };
 
-  const downloadReportPdf = (r: WeeklyOpsReport) => {
-    if (r.is_combined !== false && !isAdmin()) {
-      toast.error('Only admins can print or download the combined report.');
-      return;
-    }
-    const doc = new jsPDF();
-    const subtitle = `${format(new Date(r.period_start), 'dd MMM yyyy')} – ${format(new Date(r.period_end), 'dd MMM yyyy')} | ${r.is_combined === false ? `${r.generated_for_role || 'Staff'} view` : 'Combined (All Functions)'}`;
-    const startY = addBrandingToPDF(doc, `${r.period_type[0].toUpperCase()}${r.period_type.slice(1)} Operations Report`, subtitle);
-    autoTable(doc, {
-      startY,
-      head: [['Metric', 'Value']],
-      body: [
-        ['Expert Payments', String(r.payments_count)],
-        ['Total Amount Paid', ZAR(r.payments_total)],
-        ['Assessments Booked', String(r.assessments_booked_count)],
-        ['Reports Submitted', String(r.submitted_reports_count ?? 0)],
-        ['Province Deals Closed', provinceSummary(r.province_deals_closed)],
-        ['Most Booked Expert', r.top_expert_name ? `${r.top_expert_name} (${r.top_expert_province || 'province unknown'}) — ${r.top_expert_bookings_count} booking(s)` : '—'],
-        ['Delivery Status', r.delivery_status],
-        ['Recipients', (r.recipients || []).join(', ') || '—'],
-      ],
-      ...getStyledTableOptions(),
-    });
-    doc.save(`operations-report-${r.period_type}-${r.period_start}.pdf`);
-  };
 
   return (
     <AdminPage className="brand-legal-theme max-w-6xl">
@@ -364,7 +336,7 @@ const WeeklyOperationsReport: React.FC = () => {
       <AdminCard>
         <AdminCardHeader
           title="Report History"
-          description="Every generated report is logged here for audit trail purposes. Only admins can print or download the combined (company-wide) report — per-user reports are generated and delivered according to each staff member's function."
+          description="Every generated report is logged here for audit trail purposes. Only admins can print the combined (company-wide) report — per-user reports are generated and delivered according to each staff member's function. Use your browser's Print dialog and choose \"Save as PDF\" to download a copy."
           icon={FileText}
         />
         <AdminCardBody className="p-0">
@@ -396,7 +368,7 @@ const WeeklyOperationsReport: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                   {filteredReports.map((r) => {
-                    const canPrintDownload = r.is_combined === false ? true : isAdmin();
+                    const canPrint = r.is_combined === false ? true : isAdmin();
                     return (
                       <TableRow key={r.id} className="border-black/10">
                         <TableCell className="whitespace-nowrap">
@@ -426,13 +398,10 @@ const WeeklyOperationsReport: React.FC = () => {
                           {r.sent_at ? format(new Date(r.sent_at), 'dd MMM yyyy HH:mm') : '—'}
                         </TableCell>
                         <TableCell className="text-right">
-                          {canPrintDownload ? (
+                          {canPrint ? (
                             <div className="flex justify-end gap-1">
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => printReport(r)} title="Print">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => printReport(r)} title="Print (use your browser's Print dialog to Save as PDF)">
                                 <Printer className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => downloadReportPdf(r)} title="Download PDF">
-                                <Download className="h-4 w-4" />
                               </Button>
                             </div>
                           ) : (
