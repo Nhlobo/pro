@@ -102,32 +102,73 @@ const WeeklyOperationsReport: React.FC = () => {
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [reclassifyOpen, setReclassifyOpen] = useState(false);
 
-  const { data: reports, isLoading } = useQuery({
-    queryKey: ['weekly-operations-reports'],
+  const REPORT_LIST_COLUMNS =
+    'id, period_type, period_start, period_end, payments_count, payments_total, assessments_booked_count, submitted_reports_count, province_deals_closed, top_expert_name, top_expert_province, top_expert_bookings_count, is_combined, generated_for_role, recipients, delivery_status, delivery_error, sent_at, created_at';
+
+  const { data: reports, isLoading, isFetching } = useQuery({
+    // periodType/yearFilter are part of the key: each combination is filtered
+    // server-side below, so switching either one fetches its own correct page
+    // of data instead of re-filtering a single shared top-100 snapshot that
+    // could be dominated by whichever period type is generated most often.
+    queryKey: ['weekly-operations-reports', periodType, yearFilter],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('weekly_operations_reports')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
+        // report_html deliberately excluded: it's the full rendered email body
+        // (can be tens of KB per row) and this list never displays it. Fetched
+        // on demand instead, only for the row the user actually prints/downloads.
+        .select(REPORT_LIST_COLUMNS)
+        .eq('period_type', periodType)
+        .order('period_start', { ascending: false })
+        .limit(200);
+
+      if (yearFilter !== 'all') {
+        query = query.gte('period_start', `${yearFilter}-01-01`).lte('period_start', `${yearFilter}-12-31`);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []) as unknown as WeeklyOpsReport[];
     },
   });
 
+  // Independent of yearFilter (only scoped to the selected report type) so the
+  // Year dropdown always lists every year that has data, even the ones not
+  // currently selected.
+  const { data: yearRows } = useQuery({
+    queryKey: ['weekly-operations-report-years', periodType],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('weekly_operations_reports')
+        .select('period_start')
+        .eq('period_type', periodType)
+        .order('period_start', { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      return (data || []) as { period_start: string }[];
+    },
+  });
+
+  const fetchReportHtml = async (id: string): Promise<string | null> => {
+    const { data, error } = await supabase
+      .from('weekly_operations_reports')
+      .select('report_html')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) {
+      toast.error(error.message || 'Failed to load report content');
+      return null;
+    }
+    return (data as any)?.report_html ?? null;
+  };
+
   const availableYears = useMemo(() => {
     const years = new Set<string>();
-    (reports || []).forEach((r) => years.add(String(new Date(r.period_start).getFullYear())));
+    (yearRows || []).forEach((r) => years.add(String(new Date(r.period_start).getFullYear())));
     return Array.from(years).sort((a, b) => Number(b) - Number(a));
-  }, [reports]);
+  }, [yearRows]);
 
-  const filteredReports = useMemo(() => {
-    return (reports || []).filter((r) => {
-      if (r.period_type !== periodType) return false;
-      if (yearFilter !== 'all' && String(new Date(r.period_start).getFullYear()) !== yearFilter) return false;
-      return true;
-    });
-  }, [reports, periodType, yearFilter]);
+  const filteredReports = reports;
 
   const sendTestReport = async () => {
     setSending(true);
@@ -169,6 +210,7 @@ const WeeklyOperationsReport: React.FC = () => {
         toast.error(`Report generation failed: ${data?.delivery_error || 'unknown error'}`);
       }
       qc.invalidateQueries({ queryKey: ['weekly-operations-reports'] });
+      qc.invalidateQueries({ queryKey: ['weekly-operations-report-years'] });
     } catch (e: any) {
       toast.error(e.message || 'Failed to generate report');
     } finally {
@@ -176,16 +218,17 @@ const WeeklyOperationsReport: React.FC = () => {
     }
   };
 
-  const printReport = (r: WeeklyOpsReport) => {
+  const printReport = async (r: WeeklyOpsReport) => {
     // Combined (company-wide) reports may only be printed/downloaded by admins.
     if (r.is_combined !== false && !isAdmin()) {
       toast.error('Only admins can print or download the combined report.');
       return;
     }
-    if (r.report_html) {
+    const html = await fetchReportHtml(r.id);
+    if (html) {
       const win = window.open('', '_blank');
       if (win) {
-        win.document.write(r.report_html);
+        win.document.write(html);
         win.document.close();
         win.focus();
         win.print();
@@ -234,10 +277,14 @@ const WeeklyOperationsReport: React.FC = () => {
               variant="outline"
               size="sm"
               className="rounded-none"
-              onClick={() => qc.invalidateQueries({ queryKey: ['weekly-operations-reports'] })}
+              disabled={isFetching}
+              onClick={() => {
+                qc.invalidateQueries({ queryKey: ['weekly-operations-reports'] });
+                qc.invalidateQueries({ queryKey: ['weekly-operations-report-years'] });
+              }}
             >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Refresh
+              <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+              {isFetching ? 'Refreshing…' : 'Refresh'}
             </Button>
             {isAdmin() && (
               <Button
