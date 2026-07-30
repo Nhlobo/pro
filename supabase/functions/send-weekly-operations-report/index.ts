@@ -83,6 +83,40 @@ function getWeeklyRange(ref: Date) {
   return { start: lastMonday, end: lastSunday };
 }
 
+function getMonthlyRange(ref: Date) {
+  // Previous calendar month relative to ref
+  const start = new Date(ref.getFullYear(), ref.getMonth() - 1, 1, 0, 0, 0, 0);
+  const end = new Date(ref.getFullYear(), ref.getMonth(), 0, 23, 59, 59, 999);
+  return { start, end };
+}
+
+function getQuarterlyRange(ref: Date) {
+  // Previous calendar quarter relative to ref
+  const currentQuarter = Math.floor(ref.getMonth() / 3);
+  const start = new Date(ref.getFullYear(), (currentQuarter - 1) * 3, 1, 0, 0, 0, 0);
+  const end = new Date(ref.getFullYear(), currentQuarter * 3, 0, 23, 59, 59, 999);
+  return { start, end };
+}
+
+function getYearlyRange(ref: Date) {
+  // Previous calendar year relative to ref
+  const start = new Date(ref.getFullYear() - 1, 0, 1, 0, 0, 0, 0);
+  const end = new Date(ref.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+  return { start, end };
+}
+
+type PeriodType = "weekly" | "monthly" | "quarterly" | "yearly";
+
+function getRangeForPeriod(periodType: PeriodType, ref: Date) {
+  switch (periodType) {
+    case "monthly": return getMonthlyRange(ref);
+    case "quarterly": return getQuarterlyRange(ref);
+    case "yearly": return getYearlyRange(ref);
+    case "weekly":
+    default: return getWeeklyRange(ref);
+  }
+}
+
 interface PaymentRow {
   id: string;
   payment_date: string;
@@ -210,10 +244,19 @@ serve(async (req) => {
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const body = await req.json().catch(() => ({}));
-    const { preview = false, sample_to } = body;
+    const { preview = false, sample_to, generated_by = null } = body;
+
+    const VALID_PERIOD_TYPES = ["weekly", "monthly", "quarterly", "yearly"] as const;
+    if (body.period_type !== undefined && !VALID_PERIOD_TYPES.includes(body.period_type)) {
+      return new Response(
+        JSON.stringify({ error: `Invalid period_type "${body.period_type}". Must be one of: ${VALID_PERIOD_TYPES.join(", ")}` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    const periodType: PeriodType = body.period_type ?? "weekly";
 
     const today = sastToday();
-    const { start, end } = getWeeklyRange(today);
+    const { start, end } = getRangeForPeriod(periodType, today);
 
     // ---- Payments made to experts this week ----
     const { data: paymentsRaw, error: payErr } = await supabase
@@ -329,9 +372,11 @@ serve(async (req) => {
     let deliveryError: string | null = null;
     let sentAt: string | null = null;
 
+    const periodLabel = `${periodType[0].toUpperCase()}${periodType.slice(1)}`;
+
     if (sample_to) {
-      const subject = `[SAMPLE] Weekly Operations Summary — ${fmtDate(start)} to ${fmtDate(end)}`;
-      const sampleBanner = `<div style="background:#fef3c7;border:1px solid #f59e0b;color:#854d0e;padding:10px 14px;font-family:Arial,sans-serif;font-size:13px;text-align:center;font-weight:600;">SAMPLE PREVIEW — This is an admin preview of the weekly operations report.</div>`;
+      const subject = `[SAMPLE] ${periodLabel} Operations Summary — ${fmtDate(start)} to ${fmtDate(end)}`;
+      const sampleBanner = `<div style="background:#fef3c7;border:1px solid #f59e0b;color:#854d0e;padding:10px 14px;font-family:Arial,sans-serif;font-size:13px;text-align:center;font-weight:600;">SAMPLE PREVIEW — This is an admin preview of the ${periodType} operations report.</div>`;
       const res = await sendEmail({ from: "Medico-Legal Pro <noreply@kamedico-legal.co.za>", to: [sample_to], subject, html: sampleBanner + html });
       deliveryStatus = res.success ? "sample_sent" : "failed";
       deliveryError = res.success ? null : (res.error || "Unknown send failure");
@@ -341,7 +386,7 @@ serve(async (req) => {
         deliveryStatus = "skipped";
         deliveryError = "No recipients found (no admin/finance/director emails on file and no override configured)";
       } else {
-        const subject = `Weekly Operations Summary — ${fmtDate(start)} to ${fmtDate(end)}`;
+        const subject = `${periodLabel} Operations Summary — ${fmtDate(start)} to ${fmtDate(end)}`;
         const res = await sendEmail({ from: "Medico-Legal Pro <noreply@kamedico-legal.co.za>", to: recipients, subject, html });
         deliveryStatus = res.success ? "sent" : "failed";
         deliveryError = res.success ? null : (res.error || "Unknown send failure");
@@ -349,6 +394,7 @@ serve(async (req) => {
       }
 
       await supabase.from("weekly_operations_reports").insert({
+        period_type: periodType,
         period_start: isoDate(start),
         period_end: isoDate(end),
         payments_count: payments.length,
@@ -359,6 +405,7 @@ serve(async (req) => {
         delivery_status: deliveryStatus,
         delivery_error: deliveryError,
         sent_at: sentAt,
+        generated_by,
       });
     }
 
