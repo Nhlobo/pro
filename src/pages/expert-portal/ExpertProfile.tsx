@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import {
-  User, Save, Calendar, ChevronLeft, ChevronRight, Plus, Trash2, Clock, CheckCircle2, Edit, AlertCircle
+  User, Save, Calendar, ChevronLeft, ChevronRight, Plus, Trash2, Clock, CheckCircle2, Edit
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,23 +20,12 @@ import {
 const PROVINCES = ['Gauteng', 'KwaZulu-Natal', 'Western Cape', 'Eastern Cape', 'Free State', 'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape'];
 
 const MAX_FEE = 10_000_000;
-const FEE_KEYS = ['consultation_fee_mva', 'consultation_fee_med_neg', 'merit_fees', 'consultation_fee_per_hour', 'court_fees'];
 
 const formatZAR = (raw: string): string => {
   const digits = raw.replace(/\D/g, '');
   const num = Number(digits);
   if (!num) return '';
   return `R${num.toLocaleString('en-ZA')}`;
-};
-
-const validateFeeValue = (value: string): string | null => {
-  const digits = value.replace(/\D/g, '');
-  if (!digits) return null; // empty is valid (cleared)
-  const num = Number(digits);
-  if (Number.isNaN(num)) return 'Enter a valid numeric amount';
-  if (num < 0) return 'Amount cannot be negative';
-  if (num > MAX_FEE) return `Maximum allowed is R${MAX_FEE.toLocaleString('en-ZA')}`;
-  return null;
 };
 
 const ExpertProfile: React.FC = () => {
@@ -47,7 +36,6 @@ const ExpertProfile: React.FC = () => {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [feeErrors, setFeeErrors] = useState<Record<string, string>>({});
   const [feeHistory, setFeeHistory] = useState<any[]>([]);
   const [reviewRequests, setReviewRequests] = useState<any[]>([]);
   const [reviewForm, setReviewForm] = useState({
@@ -201,18 +189,14 @@ const ExpertProfile: React.FC = () => {
   const handleSaveProfile = async () => {
     if (!expertId) return;
 
-    // Validate all fee fields before saving
-    const errors: Record<string, string> = {};
-    FEE_KEYS.forEach((key) => {
-      const err = validateFeeValue((form as any)[key]);
-      if (err) errors[key] = err;
-    });
-    setFeeErrors(errors);
-    if (Object.keys(errors).length > 0) {
-      toast({ title: 'Validation Error', description: 'Please correct the highlighted fee fields before saving.', variant: 'destructive' });
-      return;
-    }
-
+    // NOTE: fee fields are intentionally NOT included in this save. They are
+    // read-only in this card — changing a fee always goes through the
+    // "Annual Fee Review Request" flow below, which requires admin approval
+    // before it takes effect. (Previously this function also tried to write
+    // fee columns directly, but the medical_experts UPDATE policy only
+    // allows admins/employees to write — an expert's own edit was silently
+    // dropped by RLS while the UI still reported "saved successfully".
+    // A DB-level trigger now protects the fee columns as well, as a backstop.)
     setSaving(true);
     try {
       const { error } = await supabase.from('medical_experts').update({
@@ -226,21 +210,11 @@ const ExpertProfile: React.FC = () => {
         personal_assistant_contact: form.personal_assistant_contact,
         practice_company_name: form.practice_company_name,
         province: form.province,
-        consultation_fee_mva: form.consultation_fee_mva ? Number(form.consultation_fee_mva.replace(/\D/g, '')) || null : null,
-        consultation_fee_med_neg: form.consultation_fee_med_neg ? Number(form.consultation_fee_med_neg.replace(/\D/g, '')) || null : null,
-        merit_fees: form.merit_fees ? Number(form.merit_fees.replace(/\D/g, '')) || null : null,
-        consultation_fee_per_hour: form.consultation_fee_per_hour ? Number(form.consultation_fee_per_hour.replace(/\D/g, '')) || null : null,
-        court_fees: form.court_fees ? Number(form.court_fees.replace(/\D/g, '')) || null : null,
-        consultation_fees: (form.consultation_fee_med_neg ? Number(form.consultation_fee_med_neg.replace(/\D/g, '')) : null)
-          ?? (form.consultation_fee_mva ? Number(form.consultation_fee_mva.replace(/\D/g, '')) : null)
-          ?? (form.consultation_fee_per_hour ? Number(form.consultation_fee_per_hour.replace(/\D/g, '')) : null),
         updated_at: new Date().toISOString(),
       }).eq('id', expertId);
       if (error) throw error;
-      setFeeErrors({});
       window.dispatchEvent(new CustomEvent('medical-expert-updated', { detail: { expertId } }));
-      await loadFeeHistory(expertId);
-      toast({ title: 'Profile Updated', description: 'Your profile and fees have been saved and populated to the system.' });
+      toast({ title: 'Profile Updated', description: 'Your profile has been saved. To change your fees, submit a request in the Annual Fee Review Request section below.' });
       setEditing(false);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -422,7 +396,7 @@ const ExpertProfile: React.FC = () => {
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Consultation & Court Fees (ZAR)</CardTitle>
-          <CardDescription className="text-xs">Edits save to the system directory and credit control instantly</CardDescription>
+          <CardDescription className="text-xs">Read-only. Use the Annual Fee Review Request below to propose a change — it takes effect once an administrator approves it.</CardDescription>
         </CardHeader>
         <CardContent className="grid md:grid-cols-3 gap-4">
           {[
@@ -433,39 +407,12 @@ const ExpertProfile: React.FC = () => {
             { key: 'court_fees', label: 'Court Fee' },
           ].map(({ key, label }) => {
             const value = (form as any)[key] as string;
-            const error = feeErrors[key];
             return (
               <div key={key}>
                 <Label className="text-xs">{label}</Label>
-                {editing ? (
-                  <>
-                    <Input
-                      inputMode="numeric"
-                      value={value}
-                      onChange={e => {
-                        const raw = e.target.value.replace(/\D/g, '');
-                        setForm(f => ({ ...f, [key]: raw }));
-                        setFeeErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
-                      }}
-                      onBlur={() => {
-                        const err = validateFeeValue(value);
-                        if (err) setFeeErrors(prev => ({ ...prev, [key]: err }));
-                      }}
-                      placeholder="0"
-                      className={error ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                    />
-                    {error && (
-                      <div className="flex items-center gap-1 mt-1 text-red-600 text-xs">
-                        <AlertCircle className="h-3 w-3" />
-                        {error}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-sm text-foreground">
-                    {value ? formatZAR(value) : '—'}
-                  </p>
-                )}
+                <p className="text-sm text-foreground">
+                  {value ? formatZAR(value) : '—'}
+                </p>
               </div>
             );
           })}
