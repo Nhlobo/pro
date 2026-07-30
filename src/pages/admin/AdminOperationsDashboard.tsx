@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -6,14 +7,15 @@ import {
   FileText,
   Clock,
   FileSignature,
-  BarChart3,
   MapPin,
   Tags,
   ArrowUp,
   ArrowDown,
   Minus,
+  Target,
 } from 'lucide-react';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
+import { useTeamTargets } from '@/hooks/useTeamTargets';
 import {
   AdminPage,
   AdminHeader,
@@ -34,10 +36,25 @@ import {
  * is powered by useDashboardStats, which already computes this-year vs
  * last-year figures from `appointments`, `expert_reports`, `claimants`
  * and `referring_attorneys` — this page just renders it.
+ *
+ * The Appointments panel additionally pulls the company-wide yearly
+ * booking target from `sales_team_targets` (via useTeamTargets, the same
+ * source the Sales Dashboard's Team Targets card edits) so staff can see,
+ * in real time, how this year's bookings compare to last year's and how
+ * close the firm is to hitting its annual target.
  */
 
 const CURRENT_YEAR = new Date().getFullYear();
 const LAST_YEAR = CURRENT_YEAR - 1;
+
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+function dayOfYear(date: Date): number {
+  const start = new Date(date.getFullYear(), 0, 1);
+  return Math.floor((date.getTime() - start.getTime()) / 86400000) + 1;
+}
 
 /** Signed, rounded percentage change. Guards the 0-to-something case, which
  * would otherwise divide by zero and read as a meaningless "Infinity%". */
@@ -104,6 +121,106 @@ const ProvinceRow: React.FC<{
 
 const DOT_COLORS = ['#00BAAD', '#2563EB', '#16A34A', '#9333EA', '#D97706', '#DC2626', '#0EA5E9', '#EA580C'];
 
+/**
+ * Appointments Performance — the headline booking panel.
+ *
+ * Shows this year's appointment count against last year's (real bookings
+ * from `appointments`, via useDashboardStats), plus — when a yearly team
+ * target has been set on the Sales Dashboard — live progress toward that
+ * target and a pace projection (current run-rate carried through to
+ * year-end) so staff can see whether the target is on track to be hit.
+ */
+const AppointmentsPerformanceCard: React.FC<{
+  loading: boolean;
+  totalAppointments: number;
+  totalAppointmentsLastYear: number;
+}> = ({ loading, totalAppointments, totalAppointmentsLastYear }) => {
+  const { getCurrentTarget, loading: targetsLoading } = useTeamTargets(CURRENT_YEAR);
+  const yearlyTarget = getCurrentTarget('yearly');
+  const target = yearlyTarget?.team_target || 0;
+
+  const daysInYear = isLeapYear(CURRENT_YEAR) ? 366 : 365;
+  const elapsedDays = Math.min(daysInYear, dayOfYear(new Date()));
+  const projectedTotal = elapsedDays > 0 ? Math.round((totalAppointments / elapsedDays) * daysInYear) : totalAppointments;
+  const progressPct = target > 0 ? Math.min(100, Math.round((totalAppointments / target) * 100)) : 0;
+  const remaining = Math.max(0, target - totalAppointments);
+  const onTrack = target > 0 && projectedTotal >= target;
+  const targetReached = target > 0 && totalAppointments >= target;
+
+  const isLoading = loading || targetsLoading;
+
+  return (
+    <AdminCard>
+      <AdminCardHeader
+        title="Appointments"
+        description={`Live booking pace, ${CURRENT_YEAR} vs ${LAST_YEAR}`}
+        icon={Calendar}
+      />
+      <AdminCardBody>
+        {isLoading ? (
+          <AdminLoadingState label="Loading appointment data…" />
+        ) : (
+          <>
+            <div className="mb-4 grid grid-cols-2 gap-3 border-b border-black/10 pb-4">
+              <div>
+                <p className="text-3xl font-bold text-black">{totalAppointments}</p>
+                <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
+                  {CURRENT_YEAR} appointments
+                  <TrendBadge current={totalAppointments} previous={totalAppointmentsLastYear} />
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-3xl font-bold text-slate-400">{totalAppointmentsLastYear}</p>
+                <p className="mt-0.5 text-[11px] text-slate-500">{LAST_YEAR} appointments</p>
+              </div>
+            </div>
+
+            {target > 0 ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 font-medium text-black">
+                    <Target className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} />
+                    {CURRENT_YEAR} target: <span className="font-semibold">{target}</span>
+                  </span>
+                  <span className="font-semibold text-black">{progressPct}%</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden bg-black/5">
+                  <div
+                    className="h-2 transition-all"
+                    style={{ width: `${progressPct}%`, backgroundColor: targetReached ? '#16A34A' : BRAND_TEAL }}
+                  />
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {totalAppointments} of {target} booked
+                  {!targetReached && ` · ${remaining} more to reach target`}
+                </p>
+                <p
+                  className={`text-[11px] font-medium ${
+                    targetReached ? 'text-success' : onTrack ? 'text-success' : 'text-destructive'
+                  }`}
+                >
+                  {targetReached
+                    ? `Target already reached for ${CURRENT_YEAR}`
+                    : `At the current pace, projected to reach ${projectedTotal} by year-end — ${
+                        onTrack ? 'on track to hit target' : 'behind pace to hit target'
+                      }`}
+                </p>
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-500">
+                No {CURRENT_YEAR} appointments target has been set yet.{' '}
+                <Link to="/sales-dashboard" className="font-medium underline" style={{ color: BRAND_TEAL }}>
+                  Set a target
+                </Link>
+              </p>
+            )}
+          </>
+        )}
+      </AdminCardBody>
+    </AdminCard>
+  );
+};
+
 const AdminOperationsDashboard: React.FC = () => {
   const { stats, loading } = useDashboardStats();
 
@@ -120,21 +237,21 @@ const AdminOperationsDashboard: React.FC = () => {
         icon={LayoutDashboard}
       />
 
+      {/* Appointments — real-time 2026 vs 2025 pace and target progress */}
+      <AppointmentsPerformanceCard
+        loading={loading}
+        totalAppointments={stats.totalAppointments}
+        totalAppointmentsLastYear={stats.totalAppointmentsLastYear}
+      />
+
       {/* KPI row — each figure measured against the same point last year */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <AdminStatCard
           label="Active Cases"
           value={loading ? '–' : stats.totalClaimants}
           icon={Users}
           loading={loading}
           hint={!loading && <TrendBadge current={stats.totalClaimantsThisYear} previous={stats.totalClaimantsLastYear} />}
-        />
-        <AdminStatCard
-          label="Appointments"
-          value={loading ? '–' : stats.totalAppointments}
-          icon={Calendar}
-          loading={loading}
-          hint={!loading && <TrendBadge current={stats.totalAppointments} previous={stats.totalAppointmentsLastYear} />}
         />
         <AdminStatCard
           label="Pending Reports"
@@ -156,13 +273,6 @@ const AdminOperationsDashboard: React.FC = () => {
           icon={FileSignature}
           loading={loading}
           hint={!loading && <TrendBadge current={stats.reportsTakenOut} previous={stats.reportsTakenOutLastYear} />}
-        />
-        <AdminStatCard
-          label="Completed"
-          value={loading ? '–' : stats.completedAssessments}
-          icon={BarChart3}
-          loading={loading}
-          hint={!loading && <TrendBadge current={stats.completedAssessments} previous={stats.completedAssessmentsLastYear} />}
         />
       </div>
 
