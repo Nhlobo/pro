@@ -10,10 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { FileText, Send, RefreshCw, Mail, Printer, Download, Wrench, Search } from 'lucide-react';
+import { FileText, Send, RefreshCw, Mail, Printer, Wrench, Search } from 'lucide-react';
 import { format } from 'date-fns';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import {
   AdminPage,
   AdminHeader,
@@ -275,61 +273,6 @@ const WeeklyOperationsReport: React.FC = () => {
     win.print();
   };
 
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
-
-  const downloadReportPdf = async (r: WeeklyOpsReport) => {
-    // Combined (company-wide) reports may only be downloaded by admins.
-    if (r.is_combined !== false && !isAdmin()) {
-      toast.error('Only admins can download the combined report.');
-      return;
-    }
-    const html = await fetchReportHtml(r.id);
-    if (!html) {
-      toast.error('No stored report content available to download for this entry.');
-      return;
-    }
-
-    setDownloadingId(r.id);
-
-    // Render the exact same styled report_html used by Print into an
-    // offscreen container, then rasterize that container into the PDF.
-    // This is deliberately NOT a separate hand-built table (that was the
-    // old behaviour and is why Print and Download used to look like two
-    // different documents) — both buttons now produce the same document.
-    const container = document.createElement('div');
-    container.style.position = 'fixed';
-    container.style.left = '-10000px';
-    container.style.top = '0';
-    container.style.width = '680px'; // matches the report's own max-width
-    container.style.background = '#ffffff';
-    container.innerHTML = html;
-    document.body.appendChild(container);
-
-    try {
-      await waitForImages(container);
-
-      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-      await new Promise<void>((resolve, reject) => {
-        doc.html(container, {
-          x: 20,
-          y: 20,
-          width: 555, // A4 width (595pt) minus ~20pt margins each side
-          windowWidth: 680,
-          autoPaging: 'text',
-          html2canvas: { scale: 0.82, useCORS: true, backgroundColor: '#ffffff' },
-          callback: () => resolve(),
-        } as any);
-      });
-      doc.save(`operations-report-${r.period_type}-${r.period_start}.pdf`);
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to generate PDF for this report.');
-    } finally {
-      document.body.removeChild(container);
-      setDownloadingId(null);
-    }
-  };
-
-
   return (
     <AdminPage className="brand-legal-theme max-w-6xl">
       <AdminHeader
@@ -496,16 +439,6 @@ const WeeklyOperationsReport: React.FC = () => {
                             <div className="flex justify-end gap-1">
                               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none" onClick={() => printReport(r)} title="Print">
                                 <Printer className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 rounded-none"
-                                onClick={() => downloadReportPdf(r)}
-                                disabled={downloadingId === r.id}
-                                title="Download PDF (same document as Print)"
-                              >
-                                <Download className={`h-4 w-4 ${downloadingId === r.id ? 'animate-pulse' : ''}`} />
                               </Button>
                             </div>
                           ) : (
