@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { FileText, Send, RefreshCw, Mail, Printer, Wrench, Search } from 'lucide-react';
+import { FileText, RefreshCw, Mail, Printer, Wrench, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   AdminPage,
@@ -70,7 +70,6 @@ const ZAR = (n: number) =>
 
 const STATUS_TONE: Record<string, 'neutral' | 'teal' | 'success' | 'warning' | 'destructive'> = {
   sent: 'success',
-  sample_sent: 'teal',
   failed: 'destructive',
   skipped: 'warning',
   pending: 'neutral',
@@ -91,7 +90,6 @@ const provinceSummary = (deals: Record<string, number> | null | undefined) => {
 const WeeklyOperationsReport: React.FC = () => {
   const qc = useQueryClient();
   const { isAdmin, userRole } = usePermissions();
-  const [sending, setSending] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [periodType, setPeriodType] = useState<PeriodType>('weekly');
   // "all" avoids the classic "totals look lower than expected" trap of an
@@ -166,30 +164,6 @@ const WeeklyOperationsReport: React.FC = () => {
   }, [yearRows]);
 
   const filteredReports = reports;
-
-  const sendTestReport = async () => {
-    setSending(true);
-    try {
-      const { data: auth } = await supabase.auth.getUser();
-      const adminEmail = auth.user?.email;
-      if (!adminEmail) throw new Error('No admin email on session');
-
-      const { data, error } = await supabase.functions.invoke('send-weekly-operations-report', {
-        body: { sample_to: adminEmail, period_type: periodType },
-      });
-      if (error) throw error;
-
-      if (data?.delivery_status === 'sample_sent') {
-        toast.success(`Test ${periodType} report sent to ${adminEmail}`);
-      } else {
-        toast.error(`Test send failed: ${data?.delivery_error || data?.delivery_status || 'unknown error'}`);
-      }
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to send test report');
-    } finally {
-      setSending(false);
-    }
-  };
 
   const generateReport = async () => {
     setGenerating(true);
@@ -307,16 +281,6 @@ const WeeklyOperationsReport: React.FC = () => {
               </Button>
             )}
             <Button
-              variant="outline"
-              size="sm"
-              className="rounded-none"
-              onClick={sendTestReport}
-              disabled={sending}
-            >
-              <Send className="mr-2 h-4 w-4" />
-              {sending ? 'Sending…' : 'Send Test Report'}
-            </Button>
-            <Button
               size="sm"
               className="rounded-none gradient-teal text-white"
               onClick={generateReport}
@@ -330,9 +294,9 @@ const WeeklyOperationsReport: React.FC = () => {
       />
 
       <p className="text-xs text-slate-500">
-        "Send Test Report" emails a preview of the current period's data to your own account only — it does not
-        send to the real recipient list and is not saved to the history below. "Generate Report" runs the report
-        for real, emails the configured recipients, and saves it to history.
+        Reports now also generate automatically — weekly every Monday, monthly on the last day of the month,
+        quarterly on the last day of the quarter, and yearly on 31 December — and are emailed to the configured
+        recipients. "Generate Report" below runs an authorized report on demand for the currently selected period.
       </p>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -483,31 +447,45 @@ const ReclassifyAppointmentDialog: React.FC<{ open: boolean; onOpenChange: (v: b
     if (!search.trim()) return;
     setSearching(true);
     try {
-      // Search by claimant name first, then fall back to a direct appointment ID match.
+      // Search by claimant name, referring attorney name, and (if it's shaped
+      // like a UUID) exact appointment ID — results from all three are merged.
       const { data: claimants } = await supabase
         .from('claimants')
         .select('id, first_name, last_name')
         .or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%`)
         .limit(10);
       const claimantIds = (claimants || []).map((c: any) => c.id);
+      const term = search.trim();
+      const looksLikeId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(term);
 
-      let query = supabase
-        .from('appointments')
-        .select('id, appointment_date, case_status, claimant_id, referring_attorney, manually_reclassified_at')
-        .is('deleted_at', null)
-        .order('appointment_date', { ascending: false })
-        .limit(20);
+      const baseSelect = 'id, appointment_date, case_status, claimant_id, referring_attorney, manually_reclassified_at';
 
-      if (claimantIds.length) {
-        query = query.in('claimant_id', claimantIds);
-      } else {
-        query = query.eq('id', search.trim());
-      }
+      // Run every relevant match in parallel and merge — claimant name,
+      // referring attorney name, and (only when it's shaped like one) exact
+      // appointment ID — instead of only trying claimant name and silently
+      // failing back to an ID match that breaks on non-UUID input.
+      const queries = [
+        claimantIds.length
+          ? supabase.from('appointments').select(baseSelect).is('deleted_at', null).in('claimant_id', claimantIds).order('appointment_date', { ascending: false }).limit(20)
+          : null,
+        supabase.from('appointments').select(baseSelect).is('deleted_at', null).ilike('referring_attorney', `%${term}%`).order('appointment_date', { ascending: false }).limit(20),
+        looksLikeId
+          ? supabase.from('appointments').select(baseSelect).is('deleted_at', null).eq('id', term).limit(1)
+          : null,
+      ].filter(Boolean) as any[];
 
-      const { data, error } = await query;
-      if (error) throw error;
-      setResults((data || []) as unknown as CaseStatusRow[]);
-      if (!data?.length) toast.info('No matching appointments found.');
+      const responses = await Promise.all(queries);
+      const errorResp = responses.find((r: any) => r.error);
+      if (errorResp?.error) throw errorResp.error;
+
+      const merged = new Map<string, CaseStatusRow>();
+      responses.forEach((r: any) => (r.data || []).forEach((row: CaseStatusRow) => merged.set(row.id, row)));
+      const data = Array.from(merged.values()).sort(
+        (a, b) => new Date(b.appointment_date).getTime() - new Date(a.appointment_date).getTime(),
+      );
+
+      setResults(data);
+      if (!data.length) toast.info('No matching appointments found.');
     } catch (e: any) {
       toast.error(e.message || 'Search failed');
     } finally {
@@ -567,7 +545,7 @@ const ReclassifyAppointmentDialog: React.FC<{ open: boolean; onOpenChange: (v: b
 
         <div className="flex gap-2">
           <Input
-            placeholder="Search by claimant name or appointment ID…"
+            placeholder="Search by claimant name, referring attorney, or appointment ID…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && runSearch()}
