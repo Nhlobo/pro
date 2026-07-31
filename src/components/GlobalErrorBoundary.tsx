@@ -25,6 +25,22 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[GlobalErrorBoundary]", error, info.componentStack);
+
+    // Belt-and-suspenders for the "vite:preloadError" listener in main.tsx:
+    // if a stale lazy-route chunk (e.g. a hashed file removed by a newer
+    // deploy) surfaces here as a thrown render error instead, recover the
+    // same way — reload once rather than showing the error screen.
+    const isStaleChunkError =
+      /dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(
+        error.message
+      );
+    if (isStaleChunkError) {
+      const key = "chunk-reload-attempted";
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, "1");
+        window.location.reload();
+      }
+    }
   }
 
   reset = () => this.setState({ error: null });
