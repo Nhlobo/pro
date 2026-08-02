@@ -57,33 +57,23 @@ describe("professionMatches", () => {
 
 describe("parseExpertQuery (Find Experts quick search box)", () => {
   it("resolves a single-word profession phrased as an 'expert witness' request", () => {
-    expect(parseExpertQuery("neurosurgeon expert witness")).toEqual({
-      profession: "Neurosurgeon",
-      province: "",
-      city: "",
-    });
+    const result = parseExpertQuery("neurosurgeon expert witness");
+    expect(result.profession).toBe("Neurosurgeon");
+    expect(result.province).toBe("");
+    expect(result.city).toBe("");
   });
 
   it("resolves a multi-word profession phrased as an 'expert witness' request", () => {
-    expect(parseExpertQuery("orthopaedic surgeon expert witness")).toEqual({
-      profession: "Orthopaedic Surgeon",
-      province: "",
-      city: "",
-    });
+    expect(parseExpertQuery("orthopaedic surgeon expert witness").profession).toBe("Orthopaedic Surgeon");
     // American spelling too
-    expect(parseExpertQuery("orthopedic surgeon expert witness")).toEqual({
-      profession: "Orthopaedic Surgeon",
-      province: "",
-      city: "",
-    });
+    expect(parseExpertQuery("orthopedic surgeon expert witness").profession).toBe("Orthopaedic Surgeon");
   });
 
   it("is case-insensitive and ignores extra punctuation/whitespace", () => {
-    expect(parseExpertQuery("  Neurosurgeon   Expert   Witness  ")).toEqual({
-      profession: "Neurosurgeon",
-      province: "",
-      city: "",
-    });
+    const result = parseExpertQuery("  Neurosurgeon   Expert   Witness  ");
+    expect(result.profession).toBe("Neurosurgeon");
+    expect(result.province).toBe("");
+    expect(result.city).toBe("");
   });
 
   it("also picks up a named province, removing it from the profession match", () => {
@@ -115,5 +105,21 @@ describe("parseExpertQuery (Find Experts quick search box)", () => {
   it("returns an empty profession when nothing recognisable is present", () => {
     expect(parseExpertQuery("expert witness").profession).toBe("");
     expect(parseExpertQuery("").profession).toBe("");
+  });
+
+  it("tolerates a typo via fuzzy matching instead of failing outright", () => {
+    // Previously: no exact alias match -> profession stayed "" and the
+    // search refused to run. Now a small edit-distance budget resolves it.
+    expect(parseExpertQuery("neurosurgoen expert witness").profession).toBe("Neurosurgeon");
+    expect(parseExpertQuery("orthopaedci surgeon expert witness").profession).toBe("Orthopaedic Surgeon");
+  });
+
+  it("surfaces unresolved text as freeText instead of silently dropping it", () => {
+    // A surname or a specialty not on the list can't resolve to a
+    // profession, but the caller (quick search) still needs something to
+    // search on — this is what makes that possible.
+    const result = parseExpertQuery("dr smith expert witness");
+    expect(result.profession).toBe("");
+    expect(result.freeText).toBe("dr smith");
   });
 });
