@@ -10,8 +10,11 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
+import {
   Loader2, Search, MapPin, Stethoscope, ExternalLink, Star, Mail, User,
-  ShieldCheck, Phone, Globe, RotateCcw, Clock, Video, ChevronRight,
+  ShieldCheck, Phone, Globe, RotateCcw, Clock, Video, ChevronRight, FileText,
 } from 'lucide-react';
 import { useExpertSearch, SA_PROVINCES, InternalExpert, ExternalResult } from '@/hooks/useExpertSearch';
 import {
@@ -70,6 +73,11 @@ const AdminFindExperts: React.FC = () => {
     quickQuery, setQuickQuery, lastParsedQuery, lastFreeText, runQuickSearch,
     runExternalSearch, handleSearch, handleReset, isSearching,
   } = useExpertSearch();
+
+  // Read-only profile view — a click on a card's "View Profile" opens this
+  // dialog with everything already fetched for that expert, instead of
+  // navigating to the admin directory's edit form.
+  const [viewExpert, setViewExpert] = useState<InternalExpert | null>(null);
 
   return (
     <AdminPage className="max-w-7xl">
@@ -213,7 +221,7 @@ const AdminFindExperts: React.FC = () => {
                 </span>
               </AdminSectionLabel>
               <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {recommended.map((e) => <ExpertCard key={e.id} expert={e} compact />)}
+                {recommended.map((e) => <ExpertCard key={e.id} expert={e} compact onView={setViewExpert} />)}
               </div>
             </div>
           )}
@@ -238,7 +246,7 @@ const AdminFindExperts: React.FC = () => {
                   />
                 </AdminCard>
               ) : (
-                <VirtualizedResults items={internal} renderItem={(e) => <ExpertCard expert={e} />} />
+                <VirtualizedResults items={internal} renderItem={(e) => <ExpertCard expert={e} onView={setViewExpert} />} />
               )}
             </div>
           </div>
@@ -394,6 +402,8 @@ const AdminFindExperts: React.FC = () => {
               </div>
             </div>
         </div>
+
+      <ExpertProfileDialog expert={viewExpert} onOpenChange={(open) => { if (!open) setViewExpert(null); }} />
     </AdminPage>
   );
 };
@@ -454,18 +464,120 @@ const LoadingRow: React.FC<{ label: string }> = ({ label }) => (
   </div>
 );
 
-const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean }> = React.memo(({ expert, compact }) => {
+/**
+ * Read-only profile view opened by a card's "View Profile" button — shows
+ * everything already fetched for that expert without navigating to the
+ * admin directory's edit form. Nothing here is editable; there is no save
+ * action, only the fields as a fact sheet.
+ */
+const ExpertProfileDialog: React.FC<{
+  expert: InternalExpert | null;
+  onOpenChange: (open: boolean) => void;
+}> = ({ expert, onOpenChange }) => {
+  if (!expert) return null;
   const fullName = `${expert.first_name} ${expert.last_name}`.trim();
   const exp = expert.medico_legal_years_experience ?? expert.years_experience ?? null;
-  const [expanded, setExpanded] = useState(false);
 
-  const hasExtraDetails = Boolean(
-    (expert.languages?.length ?? 0) > 0
-    || expert.report_turnaround_days
-    || expert.assessment_turnaround_days
-    || expert.hpcsa_number,
+  return (
+    <Dialog open={!!expert} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg rounded-none">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+            {fullName}
+          </DialogTitle>
+          <DialogDescription>{expert.expert_type}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 text-sm">
+          <div className="flex flex-wrap gap-1.5">
+            <AdminPill tone="neutral"><MapPin className="h-3 w-3" /> {expert.province}{expert.city ? ` · ${expert.city}` : ''}</AdminPill>
+            {expert.virtual_assessment && <AdminPill tone="teal"><Video className="h-3 w-3" /> Virtual assessments</AdminPill>}
+            <AdminPill tone={expert.status === 'active' ? 'teal' : 'neutral'}><ShieldCheck className="h-3 w-3" /> {expert.status}</AdminPill>
+          </div>
+
+          {(expert.matter_types?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Matter types</p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {expert.matter_types!.map((m) => <AdminPill key={m} tone="neutral">{m}</AdminPill>)}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            {exp !== null && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Experience</p>
+                <p>{exp} yrs medico-legal</p>
+              </div>
+            )}
+            {expert.hpcsa_number && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">HPCSA number</p>
+                <p className="font-mono">{expert.hpcsa_number}</p>
+              </div>
+            )}
+            {expert.assessment_turnaround_days ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assessment turnaround</p>
+                <p className="flex items-center gap-1"><Clock className="h-3 w-3" /> {expert.assessment_turnaround_days} days</p>
+              </div>
+            ) : null}
+            {expert.report_turnaround_days ? (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Report turnaround</p>
+                <p className="flex items-center gap-1"><Clock className="h-3 w-3" /> {expert.report_turnaround_days} days</p>
+              </div>
+            ) : null}
+          </div>
+
+          {(expert.languages?.length ?? 0) > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Languages</p>
+              <p>{expert.languages!.join(', ')}</p>
+            </div>
+          )}
+
+          <div className="border-t border-black/10 pt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</p>
+            <div className="mt-1.5 flex flex-col gap-1.5">
+              {expert.email ? (
+                <a href={`mailto:${expert.email}`} className="flex items-center gap-2 text-black hover:underline">
+                  <Mail className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> {expert.email}
+                </a>
+              ) : null}
+              {expert.contact_number ? (
+                <a href={`tel:${expert.contact_number}`} className="flex items-center gap-2 text-black hover:underline">
+                  <Phone className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> {expert.contact_number}
+                </a>
+              ) : null}
+              {!expert.email && !expert.contact_number && (
+                <p className="text-xs italic text-slate-400">No contact details on file</p>
+              )}
+            </div>
+          </div>
+
+          {expert.cv_document_url && (
+            <a
+              href={expert.cv_document_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-medium underline"
+              style={{ color: BRAND_TEAL }}
+            >
+              <FileText className="h-3.5 w-3.5" /> View CV <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
-  const showExtraDetails = !compact || expanded;
+};
+
+const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean; onView: (expert: InternalExpert) => void }> = React.memo(({ expert, compact, onView }) => {
+  const fullName = `${expert.first_name} ${expert.last_name}`.trim();
+  const exp = expert.medico_legal_years_experience ?? expert.years_experience ?? null;
 
   return (
     <AdminCard className="flex flex-col">
@@ -496,34 +608,17 @@ const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean }> = Reac
           </div>
         )}
 
-        {showExtraDetails && (expert.languages?.length ?? 0) > 0 && (
+        {!compact && (expert.languages?.length ?? 0) > 0 && (
           <p className="text-xs text-slate-500">Languages: {expert.languages!.join(', ')}</p>
         )}
 
-        {showExtraDetails && (expert.report_turnaround_days || expert.assessment_turnaround_days) && (
+        {!compact && (expert.report_turnaround_days || expert.assessment_turnaround_days) && (
           <p className="flex items-center gap-1 text-xs text-slate-500">
             <Clock className="h-3 w-3 shrink-0" />
             {expert.assessment_turnaround_days ? `Assessment ${expert.assessment_turnaround_days}d` : ''}
             {expert.assessment_turnaround_days && expert.report_turnaround_days ? ' · ' : ''}
             {expert.report_turnaround_days ? `Report ${expert.report_turnaround_days}d` : ''}
           </p>
-        )}
-
-        {showExtraDetails && expert.hpcsa_number && (
-          <p className="text-xs text-slate-500">HPCSA: <span className="font-mono">{expert.hpcsa_number}</span></p>
-        )}
-
-        {/* Compact cards (Recommended row) can pull in the same detail a
-            full card shows, in place, without navigating anywhere. */}
-        {compact && hasExtraDetails && (
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="self-start text-xs font-medium underline"
-            style={{ color: BRAND_TEAL }}
-          >
-            {expanded ? 'Show less' : 'Show more details'}
-          </button>
         )}
 
         {/* Contact reflects what's actually on file — email and phone are
@@ -543,14 +638,14 @@ const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean }> = Reac
           {!expert.email && !expert.contact_number && (
             <span className="self-center text-xs italic text-slate-400">No contact details on file</span>
           )}
-          <Button asChild size="sm" className="ml-auto rounded-none bg-black text-white hover:bg-black/90">
-            {/* This opens the same edit form used to manage the expert's
-                record — there's no separate read-only profile page in the
-                app yet, so the label says what actually happens instead of
-                promising a "view" and landing someone in an editable form. */}
-            <a href={`/admin/experts?edit=${expert.id}`}>
-              Edit Profile <ChevronRight className="ml-1 h-3 w-3" />
-            </a>
+          {/* Opens the read-only profile dialog on this page — no
+              navigation to the admin directory's edit form. */}
+          <Button
+            size="sm"
+            className="ml-auto rounded-none bg-black text-white hover:bg-black/90"
+            onClick={() => onView(expert)}
+          >
+            View Profile <ChevronRight className="ml-1 h-3 w-3" />
           </Button>
         </div>
       </AdminCardBody>
