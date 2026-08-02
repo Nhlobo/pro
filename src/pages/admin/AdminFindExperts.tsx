@@ -2,7 +2,6 @@
 import React, { useRef, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Tabs } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,8 +23,6 @@ import {
   AdminPill,
   AdminEmptyState,
   AdminSectionLabel,
-  AdminTabList,
-  AdminTabTrigger,
   BRAND_TEAL,
 } from '@/components/admin/ui/AdminUI';
 
@@ -37,13 +34,30 @@ import {
  * competed for the same vertical scroll, and every result rendered its
  * full DOM at once.
  *
- * New structure: a persistent left filter rail (sticky on desktop) next
- * to a dedicated results panel, so refining a search never requires
- * scrolling back up. Both result lists are virtualized with dynamic row
+ * New structure — enterprise, single source of truth for search: one
+ * sticky toolbar holds quick search AND the structured filters together
+ * (no more duplicate "type a sentence" card vs. "pick from dropdowns"
+ * card competing for attention). Nothing here is behind a collapse/
+ * accordion — every control enterprise ops staff need is visible at
+ * once, always in the same place while they scroll a long result set.
+ * Full page width goes to results instead of a permanent 280px sidebar,
+ * which matters once External Directories returns 80–100 rows.
+ *
+ * Platform vs. External used to be two tabs, so a search that found
+ * nothing on the platform (common — the in-house directory is small)
+ * looked like a dead end unless someone knew to click the other tab,
+ * even though the external search had already run and found matches.
+ * Both sections stack on one page instead, so a single search shows
+ * everything it found in one scroll — no second click required to
+ * discover results exist.
+ *
+ * Performance: both result lists are virtualized with dynamic row
  * measurement (@tanstack/react-virtual) — external directory results can
  * run up to 100 rows, and this keeps that scroll smooth regardless of
- * count. All search/filter/scoring logic is unchanged, now living in
- * `useExpertSearch`.
+ * count. Card components are memoized (`React.memo`) so toggling a
+ * toolbar switch or typing in the profession filter never re-renders
+ * rows that didn't change. All search/filter/scoring logic is unchanged,
+ * still living entirely in `useExpertSearch`.
  */
 const AdminFindExperts: React.FC = () => {
   const {
@@ -56,8 +70,6 @@ const AdminFindExperts: React.FC = () => {
     quickQuery, setQuickQuery, lastParsedQuery, lastFreeText, runQuickSearch,
     runExternalSearch, handleSearch, handleReset, isSearching,
   } = useExpertSearch();
-
-  const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
 
   return (
     <AdminPage className="max-w-7xl">
@@ -73,39 +85,111 @@ const AdminFindExperts: React.FC = () => {
         icon={Search}
       />
 
-      {/* Quick search — e.g. "neurosurgeon expert witness" */}
-      <AdminCard className="mb-4">
-        <AdminCardBody className="space-y-2">
-          <Label htmlFor="quick-expert-search" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Quick Search
-          </Label>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input
-                id="quick-expert-search"
-                placeholder='e.g. "neurosurgeon expert witness" or "orthopaedic surgeon Gauteng"'
-                value={quickQuery}
-                onChange={(e) => setQuickQuery(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') runQuickSearch(); }}
-                className="rounded-none border-black/15 pl-9"
-              />
+      {/* Unified search toolbar — quick search + structured filters together, sticky while results scroll */}
+      <AdminCard className="mb-4 lg:sticky lg:top-4 lg:z-10">
+        <AdminCardBody className="space-y-3">
+          <div className="space-y-2">
+            <Label htmlFor="quick-expert-search" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Quick Search
+            </Label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Input
+                  id="quick-expert-search"
+                  placeholder='e.g. "neurosurgeon expert witness" or "orthopaedic surgeon Gauteng"'
+                  value={quickQuery}
+                  onChange={(e) => setQuickQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') runQuickSearch(); }}
+                  className="rounded-none border-black/15 pl-9"
+                />
+              </div>
+              <Button
+                className="rounded-none bg-black text-white hover:bg-black/90 shrink-0"
+                onClick={() => runQuickSearch()}
+                disabled={isSearching || !quickQuery.trim()}
+              >
+                {isSearching && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                <Search className="mr-1.5 h-3.5 w-3.5" />
+                Search
+              </Button>
             </div>
-            <Button
-              className="rounded-none bg-black text-white hover:bg-black/90 shrink-0"
-              onClick={() => runQuickSearch()}
-              disabled={isSearching || !quickQuery.trim()}
-            >
-              {isSearching && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-              <Search className="mr-1.5 h-3.5 w-3.5" />
-              Search
-            </Button>
+            <p className="text-xs text-slate-500">
+              Searches the platform directory and every external directory (all connected sources) at once. Say the specialty the way you would to a colleague — "expert witness" is understood and ignored.
+            </p>
           </div>
-          <p className="text-xs text-slate-500">
-            Searches the platform directory and every external directory (all connected sources) at once. Say the specialty the way you would to a colleague — "expert witness" is understood and ignored.
-          </p>
+
+          <div className="flex flex-wrap items-end gap-3 border-t border-black/10 pt-3">
+            <div className="w-full space-y-1.5 sm:w-40">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Province</Label>
+              <Select value={province} onValueChange={setProvince}>
+                <SelectTrigger className="rounded-none border-black/15"><SelectValue placeholder="All provinces" /></SelectTrigger>
+                <SelectContent>
+                  {SA_PROVINCES.map((p) => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full space-y-1.5 sm:w-40">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">District / City</Label>
+              <Select value={city} onValueChange={setCity} disabled={!province || loadingDistricts}>
+                <SelectTrigger className="rounded-none border-black/15">
+                  <SelectValue placeholder={!province ? 'Pick province first' : loadingDistricts ? 'Loading...' : districts.length ? 'Select district' : 'No districts available'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {districts.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-full space-y-1.5 sm:w-56">
+              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Type of Expert</Label>
+              <div className="flex gap-1.5">
+                <Input
+                  placeholder="Search profession…"
+                  value={professionQuery}
+                  onChange={(e) => setProfessionQuery(e.target.value)}
+                  className="rounded-none border-black/15"
+                />
+                <Select value={profession} onValueChange={setProfession}>
+                  <SelectTrigger className="w-9 shrink-0 rounded-none border-black/15 px-2"><SelectValue placeholder="" /></SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {professionOptions.map((p) => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {profession && <AdminPill tone="teal">{profession}</AdminPill>}
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                className="rounded-none bg-black text-white hover:bg-black/90"
+                onClick={handleSearch}
+                disabled={isSearching}
+              >
+                {isSearching && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                <Search className="mr-1.5 h-3.5 w-3.5" />
+                Search Experts
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-none border-black/15 text-black hover:bg-black/5"
+                onClick={handleReset}
+              >
+                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                Reset
+              </Button>
+            </div>
+          </div>
+
           {lastParsedQuery && (
-            <div className="flex flex-wrap gap-1.5 pt-1">
+            <div className="flex flex-wrap gap-1.5 border-t border-black/10 pt-3">
               {lastParsedQuery.profession && <AdminPill tone="teal">Type: {lastParsedQuery.profession}</AdminPill>}
               {!lastParsedQuery.profession && lastFreeText && (
                 <AdminPill tone="teal">Searching for: "{lastFreeText}"</AdminPill>
@@ -117,81 +201,9 @@ const AdminFindExperts: React.FC = () => {
         </AdminCardBody>
       </AdminCard>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
-        {/* Filter rail */}
-        <div className="lg:sticky lg:top-4 lg:self-start">
-          <AdminCard>
-            <AdminCardHeader icon={Search} title="Search Filters" description="Narrow by location and profession." />
-            <AdminCardBody className="space-y-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Province</Label>
-                <Select value={province} onValueChange={setProvince}>
-                  <SelectTrigger className="rounded-none border-black/15"><SelectValue placeholder="All provinces" /></SelectTrigger>
-                  <SelectContent>
-                    {SA_PROVINCES.map((p) => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      {/* Results — full page width now that filters live in the toolbar above */}
+      <div className="space-y-4">
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">District / City</Label>
-                <Select value={city} onValueChange={setCity} disabled={!province || loadingDistricts}>
-                  <SelectTrigger className="rounded-none border-black/15">
-                    <SelectValue placeholder={!province ? 'Pick province first' : loadingDistricts ? 'Loading...' : districts.length ? 'Select district' : 'No districts available'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {districts.map((d) => (
-                      <SelectItem key={d} value={d}>{d}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Type of Expert</Label>
-                <Input
-                  placeholder="Search profession…"
-                  value={professionQuery}
-                  onChange={(e) => setProfessionQuery(e.target.value)}
-                  className="rounded-none border-black/15"
-                />
-                <Select value={profession} onValueChange={setProfession}>
-                  <SelectTrigger className="rounded-none border-black/15"><SelectValue placeholder="Select profession" /></SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    {professionOptions.map((p) => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex flex-col gap-2 border-t border-black/10 pt-3">
-                <Button
-                  className="rounded-none bg-black text-white hover:bg-black/90"
-                  onClick={handleSearch}
-                  disabled={isSearching}
-                >
-                  {isSearching && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                  <Search className="mr-1.5 h-3.5 w-3.5" />
-                  Search Experts
-                </Button>
-                <Button
-                  variant="outline"
-                  className="rounded-none border-black/15 text-black hover:bg-black/5"
-                  onClick={handleReset}
-                >
-                  <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                  Reset
-                </Button>
-              </div>
-            </AdminCardBody>
-          </AdminCard>
-        </div>
-
-        {/* Results panel */}
-        <div className="min-w-0 space-y-4">
           {/* Recommended */}
           {recommended.length > 0 && (
             <div>
@@ -206,27 +218,41 @@ const AdminFindExperts: React.FC = () => {
             </div>
           )}
 
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
-            <AdminTabList>
-              <AdminTabTrigger value="internal" label="Platform Experts" icon={Stethoscope} badge={internal.length || null} />
-              <AdminTabTrigger value="external" label="External Directories" icon={Globe} badge={external.length || null} />
-            </AdminTabList>
-
-            <div className="mt-4">
-              {activeTab === 'internal' && (
-                loadingInternal ? (
-                  <AdminCard><AdminCardBody><LoadingRow label="Searching the platform directory…" /></AdminCardBody></AdminCard>
-                ) : internal.length === 0 ? (
-                  <AdminCard>
-                    <AdminEmptyState icon={Stethoscope} title="No matches" description="No medico-legal experts match your current filters." />
-                  </AdminCard>
-                ) : (
-                  <VirtualizedResults items={internal} renderItem={(e) => <ExpertCard expert={e} />} />
-                )
+          {/* Platform Experts — always visible, no tab click required */}
+          <div>
+            <AdminSectionLabel>
+              <span className="inline-flex items-center gap-1.5">
+                <Stethoscope className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Platform Experts
+                {internal.length > 0 && <AdminPill tone="teal">{internal.length}</AdminPill>}
+              </span>
+            </AdminSectionLabel>
+            <div className="mt-3">
+              {loadingInternal ? (
+                <AdminCard><AdminCardBody><LoadingRow label="Searching the platform directory…" /></AdminCardBody></AdminCard>
+              ) : internal.length === 0 ? (
+                <AdminCard>
+                  <AdminEmptyState
+                    icon={Stethoscope}
+                    title="No matches on the platform yet"
+                    description="No registered experts match these filters. This just means no one on the platform fits — check External Directories below for real matches from HPCSA and other registries."
+                  />
+                </AdminCard>
+              ) : (
+                <VirtualizedResults items={internal} renderItem={(e) => <ExpertCard expert={e} />} />
               )}
+            </div>
+          </div>
 
-              {activeTab === 'external' && (
-                <div className="space-y-3">
+          {/* External Directories — always visible, stacked below Platform Experts */}
+          <div>
+            <AdminSectionLabel>
+              <span className="inline-flex items-center gap-1.5">
+                <Globe className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> External Directories
+                {external.length > 0 && <AdminPill tone="teal">{external.length}</AdminPill>}
+              </span>
+            </AdminSectionLabel>
+            <div className="mt-3">
+              <div className="space-y-3">
                   {/* Toolbar */}
                   <AdminCard>
                     <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:justify-between">
@@ -365,11 +391,9 @@ const AdminFindExperts: React.FC = () => {
                     <VirtualizedResults items={external} renderItem={(r) => <ExternalResultCard result={r} />} />
                   )}
                 </div>
-              )}
+              </div>
             </div>
-          </Tabs>
         </div>
-      </div>
     </AdminPage>
   );
 };
@@ -430,7 +454,7 @@ const LoadingRow: React.FC<{ label: string }> = ({ label }) => (
   </div>
 );
 
-const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean }> = ({ expert, compact }) => {
+const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean }> = React.memo(({ expert, compact }) => {
   const fullName = `${expert.first_name} ${expert.last_name}`.trim();
   const exp = expert.medico_legal_years_experience ?? expert.years_experience ?? null;
 
@@ -491,9 +515,10 @@ const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean }> = ({ e
       </AdminCardBody>
     </AdminCard>
   );
-};
+});
+ExpertCard.displayName = 'ExpertCard';
 
-const ExternalResultCard: React.FC<{ result: ExternalResult }> = ({ result: r }) => {
+const ExternalResultCard: React.FC<{ result: ExternalResult }> = React.memo(({ result: r }) => {
   const [expanded, setExpanded] = useState(false);
 
   const emails = r.emails ?? [];
@@ -601,6 +626,7 @@ const ExternalResultCard: React.FC<{ result: ExternalResult }> = ({ result: r })
       </AdminCardBody>
     </AdminCard>
   );
-};
+});
+ExternalResultCard.displayName = 'ExternalResultCard';
 
 export default AdminFindExperts;
