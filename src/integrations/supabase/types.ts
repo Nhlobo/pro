@@ -5469,20 +5469,18 @@ export type Database = {
       get_current_user_referring_attorney: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_current_user_type: { Args: never; Returns: string }
-      get_heatmap_demand_by_province: {
+      get_heatmap_province_stats: {
         Args: never
         Returns: {
+          province: string
+          experts: number
+          experts_used: number
+          primary_experts: number
           demand: number
-          province: string
-        }[]
-      }
-      get_heatmap_experts_by_province: {
-        Args: never
-        Returns: {
-          expert_count: number
-          expert_type: string
-          matter_types: string[]
-          province: string
+          raf_business: number
+          med_neg_business: number
+          both_business: number
+          other_business: number
         }[]
       }
       get_internal_chat_users: {
