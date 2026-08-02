@@ -457,6 +457,15 @@ const LoadingRow: React.FC<{ label: string }> = ({ label }) => (
 const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean }> = React.memo(({ expert, compact }) => {
   const fullName = `${expert.first_name} ${expert.last_name}`.trim();
   const exp = expert.medico_legal_years_experience ?? expert.years_experience ?? null;
+  const [expanded, setExpanded] = useState(false);
+
+  const hasExtraDetails = Boolean(
+    (expert.languages?.length ?? 0) > 0
+    || expert.report_turnaround_days
+    || expert.assessment_turnaround_days
+    || expert.hpcsa_number,
+  );
+  const showExtraDetails = !compact || expanded;
 
   return (
     <AdminCard className="flex flex-col">
@@ -487,11 +496,11 @@ const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean }> = Reac
           </div>
         )}
 
-        {!compact && (expert.languages?.length ?? 0) > 0 && (
+        {showExtraDetails && (expert.languages?.length ?? 0) > 0 && (
           <p className="text-xs text-slate-500">Languages: {expert.languages!.join(', ')}</p>
         )}
 
-        {!compact && (expert.report_turnaround_days || expert.assessment_turnaround_days) && (
+        {showExtraDetails && (expert.report_turnaround_days || expert.assessment_turnaround_days) && (
           <p className="flex items-center gap-1 text-xs text-slate-500">
             <Clock className="h-3 w-3 shrink-0" />
             {expert.assessment_turnaround_days ? `Assessment ${expert.assessment_turnaround_days}d` : ''}
@@ -500,15 +509,47 @@ const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean }> = Reac
           </p>
         )}
 
-        <div className="mt-auto flex gap-2 pt-2">
+        {showExtraDetails && expert.hpcsa_number && (
+          <p className="text-xs text-slate-500">HPCSA: <span className="font-mono">{expert.hpcsa_number}</span></p>
+        )}
+
+        {/* Compact cards (Recommended row) can pull in the same detail a
+            full card shows, in place, without navigating anywhere. */}
+        {compact && hasExtraDetails && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="self-start text-xs font-medium underline"
+            style={{ color: BRAND_TEAL }}
+          >
+            {expanded ? 'Show less' : 'Show more details'}
+          </button>
+        )}
+
+        {/* Contact reflects what's actually on file — email and phone are
+            separate, real actions instead of a single button that silently
+            assumed email and ignored a stored phone number entirely. */}
+        <div className="mt-auto flex flex-wrap gap-2 pt-2">
           {expert.email && (
-            <Button asChild size="sm" variant="outline" className="flex-1 rounded-none border-black/15 text-black hover:bg-black/5">
-              <a href={`mailto:${expert.email}`}><Mail className="mr-1 h-3 w-3" />Contact</a>
+            <Button asChild size="sm" variant="outline" className="rounded-none border-black/15 text-black hover:bg-black/5">
+              <a href={`mailto:${expert.email}`}><Mail className="mr-1 h-3 w-3" />Email</a>
             </Button>
           )}
-          <Button asChild size="sm" className="flex-1 rounded-none bg-black text-white hover:bg-black/90">
+          {expert.contact_number && (
+            <Button asChild size="sm" variant="outline" className="rounded-none border-black/15 text-black hover:bg-black/5">
+              <a href={`tel:${expert.contact_number}`}><Phone className="mr-1 h-3 w-3" />Call</a>
+            </Button>
+          )}
+          {!expert.email && !expert.contact_number && (
+            <span className="self-center text-xs italic text-slate-400">No contact details on file</span>
+          )}
+          <Button asChild size="sm" className="ml-auto rounded-none bg-black text-white hover:bg-black/90">
+            {/* This opens the same edit form used to manage the expert's
+                record — there's no separate read-only profile page in the
+                app yet, so the label says what actually happens instead of
+                promising a "view" and landing someone in an editable form. */}
             <a href={`/admin/experts?edit=${expert.id}`}>
-              View Profile <ChevronRight className="ml-1 h-3 w-3" />
+              Edit Profile <ChevronRight className="ml-1 h-3 w-3" />
             </a>
           </Button>
         </div>
