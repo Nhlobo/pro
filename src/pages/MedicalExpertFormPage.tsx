@@ -286,6 +286,14 @@ const MedicalExpertFormPage = ({
     mode: "onChange",
   });
 
+  // react-hook-form only keeps `formState.isDirty` (and `dirtyFields`) live
+  // if it's read during render — reading it lazily inside an event handler
+  // (as the Save button used to do below) never subscribes to it, so it
+  // stays stuck at its initial `false` forever. That was causing every
+  // genuine edit to be misreported as "No changes detected" and the editor
+  // would close without saving. Destructuring it here keeps it reactive.
+  const { isDirty } = form.formState;
+
   const name = form.watch("name");
   const surname = form.watch("surname");
 
@@ -1750,7 +1758,7 @@ const MedicalExpertFormPage = ({
                          if (isEditMode) {
                            e.preventDefault();
                            // If nothing changed in edit mode, close the page without re-submitting.
-                           if (!form.formState.isDirty) {
+                           if (!isDirty) {
                              toast({
                                title: "No changes detected",
                                description: "Closing the editor — no updates were needed.",
