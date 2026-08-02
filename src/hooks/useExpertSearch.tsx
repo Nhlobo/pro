@@ -112,6 +112,44 @@ export const professionMatches = (expertType: string, profession: string): boole
   return aliases.includes(flat);
 };
 
+// Cheap edit-distance for typo tolerance in the free-text search box only
+// (e.g. "orthopaedic" typed as "orthopedic" already matches via aliases,
+// but "orthopaedci" or "neurosurgoen" should still resolve). Never used for
+// the strict platform-data filter above — only for interpreting what the
+// person typed.
+const levenshtein = (a: string, b: string): number => {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = new Array(b.length + 1);
+  const curr = new Array(b.length + 1);
+  for (let j = 0; j <= b.length; j++) prev[j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+  }
+  return prev[b.length];
+};
+
+// Looser cousin of `professionMatches` for parsing free text: tolerates a
+// couple of typos ("neurosurgoen") and partial/prefix typing ("orthopaed").
+// Distance budget scales with word length so short words still need to be
+// close, long words can be off by a couple of letters.
+const professionMatchesFuzzy = (flatWord: string, profession: string): boolean => {
+  if (!flatWord) return false;
+  const aliases = PROFESSION_MATCH_ALIASES[profession] ?? [normalizeForMatch(profession)];
+  return aliases.some((alias) => {
+    if (alias === flatWord) return true;
+    if (alias.length >= 4 && (alias.startsWith(flatWord) || flatWord.startsWith(alias))) return true;
+    const budget = flatWord.length <= 5 ? 1 : flatWord.length <= 9 ? 2 : 3;
+    return levenshtein(alias, flatWord) <= budget;
+  });
+};
+
 // Words that carry no location/profession meaning on their own — e.g. a
 // user typing "neurosurgeon expert witness" is just naming the profession
 // in the way lawyers refer to it ("we need an expert witness"), not
@@ -135,6 +173,7 @@ export interface ParsedExpertQuery {
   profession: string; // one of MEDICO_LEGAL_PROFESSIONS, or '' if none detected
   province: string; // one of SA_PROVINCES, or '' if none detected
   city: string; // best-effort leftover text (may be empty)
+  freeText: string; // raw leftover words after stop-word/province stripping, whether or not a profession was found
 }
 
 /**
@@ -192,15 +231,45 @@ export const parseExpertQuery = (query: string): ParsedExpertQuery => {
     }
   }
 
-  const city = leftoverTokens.join(' ').trim();
+  // 5. Still nothing? Try a typo-tolerant pass over the whole remainder and
+  //    each individual word before giving up — this is what lets something
+  //    like "orthopaedic surgoen" or "gynae" still resolve to a profession
+  //    instead of the search simply refusing to run.
+  if (!profession && remainderFlat) {
+    const fuzzyWhole = MEDICO_LEGAL_PROFESSIONS.find((p) => professionMatchesFuzzy(remainderFlat, p));
+    if (fuzzyWhole) {
+      profession = fuzzyWhole;
+      leftoverTokens = [];
+    } else {
+      for (let i = 0; i < remainder.length; i++) {
+        const match = MEDICO_LEGAL_PROFESSIONS.find((p) => professionMatchesFuzzy(remainder[i], p));
+        if (match) {
+          profession = match;
+          leftoverTokens = remainder.filter((_, idx) => idx !== i);
+          break;
+        }
+      }
+    }
+  }
 
-  return { profession, province, city };
+  const city = leftoverTokens.join(' ').trim();
+  // Whatever couldn't be resolved to a profession/province/city still
+  // carries meaning (a surname, a niche specialty, an abbreviation) — keep
+  // it as a free-text term so the caller can still search on it rather than
+  // silently dropping it.
+  const freeText = remainder.join(' ').trim();
+
+  return { profession, province, city, freeText };
 };
 
 interface SearchFilters {
   province: string;
   city: string;
   profession: string;
+  // Raw search term used when the text couldn't be resolved to a known
+  // profession — matched broadly (name, expert type, HPCSA number, city)
+  // instead of the search simply refusing to run.
+  freeText?: string;
 }
 
 interface ExternalOverrides {
@@ -281,7 +350,19 @@ export const useExpertSearch = () => {
       return ((data || []) as any[]).filter((e) => {
         if (e.medico_legal_only === false) return false;
         if (filters.city && e.city && !fuzzy(e.city, filters.city)) return false;
-        if (!professionMatches(e.expert_type || '', filters.profession)) return false;
+
+        if (filters.profession) {
+          if (!professionMatches(e.expert_type || '', filters.profession)) return false;
+        } else if (filters.freeText) {
+          // No recognised profession — behave like a general search box
+          // instead of returning nothing: match the term against name,
+          // raw expert type, city, and HPCSA number.
+          const haystack = [
+            e.first_name, e.last_name, e.expert_type, e.city, e.hpcsa_number,
+          ].filter(Boolean).join(' ');
+          if (!fuzzy(haystack, filters.freeText)) return false;
+        }
+
         const matters = (e.matter_types || []).map((m: string) => m.toLowerCase());
         if (matters.length > 0) {
           const ok = matters.some((m: string) =>
@@ -309,6 +390,10 @@ export const useExpertSearch = () => {
       const { data, error } = await supabase.functions.invoke('find-experts-external', {
         body: {
           province: filters.province, city: filters.city, expertType: filters.profession,
+          // Sent whenever no known profession was resolved from the quick
+          // search box, so the edge function can still run a broad,
+          // Google-style search on whatever was typed instead of refusing.
+          query: filters.profession ? undefined : (filters.freeText || undefined),
           limit: useLimit, trustedOnly: useTrustedOnly,
           includeRecomed: useRecomed, includeMedpages: useMedpages,
         },
@@ -328,13 +413,18 @@ export const useExpertSearch = () => {
 
   const runInternalSearch = () => internalSearchMutation.mutate({ province, city, profession });
 
+  // Free text carried from the last quick search that didn't resolve to a
+  // known profession, so toolbar controls (limit, trusted-only, source
+  // toggles) can still re-run that search rather than going silent.
+  const [lastFreeText, setLastFreeText] = useState('');
+
   const runExternalSearch = (overrides?: ExternalOverrides) => {
-    if (!profession) {
-      toast({ title: 'Select a profession', description: 'Profession is required for external search.', variant: 'destructive' });
+    if (!profession && !lastFreeText) {
+      toast({ title: 'Nothing to search yet', description: 'Select a profession, or run a quick search first.', variant: 'destructive' });
       return;
     }
     setHasSearchedExternal(true);
-    externalSearchMutation.mutate({ filters: { province, city, profession }, overrides });
+    externalSearchMutation.mutate({ filters: { province, city, profession, freeText: lastFreeText }, overrides });
   };
 
   const handleSearch = () => {
@@ -349,6 +439,7 @@ export const useExpertSearch = () => {
     setProfessionQuery('');
     setQuickQuery('');
     setLastParsedQuery(null);
+    setLastFreeText('');
     setHasSearchedExternal(false);
     externalSearchMutation.reset();
     internalSearchMutation.mutate({ province: '', city: '', profession: '' });
@@ -361,6 +452,11 @@ export const useExpertSearch = () => {
    * and pressing Search would, but from one box. Parses the profession
    * (ignoring boilerplate like "expert witness"), and province/city if
    * named, then runs the exact same internal + external queries.
+   *
+   * When the text doesn't resolve to a known profession (a typo we still
+   * couldn't fuzzy-match, a specialty not in our list, a surname), the
+   * search still runs — internally as a broad name/type/city match, and
+   * externally as a raw, Google-style query — rather than refusing outright.
    */
   const runQuickSearch = (queryOverride?: string) => {
     const q = (queryOverride ?? quickQuery).trim();
@@ -368,13 +464,25 @@ export const useExpertSearch = () => {
 
     const parsed = parseExpertQuery(q);
     setLastParsedQuery(parsed);
+    setLastFreeText(parsed.profession ? '' : (parsed.freeText || q));
 
     if (!parsed.profession) {
       toast({
-        title: 'No profession recognised',
-        description: `Couldn't match "${q}" to a known expert type. Try e.g. "neurosurgeon expert witness".`,
-        variant: 'destructive',
+        title: 'Searching broadly',
+        description: `Couldn't match "${q}" to a specific expert type — searching platform records and external directories for it as typed.`,
       });
+      setProfession('');
+      setProfessionQuery('');
+      if (parsed.province) setProvince(parsed.province);
+      setCity(parsed.city);
+
+      const filters: SearchFilters = {
+        profession: '', province: parsed.province, city: parsed.city,
+        freeText: parsed.freeText || q,
+      };
+      internalSearchMutation.mutate(filters);
+      setHasSearchedExternal(true);
+      externalSearchMutation.mutate({ filters });
       return;
     }
 
@@ -438,7 +546,7 @@ export const useExpertSearch = () => {
 
     // quick (free-text) search
     quickQuery, setQuickQuery,
-    lastParsedQuery,
+    lastParsedQuery, lastFreeText,
     runQuickSearch,
 
     // actions
