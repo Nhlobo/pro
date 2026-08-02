@@ -12,6 +12,11 @@ interface SearchBody {
   province?: string;
   city?: string;
   expertType?: string;
+  // Raw search term sent by the quick-search box when the text couldn't be
+  // resolved to one of the known professions — e.g. a surname, a niche
+  // specialty, or an abbreviation. Lets external search still run a broad,
+  // Google-style query instead of refusing.
+  query?: string;
   limit?: number;
   trustedOnly?: boolean;
   includeRecomed?: boolean;
@@ -116,14 +121,26 @@ Deno.serve(async (req) => {
     const province = (body.province ?? '').trim();
     const city = (body.city ?? '').trim();
     const expertType = (body.expertType ?? '').trim();
+    const freeQuery = (body.query ?? '').trim();
     const limit = Math.min(Math.max(body.limit ?? 40, 1), 100);
     const trustedOnly = body.trustedOnly === true;
     const includeRecomed = body.includeRecomed !== false;
     const includeMedpages = body.includeMedpages !== false;
 
-    if (!expertType) {
-      return json({ error: 'expertType is required' }, 400);
+    // A known profession OR free text is required — but unlike before, an
+    // unrecognised specialty / surname / abbreviation no longer dead-ends
+    // the search. `searchTerm` is what actually drives the Firecrawl
+    // queries below; `expertType` (when set) additionally drives the
+    // stricter profession-keyword scoring/gating further down.
+    const searchTerm = expertType || freeQuery;
+    if (!searchTerm) {
+      return json({ error: 'expertType or query is required' }, 400);
     }
+    // Only apply the strict "known profession" keyword gate/boost when the
+    // term is actually one of our listed professions. A free-text term
+    // (surname, niche specialty) isn't in PROFESSION_KEYWORDS, so gating on
+    // it would incorrectly drop unrelated-looking-but-valid results.
+    const isKnownProfession = Object.prototype.hasOwnProperty.call(PROFESSION_KEYWORDS, expertType);
 
     const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
     if (!apiKey) return json({ error: 'FIRECRAWL_API_KEY not configured' }, 500);
@@ -132,14 +149,20 @@ Deno.serve(async (req) => {
     // "expert witness" is included directly in the query (not just scored
     // after the fact) so the search itself is biased toward medico-legal
     // expert witness listings rather than general medical directory noise.
-    const baseQuery = `${expertType} medico-legal expert witness ${locationParts} HPCSA RAF medical negligence`;
+    const baseQuery = `${searchTerm} medico-legal expert witness ${locationParts} HPCSA RAF medical negligence`;
+    // A second, looser query without the legal-specific terms — this is
+    // what makes the search behave more like a general (Google-style)
+    // lookup: it catches specialist directory listings, practice pages,
+    // and society member lists that never use the phrase "expert witness"
+    // but are still exactly who a case manager is looking for.
+    const broadQuery = `${searchTerm} ${locationParts} specialist directory`;
     // Always include Recomed and Medpages as dedicated source queries so results
     // from those directories surface even when general search misses them.
     // These two stay focused on profession + location only: they're general
     // medical directories rather than legal-focused ones, so requiring the
     // "expert witness" phrase here would zero out otherwise-good matches.
-    const recomedQuery = `site:recomed.co.za ${expertType} ${locationParts}`;
-    const medpagesQuery = `site:medpages.co.za ${expertType} ${locationParts}`;
+    const recomedQuery = `site:recomed.co.za ${searchTerm} ${locationParts}`;
+    const medpagesQuery = `site:medpages.co.za ${searchTerm} ${locationParts}`;
 
     const perQueryLimit = Math.min(limit, 50);
     const runFirecrawl = async (q: string) => {
@@ -157,14 +180,15 @@ Deno.serve(async (req) => {
       return arr;
     };
 
-    const [generalResults, recomedResults, medpagesResults] = await Promise.all([
+    const [generalResults, broadResults, recomedResults, medpagesResults] = await Promise.all([
       runFirecrawl(baseQuery),
+      runFirecrawl(broadQuery),
       includeRecomed ? runFirecrawl(recomedQuery) : Promise.resolve([] as any[]),
       includeMedpages ? runFirecrawl(medpagesQuery) : Promise.resolve([] as any[]),
     ]);
 
     // Combine, preserving Recomed/Medpages hits first so identity merging keeps them
-    const rawResults: any[] = [...recomedResults, ...medpagesResults, ...generalResults];
+    const rawResults: any[] = [...recomedResults, ...medpagesResults, ...generalResults, ...broadResults];
     // Host-level filter: when a directory toggle is OFF, drop incidental hits
     // that came in from the general query for that host.
     const filteredRaw = rawResults.filter((r: any) => {
@@ -190,16 +214,22 @@ Deno.serve(async (req) => {
     };
 
     // Keyword group for the requested profession — falls back to the raw
-    // expertType string for any custom/unlisted value so the search still
-    // works, just without the extra specificity guarantees.
-    const requestedKeywords = PROFESSION_KEYWORDS[expertType] ?? [expertType.toLowerCase()];
+    // search term (expertType, or the free-text query) for any custom/
+    // unlisted value so the search still works, just without the extra
+    // specificity guarantees.
+    const requestedKeywords = PROFESSION_KEYWORDS[expertType] ?? [searchTerm.toLowerCase()];
     const matchesRequestedProfession = (text: string): boolean =>
       requestedKeywords.some((k) => containsKeyword(text, k));
     // True when the text is clearly about a *different* listed profession
     // and doesn't also mention the one that was asked for — this is what
     // keeps a search for "Urologist" from surfacing a Neurologist, or an
     // "Orthopaedic Surgeon" search from surfacing a generic "surgeon" hit.
+    // Only meaningful when the request is actually one of our known
+    // professions: a free-text term (a surname, an unlisted specialty) was
+    // never matched against this keyword list in the first place, so
+    // gating it here would drop good results for the wrong reason.
     const matchesConflictingProfession = (text: string): boolean => {
+      if (!isKnownProfession) return false;
       if (matchesRequestedProfession(text)) return false;
       for (const [prof, keywords] of Object.entries(PROFESSION_KEYWORDS)) {
         if (prof === expertType) continue;
@@ -425,7 +455,7 @@ Deno.serve(async (req) => {
           registry_id: registryId,
           province: detected.province ?? (province || undefined),
           city: detected.city ?? (city || undefined),
-          profession: expertType,
+          profession: expertType || undefined,
           trusted: isTrusted,
           emails,
           phones,
