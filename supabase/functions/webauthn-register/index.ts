@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { generateRegistrationOptions, verifyRegistrationResponse } from "https://esm.sh/@simplewebauthn/server@13?target=deno";
+import { generateRegistrationOptions, verifyRegistrationResponse } from "npm:@simplewebauthn/server@13.1.1";
 import { BadRequest, Conflict, jsonResponse, MethodNotAllowed, withErrorHandler } from "../_shared/errors.ts";
 import { RP_NAME, bytesToBase64, consumeChallenge, getClients, requireUser, resolveRelyingParty, storeChallenge } from "../_shared/webauthn.ts";
 
