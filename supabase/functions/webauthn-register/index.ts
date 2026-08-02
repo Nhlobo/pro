@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { generateRegistrationOptions, verifyRegistrationResponse } from "https://esm.sh/@simplewebauthn/server@13?target=deno";
+import { generateRegistrationOptions, verifyRegistrationResponse } from "npm:@simplewebauthn/server@13.1.1";
 import { BadRequest, Conflict, jsonResponse, MethodNotAllowed, withErrorHandler } from "../_shared/errors.ts";
 import { RP_NAME, bytesToBase64, consumeChallenge, getClients, requireUser, resolveRelyingParty, storeChallenge } from "../_shared/webauthn.ts";
 
@@ -47,7 +47,10 @@ serve(withErrorHandler(async (req) => {
       user_agent: typeof body.userAgent === "string" ? body.userAgent : req.headers.get("User-Agent"),
       platform: typeof body.platform === "string" ? body.platform : null,
     }).select("id").single();
-    if (error) throw error;
+    if (error || !device) {
+      console.error("trusted_devices insert failed", error);
+      throw BadRequest(`Could not save this trusted device: ${error?.message ?? "unknown database error"}`);
+    }
 
     await adminClient.from("trusted_device_events").insert({ device_id: device.id, user_id: user.id, event_type: "registered", user_agent: req.headers.get("User-Agent"), metadata: {} });
 

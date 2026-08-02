@@ -27,19 +27,65 @@ export async function requireUser(userClient: SupabaseClient) {
   return data.user;
 }
 
+/**
+ * Work out the WebAuthn Relying Party for this request.
+ *
+ * The RP ID must match the hostname the browser is actually on, otherwise the
+ * browser rejects the ceremony (and previously, with no WEBAUTHN_* secrets set,
+ * every enrollment fell back to "localhost" and failed).
+ *
+ * Resolution order:
+ *  1. The request Origin (or Referer) header, when its hostname is allowed.
+ *  2. The configured WEBAUTHN_ORIGIN list, when present.
+ *  3. http://localhost:5173 for local development.
+ */
 export function resolveRelyingParty(req: Request): { rpID: string; origin: string } {
-  const rpID = Deno.env.get("WEBAUTHN_RP_ID") ?? "localhost";
-  const configuredOrigins = (Deno.env.get("WEBAUTHN_ORIGIN") ?? "http://localhost:5173")
+  const configuredOrigins = (Deno.env.get("WEBAUTHN_ORIGIN") ?? "")
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
 
-  const requestOrigin = req.headers.get("Origin");
-  const origin = requestOrigin && configuredOrigins.includes(requestOrigin)
-    ? requestOrigin
-    : configuredOrigins[0];
+  const configuredRpId = Deno.env.get("WEBAUTHN_RP_ID")?.trim();
 
-  return { rpID, origin };
+  const headerOrigin = req.headers.get("Origin") ?? (() => {
+    const referer = req.headers.get("Referer");
+    if (!referer) return null;
+    try {
+      return new URL(referer).origin;
+    } catch {
+      return null;
+    }
+  })();
+
+  const isAllowed = (origin: string): boolean => {
+    if (configuredOrigins.includes(origin)) return true;
+    let url: URL;
+    try {
+      url = new URL(origin);
+    } catch {
+      return false;
+    }
+    if (url.protocol !== "https:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+      return false;
+    }
+    const host = url.hostname;
+    if (host === "localhost" || host === "127.0.0.1") return true;
+    if (host === "lovable.app" || host.endsWith(".lovable.app")) return true;
+    if (host === "lovableproject.com" || host.endsWith(".lovableproject.com")) return true;
+    if (configuredRpId && (host === configuredRpId || host.endsWith(`.${configuredRpId}`))) return true;
+    return false;
+  };
+
+  if (headerOrigin && isAllowed(headerOrigin)) {
+    return { rpID: new URL(headerOrigin).hostname, origin: headerOrigin };
+  }
+
+  if (configuredOrigins.length) {
+    const fallback = configuredOrigins[0];
+    return { rpID: configuredRpId || new URL(fallback).hostname, origin: fallback };
+  }
+
+  return { rpID: configuredRpId || "localhost", origin: "http://localhost:5173" };
 }
 
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
