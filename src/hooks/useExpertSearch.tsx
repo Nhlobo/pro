@@ -363,10 +363,21 @@ export const useExpertSearch = () => {
           if (!fuzzy(haystack, filters.freeText)) return false;
         }
 
+        // Gate: only show experts who handle RAF/Road Accident Fund or
+        // Medical Negligence matters. The expert intake form stores this as
+        // the literal enum "MVA" | "Med Neg" (see MedicalExpertFormPage.tsx),
+        // never as the words "raf" or "negligence" — the previous substring
+        // list checked for words that don't occur in real data, so every
+        // expert with a matter type set (virtually all of them, since it's
+        // a required field defaulting to ["MVA"]) was silently dropped here,
+        // making Platform Experts show 0 regardless of filters. Matching
+        // against the actual stored values first, with the older substrings
+        // kept as a fallback for any legacy/free-form rows.
         const matters = (e.matter_types || []).map((m: string) => m.toLowerCase());
         if (matters.length > 0) {
           const ok = matters.some((m: string) =>
-            m.includes('raf') || m.includes('road accident') || m.includes('negligence') || m.includes('medico'),
+            m.includes('mva') || m.includes('med neg') || m.includes('raf')
+            || m.includes('road accident') || m.includes('negligence') || m.includes('medico'),
           );
           if (!ok) return false;
         }
