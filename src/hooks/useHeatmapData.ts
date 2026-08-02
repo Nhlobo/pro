@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { SA_PROVINCES } from '@/hooks/useExpertSearch';
 
 export type MatterCategory = 'raf' | 'med_neg' | 'both';
 
@@ -16,7 +15,6 @@ export interface ProvinceData {
   /** Attorney-side demand originating from this province in the last 12 months. */
   demand: number;
   primaryExperts: number;
-  expertsByType: Record<string, number>;
   /** Real business booked in the last 12 months, by matter type — not expert capability. */
   rafBusiness: number;
   medNegBusiness: number;
@@ -31,63 +29,6 @@ export const STATUS_META: Record<ProvinceStatus, { label: string; tone: 'neutral
   inactive: { label: 'Inactive', tone: 'neutral' },
 };
 
-/**
- * Every raw province spelling we've seen in the data (different casing,
- * underscores instead of spaces, abbreviations, typos) collapses to one
- * canonical SA_PROVINCES entry so a province never appears twice on the
- * heatmap.
- */
-function sanitizeKey(raw: string): string {
-  return raw
-    .trim()
-    .toLowerCase()
-    .replace(/[_-]+/g, ' ')
-    .replace(/[^a-z\s]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-const PROVINCE_ALIASES: Record<string, string> = {
-  'gauteng': 'Gauteng',
-  'guateng': 'Gauteng',
-  'western cape': 'Western Cape',
-  'kwazulu natal': 'KwaZulu-Natal',
-  'kzn': 'KwaZulu-Natal',
-  'eastern cape': 'Eastern Cape',
-  'free state': 'Free State',
-  'mpumalanga': 'Mpumalanga',
-  'limpopo': 'Limpopo',
-  'north west': 'North West',
-  'northern cape': 'Northern Cape',
-};
-
-// Also register every canonical name against itself (sanitized), so any
-// minor spacing/casing/punctuation variant of a name we already know
-// resolves correctly even if it isn't explicitly listed above.
-SA_PROVINCES.forEach((name) => {
-  PROVINCE_ALIASES[sanitizeKey(name)] = name;
-});
-
-function normalizeProvince(raw: string | null | undefined): string {
-  if (!raw) return 'Unknown';
-  const key = sanitizeKey(raw);
-  if (!key) return 'Unknown';
-  return PROVINCE_ALIASES[key] || raw.trim();
-}
-
-const PRIMARY_EXPERT_TYPES = ['Orthopaedic Surgeon', 'Neurosurgeon', 'Clinical Psychologist'];
-
-/** Classifies a single appointment's matter_type into the business buckets shown on the card. */
-function categorizeAppointmentMatter(matterType: string | null | undefined): MatterCategory | 'other' {
-  const matter = (matterType || '').toLowerCase();
-  const isRaf = matter.includes('raf') || matter.includes('road accident') || matter.includes('mva');
-  const isMedNeg = matter.includes('negligence') || matter.includes('med_neg') || matter.includes('medneg');
-  if (isRaf && isMedNeg) return 'both';
-  if (isRaf) return 'raf';
-  if (isMedNeg) return 'med_neg';
-  return 'other';
-}
-
 function statusForProvince(experts: number, demand: number): ProvinceStatus {
   if (experts === 0 && demand === 0) return 'inactive';
   if (experts === 0) return 'critical';
@@ -97,98 +38,59 @@ function statusForProvince(experts: number, demand: number): ProvinceStatus {
   return 'balanced';
 }
 
-function emptyProvince(name: string): ProvinceData {
-  return {
-    name,
-    status: 'inactive',
-    experts: 0,
-    expertsUsed: 0,
-    demand: 0,
-    primaryExperts: 0,
-    expertsByType: {},
-    rafBusiness: 0,
-    medNegBusiness: 0,
-    bothBusiness: 0,
-    otherBusiness: 0,
-  };
+interface HeatmapRpcRow {
+  province: string;
+  experts: number;
+  experts_used: number;
+  primary_experts: number;
+  demand: number;
+  raf_business: number;
+  med_neg_business: number;
+  both_business: number;
+  other_business: number;
 }
 
 export const useHeatmapData = () => {
   const [provinces, setProvinces] = useState<ProvinceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
+    setError(null);
 
     try {
-      const { data: experts, error: expertsError } = await supabase
-        .from('medical_experts')
-        .select('id, expert_type, province, status, medico_legal_only')
-        .eq('status', 'active');
-      if (expertsError) throw expertsError;
+      // Aggregation now happens in Postgres (see
+      // get_heatmap_province_stats migration) instead of pulling every
+      // expert/appointment row to the browser. This keeps the page fast
+      // and correct as data grows, and guarantees every consumer of
+      // this number (dashboard, reports, this page) reads the same
+      // 12-month window computed the same way.
+      const { data, error: rpcError } = await supabase.rpc('get_heatmap_province_stats');
+      if (rpcError) throw rpcError;
 
-      const twelveMonthsAgo = new Date();
-      twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
-      const twelveMonthsAgoStr = twelveMonthsAgo.toISOString().slice(0, 10);
-
-      const { data: appointments, error: appointmentsError } = await supabase
-        .from('appointments')
-        .select('expert_id, matter_type, appointment_date, referring_attorneys!appointments_referring_attorney_id_fkey(province)')
-        .is('deleted_at', null)
-        .gte('appointment_date', twelveMonthsAgoStr);
-      if (appointmentsError) throw appointmentsError;
-
-      // Every expert_id that shows up on a real (non-deleted, last-12-months)
-      // appointment — i.e. "have we actually used this expert's service".
-      const usedExpertIds = new Set<string>((appointments || []).map((a: any) => a.expert_id).filter(Boolean));
-
-      const byProvince: Record<string, ProvinceData> = {};
-      SA_PROVINCES.forEach((name) => {
-        byProvince[name] = emptyProvince(name);
-      });
-
-      (experts || []).forEach((e: any) => {
-        if (e.medico_legal_only === false) return;
-        const province = normalizeProvince(e.province);
-        if (!byProvince[province]) byProvince[province] = emptyProvince(province);
-
-        const entry = byProvince[province];
-        entry.experts += 1;
-        if (usedExpertIds.has(e.id)) entry.expertsUsed += 1;
-
-        if (e.expert_type && PRIMARY_EXPERT_TYPES.includes(e.expert_type)) {
-          entry.primaryExperts += 1;
-        }
-
-        const type = e.expert_type || 'Unspecified';
-        entry.expertsByType[type] = (entry.expertsByType[type] || 0) + 1;
-      });
-
-      (appointments || []).forEach((apt: any) => {
-        const rawProvince = apt.referring_attorneys?.province;
-        const province = normalizeProvince(rawProvince);
-        if (!byProvince[province]) byProvince[province] = emptyProvince(province);
-
-        const entry = byProvince[province];
-        entry.demand += 1;
-
-        const category = categorizeAppointmentMatter(apt.matter_type);
-        if (category === 'raf') entry.rafBusiness += 1;
-        else if (category === 'med_neg') entry.medNegBusiness += 1;
-        else if (category === 'both') entry.bothBusiness += 1;
-        else entry.otherBusiness += 1;
-      });
-
-      const result = Object.values(byProvince).map((p) => ({
-        ...p,
-        status: statusForProvince(p.experts, p.demand),
+      const rows = (data || []) as HeatmapRpcRow[];
+      const result: ProvinceData[] = rows.map((r) => ({
+        name: r.province,
+        status: statusForProvince(r.experts, r.demand),
+        experts: r.experts,
+        expertsUsed: r.experts_used,
+        demand: r.demand,
+        primaryExperts: r.primary_experts,
+        rafBusiness: r.raf_business,
+        medNegBusiness: r.med_neg_business,
+        bothBusiness: r.both_business,
+        otherBusiness: r.other_business,
       }));
 
       setProvinces(result);
+      setLastSyncedAt(new Date());
     } catch (err) {
       console.error('Failed to load heatmap data', err);
+      setError(err instanceof Error ? err.message : 'Failed to load heatmap data');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -214,10 +116,28 @@ export const useHeatmapData = () => {
     both: provinces.reduce((sum, p) => sum + p.bothBusiness, 0),
   };
 
+  // Directly answers "which province is giving us more business" —
+  // ranked by real 12-month demand, highest first.
+  const topByBusiness = [...provinces]
+    .filter((p) => p.demand > 0)
+    .sort((a, b) => b.demand - a.demand);
+
+  // Directly answers "where is there demand but no/low expert coverage" —
+  // the gap list the client asked for, ranked by severity of the gap.
+  const expertGaps = [...provinces]
+    .filter((p) => p.demand > 0 && (p.status === 'critical' || p.status === 'shortage'))
+    .sort((a, b) => {
+      const ratioA = a.experts / Math.max(a.demand, 1);
+      const ratioB = b.experts / Math.max(b.demand, 1);
+      return ratioA - ratioB;
+    });
+
   return {
     provinces,
     loading,
     refreshing,
+    error,
+    lastSyncedAt,
     refetch,
     totalExperts,
     totalExpertsUsed,
@@ -225,5 +145,7 @@ export const useHeatmapData = () => {
     criticalCount,
     balancedCount,
     matterCounts,
+    topByBusiness,
+    expertGaps,
   };
 };
