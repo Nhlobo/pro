@@ -251,7 +251,7 @@ const usePermissionsState = (): PermissionsContextValue => {
       // naturally expires and a background refresh gets rejected by the
       // auth-layer ban (up to an hour later). Catch it here instead, on
       // the next load/tab focus.
-      const { data: isActive } = await supabase.rpc('get_current_user_is_active');
+      const { data: isActive } = await (supabase.rpc as any)('get_current_user_is_active');
       if (isActive === false) {
         toast({
           title: "Account deactivated",
