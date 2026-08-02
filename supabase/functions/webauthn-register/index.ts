@@ -47,7 +47,10 @@ serve(withErrorHandler(async (req) => {
       user_agent: typeof body.userAgent === "string" ? body.userAgent : req.headers.get("User-Agent"),
       platform: typeof body.platform === "string" ? body.platform : null,
     }).select("id").single();
-    if (error) throw error;
+    if (error || !device) {
+      console.error("trusted_devices insert failed", error);
+      throw BadRequest(`Could not save this trusted device: ${error?.message ?? "unknown database error"}`);
+    }
 
     await adminClient.from("trusted_device_events").insert({ device_id: device.id, user_id: user.id, event_type: "registered", user_agent: req.headers.get("User-Agent"), metadata: {} });
 
