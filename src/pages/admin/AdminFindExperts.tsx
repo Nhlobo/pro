@@ -53,7 +53,7 @@ const AdminFindExperts: React.FC = () => {
     external, loadingExternal, externalError, trustedTotal, externalTotal, hasSearchedExternal,
     trustedOnly, setTrustedOnly, externalLimit, setExternalLimit,
     includeRecomed, setIncludeRecomed, includeMedpages, setIncludeMedpages,
-    quickQuery, setQuickQuery, lastParsedQuery, runQuickSearch,
+    quickQuery, setQuickQuery, lastParsedQuery, lastFreeText, runQuickSearch,
     runExternalSearch, handleSearch, handleReset, isSearching,
   } = useExpertSearch();
 
@@ -107,6 +107,9 @@ const AdminFindExperts: React.FC = () => {
           {lastParsedQuery && (
             <div className="flex flex-wrap gap-1.5 pt-1">
               {lastParsedQuery.profession && <AdminPill tone="teal">Type: {lastParsedQuery.profession}</AdminPill>}
+              {!lastParsedQuery.profession && lastFreeText && (
+                <AdminPill tone="teal">Searching for: "{lastFreeText}"</AdminPill>
+              )}
               {lastParsedQuery.province && <AdminPill tone="neutral">Province: {lastParsedQuery.province}</AdminPill>}
               {lastParsedQuery.city && <AdminPill tone="neutral">Location: {lastParsedQuery.city}</AdminPill>}
             </div>
@@ -250,7 +253,7 @@ const AdminFindExperts: React.FC = () => {
                             onValueChange={(v) => {
                               const n = Number(v);
                               setExternalLimit(n);
-                              if (profession) runExternalSearch({ limit: n });
+                              if (profession || lastFreeText) runExternalSearch({ limit: n });
                             }}
                           >
                             <SelectTrigger id="ext-limit" className="h-8 w-[88px] rounded-none border-black/15">
@@ -268,7 +271,7 @@ const AdminFindExperts: React.FC = () => {
                             checked={includeRecomed}
                             onCheckedChange={(v) => {
                               setIncludeRecomed(v);
-                              if (profession) runExternalSearch({ includeRecomed: v });
+                              if (profession || lastFreeText) runExternalSearch({ includeRecomed: v });
                             }}
                             aria-label="Include Recomed results"
                           />
@@ -279,7 +282,7 @@ const AdminFindExperts: React.FC = () => {
                             checked={includeMedpages}
                             onCheckedChange={(v) => {
                               setIncludeMedpages(v);
-                              if (profession) runExternalSearch({ includeMedpages: v });
+                              if (profession || lastFreeText) runExternalSearch({ includeMedpages: v });
                             }}
                             aria-label="Include Medpages results"
                           />
@@ -290,7 +293,7 @@ const AdminFindExperts: React.FC = () => {
                             checked={trustedOnly}
                             onCheckedChange={(v) => {
                               setTrustedOnly(v);
-                              if (profession) runExternalSearch({ trustedOnly: v });
+                              if (profession || lastFreeText) runExternalSearch({ trustedOnly: v });
                             }}
                             aria-label="Filter to trusted registries only"
                           />
@@ -312,7 +315,7 @@ const AdminFindExperts: React.FC = () => {
                           <p className="font-medium text-black">Searching public directories…</p>
                           <p className="text-sm text-slate-500">
                             Fetching up to {externalLimit} {trustedOnly ? 'trusted-registry' : 'external'} results for{' '}
-                            <span className="font-medium text-black">{profession || 'experts'}</span>
+                            <span className="font-medium text-black">{profession || (lastFreeText ? `"${lastFreeText}"` : 'experts')}</span>
                             {city ? ` in ${city}` : province ? ` in ${province}` : ''}. This can take 10–20 seconds.
                           </p>
                         </div>
@@ -354,7 +357,7 @@ const AdminFindExperts: React.FC = () => {
                         <AdminEmptyState
                           icon={Globe}
                           title="No external results found"
-                          description={`We searched up to ${externalLimit} sources for ${profession}${city ? ` in ${city}` : province ? ` in ${province}` : ''}. Try a broader location or a related profession.`}
+                          description={`We searched up to ${externalLimit} sources for ${profession || (lastFreeText ? `"${lastFreeText}"` : 'that')}${city ? ` in ${city}` : province ? ` in ${province}` : ''}. Try a broader location or a related profession.`}
                         />
                       )}
                     </AdminCard>
@@ -490,80 +493,114 @@ const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean }> = ({ e
   );
 };
 
-const ExternalResultCard: React.FC<{ result: ExternalResult }> = ({ result: r }) => (
-  <AdminCard className="flex flex-col">
-    <AdminCardHeader
-      title={<span className="line-clamp-2">{r.name || r.title}</span>}
-      description={r.name && r.title !== r.name ? <span className="line-clamp-1">{r.title}</span> : undefined}
-      actions={r.trusted ? (
-        <AdminPill tone="teal"><ShieldCheck className="h-3 w-3" /> Trusted</AdminPill>
-      ) : (
-        <AdminPill tone="neutral">External</AdminPill>
-      )}
-    />
-    <AdminCardBody className="flex flex-1 flex-col gap-2 text-sm">
-      <p className="line-clamp-3 text-slate-500">{r.snippet}</p>
+const ExternalResultCard: React.FC<{ result: ExternalResult }> = ({ result: r }) => {
+  const [expanded, setExpanded] = useState(false);
 
-      <div className="flex flex-wrap gap-1">
-        {r.registry_id && <AdminPill tone="teal" className="font-mono">{r.registry_id}</AdminPill>}
-        {r.profession && <AdminPill tone="neutral">{r.profession}</AdminPill>}
-        {r.province && <AdminPill tone="neutral">{r.province}</AdminPill>}
-        {r.city && <AdminPill tone="neutral">{r.city}</AdminPill>}
-        {(r.sources_count ?? 0) > 1 && <AdminPill tone="neutral">{r.sources_count} sources</AdminPill>}
-      </div>
+  const emails = r.emails ?? [];
+  const phones = r.phones ?? [];
+  const websites = r.websites ?? [];
+  const sources = r.sources ?? [];
 
-      {(r.emails?.length || r.phones?.length || r.websites?.length) ? (
-        <div className="space-y-1 border border-black/10 bg-black/[0.02] p-2">
-          {r.emails?.slice(0, 3).map((e) => (
-            <a key={e} href={`mailto:${e}`} className="flex items-center gap-2 break-all text-xs text-black hover:underline">
-              <Mail className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} /> {e}
-            </a>
-          ))}
-          {r.phones?.slice(0, 3).map((p) => (
-            <a key={p} href={`tel:${p}`} className="flex items-center gap-2 text-xs text-black hover:underline">
-              <Phone className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} /> {p}
-            </a>
-          ))}
-          {r.websites?.slice(0, 3).map((w) => (
-            <a key={w.host} href={w.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs text-black hover:underline">
-              <Globe className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} /> {w.host}
-            </a>
-          ))}
+  const CONTACT_PREVIEW = 3;
+  const SOURCE_PREVIEW = 6;
+  const hiddenContactCount =
+    !expanded
+      ? Math.max(0, emails.length - CONTACT_PREVIEW) + Math.max(0, phones.length - CONTACT_PREVIEW) + Math.max(0, websites.length - CONTACT_PREVIEW)
+      : 0;
+  const hiddenSourceCount = !expanded ? Math.max(0, sources.length - SOURCE_PREVIEW) : 0;
+  const hasMore = hiddenContactCount > 0 || hiddenSourceCount > 0 || (r.snippet?.length ?? 0) > 220;
+
+  const shownEmails = expanded ? emails : emails.slice(0, CONTACT_PREVIEW);
+  const shownPhones = expanded ? phones : phones.slice(0, CONTACT_PREVIEW);
+  const shownWebsites = expanded ? websites : websites.slice(0, CONTACT_PREVIEW);
+  const shownSources = expanded ? sources : sources.slice(0, SOURCE_PREVIEW);
+
+  return (
+    <AdminCard className="flex flex-col">
+      <AdminCardHeader
+        title={<span className="line-clamp-2">{r.name || r.title}</span>}
+        description={r.name && r.title !== r.name ? <span className="line-clamp-1">{r.title}</span> : undefined}
+        actions={r.trusted ? (
+          <AdminPill tone="teal"><ShieldCheck className="h-3 w-3" /> Trusted</AdminPill>
+        ) : (
+          <AdminPill tone="neutral">External</AdminPill>
+        )}
+      />
+      <AdminCardBody className="flex flex-1 flex-col gap-2 text-sm">
+        <p className={expanded ? 'text-slate-500' : 'line-clamp-3 text-slate-500'}>{r.snippet}</p>
+
+        <div className="flex flex-wrap gap-1">
+          {r.registry_id && <AdminPill tone="teal" className="font-mono">{r.registry_id}</AdminPill>}
+          {r.profession && <AdminPill tone="neutral">{r.profession}</AdminPill>}
+          {r.province && <AdminPill tone="neutral">{r.province}</AdminPill>}
+          {r.city && <AdminPill tone="neutral">{r.city}</AdminPill>}
+          {(r.sources_count ?? 0) > 1 && <AdminPill tone="neutral">{r.sources_count} sources</AdminPill>}
         </div>
-      ) : (
-        <p className="text-xs italic text-slate-400">
-          No contact details detected — open the source for more info.
-        </p>
-      )}
 
-      <div className="mt-auto pt-1">
-        {(r.sources?.length ?? 0) > 1 ? (
-          <div className="flex flex-wrap gap-x-3 gap-y-1.5">
-            {r.sources!.slice(0, 6).map((s) => (
-              <a
-                key={s.url}
-                href={s.url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-slate-500 underline hover:text-black"
-              >
-                {s.host}<ExternalLink className="h-3 w-3" />
+        {(emails.length || phones.length || websites.length) ? (
+          <div className="space-y-1 border border-black/10 bg-black/[0.02] p-2">
+            {shownEmails.map((e) => (
+              <a key={e} href={`mailto:${e}`} className="flex items-center gap-2 break-all text-xs text-black hover:underline">
+                <Mail className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} /> {e}
+              </a>
+            ))}
+            {shownPhones.map((p) => (
+              <a key={p} href={`tel:${p}`} className="flex items-center gap-2 text-xs text-black hover:underline">
+                <Phone className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} /> {p}
+              </a>
+            ))}
+            {shownWebsites.map((w) => (
+              <a key={w.host} href={w.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs text-black hover:underline">
+                <Globe className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} /> {w.host}
               </a>
             ))}
           </div>
         ) : (
-          <a
-            href={r.source_url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-slate-500 underline hover:text-black"
-          >
-            View source <ExternalLink className="h-3 w-3" />
-          </a>
+          <p className="text-xs italic text-slate-400">
+            No contact details detected — open the source for more info.
+          </p>
         )}
-      </div>
-    </AdminCardBody>
-  </AdminCard>
-);
+
+        <div className="mt-auto flex flex-col gap-1.5 pt-1">
+          {shownSources.length > 1 ? (
+            <div className="flex flex-wrap gap-x-3 gap-y-1.5">
+              {shownSources.map((s) => (
+                <a
+                  key={s.url}
+                  href={s.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-slate-500 underline hover:text-black"
+                >
+                  {s.host}<ExternalLink className="h-3 w-3" />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <a
+              href={r.source_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-slate-500 underline hover:text-black"
+            >
+              View source <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+
+          {hasMore && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="self-start text-xs font-medium underline"
+              style={{ color: BRAND_TEAL }}
+            >
+              {expanded ? 'Show less' : 'Show all details'}
+            </button>
+          )}
+        </div>
+      </AdminCardBody>
+    </AdminCard>
+  );
+};
 
 export default AdminFindExperts;
