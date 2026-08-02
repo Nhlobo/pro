@@ -47,25 +47,57 @@ const ResetPassword = () => {
   useEffect(() => {
     let active = true;
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
-      if (event === 'PASSWORD_RECOVERY') {
+      if (event === 'PASSWORD_RECOVERY' || session) {
         setLinkStatus('valid');
       }
     });
 
-    // In case the PASSWORD_RECOVERY event already fired before this
-    // component mounted its listener, fall back to checking directly.
-    supabase.auth.getSession().then(({ data }) => {
+    // Supabase sends recovery links in three shapes depending on the project's
+    // email template and flow type:
+    //   1. #access_token=...&type=recovery   (implicit — handled automatically)
+    //   2. ?code=...                          (PKCE — needs an explicit exchange)
+    //   3. ?token_hash=...&type=recovery      (needs verifyOtp)
+    // Handle 2 and 3 here so the link works no matter which one arrives.
+    const resolve = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const tokenHash = params.get('token_hash');
+      const type = params.get('type');
+
+      try {
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (!active) return;
+          setLinkStatus(error ? 'invalid' : 'valid');
+          return;
+        }
+        if (tokenHash && (type === 'recovery' || type === 'email')) {
+          const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
+          if (!active) return;
+          setLinkStatus(error ? 'invalid' : 'valid');
+          return;
+        }
+      } catch {
+        if (active) setLinkStatus('invalid');
+        return;
+      }
+
+      // In case the PASSWORD_RECOVERY event already fired before this
+      // component mounted its listener, fall back to checking directly.
+      const { data } = await supabase.auth.getSession();
       if (!active) return;
       setLinkStatus((current) => (current === 'checking' ? (data.session ? 'valid' : 'invalid') : current));
-    });
+    };
+
+    void resolve();
 
     // Safety net: if nothing resolves within a few seconds, treat as invalid
     // rather than leaving the person staring at a spinner forever.
     const timeout = window.setTimeout(() => {
       setLinkStatus((current) => (current === 'checking' ? 'invalid' : current));
-    }, 5000);
+    }, 8000);
 
     return () => {
       active = false;
