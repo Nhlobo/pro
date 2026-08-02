@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw, TrendingUp } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,50 @@ function KpiCard({ label, value, hint }: { label: string; value: string | number
       <CardContent>
         <p className="text-2xl font-bold tracking-tight">{value}</p>
         {hint ? <p className="mt-1 text-xs text-muted-foreground">{hint}</p> : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RankingList({
+  title,
+  icon,
+  provinces,
+  emptyLabel,
+  renderMetric,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  provinces: ProvinceData[];
+  emptyLabel: string;
+  renderMetric: (p: ProvinceData) => string;
+}) {
+  return (
+    <Card className="h-full">
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm font-medium">
+          {icon}
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {provinces.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+        ) : (
+          <ol className="space-y-2">
+            {provinces.slice(0, 5).map((p, i) => (
+              <li key={p.name} className="flex items-center justify-between gap-3 text-sm">
+                <span className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                    {i + 1}
+                  </span>
+                  {p.name}
+                </span>
+                <span className="font-medium">{renderMetric(p)}</span>
+              </li>
+            ))}
+          </ol>
+        )}
       </CardContent>
     </Card>
   );
@@ -94,6 +138,8 @@ export default function AdminHeatmap() {
     provinces,
     loading,
     refreshing,
+    error,
+    lastSyncedAt,
     refetch,
     totalExperts,
     totalExpertsUsed,
@@ -101,6 +147,8 @@ export default function AdminHeatmap() {
     criticalCount,
     balancedCount,
     matterCounts,
+    topByBusiness,
+    expertGaps,
   } = useHeatmapData();
 
   const ordered = useMemo(() => {
@@ -119,6 +167,13 @@ export default function AdminHeatmap() {
           <p className="text-sm text-muted-foreground">
             Province-level expert supply vs attorney demand (last 12 months). Each province appears once.
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {error
+              ? <span className="text-red-600 dark:text-red-400">Sync failed: {error}</span>
+              : lastSyncedAt
+                ? `Synced from live data · ${lastSyncedAt.toLocaleTimeString()}`
+                : null}
+          </p>
         </div>
 
         <Button onClick={() => refetch()} disabled={loading || refreshing} className="w-full md:w-auto">
@@ -133,6 +188,23 @@ export default function AdminHeatmap() {
         <KpiCard label="Total Demand (12m)" value={totalDemand} />
         <KpiCard label="Critical Provinces" value={criticalCount} hint="Immediate shortage pressure" />
         <KpiCard label="Balanced Provinces" value={balancedCount} />
+      </section>
+
+      <section className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <RankingList
+          title="Top provinces by business (12m)"
+          icon={<TrendingUp className="h-4 w-4 text-emerald-600" />}
+          provinces={topByBusiness}
+          emptyLabel="No booked business in the last 12 months yet."
+          renderMetric={(p) => `${p.demand} cases`}
+        />
+        <RankingList
+          title="Demand outpacing expert coverage"
+          icon={<AlertTriangle className="h-4 w-4 text-red-600" />}
+          provinces={expertGaps}
+          emptyLabel="No province is currently under-covered."
+          renderMetric={(p) => (p.experts === 0 ? `${p.demand} cases, 0 experts` : `${p.experts} experts / ${p.demand} cases`)}
+        />
       </section>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -171,4 +243,4 @@ export default function AdminHeatmap() {
       </section>
     </div>
   );
-  }
+}
