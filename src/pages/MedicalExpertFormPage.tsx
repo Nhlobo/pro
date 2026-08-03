@@ -146,16 +146,7 @@ const MedicalExpertFormPage = ({
   const [selectedFeeType, setSelectedFeeType] = useState<string>("all");
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>("");
 
-  const FEE_FIELD_LABELS: Record<string, string> = {
-    consultation_fee_mva: "Consultation Fee MVA",
-    consultation_fee_med_neg: "Consultation Fee Med Neg",
-    merit_fees: "Merit Fees",
-    consultation_fee_per_hour: "Hourly Rate Fee",
-    court_fees: "Court Fee",
-    addendum_fees: "Addendum Fee",
-    affidavit_fees: "Affidavit Fee",
-    joint_minutes_fees: "Joint Minutes Fee",
-  };
+  const FEE_FIELD_LABELS: Record<string, string> = UNIFIED_FEE_FIELD_LABELS;
   const FEE_FIELD_KEYS = Object.keys(FEE_FIELD_LABELS);
 
   const filteredFeeHistory = useMemo(() => {
