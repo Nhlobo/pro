@@ -189,15 +189,13 @@ const MedicalExpertFormPage = ({
     if (!id) return;
     setLoadingFeeHistory(true);
     try {
-      const { data, error } = await supabase
-        .from("audit_logs")
-        .select("id, action_type, old_values, new_values, changed_fields, user_email, created_at, function_area")
-        .eq("table_name", "medical_experts")
-        .eq("record_id", id)
-        .eq("function_area", "expert_fees")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (!error) setFeeHistory(data || []);
+      // Merged view of every place a fee change can be recorded (directory
+      // form, credit control, database trigger) so this panel never shows 0
+      // for a fee that was changed on another screen.
+      const merged = await fetchUnifiedFeeHistory(id);
+      setFeeHistory(merged);
+    } catch {
+      /* keep whatever we already have on a transient failure */
     } finally {
       setLoadingFeeHistory(false);
     }
