@@ -30,17 +30,41 @@ export interface InternalExpert {
   city: string | null;
   languages: string[] | null;
   hpcsa_number: string | null;
+  practice_number: string | null;
   medico_legal_years_experience: number | null;
   years_experience: number | null;
   matter_types: string[] | null;
   status: string;
   cv_document_url: string | null;
+  qualifications_document_url: string | null;
+  hpcsa_document_url: string | null;
   virtual_assessment: boolean | null;
   assessment_turnaround_days: number | null;
   report_turnaround_days: number | null;
   email: string | null;
   contact_number: string | null;
   medico_legal_only: boolean | null;
+  // Fields that existed on the table but were never selected by the
+  // internal search query, so they never reached the UI even though
+  // they're filled in on every expert's record.
+  practice_address: string | null;
+  practice_company_name: string | null;
+  personal_assistant_name: string | null;
+  personal_assistant_contact: string | null;
+  qualifications: string | null;
+  specializations: string[] | null;
+  availability_notes: string | null;
+  consultation_fees: number | null;
+  consultation_fee_mva: number | null;
+  consultation_fee_med_neg: number | null;
+  consultation_fee_per_hour: number | null;
+  court_fees: number | null;
+  merit_fees: number | null;
+  addendum_fees: number | null;
+  affidavit_fees: number | null;
+  joint_minutes_fees: number | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface ExternalResult {
@@ -63,6 +87,52 @@ export interface ExternalResult {
 const fuzzy = (haystack: string, needle: string) => {
   if (!needle) return true;
   return haystack.toLowerCase().includes(needle.toLowerCase());
+};
+
+const EXPERT_DOCS_BUCKET = 'expert-documents';
+
+/**
+ * "View CV" (and qualifications / HPCSA certificate) never worked because
+ * the value stored in cv_document_url etc. was produced by
+ * supabase.storage.getPublicUrl() at upload time (see
+ * MedicalExpertFormPage.tsx's uploadExpertFile), but the expert-documents
+ * bucket was created with `public: false`. A getPublicUrl() link only
+ * resolves against a *public* bucket — against a private one it 400s/403s
+ * every time, regardless of who's signed in. The one URL shape that
+ * actually authorizes access to a private bucket's object is a signed URL,
+ * so this pulls the bucket-relative path back out of whatever shape ended
+ * up stored (a broken public URL, an already-expired signed URL from a
+ * previous view, or a bare path) and mints a fresh one on demand.
+ */
+const extractExpertDocPath = (stored: string): string | null => {
+  const marker = `/${EXPERT_DOCS_BUCKET}/`;
+  const idx = stored.indexOf(marker);
+  if (idx === -1) {
+    // No bucket marker found — if it's not a URL at all, treat it as
+    // already being a bare storage path (e.g. "cvs/cv-123.pdf").
+    return stored.startsWith('http') ? null : stored;
+  }
+  const afterBucket = stored.slice(idx + marker.length);
+  const path = afterBucket.split('?')[0];
+  return path || null;
+};
+
+export const openExpertDocument = async (
+  storedUrl: string,
+): Promise<{ url: string } | { error: string }> => {
+  const path = extractExpertDocPath(storedUrl);
+  if (!path) {
+    return { error: 'Could not work out where this file is stored.' };
+  }
+
+  const { data, error } = await supabase.storage
+    .from(EXPERT_DOCS_BUCKET)
+    .createSignedUrl(path, 60);
+
+  if (error || !data?.signedUrl) {
+    return { error: error?.message || 'Could not generate a link for this document.' };
+  }
+  return { url: data.signedUrl };
 };
 
 // Platform `medical_experts.expert_type` values are stored as free-form
@@ -337,7 +407,24 @@ export const useExpertSearch = () => {
     mutationFn: async (filters: SearchFilters) => {
       let q = supabase
         .from('medical_experts')
-        .select('id, first_name, last_name, expert_type, province, city, languages, hpcsa_number, medico_legal_years_experience, years_experience, matter_types, status, cv_document_url, virtual_assessment, assessment_turnaround_days, report_turnaround_days, email, contact_number, medico_legal_only')
+        // Full column set — the profile dialog on Find Experts shows the
+        // complete record, so nothing is left off this select the way the
+        // previous 18-column list left out fees, qualifications, practice
+        // address, and both document fields.
+        .select(`
+          id, first_name, last_name, expert_type, province, city,
+          languages, hpcsa_number, practice_number,
+          medico_legal_years_experience, years_experience, matter_types,
+          status, cv_document_url, qualifications_document_url, hpcsa_document_url,
+          virtual_assessment, assessment_turnaround_days, report_turnaround_days,
+          email, contact_number, medico_legal_only,
+          practice_address, practice_company_name,
+          personal_assistant_name, personal_assistant_contact,
+          qualifications, specializations, availability_notes,
+          consultation_fees, consultation_fee_mva, consultation_fee_med_neg, consultation_fee_per_hour,
+          court_fees, merit_fees, addendum_fees, affidavit_fees, joint_minutes_fees,
+          created_at, updated_at
+        `)
         .eq('status', 'active')
         .order('updated_at', { ascending: false })
         .limit(200);
