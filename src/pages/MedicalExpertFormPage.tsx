@@ -27,6 +27,10 @@ import { ArrowLeft, FileText, Shield, Plus, Save, Cloud, CloudOff, History, Arro
 import { useAuditTrail } from "@/hooks/useAuditTrail";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDateTimeShort } from "@/utils/dateTime";
+import {
+  fetchUnifiedFeeHistory,
+  FEE_FIELD_LABELS as UNIFIED_FEE_FIELD_LABELS,
+} from "@/utils/expertFeeHistory";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { generateExpertCode } from "@/utils/idGenerators";
