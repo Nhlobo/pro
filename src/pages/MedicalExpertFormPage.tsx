@@ -148,7 +148,7 @@ const MedicalExpertFormPage = ({
 
   const [feeDateRange, setFeeDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedFeeType, setSelectedFeeType] = useState<string>("all");
-  const [selectedUserEmail, setSelectedUserEmail] = useState<string>("");
+  const [selectedUserEmail, setSelectedUserEmail] = useState<string>("all");
 
   const FEE_FIELD_LABELS: Record<string, string> = UNIFIED_FEE_FIELD_LABELS;
   const FEE_FIELD_KEYS = Object.keys(FEE_FIELD_LABELS);
@@ -163,7 +163,7 @@ const MedicalExpertFormPage = ({
       if (selectedFeeType !== "all" && !changed.includes(selectedFeeType)) return false;
 
       const email = (entry.user_email || "").toLowerCase();
-      if (selectedUserEmail && !email.includes(selectedUserEmail.toLowerCase().trim())) return false;
+      if (selectedUserEmail !== "all" && !email.includes(selectedUserEmail.toLowerCase().trim())) return false;
 
       if (!isWithinDateRange(entry.created_at, feeDateRange)) return false;
 
@@ -182,7 +182,7 @@ const MedicalExpertFormPage = ({
   const clearFeeFilters = () => {
     setFeeDateRange(undefined);
     setSelectedFeeType("all");
-    setSelectedUserEmail("");
+    setSelectedUserEmail("all");
   };
 
   const fetchFeeHistory = useCallback(async (id: string) => {
@@ -1877,14 +1877,14 @@ const MedicalExpertFormPage = ({
                         <SelectValue placeholder="All users" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">All users</SelectItem>
+                        <SelectItem value="all">All users</SelectItem>
                         {uniqueFeeUsers.map((email) => (
                           <SelectItem key={email} value={email}>{email}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  {(feeDateRange?.from || selectedFeeType !== "all" || selectedUserEmail) && (
+                  {(feeDateRange?.from || selectedFeeType !== "all" || selectedUserEmail !== "all") && (
                     <Button
                       type="button"
                       variant="ghost"
