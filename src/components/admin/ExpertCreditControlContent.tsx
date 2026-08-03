@@ -36,6 +36,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Pencil, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { RandSign } from "@/components/icons/RandSign";
+import { fetchUnifiedFeeHistory, FEE_FIELD_LABELS } from "@/utils/expertFeeHistory";
 import {
   AdminCard,
   AdminCardHeader,
