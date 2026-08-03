@@ -522,7 +522,7 @@ const ExpertProfileDialog: React.FC<{
   const fullName = `${expert.first_name} ${expert.last_name}`.trim();
   const exp = expert.medico_legal_years_experience ?? expert.years_experience ?? null;
 
-  const fees: Array<[string, number | null | undefined]> = [
+  const feeRows: Array<[string, number | null | undefined]> = [
     ['Consultation (general)', expert.consultation_fees],
     ['Consultation — MVA', expert.consultation_fee_mva],
     ['Consultation — Med Neg', expert.consultation_fee_med_neg],
@@ -532,7 +532,10 @@ const ExpertProfileDialog: React.FC<{
     ['Addendum report', expert.addendum_fees],
     ['Affidavit', expert.affidavit_fees],
     ['Joint minutes', expert.joint_minutes_fees],
-  ].filter(([, v]) => v !== null && v !== undefined);
+  ];
+  const fees: Array<[string, number]> = feeRows.filter(
+    (row): row is [string, number] => row[1] !== null && row[1] !== undefined,
+  );
 
   const hasDocuments = expert.cv_document_url || expert.qualifications_document_url || expert.hpcsa_document_url;
 
