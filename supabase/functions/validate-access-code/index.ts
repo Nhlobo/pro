@@ -28,7 +28,7 @@ Deno.serve(withErrorHandler(async (req) => {
     // Validate the access code
     const { data: codeData, error: codeError } = await supabase
       .from("attorney_access_codes")
-      .select("id, referring_attorney_id, appointment_id, is_active, access_count")
+      .select("id, referring_attorney_id, appointment_id, is_active, access_count, expires_at")
       .eq("access_code", access_code.trim())
       .single();
 
@@ -42,6 +42,19 @@ Deno.serve(withErrorHandler(async (req) => {
     if (!codeData.is_active) {
       return new Response(
         JSON.stringify({ error: "This access code has expired. The case has been paid in full and the report has been delivered." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check 1-year expiry (mirrors validate-expert-access-code)
+    if (codeData.expires_at && new Date(codeData.expires_at) < new Date()) {
+      await supabase
+        .from("attorney_access_codes")
+        .update({ is_active: false, deactivated_at: new Date().toISOString(), deactivation_reason: "Expired after 1 year" })
+        .eq("id", codeData.id);
+
+      return new Response(
+        JSON.stringify({ error: "This access code has expired after 1 year. Please contact us for a new link." }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
