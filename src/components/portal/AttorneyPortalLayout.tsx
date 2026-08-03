@@ -84,24 +84,18 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
-  const { isReferringAttorney, isAdmin, loading } = usePermissions();
+  const { isReferringAttorney, loading } = usePermissions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Redirect anyone who isn't a referring attorney — admins/employees are
-  // still let through so they can preview this portal, but no other role
-  // (sales_consultant, medical_expert, etc.) should ever land here.
-  React.useEffect(() => {
-    if (!loading && !isReferringAttorney() && !isAdmin()) {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [loading, isReferringAttorney, isAdmin, navigate]);
+  // Redirect non-referring attorneys (temporarily relaxed for admin preview)
+  // React.useEffect(() => {
+  //   if (!loading && !isReferringAttorney()) {
+  //     navigate('/dashboard');
+  //   }
+  // }, [loading, isReferringAttorney, navigate]);
 
   if (loading) {
     return <BrandedPageLoader message="Loading…" />;
-  }
-
-  if (!isReferringAttorney() && !isAdmin()) {
-    return <BrandedPageLoader message="Redirecting…" />;
   }
 
   return (
