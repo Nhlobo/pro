@@ -24,7 +24,6 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
 import { ArrowLeft, FileText, Shield, Plus, Save, Cloud, CloudOff, History, ArrowRight, RefreshCw, Filter, X } from "lucide-react";
-import PortalAccessControl from "@/components/admin/PortalAccessControl";
 import { useAuditTrail } from "@/hooks/useAuditTrail";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDateTimeShort } from "@/utils/dateTime";
@@ -1818,17 +1817,6 @@ const MedicalExpertFormPage = ({
             )}
           </CardContent>
         </Card>
-
-        {isEditMode && expertId && (
-          <Card className="mt-6">
-            <CardHeader>
-              <CardTitle className="text-lg">Expert Portal Access</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PortalAccessControl personType="expert" personId={expertId} />
-            </CardContent>
-          </Card>
-        )}
 
         {isEditMode && (
           <Card className="mt-6 border-l-4 border-l-primary">
