@@ -27,6 +27,10 @@ import { ArrowLeft, FileText, Shield, Plus, Save, Cloud, CloudOff, History, Arro
 import { useAuditTrail } from "@/hooks/useAuditTrail";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDateTimeShort } from "@/utils/dateTime";
+import {
+  fetchUnifiedFeeHistory,
+  FEE_FIELD_LABELS as UNIFIED_FEE_FIELD_LABELS,
+} from "@/utils/expertFeeHistory";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "react-router-dom";
 import { generateExpertCode } from "@/utils/idGenerators";
@@ -146,16 +150,7 @@ const MedicalExpertFormPage = ({
   const [selectedFeeType, setSelectedFeeType] = useState<string>("all");
   const [selectedUserEmail, setSelectedUserEmail] = useState<string>("");
 
-  const FEE_FIELD_LABELS: Record<string, string> = {
-    consultation_fee_mva: "Consultation Fee MVA",
-    consultation_fee_med_neg: "Consultation Fee Med Neg",
-    merit_fees: "Merit Fees",
-    consultation_fee_per_hour: "Hourly Rate Fee",
-    court_fees: "Court Fee",
-    addendum_fees: "Addendum Fee",
-    affidavit_fees: "Affidavit Fee",
-    joint_minutes_fees: "Joint Minutes Fee",
-  };
+  const FEE_FIELD_LABELS: Record<string, string> = UNIFIED_FEE_FIELD_LABELS;
   const FEE_FIELD_KEYS = Object.keys(FEE_FIELD_LABELS);
 
   const filteredFeeHistory = useMemo(() => {
@@ -194,15 +189,13 @@ const MedicalExpertFormPage = ({
     if (!id) return;
     setLoadingFeeHistory(true);
     try {
-      const { data, error } = await supabase
-        .from("audit_logs")
-        .select("id, action_type, old_values, new_values, changed_fields, user_email, created_at, function_area")
-        .eq("table_name", "medical_experts")
-        .eq("record_id", id)
-        .eq("function_area", "expert_fees")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (!error) setFeeHistory(data || []);
+      // Merged view of every place a fee change can be recorded (directory
+      // form, credit control, database trigger) so this panel never shows 0
+      // for a fee that was changed on another screen.
+      const merged = await fetchUnifiedFeeHistory(id);
+      setFeeHistory(merged);
+    } catch {
+      /* keep whatever we already have on a transient failure */
     } finally {
       setLoadingFeeHistory(false);
     }
@@ -251,6 +244,15 @@ const MedicalExpertFormPage = ({
 
   useEffect(() => {
     if (expertId) fetchFeeHistory(expertId);
+  }, [expertId, fetchFeeHistory]);
+
+  // Fees can also change from Expert Credit Control — refresh the history when
+  // any other screen broadcasts an expert update.
+  useEffect(() => {
+    if (!expertId) return;
+    const handler = () => fetchFeeHistory(expertId);
+    window.addEventListener('medical-expert-updated', handler);
+    return () => window.removeEventListener('medical-expert-updated', handler);
   }, [expertId, fetchFeeHistory]);
   
   const form = useForm<z.infer<typeof formSchema>>({

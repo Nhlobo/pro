@@ -36,6 +36,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { Pencil, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { RandSign } from "@/components/icons/RandSign";
+import { fetchUnifiedFeeHistory, FEE_FIELD_LABELS } from "@/utils/expertFeeHistory";
 import {
   AdminCard,
   AdminCardHeader,
@@ -131,14 +132,24 @@ export const ExpertCreditControlContent: React.FC = () => {
   const loadFeeHistory = async (expertId: string) => {
     setHistoryLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("expert_fee_change_history" as any)
-        .select("id, fee_field, old_value, new_value, changed_by_name, source, created_at")
-        .eq("expert_id", expertId)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      setFeeHistory((data as any) || []);
+      // Unified across the directory form, credit control and the DB trigger so
+      // this panel matches the "Fee Change History" shown on the expert form.
+      const merged = await fetchUnifiedFeeHistory(expertId);
+      const rows: FeeHistoryEntry[] = [];
+      merged.forEach((entry) => {
+        entry.changed_fields.forEach((field) => {
+          rows.push({
+            id: `${entry.id}-${field}`,
+            fee_field: field,
+            old_value: entry.old_values?.[field] ?? null,
+            new_value: Number(entry.new_values?.[field] ?? 0),
+            changed_by_name: entry.user_email,
+            source: entry.source,
+            created_at: entry.created_at,
+          });
+        });
+      });
+      setFeeHistory(rows);
     } catch (e: any) {
       setFeeHistory([]);
     } finally {
@@ -165,9 +176,33 @@ export const ExpertCreditControlContent: React.FC = () => {
     try {
       const oldC = Number(feeEditExpert.consultation_fees) || 0;
       const oldK = Number(feeEditExpert.court_fees) || 0;
+
+      // The directory shows the legacy `consultation_fees` column, but the
+      // expert form recalculates that column from the split fee fields on its
+      // next save. Writing only the legacy column therefore gets silently
+      // reverted. Mirror the new consultation fee into whichever split field
+      // currently backs it so both stay in step.
+      const { data: current } = await supabase
+        .from("medical_experts")
+        .select("consultation_fee_med_neg, consultation_fee_mva, consultation_fee_per_hour")
+        .eq("id", feeEditExpert.expert_id)
+        .maybeSingle();
+
+      const backingField =
+        current?.consultation_fee_med_neg != null
+          ? "consultation_fee_med_neg"
+          : current?.consultation_fee_mva != null
+            ? "consultation_fee_mva"
+            : current?.consultation_fee_per_hour != null
+              ? "consultation_fee_per_hour"
+              : null;
+
+      const patch: Record<string, number> = { consultation_fees: c, court_fees: k };
+      if (backingField && c !== oldC) patch[backingField] = c;
+
       const { error } = await supabase
         .from("medical_experts")
-        .update({ consultation_fees: c, court_fees: k })
+        .update(patch as any)
         .eq("id", feeEditExpert.expert_id);
       if (error) throw error;
 
@@ -176,6 +211,8 @@ export const ExpertCreditControlContent: React.FC = () => {
         user?.email ||
         null;
       const entries: any[] = [];
+      const auditOld: Record<string, number | null> = {};
+      const auditNew: Record<string, number | null> = {};
       if (c !== oldC) {
         entries.push({
           expert_id: feeEditExpert.expert_id,
@@ -186,6 +223,12 @@ export const ExpertCreditControlContent: React.FC = () => {
           changed_by_name: changedByName,
           source: "credit_control",
         });
+        auditOld.consultation_fees = oldC;
+        auditNew.consultation_fees = c;
+        if (backingField) {
+          auditOld[backingField] = (current as any)?.[backingField] ?? null;
+          auditNew[backingField] = c;
+        }
       }
       if (k !== oldK) {
         entries.push({
@@ -197,13 +240,37 @@ export const ExpertCreditControlContent: React.FC = () => {
           changed_by_name: changedByName,
           source: "credit_control",
         });
+        auditOld.court_fees = oldK;
+        auditNew.court_fees = k;
       }
       if (entries.length) {
         await supabase.from("expert_fee_change_history" as any).insert(entries);
+        // Also record on the shared audit trail so the expert form's Fee
+        // Change History and compliance reporting see the same change.
+        try {
+          await supabase.rpc("log_audit_trail", {
+            p_table_name: "medical_experts",
+            p_record_id: String(feeEditExpert.expert_id),
+            p_action_type: "UPDATE",
+            p_function_area: "expert_fees",
+            p_old_values: auditOld,
+            p_new_values: auditNew,
+            p_description: `Fees updated for ${feeEditExpert.expert_name} from Credit Control`,
+          } as any);
+        } catch (auditErr) {
+          console.warn("Failed to log fee change to audit trail", auditErr);
+        }
       }
 
       toast.success("Expert fees updated. Directory synced.");
-      window.dispatchEvent(new Event("medical-expert-updated"));
+      window.dispatchEvent(new CustomEvent("medical-expert-updated", {
+        detail: {
+          expertId: feeEditExpert.expert_id,
+          consultation_fees: c,
+          court_fees: k,
+          patch,
+        },
+      }));
       await loadFeeHistory(feeEditExpert.expert_id);
       await fetchExpertPaymentData();
       setFeeEditExpert(null);
@@ -1225,7 +1292,7 @@ export const ExpertCreditControlContent: React.FC = () => {
                       {feeHistory.map((h) => {
                         const oldV = h.old_value == null ? "—" : `R ${Number(h.old_value).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
                         const newV = `R ${Number(h.new_value).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
-                        const fieldLabel = h.fee_field === "consultation_fees" ? "Consultation" : h.fee_field === "court_fees" ? "Court" : h.fee_field;
+                        const fieldLabel = FEE_FIELD_LABELS[h.fee_field] || h.fee_field;
                         return (
                           <TableRow key={h.id}>
                             <TableCell className="text-xs whitespace-nowrap">
