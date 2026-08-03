@@ -1292,7 +1292,7 @@ export const ExpertCreditControlContent: React.FC = () => {
                       {feeHistory.map((h) => {
                         const oldV = h.old_value == null ? "—" : `R ${Number(h.old_value).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
                         const newV = `R ${Number(h.new_value).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`;
-                        const fieldLabel = h.fee_field === "consultation_fees" ? "Consultation" : h.fee_field === "court_fees" ? "Court" : h.fee_field;
+                        const fieldLabel = FEE_FIELD_LABELS[h.fee_field] || h.fee_field;
                         return (
                           <TableRow key={h.id}>
                             <TableCell className="text-xs whitespace-nowrap">
