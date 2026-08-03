@@ -245,6 +245,15 @@ const MedicalExpertFormPage = ({
   useEffect(() => {
     if (expertId) fetchFeeHistory(expertId);
   }, [expertId, fetchFeeHistory]);
+
+  // Fees can also change from Expert Credit Control — refresh the history when
+  // any other screen broadcasts an expert update.
+  useEffect(() => {
+    if (!expertId) return;
+    const handler = () => fetchFeeHistory(expertId);
+    window.addEventListener('medical-expert-updated', handler);
+    return () => window.removeEventListener('medical-expert-updated', handler);
+  }, [expertId, fetchFeeHistory]);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
