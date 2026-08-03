@@ -2,8 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import BrandedPageLoader from '@/components/BrandedPageLoader';
+
+const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
 
 /**
  * Public, unauthenticated entry point for attorney/expert access-code links
@@ -63,25 +66,21 @@ const PortalEntry: React.FC = () => {
     };
   }, [searchParams, navigate]);
 
+  if (!error) {
+    return <BrandedPageLoader message={status} />;
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="max-w-md w-full">
-        <CardContent className="pt-6 flex flex-col items-center text-center gap-4">
-          {error ? (
-            <>
-              <AlertCircle className="h-10 w-10 text-destructive" />
-              <div>
-                <p className="font-medium">Unable to access your portal</p>
-                <p className="text-sm text-muted-foreground mt-1">{error}</p>
-              </div>
-              <Button variant="outline" onClick={() => navigate('/')}>Return home</Button>
-            </>
-          ) : (
-            <>
-              <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">{status}</p>
-            </>
-          )}
+        <CardContent className="pt-8 pb-8 flex flex-col items-center text-center gap-4">
+          <img src={logoSrc} alt="Kutlwano & Associate" className="h-12 w-12 object-contain" />
+          <AlertCircle className="h-10 w-10 text-destructive" />
+          <div>
+            <p className="font-medium">Unable to access your portal</p>
+            <p className="text-sm text-muted-foreground mt-1">{error}</p>
+          </div>
+          <Button variant="outline" onClick={() => navigate('/')}>Return home</Button>
         </CardContent>
       </Card>
     </div>
