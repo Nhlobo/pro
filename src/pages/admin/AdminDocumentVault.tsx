@@ -100,6 +100,13 @@ const getDocumentSource = (doc: DocumentRecord): string => {
   return 'System';
 };
 
+// Determine if a document belongs to the "Experts" bucket. Pure/stable —
+// lives outside the component so it isn't recreated on every render.
+const isExpertDoc = (d: DocumentRecord) =>
+  !!d.expert_id ||
+  ['Expert CV', 'Expert Qualifications', 'Expert HPCSA Certificate', 'Expert Report', 'Expert AOD Agreement'].includes(d.document_type) ||
+  d.document_type === 'expert_report_sent' || d.document_type === 'medico_report';
+
 const ACCESS_LEVELS = [
   { value: 'public', label: 'Public', desc: 'Visible to all' },
   { value: 'internal', label: 'Internal', desc: 'Admin & Employees only' },
@@ -142,7 +149,14 @@ interface DocumentRecord {
 const AdminDocumentVault: React.FC = () => {
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  // Debounce: only re-filter ~250ms after the user stops typing, instead of
+  // re-scanning every document on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setSearchTerm(searchInput), 250);
+    return () => clearTimeout(t);
+  }, [searchInput]);
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [expertFilter, setExpertFilter] = useState('all');
@@ -224,29 +238,69 @@ const AdminDocumentVault: React.FC = () => {
     loadExpertId();
   }, [isExpert, user]);
 
-  // Helper: try to access a file across multiple storage buckets
-  const resolveStorageBucket = async (filePath: string): Promise<string> => {
-    for (const bucket of STORAGE_BUCKETS) {
-      const { data } = await supabase.storage.from(bucket).createSignedUrl(filePath, 10);
-      if (data?.signedUrl) return bucket;
+  // Storage buckets: a document's file can live in any one of STORAGE_BUCKETS
+  // depending on which flow uploaded it. Previously every preview/download/
+  // delete tried each bucket ONE AT A TIME, awaiting each before trying the
+  // next — so a file sitting in the last bucket cost up to 5 sequential
+  // network round-trips before anything happened. Now: (1) race all buckets
+  // in parallel so it costs ~1 round-trip (the fastest response) instead of
+  // up to 5, and (2) remember which bucket a file was found in so repeat
+  // access to the same document (e.g. preview then download) skips the race
+  // entirely.
+  const bucketCacheRef = useRef<Map<string, string>>(new Map());
+
+  // Small polyfill-free stand-in for Promise.any (this project's TS "lib"
+  // target predates it) — resolves with the first promise to fulfill, and
+  // only rejects once every promise has rejected.
+  const firstFulfilled = <T,>(promises: Promise<T>[]): Promise<T> =>
+    new Promise((resolve, reject) => {
+      let remaining = promises.length;
+      if (remaining === 0) { reject(new Error('No candidates')); return; }
+      promises.forEach(p => p.then(resolve).catch(err => {
+        remaining -= 1;
+        if (remaining === 0) reject(err);
+      }));
+    });
+
+  const findInBuckets = async <T,>(
+    filePath: string,
+    tryBucket: (bucket: string) => Promise<T | null | undefined>
+  ): Promise<{ bucket: string; result: T }> => {
+    const cachedBucket = bucketCacheRef.current.get(filePath);
+    if (cachedBucket) {
+      const result = await tryBucket(cachedBucket);
+      if (result) return { bucket: cachedBucket, result };
+      // Cached bucket no longer has the file (moved/deleted) — fall through
+      // to a fresh race across all buckets below.
     }
-    throw new Error(`File not found in any storage bucket: ${filePath}`);
+    const attempts = STORAGE_BUCKETS.map(async bucket => {
+      const result = await tryBucket(bucket);
+      if (!result) throw new Error(`Not in bucket ${bucket}`);
+      return { bucket, result };
+    });
+    try {
+      const winner = await firstFulfilled(attempts);
+      bucketCacheRef.current.set(filePath, winner.bucket);
+      return winner;
+    } catch {
+      throw new Error(`File not found in any storage bucket: ${filePath}`);
+    }
   };
 
   const createSignedUrl = async (filePath: string, expiresIn: number = 604800): Promise<string> => {
-    for (const bucket of STORAGE_BUCKETS) {
-      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(filePath, expiresIn);
-      if (data?.signedUrl) return data.signedUrl;
-    }
-    throw new Error(`File not found in any storage bucket: ${filePath}`);
+    const { result } = await findInBuckets(filePath, async bucket => {
+      const { data } = await supabase.storage.from(bucket).createSignedUrl(filePath, expiresIn);
+      return data?.signedUrl ?? null;
+    });
+    return result;
   };
 
   const downloadFromBuckets = async (filePath: string): Promise<Blob> => {
-    for (const bucket of STORAGE_BUCKETS) {
-      const { data, error } = await supabase.storage.from(bucket).download(filePath);
-      if (data) return data;
-    }
-    throw new Error(`File not found in any storage bucket: ${filePath}`);
+    const { result } = await findInBuckets(filePath, async bucket => {
+      const { data } = await supabase.storage.from(bucket).download(filePath);
+      return data ?? null;
+    });
+    return result;
   };
 
   const fetchDocuments = useCallback(async () => {
@@ -328,13 +382,12 @@ const AdminDocumentVault: React.FC = () => {
 
   useEffect(() => { fetchDocuments(); fetchDropdowns(); }, [fetchDocuments, fetchDropdowns]);
 
-  // Filtering
-  const isExpertDoc = (d: DocumentRecord) =>
-    !!d.expert_id ||
-    ['Expert CV', 'Expert Qualifications', 'Expert HPCSA Certificate', 'Expert Report', 'Expert AOD Agreement'].includes(d.document_type) ||
-    d.document_type === 'expert_report_sent' || d.document_type === 'medico_report';
-
-  const filteredDocs = documents.filter(d => {
+  // Filtering — memoized so this only re-runs when the underlying documents
+  // or an actual filter value changes, not on every unrelated re-render
+  // (opening a dialog, hovering a row, the preview sheet toggling, etc.).
+  // Previously this ran fresh on every render, re-scanning every document
+  // with several .toLowerCase()/.includes() calls each time.
+  const filteredDocs = React.useMemo(() => documents.filter(d => {
     const typeLabel = getDocTypeLabel(d.document_type).toLowerCase();
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = !searchTerm ||
@@ -356,7 +409,7 @@ const AdminDocumentVault: React.FC = () => {
     if (activeTab === 'declined') return matchesSearch && matchesType && matchesExpert && matchesExpertType && d.approval_status === 'declined';
     if (activeTab === 'experts') return matchesSearch && matchesType && matchesStatus && matchesExpert && matchesExpertType && isExpertDoc(d);
     return matchesSearch && matchesType && matchesStatus && matchesExpert && matchesExpertType;
-  });
+  }), [documents, searchTerm, typeFilter, statusFilter, expertFilter, expertTypeFilter, activeTab]);
 
   // Group documents by claimant so every assessment/appointment a claimant has
   // — across however many different doctors/experts they saw — plus all their
@@ -728,11 +781,21 @@ const AdminDocumentVault: React.FC = () => {
   const handleDelete = async (doc: DocumentRecord) => {
     if (!confirm(`Delete "${doc.file_name}"? This cannot be undone.`)) return;
     try {
-      // Try to delete from whichever bucket has the file
+      // Try to delete from whichever bucket has the file — check the cache
+      // from a prior preview/download first, otherwise attempt all buckets
+      // in parallel (a remove() on a bucket that doesn't have the file is a
+      // harmless no-op/error) instead of one-by-one.
       let deleted = false;
-      for (const bucket of STORAGE_BUCKETS) {
-        const { error } = await supabase.storage.from(bucket).remove([doc.file_path]);
-        if (!error) { deleted = true; break; }
+      const cachedBucket = bucketCacheRef.current.get(doc.file_path);
+      if (cachedBucket) {
+        const { error } = await supabase.storage.from(cachedBucket).remove([doc.file_path]);
+        if (!error) deleted = true;
+      }
+      if (!deleted) {
+        const results = await Promise.all(
+          STORAGE_BUCKETS.map(bucket => supabase.storage.from(bucket).remove([doc.file_path]))
+        );
+        deleted = results.some(r => !r.error);
       }
       const { error } = await supabase.from('documents').delete().eq('id', doc.id);
       if (error) throw error;
@@ -869,8 +932,8 @@ const AdminDocumentVault: React.FC = () => {
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   placeholder="Filename, claimant, attorney, expert…"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
+                  value={searchInput}
+                  onChange={e => setSearchInput(e.target.value)}
                   className="rounded-none pl-8"
                 />
               </div>
