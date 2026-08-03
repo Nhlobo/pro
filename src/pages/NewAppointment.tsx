@@ -765,6 +765,13 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
           if (insertedAppointments && insertedAppointments.length > 0) {
             for (const appointment of insertedAppointments) {
               await handleAODCreation(appointment);
+              try {
+                await supabase.functions.invoke('sageone-processor', {
+                  body: { appointmentId: appointment.id }
+                });
+              } catch (sageoneError) {
+                console.warn('sageone-processor invoke failed; queue will retry via outbox trigger:', sageoneError);
+              }
             }
             // Note: Automatic email confirmations are permanently disabled.
             // All emails must be sent manually by administrators.
@@ -1017,6 +1024,14 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
         // Handle AOD/Short-term agreement creation based on payment terms
         if (insertedAppointment && insertedAppointment.length > 0) {
           const newAppointment = insertedAppointment[0];
+
+          try {
+            await supabase.functions.invoke('sageone-processor', {
+              body: { appointmentId: newAppointment.id }
+            });
+          } catch (sageoneError) {
+            console.warn('sageone-processor invoke failed; queue will retry via outbox trigger:', sageoneError);
+          }
           
           // Check if short-term agreement should be triggered
           if (shouldTriggerShortTermAgreement(formData.paymentTerms, formData.agreementDurationMonths)) {
