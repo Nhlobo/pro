@@ -147,7 +147,7 @@ interface DocumentRecord {
 }
 
 const AdminDocumentVault: React.FC = () => {
-  const [documents, setDocuments] = useState<DocumentRecord[]>([]);
+  const [rawDocuments, setRawDocuments] = useState<Omit<DocumentRecord, 'claimant_name' | 'attorney_name' | 'expert_name' | 'expert_type' | 'expert_specializations'>[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -218,7 +218,9 @@ const AdminDocumentVault: React.FC = () => {
   const [claimants, setClaimants] = useState<{ id: string; name: string; auto_id: string }[]>([]);
   const [attorneys, setAttorneys] = useState<{ id: string; name: string }[]>([]);
   const [experts, setExperts] = useState<{ id: string; name: string }[]>([]);
-  const [appointments, setAppointments] = useState<{ id: string; label: string; expert_id: string; claimant_id: string; referring_attorney_id: string }[]>([]);
+  // Full expert lookup (any status, not just active) used to join expert
+  // name/type/specializations onto documents client-side — see fetchDocuments.
+  const [expertsLookup, setExpertsLookup] = useState<Map<string, { name: string; expert_type: string; specializations: string[] }>>(new Map());
 
   const { toast } = useToast();
   const { user } = useAuth();
@@ -306,13 +308,21 @@ const AdminDocumentVault: React.FC = () => {
   const fetchDocuments = useCallback(async () => {
     setLoading(true);
     try {
+      // Lean, explicit column list (not `select('*')`) and no embedded
+      // claimants/referring_attorneys/medical_experts joins — those three
+      // joins ran on every single row of every fetch just to resolve display
+      // names. Since fetchDropdowns() already loads the full claimant/
+      // attorney/expert lists separately, we join names onto documents
+      // client-side instead (see the `documents` memo below). That turns
+      // this into a flat, single-table query.
       let query = supabase
         .from('documents')
         .select(`
-          *,
-          claimants(first_name, last_name, auto_id),
-          referring_attorneys:referring_attorney_id(name),
-          medical_experts:expert_id(first_name, last_name, expert_type, specializations)
+          id, document_type, file_name, file_path, file_size, file_type,
+          uploaded_by, upload_date, upload_time, notes, claimant_id,
+          referring_attorney_id, expert_id, appointment_id, approval_status,
+          access_level, reviewed_by, reviewed_at, review_notes,
+          is_visible_to_attorney, is_visible_to_expert, created_at, updated_at
         `)
         .order('created_at', { ascending: false })
         .gte('created_at', '2025-01-01T00:00:00');
@@ -330,16 +340,7 @@ const AdminDocumentVault: React.FC = () => {
       const { data, error } = await query;
       if (error) throw error;
 
-      const mapped: DocumentRecord[] = (data || []).map((d: any) => ({
-        ...d,
-        claimant_name: d.claimants ? `${d.claimants.first_name} ${d.claimants.last_name}` : '',
-        attorney_name: d.referring_attorneys?.name || '',
-        expert_name: d.medical_experts ? `${d.medical_experts.first_name} ${d.medical_experts.last_name}` : '',
-        expert_type: d.medical_experts?.expert_type || '',
-        expert_specializations: d.medical_experts?.specializations || [],
-      }));
-
-      setDocuments(mapped);
+      setRawDocuments((data || []) as any[]);
     } catch (err: any) {
       console.error('Error fetching documents:', err);
       toast({ title: 'Error', description: 'Failed to load documents.', variant: 'destructive' });
@@ -348,13 +349,36 @@ const AdminDocumentVault: React.FC = () => {
     }
   }, [toast, isAttorney, isExpert, currentExpertId]);
 
+  // Join claimant/attorney/expert names onto the raw document rows. Runs as
+  // a memo (not inside fetchDocuments) so it stays correct regardless of
+  // whether fetchDocuments or fetchDropdowns finishes loading first, and so
+  // it doesn't force a second network round-trip if dropdown data arrives
+  // after the documents themselves.
+  const claimantsById = React.useMemo(() => new Map(claimants.map(c => [c.id, c])), [claimants]);
+  const attorneysById = React.useMemo(() => new Map(attorneys.map(a => [a.id, a])), [attorneys]);
+  const documents: DocumentRecord[] = React.useMemo(() => rawDocuments.map(d => {
+    const claimant = d.claimant_id ? claimantsById.get(d.claimant_id) : undefined;
+    const attorney = d.referring_attorney_id ? attorneysById.get(d.referring_attorney_id) : undefined;
+    const expert = d.expert_id ? expertsLookup.get(d.expert_id) : undefined;
+    return {
+      ...d,
+      claimant_name: claimant?.name || '',
+      attorney_name: attorney?.name || '',
+      expert_name: expert?.name || '',
+      expert_type: expert?.expert_type || '',
+      expert_specializations: expert?.specializations || [],
+    };
+  }), [rawDocuments, claimantsById, attorneysById, expertsLookup]);
+
   const fetchDropdowns = useCallback(async () => {
-    const [claimantsRes, attorneysRes, expertsRes, appointmentsRes, expertTypesRes] = await Promise.all([
+    const [claimantsRes, attorneysRes, allExpertsRes] = await Promise.all([
       supabase.from('claimants').select('id, first_name, last_name, auto_id').order('first_name'),
       supabase.from('referring_attorneys').select('id, name').order('name'),
-      supabase.from('medical_experts').select('id, first_name, last_name').eq('status', 'active').order('first_name'),
-      supabase.from('appointments').select('id, appointment_date, expert_id, claimant_id, referring_attorney_id, claimants(first_name, last_name, auto_id), medical_experts!inner(first_name, last_name)').is('deleted_at', null).order('appointment_date', { ascending: false }).limit(200),
-      supabase.from('medical_experts').select('expert_type').not('expert_type', 'is', null),
+      // One query covering everything experts-related (dropdown list, name/
+      // type lookup for documents, and the set of expert types for the
+      // filter) — previously this was three separate round-trips
+      // (active-only experts, all-experts appointments join, expert_type-only).
+      supabase.from('medical_experts').select('id, first_name, last_name, expert_type, specializations, status').order('first_name'),
     ]);
     if (claimantsRes.data) {
       setClaimants(claimantsRes.data.map(c => ({ id: c.id, name: `${c.first_name} ${c.last_name}`, auto_id: c.auto_id })));
@@ -362,20 +386,15 @@ const AdminDocumentVault: React.FC = () => {
     if (attorneysRes.data) {
       setAttorneys(attorneysRes.data.map(a => ({ id: a.id, name: a.name })));
     }
-    if (expertsRes.data) {
-      setExperts(expertsRes.data.map(e => ({ id: e.id, name: `${e.first_name} ${e.last_name}` })));
-    }
-    if (appointmentsRes.data) {
-      setAppointments((appointmentsRes.data as any[]).map(a => ({
-        id: a.id,
-        label: `${a.claimants?.first_name || ''} ${a.claimants?.last_name || ''} (${a.claimants?.auto_id || ''}) - ${a.medical_experts?.first_name || ''} ${a.medical_experts?.last_name || ''}`,
-        expert_id: a.expert_id,
-        claimant_id: a.claimant_id,
-        referring_attorney_id: a.referring_attorney_id,
-      })));
-    }
-    if (expertTypesRes.data) {
-      const types = [...new Set((expertTypesRes.data as any[]).map(e => e.expert_type).filter(Boolean))].sort();
+    if (allExpertsRes.data) {
+      const all = allExpertsRes.data as any[];
+      setExperts(all.filter(e => e.status === 'active').map(e => ({ id: e.id, name: `${e.first_name} ${e.last_name}` })));
+      setExpertsLookup(new Map(all.map(e => [e.id, {
+        name: `${e.first_name} ${e.last_name}`,
+        expert_type: e.expert_type || '',
+        specializations: e.specializations || [],
+      }])));
+      const types = [...new Set(all.map(e => e.expert_type).filter(Boolean))].sort();
       setExpertTypes(types);
     }
   }, []);
@@ -469,6 +488,19 @@ const AdminDocumentVault: React.FC = () => {
     });
   }, [filteredDocs]);
 
+  // Pagination for the flat (non-"By Claimant") table/card views. Rendering
+  // all 400+ filtered rows into the DOM at once — even inside a scroll
+  // container — means React has to create and diff every row on every
+  // filter/search change. Paginating caps that to one page's worth of rows.
+  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [filteredDocs, activeTab]);
+  const pageCount = Math.max(1, Math.ceil(filteredDocs.length / PAGE_SIZE));
+  const pagedDocs = React.useMemo(
+    () => filteredDocs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredDocs, page]
+  );
+
   const stats = {
     total: documents.length,
     pending: documents.filter(d => d.approval_status === 'pending').length,
@@ -496,7 +528,7 @@ const AdminDocumentVault: React.FC = () => {
       ro.disconnect();
       window.removeEventListener('resize', update);
     };
-  }, [filteredDocs.length, loading, isAdminOrEmployee, activeTab]);
+  }, [pagedDocs.length, loading, isAdminOrEmployee, activeTab]);
 
   // Upload handler
   const handleUpload = async () => {
@@ -1126,7 +1158,7 @@ const AdminDocumentVault: React.FC = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredDocs.map(doc => (
+                        {pagedDocs.map(doc => (
                           <TableRow key={doc.id} className="hover:bg-black/[0.02]">
                             <TableCell>
                               <div className="flex items-center gap-2 min-w-0">
@@ -1222,7 +1254,7 @@ const AdminDocumentVault: React.FC = () => {
                   {/* Mobile / tablet card list — same data, no horizontal scroll and no
                       cramped columns, so nothing overlaps on narrower screens. */}
                   <div className="divide-y divide-black/10 xl:hidden max-h-[70vh] overflow-y-auto">
-                    {filteredDocs.map(doc => (
+                    {pagedDocs.map(doc => (
                       <div key={doc.id} className="flex flex-col gap-3 p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex min-w-0 items-start gap-2">
@@ -1320,6 +1352,34 @@ const AdminDocumentVault: React.FC = () => {
                       </div>
                     ))}
                   </div>
+
+                  {pageCount > 1 && (
+                    <div className="flex items-center justify-between gap-3 border-t border-black/10 px-4 py-3">
+                      <p className="text-xs text-slate-500">
+                        Page {page} of {pageCount} · {filteredDocs.length} documents
+                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-none"
+                          disabled={page <= 1}
+                          onClick={() => setPage(p => Math.max(1, p - 1))}
+                        >
+                          Previous
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-none"
+                          disabled={page >= pageCount}
+                          onClick={() => setPage(p => Math.min(pageCount, p + 1))}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </AdminCard>
