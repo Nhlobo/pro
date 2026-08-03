@@ -148,7 +148,7 @@ const AdminDocumentVault: React.FC = () => {
   const [expertFilter, setExpertFilter] = useState('all');
   const [expertTypeFilter, setExpertTypeFilter] = useState('all');
   const [expertTypes, setExpertTypes] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('by_claimant');
 
   // Upload state
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -358,10 +358,19 @@ const AdminDocumentVault: React.FC = () => {
     return matchesSearch && matchesType && matchesStatus && matchesExpert && matchesExpertType;
   });
 
-  // Group documents by claimant so each claimant's Medical Records, ID Copies,
-  // Expert Reports, etc. can be found together under their own name — used by
-  // the "By Claimant" tab below.
+  // Group documents by claimant so every assessment/appointment a claimant has
+  // — across however many different doctors/experts they saw — plus all their
+  // supporting documents (ID, medical records, RAF forms, etc.) show up
+  // together under that one claimant's name. Used by the "By Claimant" tab
+  // below, which is also the tab the vault opens on by default.
   const NO_CLAIMANT_KEY = '__unlinked__';
+  const SUPPORTING_DOCS_KEY = '__supporting__';
+  interface ClaimantExpertSubgroup {
+    key: string;
+    label: string; // Doctor/expert name, or "Supporting Documents"
+    expertType: string;
+    docs: DocumentRecord[];
+  }
   const claimantGroups = React.useMemo(() => {
     const groups = new Map<string, { claimantId: string | null; claimantName: string; docs: DocumentRecord[] }>();
     for (const doc of filteredDocs) {
@@ -373,10 +382,37 @@ const AdminDocumentVault: React.FC = () => {
       groups.get(key)!.docs.push(doc);
     }
     // Alphabetical by claimant name; the "unlinked" bucket always goes last.
-    return Array.from(groups.values()).sort((a, b) => {
+    const sorted = Array.from(groups.values()).sort((a, b) => {
       if (a.claimantId === null) return 1;
       if (b.claimantId === null) return -1;
       return a.claimantName.localeCompare(b.claimantName);
+    });
+
+    // Within each claimant, split their documents into one bundle per doctor/
+    // expert they attended (so it's obvious at a glance how many separate
+    // assessments/appointments this person has had), plus one bundle for
+    // documents that aren't tied to a specific expert (supporting docs,
+    // general uploads, etc.). Each bundle is sorted newest-first.
+    return sorted.map(group => {
+      const subgroupMap = new Map<string, ClaimantExpertSubgroup>();
+      for (const doc of group.docs) {
+        const key = doc.expert_id || SUPPORTING_DOCS_KEY;
+        const label = doc.expert_id ? (doc.expert_name || 'Unknown Expert') : 'Supporting Documents';
+        if (!subgroupMap.has(key)) {
+          subgroupMap.set(key, { key, label, expertType: doc.expert_type || '', docs: [] });
+        }
+        subgroupMap.get(key)!.docs.push(doc);
+      }
+      const subgroups = Array.from(subgroupMap.values())
+        .map(sg => ({ ...sg, docs: [...sg.docs].sort((a, b) => b.created_at.localeCompare(a.created_at)) }))
+        .sort((a, b) => {
+          // Supporting Documents bucket always last; experts alphabetical.
+          if (a.key === SUPPORTING_DOCS_KEY) return 1;
+          if (b.key === SUPPORTING_DOCS_KEY) return -1;
+          return a.label.localeCompare(b.label);
+        });
+      const expertCount = subgroups.filter(sg => sg.key !== SUPPORTING_DOCS_KEY).length;
+      return { ...group, subgroups, expertCount };
     });
   }, [filteredDocs]);
 
@@ -918,41 +954,68 @@ const AdminDocumentVault: React.FC = () => {
                               <FolderLock className="h-4 w-4 shrink-0 text-slate-400" />
                             )}
                             <span className="truncate font-semibold text-black">{group.claimantName}</span>
+                            {group.claimantId && group.expertCount > 0 && (
+                              <AdminPill tone="teal" className="ml-1 shrink-0">
+                                <Stethoscope className="h-3 w-3" />
+                                Seen by {group.expertCount} expert{group.expertCount === 1 ? '' : 's'}
+                              </AdminPill>
+                            )}
                             <AdminPill tone="neutral" className="ml-1 shrink-0">
                               {group.docs.length} document{group.docs.length === 1 ? '' : 's'}
                             </AdminPill>
                           </div>
                         </AccordionTrigger>
                         <AccordionContent>
-                          <div className="space-y-2 pb-3">
-                            {group.docs.map(doc => (
-                              <div
-                                key={doc.id}
-                                className="flex flex-wrap items-center justify-between gap-2 border border-black/10 bg-black/[0.015] px-3 py-2"
-                              >
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <FileText className="h-3.5 w-3.5 shrink-0" style={{ color: '#00BAAD' }} />
-                                  <div className="min-w-0">
-                                    <p className="truncate text-xs font-medium text-black" title={doc.file_name}>{doc.file_name}</p>
-                                    <p className="mt-0.5 text-[10px] text-slate-500">
-                                      {format(parseISO(doc.created_at), 'dd MMM yyyy')}
-                                      {doc.expert_name ? ` · ${doc.expert_name}` : ''}
-                                    </p>
-                                  </div>
+                          <div className="space-y-4 pb-3">
+                            {group.subgroups.map(subgroup => (
+                              <div key={subgroup.key}>
+                                <div className="mb-1.5 flex items-center gap-1.5 px-0.5">
+                                  {subgroup.key === SUPPORTING_DOCS_KEY ? (
+                                    <FolderLock className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                                  ) : (
+                                    <Stethoscope className="h-3.5 w-3.5 shrink-0" style={{ color: '#00BAAD' }} />
+                                  )}
+                                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                                    {subgroup.label}
+                                  </span>
+                                  {subgroup.expertType && (
+                                    <AdminPill tone="neutral" className="shrink-0">{subgroup.expertType}</AdminPill>
+                                  )}
+                                  <span className="text-[10px] text-slate-400">
+                                    ({subgroup.docs.length} document{subgroup.docs.length === 1 ? '' : 's'})
+                                  </span>
                                 </div>
-                                <div className="flex shrink-0 items-center gap-1.5">
-                                  <AdminPill tone="neutral">{getDocTypeLabel(doc.document_type)}</AdminPill>
-                                  {getStatusBadge(doc.approval_status)}
-                                  {isAdminOrEmployee && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none hover:bg-black/5" style={{ color: '#00BAAD' }} onClick={() => handlePreview(doc)} title="View document">
-                                      <Eye className="h-3.5 w-3.5" />
-                                    </Button>
-                                  )}
-                                  {(!isAttorney || doc.document_type === 'Expert Report') && doc.approval_status === 'approved' && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none hover:bg-black/5" onClick={() => handleDownload(doc)} title="Download">
-                                      <Download className="h-3.5 w-3.5" />
-                                    </Button>
-                                  )}
+                                <div className="space-y-2">
+                                  {subgroup.docs.map(doc => (
+                                    <div
+                                      key={doc.id}
+                                      className="flex flex-wrap items-center justify-between gap-2 border border-black/10 bg-black/[0.015] px-3 py-2"
+                                    >
+                                      <div className="flex min-w-0 items-center gap-2">
+                                        <FileText className="h-3.5 w-3.5 shrink-0" style={{ color: '#00BAAD' }} />
+                                        <div className="min-w-0">
+                                          <p className="truncate text-xs font-medium text-black" title={doc.file_name}>{doc.file_name}</p>
+                                          <p className="mt-0.5 text-[10px] text-slate-500">
+                                            {format(parseISO(doc.created_at), 'dd MMM yyyy')}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <div className="flex shrink-0 items-center gap-1.5">
+                                        <AdminPill tone="neutral">{getDocTypeLabel(doc.document_type)}</AdminPill>
+                                        {getStatusBadge(doc.approval_status)}
+                                        {isAdminOrEmployee && (
+                                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none hover:bg-black/5" style={{ color: '#00BAAD' }} onClick={() => handlePreview(doc)} title="View document">
+                                            <Eye className="h-3.5 w-3.5" />
+                                          </Button>
+                                        )}
+                                        {(!isAttorney || doc.document_type === 'Expert Report') && doc.approval_status === 'approved' && (
+                                          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none hover:bg-black/5" onClick={() => handleDownload(doc)} title="Download">
+                                            <Download className="h-3.5 w-3.5" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
                             ))}
