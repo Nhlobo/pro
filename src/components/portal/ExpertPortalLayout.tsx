@@ -7,8 +7,6 @@ import {
   Stethoscope, LayoutDashboard, Briefcase, Calendar, BarChart3, User, FileText, LogOut
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { usePermissions } from '@/hooks/usePermissions';
-import BrandedPageLoader from '@/components/BrandedPageLoader';
 import TourLauncher from '@/components/tour/TourLauncher';
 import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
 import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
@@ -29,24 +27,6 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut } = useAuth();
-  const { isMedicalExpert, isAdmin, loading } = usePermissions();
-
-  // Redirect anyone who isn't a medical expert — admins/employees are still
-  // let through so they can preview this portal, but no other role
-  // (sales_consultant, referring_attorney, etc.) should ever land here.
-  React.useEffect(() => {
-    if (!loading && !isMedicalExpert() && !isAdmin()) {
-      navigate('/dashboard', { replace: true });
-    }
-  }, [loading, isMedicalExpert, isAdmin, navigate]);
-
-  if (loading) {
-    return <BrandedPageLoader message="Loading…" />;
-  }
-
-  if (!isMedicalExpert() && !isAdmin()) {
-    return <BrandedPageLoader message="Redirecting…" />;
-  }
 
   return (
     <MFARequiredGuard roleLabel="Medical Expert">
