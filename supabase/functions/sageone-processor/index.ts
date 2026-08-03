@@ -289,7 +289,7 @@ serve(async (req) => {
     const message = truncateError(error);
     console.error("sageone-processor failed", { error: message });
 
-    return new Response(JSON.stringify({ error: message }), {
+    return new Response(JSON.stringify({ error: "SageOne processor failed", code: "SAGEONE_PROCESSOR_ERROR" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
