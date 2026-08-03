@@ -16,7 +16,8 @@ import {
   Loader2, Search, MapPin, Stethoscope, ExternalLink, Star, Mail, User,
   ShieldCheck, Phone, Globe, RotateCcw, Clock, Video, ChevronRight, FileText,
 } from 'lucide-react';
-import { useExpertSearch, SA_PROVINCES, InternalExpert, ExternalResult } from '@/hooks/useExpertSearch';
+import { useExpertSearch, SA_PROVINCES, InternalExpert, ExternalResult, openExpertDocument } from '@/hooks/useExpertSearch';
+import { useToast } from '@/hooks/use-toast';
 import {
   AdminPage,
   AdminHeader,
@@ -470,17 +471,74 @@ const LoadingRow: React.FC<{ label: string }> = ({ label }) => (
  * admin directory's edit form. Nothing here is editable; there is no save
  * action, only the fields as a fact sheet.
  */
+const formatZAR = (n: number | null | undefined): string | null =>
+  n === null || n === undefined ? null : `R ${n.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const ProfileField: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div>
+    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+    <div className="mt-0.5">{children}</div>
+  </div>
+);
+
+const DocumentButton: React.FC<{ label: string; url: string | null; toast: ReturnType<typeof useToast>['toast'] }> = ({ label, url, toast }) => {
+  const [loading, setLoading] = useState(false);
+  if (!url) return null;
+
+  const handleClick = async () => {
+    setLoading(true);
+    const result = await openExpertDocument(url);
+    setLoading(false);
+    if ('error' in result) {
+      toast({ title: `Couldn't open ${label}`, description: result.error, variant: 'destructive' });
+      return;
+    }
+    window.open(result.url, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      className="rounded-none border-black/15 text-black hover:bg-black/5"
+      onClick={handleClick}
+      disabled={loading}
+    >
+      {loading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <FileText className="mr-1.5 h-3.5 w-3.5" />}
+      {label}
+      {!loading && <ExternalLink className="ml-1.5 h-3 w-3" />}
+    </Button>
+  );
+};
+
 const ExpertProfileDialog: React.FC<{
   expert: InternalExpert | null;
   onOpenChange: (open: boolean) => void;
 }> = ({ expert, onOpenChange }) => {
+  const { toast } = useToast();
   if (!expert) return null;
+
   const fullName = `${expert.first_name} ${expert.last_name}`.trim();
   const exp = expert.medico_legal_years_experience ?? expert.years_experience ?? null;
 
+  const fees: Array<[string, number | null | undefined]> = [
+    ['Consultation (general)', expert.consultation_fees],
+    ['Consultation — MVA', expert.consultation_fee_mva],
+    ['Consultation — Med Neg', expert.consultation_fee_med_neg],
+    ['Consultation — per hour', expert.consultation_fee_per_hour],
+    ['Court appearance', expert.court_fees],
+    ['Merit report', expert.merit_fees],
+    ['Addendum report', expert.addendum_fees],
+    ['Affidavit', expert.affidavit_fees],
+    ['Joint minutes', expert.joint_minutes_fees],
+  ].filter(([, v]) => v !== null && v !== undefined);
+
+  const hasDocuments = expert.cv_document_url || expert.qualifications_document_url || expert.hpcsa_document_url;
+
   return (
     <Dialog open={!!expert} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg rounded-none">
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto rounded-none">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-4 w-4" style={{ color: BRAND_TEAL }} />
@@ -489,56 +547,77 @@ const ExpertProfileDialog: React.FC<{
           <DialogDescription>{expert.expert_type}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 text-sm">
+        <div className="space-y-4 text-sm">
+          {/* Status & location */}
           <div className="flex flex-wrap gap-1.5">
             <AdminPill tone="neutral"><MapPin className="h-3 w-3" /> {expert.province}{expert.city ? ` · ${expert.city}` : ''}</AdminPill>
             {expert.virtual_assessment && <AdminPill tone="teal"><Video className="h-3 w-3" /> Virtual assessments</AdminPill>}
             <AdminPill tone={expert.status === 'active' ? 'teal' : 'neutral'}><ShieldCheck className="h-3 w-3" /> {expert.status}</AdminPill>
+            {expert.medico_legal_only === false && <AdminPill tone="neutral">Not medico-legal exclusive</AdminPill>}
           </div>
 
           {(expert.matter_types?.length ?? 0) > 0 && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Matter types</p>
-              <div className="mt-1 flex flex-wrap gap-1">
+            <ProfileField label="Matter types">
+              <div className="flex flex-wrap gap-1">
                 {expert.matter_types!.map((m) => <AdminPill key={m} tone="neutral">{m}</AdminPill>)}
               </div>
-            </div>
+            </ProfileField>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            {exp !== null && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Experience</p>
-                <p>{exp} yrs medico-legal</p>
-              </div>
-            )}
-            {expert.hpcsa_number && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">HPCSA number</p>
-                <p className="font-mono">{expert.hpcsa_number}</p>
-              </div>
-            )}
+          {/* Practice */}
+          <div className="grid grid-cols-2 gap-3 border-t border-black/10 pt-3">
+            {exp !== null && <ProfileField label="Experience"><p>{exp} yrs medico-legal</p></ProfileField>}
+            {expert.hpcsa_number && <ProfileField label="HPCSA number"><p className="font-mono">{expert.hpcsa_number}</p></ProfileField>}
+            {expert.practice_number && <ProfileField label="Practice number"><p className="font-mono">{expert.practice_number}</p></ProfileField>}
+            {expert.practice_company_name && <ProfileField label="Practice / company"><p>{expert.practice_company_name}</p></ProfileField>}
             {expert.assessment_turnaround_days ? (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Assessment turnaround</p>
-                <p className="flex items-center gap-1"><Clock className="h-3 w-3" /> {expert.assessment_turnaround_days} days</p>
-              </div>
+              <ProfileField label="Assessment turnaround"><p className="flex items-center gap-1"><Clock className="h-3 w-3" /> {expert.assessment_turnaround_days} days</p></ProfileField>
             ) : null}
             {expert.report_turnaround_days ? (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Report turnaround</p>
-                <p className="flex items-center gap-1"><Clock className="h-3 w-3" /> {expert.report_turnaround_days} days</p>
-              </div>
+              <ProfileField label="Report turnaround"><p className="flex items-center gap-1"><Clock className="h-3 w-3" /> {expert.report_turnaround_days} days</p></ProfileField>
             ) : null}
           </div>
 
+          {expert.practice_address && (
+            <ProfileField label="Practice address"><p>{expert.practice_address}</p></ProfileField>
+          )}
+
           {(expert.languages?.length ?? 0) > 0 && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Languages</p>
-              <p>{expert.languages!.join(', ')}</p>
+            <ProfileField label="Languages"><p>{expert.languages!.join(', ')}</p></ProfileField>
+          )}
+
+          {(expert.specializations?.length ?? 0) > 0 && (
+            <ProfileField label="Specializations">
+              <div className="flex flex-wrap gap-1">
+                {expert.specializations!.map((s) => <AdminPill key={s} tone="neutral">{s}</AdminPill>)}
+              </div>
+            </ProfileField>
+          )}
+
+          {expert.qualifications && (
+            <ProfileField label="Qualifications"><p className="whitespace-pre-wrap">{expert.qualifications}</p></ProfileField>
+          )}
+
+          {expert.availability_notes && (
+            <ProfileField label="Availability notes"><p className="whitespace-pre-wrap">{expert.availability_notes}</p></ProfileField>
+          )}
+
+          {/* Fees */}
+          {fees.length > 0 && (
+            <div className="border-t border-black/10 pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Fees</p>
+              <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1">
+                {fees.map(([label, value]) => (
+                  <div key={label} className="flex items-baseline justify-between gap-2">
+                    <span className="text-slate-500">{label}</span>
+                    <span className="font-medium">{formatZAR(value)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
+          {/* Contact */}
           <div className="border-t border-black/10 pt-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</p>
             <div className="mt-1.5 flex flex-col gap-1.5">
@@ -558,16 +637,28 @@ const ExpertProfileDialog: React.FC<{
             </div>
           </div>
 
-          {expert.cv_document_url && (
-            <a
-              href={expert.cv_document_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-medium underline"
-              style={{ color: BRAND_TEAL }}
-            >
-              <FileText className="h-3.5 w-3.5" /> View CV <ExternalLink className="h-3 w-3" />
-            </a>
+          {(expert.personal_assistant_name || expert.personal_assistant_contact) && (
+            <ProfileField label="Personal assistant">
+              <p>{[expert.personal_assistant_name, expert.personal_assistant_contact].filter(Boolean).join(' · ')}</p>
+            </ProfileField>
+          )}
+
+          {/* Documents — signed on demand, see openExpertDocument for why */}
+          {hasDocuments && (
+            <div className="border-t border-black/10 pt-3">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Documents</p>
+              <div className="flex flex-wrap gap-2">
+                <DocumentButton label="CV" url={expert.cv_document_url} toast={toast} />
+                <DocumentButton label="Qualifications" url={expert.qualifications_document_url} toast={toast} />
+                <DocumentButton label="HPCSA certificate" url={expert.hpcsa_document_url} toast={toast} />
+              </div>
+            </div>
+          )}
+
+          {expert.updated_at && (
+            <p className="border-t border-black/10 pt-3 text-xs text-slate-400">
+              Last updated {new Date(expert.updated_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </p>
           )}
         </div>
       </DialogContent>
