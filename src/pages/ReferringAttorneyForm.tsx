@@ -22,7 +22,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import PortalAccessControl from "@/components/admin/PortalAccessControl";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -714,6 +715,17 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
             </Form>
           </CardContent>
         </Card>
+
+          {isEditing && id && (
+            <Card className={embedded ? "rounded-none border-black/10 shadow-none mt-6" : "mt-6"}>
+              <CardHeader>
+                <CardTitle className="text-lg">Attorney Portal Access</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PortalAccessControl personType="attorney" personId={id} />
+              </CardContent>
+            </Card>
+          )}
           </TabsContent>
 
           {!isEditing && (
