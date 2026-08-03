@@ -87,7 +87,6 @@ const AttorneyPitchlog = lazy(() => import("./pages/AttorneyPitchlog"));
 const AttorneyReferralIntelligence = lazy(() => import("./pages/AttorneyReferralIntelligence"));
 const SalesDashboard = lazy(() => import("./pages/SalesDashboard"));
 const CaseAccess = lazy(() => import("./pages/CaseAccess"));
-const PortalEntry = lazy(() => import("./pages/PortalEntry"));
 const ExpertCaseAccess = lazy(() => import("./pages/ExpertCaseAccess"));
 
 // Attorney Portal Pages
@@ -199,7 +198,6 @@ const App = () => (
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
                 <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
                 <Route path="/Expertzone/case-access" element={<ExpertCaseAccess />} />
-                <Route path="/portal-entry" element={<PortalEntry />} />
                 <Route path="/contact-us" element={<ContactUs />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 
