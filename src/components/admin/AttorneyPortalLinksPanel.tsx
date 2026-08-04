@@ -74,8 +74,22 @@ const formatDate = (value: string | null) =>
       })
     : '—';
 
-const portalLinkFor = (code: string) =>
-  `${window.location.origin}/Attorneyzone/case-access?code=${encodeURIComponent(code)}`;
+// The attorney portal deliberately refuses to read an access code from the
+// query string (see src/pages/CaseAccess.tsx) so codes never leak through
+// browser history, screenshots or forwarded links. Staff therefore share the
+// plain portal address plus the code, which the attorney types in once.
+const PORTAL_URL = `${window.location.origin}/Attorneyzone/case-access`;
+
+const shareTextFor = (code: string, expiresAt: string | null) =>
+  [
+    'Medico-Legal Pro — secure case portal',
+    PORTAL_URL,
+    `Access code: ${code}`,
+    expiresAt ? `Valid until: ${formatDate(expiresAt)}` : null,
+    'Do not forward this code.',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
 const linkState = (row: AccessCodeRow): 'active' | 'expired' | 'revoked' => {
   if (!row.is_active) return 'revoked';
@@ -179,10 +193,10 @@ const AttorneyPortalLinksPanel: React.FC = () => {
       const code = (created as any)?.access_code;
       if (code) {
         try {
-          await navigator.clipboard.writeText(portalLinkFor(code));
-          toast.success('Portal link created and copied to your clipboard.');
+          await navigator.clipboard.writeText(shareTextFor(code, (created as any)?.expires_at ?? null));
+          toast.success('Portal access created — details copied to your clipboard.');
         } catch {
-          toast.success(`Portal link created. Code: ${code}`);
+          toast.success(`Portal access created. Code: ${code}`);
         }
       } else {
         toast.success('Portal link created.');
@@ -216,8 +230,8 @@ const AttorneyPortalLinksPanel: React.FC = () => {
 
   const copyLink = async (row: AccessCodeRow) => {
     try {
-      await navigator.clipboard.writeText(portalLinkFor(row.access_code));
-      toast.success('Link copied.');
+      await navigator.clipboard.writeText(shareTextFor(row.access_code, row.expires_at));
+      toast.success('Portal address and code copied.');
     } catch {
       toast.error('Clipboard unavailable — copy the code manually.');
     }
@@ -305,8 +319,10 @@ const AttorneyPortalLinksPanel: React.FC = () => {
             </div>
           </div>
           <p className="mt-3 text-xs text-slate-500">
-            Creating a new link for an appointment automatically retires the previous one. Expiry is
-            enforced on the server — an expired or revoked link returns no case data at all.
+            Creating new access for an appointment automatically retires the previous code. Expiry is
+            enforced on the server — an expired or revoked code returns no case data at all. For
+            safety the code is never embedded in the URL: share the portal address ({PORTAL_URL})
+            together with the code, and the attorney enters it once on arrival.
           </p>
         </AdminCardBody>
       </AdminCard>
