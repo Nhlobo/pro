@@ -160,10 +160,22 @@ const AdminExpertNetwork: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const refetchExperts = useCallback(async () => {
-    const { data } = await supabase.rpc('get_medical_experts_secure');
+    const { data, error } = await supabase.rpc('get_medical_experts_secure');
+    if (error) {
+      // Surface the failure instead of rendering the "no experts match your
+      // filters" empty state, which used to make a permission / network
+      // error look like an empty directory.
+      console.error('[AdminExpertNetwork] failed to load experts', error);
+      setLoadError(error.message || 'Unable to load the expert directory.');
+      setExperts([]);
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     setExperts(data || []);
     setLoading(false);
   }, []);
+
 
   useEffect(() => { refetchExperts(); }, [refetchExperts]);
 
