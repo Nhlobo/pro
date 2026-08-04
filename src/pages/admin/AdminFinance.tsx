@@ -396,6 +396,12 @@ const AdminFinance: React.FC = () => {
               />
               {loading ? (
                 <AdminLoadingState label="Loading long-term AOD debts…" />
+              ) : aodError ? (
+                <AdminErrorState
+                  title="Could not load long-term AOD debts"
+                  message={aodError}
+                  onRetry={fetchAll}
+                />
               ) : filteredConsolidatedAttorneys.length === 0 ? (
                 <AdminEmptyState
                   icon={Landmark}
@@ -491,6 +497,12 @@ const AdminFinance: React.FC = () => {
               />
               {loading ? (
                 <AdminLoadingState label="Loading short-term agreements…" />
+              ) : shortTermError ? (
+                <AdminErrorState
+                  title="Could not load short-term agreements"
+                  message={shortTermError}
+                  onRetry={fetchAll}
+                />
               ) : filteredShortTermDocs.length === 0 ? (
                 <AdminEmptyState
                   icon={FileStack}
