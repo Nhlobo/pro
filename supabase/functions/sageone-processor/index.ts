@@ -20,6 +20,11 @@ type QueueItem = {
 type ProcessorRequest = {
   appointmentId?: string;
   limit?: number;
+  /** Flip previously-failed rows back to pending before draining the queue.
+   *  Used by the "Retry failed" action on the Finance > Sage Invoices panel. */
+  retryFailed?: boolean;
+  /** Retry one specific failed queue row. */
+  queueId?: string;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -215,11 +220,29 @@ serve(async (req) => {
     const sageOneApiKey = Deno.env.get("SAGEONE_API_KEY");
     const sageOneTaxCode = Deno.env.get("SAGEONE_TAX_CODE");
 
-    if (!supabaseUrl || !serviceRoleKey || !sageOneApiUrl || !sageOneApiKey) {
+    if (!supabaseUrl || !serviceRoleKey) {
       return new Response(JSON.stringify({
-        error: "Missing required environment variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE, SAGEONE_API_URL, SAGEONE_API_KEY",
+        error: "Missing required environment variables: SUPABASE_URL, SUPABASE_SERVICE_ROLE",
       }), {
         status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Feature flag. Until SageOne credentials are configured the integration
+    // stays dormant: appointments still enqueue (so nothing is lost) but we
+    // never call out and never fail a caller. Booking creation invokes this
+    // function fire-and-forget, so a hard 500 here would only add noise.
+    const sageOneEnabled = (Deno.env.get("SAGEONE_ENABLED") ?? "").toLowerCase() !== "false"
+      && Boolean(sageOneApiUrl && sageOneApiKey);
+
+    if (!sageOneEnabled) {
+      return new Response(JSON.stringify({
+        processed: 0,
+        skipped: true,
+        reason: "SageOne integration is not configured (set SAGEONE_API_URL and SAGEONE_API_KEY).",
+      }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -230,6 +253,19 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     });
+
+    if (body.retryFailed || body.queueId) {
+      let requeue = supabase
+        .from("sageone_invoice_queue")
+        .update({ status: "pending", error: null, processed_at: null })
+        .eq("status", "failed");
+
+      if (body.queueId) requeue = requeue.eq("id", body.queueId);
+      if (body.appointmentId) requeue = requeue.eq("appointment_id", body.appointmentId);
+
+      const { error: requeueError } = await requeue;
+      if (requeueError) throw requeueError;
+    }
 
     let query = supabase
       .from("sageone_invoice_queue")
@@ -266,7 +302,7 @@ serve(async (req) => {
     const results = [];
     for (const item of queueItems) {
       // Sequential processing keeps concurrency bounded while still supporting batch runs.
-      results.push(await processQueueItem(supabase, sageOneApiUrl, sageOneApiKey, item, sageOneTaxCode));
+      results.push(await processQueueItem(supabase, sageOneApiUrl!, sageOneApiKey!, item, sageOneTaxCode));
     }
 
     const summary = results.reduce(
