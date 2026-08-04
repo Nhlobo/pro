@@ -22,7 +22,8 @@ import {
   Mail,
   ShieldCheck,
   Settings,
-  User
+  User,
+  KeyRound
 } from "lucide-react";
 
 import { RandSign } from "@/components/icons/RandSign";
@@ -194,6 +195,17 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'System',
     icon: ShieldCheck,
     description: 'Users, roles, and permissions',
+    roles: ['admin'],
+    permissions: [{ category: 'User Management' }],
+  },
+  {
+    key: 'external-portal',
+    title: 'External Portal Management',
+    href: '/admin/external-portal',
+    group: 'System',
+    icon: KeyRound,
+    description: 'Referring Attorney & Medical Expert external portal accounts, access links, sessions & OTP',
+    // Isolated from Access & IAM by design — own module, own table below.
     roles: ['admin'],
     permissions: [{ category: 'User Management' }],
   },
