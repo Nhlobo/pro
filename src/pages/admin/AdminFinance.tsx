@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -82,6 +82,16 @@ const AdminFinance: React.FC = () => {
   const [attorneySearchDraft, setAttorneySearchDraft] = useState('');
   const [attorneySearch, setAttorneySearch] = useState('');
 
+  // Mount, the two window events, four separate realtime subscriptions, and
+  // the background recalculation pass below can all call fetchAll() around
+  // the same time. Network requests don't resolve in the order they were
+  // sent, so without this an older, slower response could land after a
+  // newer one and overwrite fresh numbers with stale ones — the page would
+  // show a correct total, then "flicker" back to a wrong one. Every call
+  // gets a sequence number, and a response is only applied to state if it's
+  // still the most recent one in flight.
+  const fetchSeqRef = useRef(0);
+
   // Payment dialog state
   const [paymentDialog, setPaymentDialog] = useState<{
     open: boolean;
@@ -120,6 +130,7 @@ const AdminFinance: React.FC = () => {
   }, []);
 
   const fetchAll = async () => {
+    const seq = ++fetchSeqRef.current;
     setLoading(true);
     const aodSelect = 'id, file_name, total_contract_value, deposit_amount, payments_made, discount_amount, payment_status, referring_attorney_id, total_reports_agreed, reports_released, created_at, referring_attorneys!aod_documents_law_firm_id_fkey(name, is_system_company)';
     const stSelect = 'id, contract_description, total_contract_value, deposit_amount, payments_made, discount_amount, payment_status, referring_attorney_id, status, total_reports_agreed, reports_completed, debtor_law_firm_name, referring_attorneys(name, is_system_company)';
@@ -130,6 +141,13 @@ const AdminFinance: React.FC = () => {
       supabase.from('aod_documents').select(aodSelect).order('created_at', { ascending: false }),
       supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }).limit(100),
     ]);
+
+    // A newer fetchAll() call (from a realtime event, the Sync button, etc.)
+    // started and already finished while this one was still in flight —
+    // applying this stale response now would overwrite the fresher numbers
+    // that are already on screen.
+    if (seq !== fetchSeqRef.current) return;
+
     // A failed read must not masquerade as "no agreements" — record the error
     // so the table renders an explicit failure state with a retry.
     if (aodResult.error) console.error('[AdminFinance] AOD read failed', aodResult.error);
@@ -152,10 +170,15 @@ const AdminFinance: React.FC = () => {
           ...filtered.map((d) => recalculateAODFromAppointments(d.id, d.referring_attorney_id)),
           ...filteredShortTerm.map((d) => recalculateShortTermFromAppointments(d.id, d.referring_attorney_id)),
         ]);
+        // Superseded by a newer fetch (e.g. the realtime updates these very
+        // recalculations just triggered) — let that one own the final state
+        // instead of racing it.
+        if (seq !== fetchSeqRef.current) return;
         const [aodResult2, stResult2] = await Promise.all([
           supabase.from('aod_documents').select(aodSelect).order('created_at', { ascending: false }),
           supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }).limit(100),
         ]);
+        if (seq !== fetchSeqRef.current) return;
         setAodDocs(((aodResult2.data || []) as AodFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company));
         setShortTermDocs(((stResult2.data || []) as ShortTermFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company));
       } catch (e) {
