@@ -1,58 +1,69 @@
-## Audit findings
+# Production Implementation Plan
 
-**1. Idle logout (15 min inactivity)** — `src/components/IdleLogoutGuard.tsx` is already wired in `App.tsx` (line 174) and correctly:
-- Listens for mouse/keyboard/touch/scroll/click activity
-- After 15 min idle → shows "Are you still working?" modal with 60s countdown
-- Auto-signs out via `useAuth().signOut()` if no response
-- Skips activity capture while the prompt is open (so countdown can complete)
+You skipped the clarifying questions, so this plan states the defaults I chose. Correct any of them and I'll adjust before building.
 
-Status: **Active and correct.** No code change needed — I'll just verify by reading the flow end-to-end.
+## What the audit found
 
-**2. Persist session across app close** — `src/integrations/supabase/client.ts` currently uses:
-```ts
-storage: localStorage,
-persistSession: true,
-autoRefreshToken: true,
-```
-This is why closing the tab/app keeps the user signed in on next launch. The user wants the opposite: **closing the app must force a re-sign-in.**
+The good news: most of this is already scaffolded in the codebase. The gaps are narrower than the brief suggests.
 
-**3. Offline session cap** — `useOfflineRedirect.tsx` already force-signs-out after 15 min offline. Keep as-is.
+| Area | Current state |
+| --- | --- |
+| Expert Network / Finance pages | Compile clean, no type errors, no missing imports. Nothing is structurally "gone" — so "restore" becomes a targeted defect hunt, not a rebuild. |
+| Sage One | Edge function, retry logic, dedupe index and queue migration all exist. **The queue table was never applied to this remixed database**, so the trigger and the whole flow are dead. Appointment creation swallows the error, which is why nothing visibly breaks. |
+| Attorney access codes | `attorney_access_codes` table exists and a `validate-access-code` function works. Expiry enforcement and link generation UI need verifying/finishing. |
+| Weekly/monthly reporting | Sales performance report is scheduled Mondays 07:00. The **operational** report function exists but is **not scheduled at all**, and the "monthly" sales job is mis-scheduled as a daily 16:00 job. |
 
-**4. Cleanup on sign-out** — `useAuth.signOut()` already clears `supabase.auth.*` and `sb-*` keys from `localStorage`. Will extend to also clear `sessionStorage` so the new storage swap stays clean.
+## Chosen defaults
 
----
+- **Sage product**: provider-agnostic adapter. The existing API-URL + API-key path stays live; an OAuth2 (Sage Business Cloud) strategy slots in behind the same interface later without touching callers.
+- **Attorney accounts**: grandfather existing logins. The role is removed from user creation and signup so no new attorney accounts appear; existing ones keep working until you say otherwise. Secure expiring links become the primary access path. This is the only non-destructive reading of the request.
+- **Report recipients**: individual performance report to each sales consultant; weekly operational report to admins, directors and employees; monthly operational report to admins and directors.
 
-## Changes (frontend only — no backend, no DB, no edge functions)
+## Phase 1 — Stabilise Expert Network and Finance
 
-### A. Swap Supabase auth storage to `sessionStorage`
-File: `src/integrations/supabase/client.ts`
-- Change `storage: localStorage` → `storage: sessionStorage`
-- Keep `persistSession: true` and `autoRefreshToken: true` so the session survives page refreshes and tab navigations **within the same browser session**, but is dropped the moment the tab/PWA is fully closed.
-- Result: closing the browser tab or the installed PWA fully signs the user out; reopening lands on `/auth` (already the default via `ProtectedRoute` + root redirect).
+1. Walk every tab of both modules against its data source, checking for: queries filtered on columns that no longer exist, empty-state masking a failed fetch, totals that ignore VAT or the R0 clamp, and permission checks that hide working features.
+2. Fix defects found. No refactors, no redesigns, no schema changes.
+3. Confirm fee/payment changes still propagate through the shared sync utilities added previously.
 
-### B. Extend sign-out cleanup to sessionStorage
-File: `src/hooks/useAuth.tsx` — `cleanupAuthState()`
-- Also iterate `sessionStorage` and remove `supabase.auth.*` / `sb-*` keys, matching the existing localStorage cleanup. Prevents stale tokens if the storage backend is ever toggled again.
+Nothing in Phase 2 starts until this is clean.
 
-### C. Verify (no code change) idle logout
-- Re-read `IdleLogoutGuard` + confirm it's mounted once inside `AuthProvider` in `App.tsx`. Already true.
-- Confirm the 15-min constant (`IDLE_WARNING_MS = 15 * 60 * 1000`). Already correct.
+## Phase 2.1 — Sage One tax invoices
 
----
+1. Apply the existing `sageone_invoice_queue` migration to this database, adding the `GRANT` statements it is missing.
+2. Keep the `AFTER INSERT` trigger on `appointments` as the enqueue point — the appointment stays the source of truth, and enqueueing can never fail the booking.
+3. Add a feature flag so the integration is off until Sage credentials are set; with the flag off, rows queue harmlessly and nothing calls out.
+4. Add an hourly cron to drain the queue, so a Sage outage self-heals without staff intervention.
+5. Add a **Sage Invoices** panel in Finance showing queued / failed / synced rows with a manual retry button.
 
-## What I will NOT touch
-- Any file under `supabase/` (config, functions, migrations)
-- `integrations/supabase/types.ts`
-- Any hook that calls RPCs / DB (`useActivityTracker`, permissions, etc.)
-- Routing, portal layouts, styling, or business logic
-- Backend, database schema, RLS, edge functions
+Duplicate protection is already handled by the partial unique index on `appointment_id`.
 
-## Risk / trade-offs
-- **Multi-tab behavior:** `sessionStorage` is per-tab. If a user opens the app in a second tab, that new tab will require its own sign-in. This is the standard, expected trade-off for "log out on close" and matches the user's request. If they later want single-sign-in across tabs, we can add a `BroadcastChannel` bridge — not included here to keep the change minimal and safe.
-- No impact on the offline flow, PWA install, splash, admin styling, or any existing feature.
+## Phase 2.2 — Secure referring-attorney links
 
-## Verification steps after implementing
-1. Sign in → refresh page → still signed in ✅
-2. Sign in → close tab → reopen app URL → lands on `/auth` ✅
-3. Sign in → leave idle 15 min → warning modal → 60s countdown → auto sign-out ✅
-4. Sign in → click "Yes, I'm still here" → session continues ✅
+1. Enforce `expires_at` server-side in `validate-access-code` — an expired or revoked code returns 403 with no data.
+2. Generate cryptographically random codes with a configurable expiry (default 14 days) and a revoke action.
+3. Add link generation and revocation to the attorney CRM screen, showing issued, expiry and last-used.
+4. Remove `referring_attorney` from the role picker in user creation. Existing accounts untouched.
+
+## Phase 2.3 — Automated reporting
+
+1. Schedule the weekly operational report Mondays 07:15 SAST.
+2. Schedule the monthly operational report on the 1st at 07:30 SAST.
+3. Fix the mis-scheduled monthly sales job so it runs monthly, not daily.
+4. Every job wrapped so a delivery failure logs and exits rather than retrying in a loop.
+
+## Phase 3 — Verification
+
+- Full typecheck and the existing unit/integration suites.
+- Manual walk of Expert Network, Finance, Appointments, Attorney CRM and the admin dashboard at mobile, tablet and desktop widths.
+- Confirm appointment creation still succeeds with Sage deliberately unreachable.
+
+## Technical notes
+
+- Two new migrations only: the Sage queue (plus grants and cron) and the attorney access-code expiry/revocation columns. No existing table is altered destructively; no existing function is dropped.
+- New edge-function work is confined to `sageone-processor` and `validate-access-code`.
+- The Sage adapter lives in `supabase/functions/_shared/` so a future OAuth strategy is a single new file.
+- All new behaviour is additive and flag-guarded; with every flag off the system behaves exactly as it does today.
+
+## Scope note
+
+This is three substantial features plus a defect hunt. I'll deliver them in the phase order above and report after each phase rather than at the very end, so you can stop or redirect me between phases.
