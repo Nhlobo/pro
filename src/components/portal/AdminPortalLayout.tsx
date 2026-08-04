@@ -94,7 +94,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   const isAllowedForSC = SC_ALLOWED.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
 
   // Routes restricted to administrators only — company employees cannot access
-  const ADMIN_ONLY_ROUTES = ['/admin/analytics', '/admin/iam', '/admin/system-control'];
+  const ADMIN_ONLY_ROUTES = ['/admin/analytics', '/admin/iam', '/admin/system-control', '/admin/external-portal'];
   const isAdminOnlyRoute = ADMIN_ONLY_ROUTES.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
 
   React.useEffect(() => {
