@@ -273,7 +273,9 @@ serve(async (req) => {
       .eq("status", "pending")
       .order("created_at", { ascending: true });
 
-    if (body.appointmentId) {
+    if (body.queueId) {
+      query = query.eq("id", body.queueId).limit(1);
+    } else if (body.appointmentId) {
       query = query.eq("appointment_id", body.appointmentId).limit(1);
     } else {
       query = query.limit(limit);
