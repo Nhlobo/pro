@@ -13,6 +13,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { ActivityTrackerMount } from "@/hooks/useActivityTracker";
 import { OfflineRedirectGuard } from "@/hooks/useOfflineRedirect";
 import IdleLogoutGuard from "@/components/IdleLogoutGuard";
+import ExternalPortalSessionRoute from "@/components/external-portal/ExternalPortalSessionRoute";
 import { ExitConfirmationGuard } from "@/hooks/useExitConfirmation";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
@@ -143,6 +144,10 @@ const ExternalPortalAuditLogs = lazy(() => import("./pages/admin/external-portal
 const ExternalPortalRecycleBin = lazy(() => import("./pages/admin/external-portal/ExternalPortalRecycleBin"));
 const ExternalPortalSettings = lazy(() => import("./pages/admin/external-portal/ExternalPortalSettings"));
 
+// External Portal Module — public, end-user-facing pages (not under /admin).
+const ExternalPortalSignIn = lazy(() => import("./pages/external-portal/ExternalPortalSignIn"));
+const ExternalPortalHome = lazy(() => import("./pages/external-portal/ExternalPortalHome"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -211,6 +216,21 @@ const App = () => (
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
                 <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
                 <Route path="/Expertzone/case-access" element={<ExpertCaseAccess />} />
+
+                {/* External Portal Module — shared sign-in for Referring Attorney &
+                    Medical Expert portals. Public routes: these users have no
+                    Supabase auth session, so no auth wrapper here (same pattern as
+                    the legacy case-access routes above). /home is gated by the
+                    module's own session check, not the app's ProtectedRoute. */}
+                <Route path="/external-portal/sign-in" element={<ExternalPortalSignIn />} />
+                <Route
+                  path="/external-portal/home"
+                  element={
+                    <ExternalPortalSessionRoute>
+                      <ExternalPortalHome />
+                    </ExternalPortalSessionRoute>
+                  }
+                />
                 <Route path="/contact-us" element={<ContactUs />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 
