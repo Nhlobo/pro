@@ -35,6 +35,7 @@ import {
   AdminCardBody,
   AdminStatCard,
   AdminEmptyState,
+  AdminErrorState,
   AdminTabList,
   AdminTabTrigger,
   AdminSearchInput,
@@ -139,7 +140,9 @@ const scoreForId = (id: string): number => {
 
 const AdminExpertNetwork: React.FC = () => {
   const [experts, setExperts] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
   const [search, setSearch] = useState('');
   const [provinceFilter, setProvinceFilter] = useState('All Provinces');
   const [provinceSearch, setProvinceSearch] = useState('');
@@ -160,10 +163,22 @@ const AdminExpertNetwork: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const refetchExperts = useCallback(async () => {
-    const { data } = await supabase.rpc('get_medical_experts_secure');
+    const { data, error } = await supabase.rpc('get_medical_experts_secure');
+    if (error) {
+      // Surface the failure instead of rendering the "no experts match your
+      // filters" empty state, which used to make a permission / network
+      // error look like an empty directory.
+      console.error('[AdminExpertNetwork] failed to load experts', error);
+      setLoadError(error.message || 'Unable to load the expert directory.');
+      setExperts([]);
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
     setExperts(data || []);
     setLoading(false);
   }, []);
+
 
   useEffect(() => { refetchExperts(); }, [refetchExperts]);
 
@@ -470,12 +485,19 @@ const AdminExpertNetwork: React.FC = () => {
                 <div className="space-y-2 p-4">
                   {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
                 </div>
+              ) : loadError ? (
+                <AdminErrorState
+                  title="Could not load the expert directory"
+                  message={loadError}
+                  onRetry={() => { setLoading(true); refetchExperts(); }}
+                />
               ) : paginated.length === 0 ? (
                 <AdminEmptyState
                   icon={Stethoscope}
                   title="No experts match your filters"
                   description="Try a different name, discipline, or province."
                 />
+
               ) : (
                 <>
                   {/* ≥md: full data table */}

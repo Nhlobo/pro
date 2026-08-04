@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 /**
@@ -212,6 +212,36 @@ export const AdminLoadingState: React.FC<{ label?: string }> = ({ label = 'Loadi
     {label}
   </div>
 );
+
+/**
+ * Shown when a fetch actually failed. Previously these modules swallowed the
+ * error and rendered the "nothing here yet" empty state, which made a
+ * permission / network failure look like genuinely empty data.
+ */
+export const AdminErrorState: React.FC<{
+  title?: string;
+  message?: string;
+  onRetry?: () => void;
+}> = ({ title = 'Could not load this data', message, onRetry }) => (
+  <div className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
+    <div className="mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+      <AlertTriangle className="h-6 w-6 text-destructive" aria-hidden="true" />
+    </div>
+    <p className="text-sm font-medium text-black">{title}</p>
+    {message && <p className="max-w-md break-words text-xs text-slate-500">{message}</p>}
+    {onRetry && (
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-2 border border-black/15 px-3 py-1.5 text-xs font-medium text-black transition-colors hover:bg-black/5"
+      >
+        Try again
+      </button>
+    )}
+  </div>
+);
+
+
 
 /* ------------------------------------------------------------------ */
 /* Tab navigation — the primary "module switcher" pattern used on      */

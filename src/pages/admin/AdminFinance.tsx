@@ -18,6 +18,7 @@ import {
   AdminCardBody,
   AdminStatCard,
   AdminEmptyState,
+  AdminErrorState,
   AdminLoadingState,
   AdminTabList,
   AdminTabTrigger,
@@ -74,6 +75,9 @@ const AdminFinance: React.FC = () => {
   const [aodDocs, setAodDocs] = useState<AodFinanceDoc[]>([]);
   const [shortTermDocs, setShortTermDocs] = useState<ShortTermFinanceDoc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aodError, setAodError] = useState<string | null>(null);
+  const [shortTermError, setShortTermError] = useState<string | null>(null);
+
   const [syncing, setSyncing] = useState(false);
   const [attorneySearchDraft, setAttorneySearchDraft] = useState('');
   const [attorneySearch, setAttorneySearch] = useState('');
@@ -126,8 +130,15 @@ const AdminFinance: React.FC = () => {
       supabase.from('aod_documents').select(aodSelect).order('created_at', { ascending: false }),
       supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }).limit(100),
     ]);
+    // A failed read must not masquerade as "no agreements" — record the error
+    // so the table renders an explicit failure state with a retry.
+    if (aodResult.error) console.error('[AdminFinance] AOD read failed', aodResult.error);
+    if (stResult.error) console.error('[AdminFinance] short-term read failed', stResult.error);
+    setAodError(aodResult.error ? (aodResult.error.message || 'Unable to load AOD agreements.') : null);
+    setShortTermError(stResult.error ? (stResult.error.message || 'Unable to load short-term agreements.') : null);
     const filtered = ((aodResult.data || []) as AodFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
     const filteredShortTerm = ((stResult.data || []) as ShortTermFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
+
     setAodDocs(filtered);
     setShortTermDocs(filteredShortTerm);
     setLoading(false);
@@ -385,6 +396,12 @@ const AdminFinance: React.FC = () => {
               />
               {loading ? (
                 <AdminLoadingState label="Loading long-term AOD debts…" />
+              ) : aodError ? (
+                <AdminErrorState
+                  title="Could not load long-term AOD debts"
+                  message={aodError}
+                  onRetry={fetchAll}
+                />
               ) : filteredConsolidatedAttorneys.length === 0 ? (
                 <AdminEmptyState
                   icon={Landmark}
@@ -480,6 +497,12 @@ const AdminFinance: React.FC = () => {
               />
               {loading ? (
                 <AdminLoadingState label="Loading short-term agreements…" />
+              ) : shortTermError ? (
+                <AdminErrorState
+                  title="Could not load short-term agreements"
+                  message={shortTermError}
+                  onRetry={fetchAll}
+                />
               ) : filteredShortTermDocs.length === 0 ? (
                 <AdminEmptyState
                   icon={FileStack}
