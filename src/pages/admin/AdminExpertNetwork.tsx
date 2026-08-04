@@ -484,12 +484,19 @@ const AdminExpertNetwork: React.FC = () => {
                 <div className="space-y-2 p-4">
                   {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-9 w-full" />)}
                 </div>
+              ) : loadError ? (
+                <AdminErrorState
+                  title="Could not load the expert directory"
+                  message={loadError}
+                  onRetry={() => { setLoading(true); refetchExperts(); }}
+                />
               ) : paginated.length === 0 ? (
                 <AdminEmptyState
                   icon={Stethoscope}
                   title="No experts match your filters"
                   description="Try a different name, discipline, or province."
                 />
+
               ) : (
                 <>
                   {/* ≥md: full data table */}
