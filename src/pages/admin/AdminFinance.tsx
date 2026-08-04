@@ -130,8 +130,15 @@ const AdminFinance: React.FC = () => {
       supabase.from('aod_documents').select(aodSelect).order('created_at', { ascending: false }),
       supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }).limit(100),
     ]);
+    // A failed read must not masquerade as "no agreements" — record the error
+    // so the table renders an explicit failure state with a retry.
+    if (aodResult.error) console.error('[AdminFinance] AOD read failed', aodResult.error);
+    if (stResult.error) console.error('[AdminFinance] short-term read failed', stResult.error);
+    setAodError(aodResult.error ? (aodResult.error.message || 'Unable to load AOD agreements.') : null);
+    setShortTermError(stResult.error ? (stResult.error.message || 'Unable to load short-term agreements.') : null);
     const filtered = ((aodResult.data || []) as AodFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
     const filteredShortTerm = ((stResult.data || []) as ShortTermFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company);
+
     setAodDocs(filtered);
     setShortTermDocs(filteredShortTerm);
     setLoading(false);
