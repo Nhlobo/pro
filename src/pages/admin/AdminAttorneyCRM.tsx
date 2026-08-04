@@ -17,6 +17,7 @@ import {
   GitMerge,
   CheckCircle,
   BarChart3,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import MergeAttorneyDialog from '@/components/MergeAttorneyDialog';
@@ -43,6 +44,7 @@ const ClaimantFormModule = lazy(() => import('@/components/admin/ClaimantFormMod
 const ClaimantListModule = lazy(() => import('@/components/admin/ClaimantListModule'));
 const ReferringAttorneyFormModule = lazy(() => import('@/components/admin/ReferringAttorneyFormModule'));
 const ReferringAttorneyListModule = lazy(() => import('@/components/admin/ReferringAttorneyListModule'));
+const AttorneyPortalLinksPanel = lazy(() => import('@/components/admin/AttorneyPortalLinksPanel'));
 
 interface AttorneyRow {
   id: string;
@@ -369,7 +371,7 @@ const AdminAttorneyCRM: React.FC = () => {
       />
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <AdminTabList sticky columns={7}>
+        <AdminTabList sticky columns={isSales ? 7 : 8}>
           <AdminTabTrigger value="sales-dashboard" label="Sales Dashboard" icon={BarChart3} center />
           <AdminTabTrigger
             value="pitchlog"
@@ -383,6 +385,9 @@ const AdminAttorneyCRM: React.FC = () => {
           <AdminTabTrigger value="all-claimants" label="All Claimants" icon={List} center />
           <AdminTabTrigger value="new-attorney" label="New Attorney" icon={UserPlus} center />
           <AdminTabTrigger value="all-attorneys" label="All Attorneys" icon={Users} center />
+          {!isSales && (
+            <AdminTabTrigger value="portal-links" label="Portal Links" icon={Link2} center />
+          )}
         </AdminTabList>
 
         <div className="mt-4">
@@ -425,6 +430,14 @@ const AdminAttorneyCRM: React.FC = () => {
               <ReferringAttorneyListModule />
             </Suspense>
           </TabsContent>
+
+          {!isSales && (
+            <TabsContent value="portal-links" className="mt-0 focus-visible:outline-none">
+              <Suspense fallback={<TabFallback />}>
+                <AttorneyPortalLinksPanel />
+              </Suspense>
+            </TabsContent>
+          )}
         </div>
       </Tabs>
     </AdminPage>
