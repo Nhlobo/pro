@@ -28,7 +28,7 @@ Deno.serve(withErrorHandler(async (req) => {
     // Validate the access code
     const { data: codeData, error: codeError } = await supabase
       .from("attorney_access_codes")
-      .select("id, referring_attorney_id, appointment_id, is_active, access_count")
+      .select("id, referring_attorney_id, appointment_id, is_active, access_count, expires_at, deactivation_reason")
       .eq("access_code", access_code.trim())
       .single();
 
@@ -41,7 +41,33 @@ Deno.serve(withErrorHandler(async (req) => {
 
     if (!codeData.is_active) {
       return new Response(
-        JSON.stringify({ error: "This access code has expired. The case has been paid in full and the report has been delivered." }),
+        JSON.stringify({
+          error: codeData.deactivation_reason
+            || "This access link has been revoked. Please contact us for a new one.",
+          code: "REVOKED",
+        }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Expiry is enforced here, server-side, before any claimant or case data
+    // is read. An expired link returns 403 and no payload.
+    if (codeData.expires_at && new Date(codeData.expires_at).getTime() <= Date.now()) {
+      // Best-effort: mark it inactive so it stops being a live credential.
+      await supabase
+        .from("attorney_access_codes")
+        .update({
+          is_active: false,
+          deactivated_at: new Date().toISOString(),
+          deactivation_reason: "Link expired",
+        })
+        .eq("id", codeData.id);
+
+      return new Response(
+        JSON.stringify({
+          error: "This access link has expired. Please request a new one.",
+          code: "EXPIRED",
+        }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
