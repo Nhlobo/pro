@@ -139,7 +139,9 @@ const scoreForId = (id: string): number => {
 
 const AdminExpertNetwork: React.FC = () => {
   const [experts, setExperts] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
   const [search, setSearch] = useState('');
   const [provinceFilter, setProvinceFilter] = useState('All Provinces');
   const [provinceSearch, setProvinceSearch] = useState('');
