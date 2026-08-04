@@ -130,6 +130,19 @@ const AdminSystemControl = lazy(() => import("./pages/admin/AdminSystemControl")
 const SalesPerformanceReports = lazy(() => import("./pages/admin/SalesPerformanceReports"));
 const WeeklyOperationsReport = lazy(() => import("./pages/admin/WeeklyOperationsReport"));
 
+// External Portal Module (isolated) — Referring Attorney & Medical Expert
+// external portals share this one admin section. See
+// src/pages/admin/external-portal/ for the module root.
+const ExternalPortalDashboard = lazy(() => import("./pages/admin/external-portal/ExternalPortalDashboard"));
+const ExternalPortalAccounts = lazy(() => import("./pages/admin/external-portal/ExternalPortalAccounts"));
+const ExternalPortalAccessLinks = lazy(() => import("./pages/admin/external-portal/ExternalPortalAccessLinks"));
+const ExternalPortalActiveSessions = lazy(() => import("./pages/admin/external-portal/ExternalPortalActiveSessions"));
+const ExternalPortalOtpManagement = lazy(() => import("./pages/admin/external-portal/ExternalPortalOtpManagement"));
+const ExternalPortalLoginHistory = lazy(() => import("./pages/admin/external-portal/ExternalPortalLoginHistory"));
+const ExternalPortalAuditLogs = lazy(() => import("./pages/admin/external-portal/ExternalPortalAuditLogs"));
+const ExternalPortalRecycleBin = lazy(() => import("./pages/admin/external-portal/ExternalPortalRecycleBin"));
+const ExternalPortalSettings = lazy(() => import("./pages/admin/external-portal/ExternalPortalSettings"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -222,6 +235,21 @@ const App = () => (
                 <Route path="/admin/weekly-operations-report" element={<AdminPortalRoute><WeeklyOperationsReport /></AdminPortalRoute>} />
                 <Route path="/admin/support" element={<AdminPortalRoute><AdminSupportHub /></AdminPortalRoute>} />
                 <Route path="/admin/my-profile" element={<AdminPortalRoute><MyProfile /></AdminPortalRoute>} />
+
+                {/* ============ EXTERNAL PORTAL MANAGEMENT (isolated module) ============ */}
+                {/* Admin-only, same as /admin/iam and /admin/system-control. Deliberately
+                    its own section rather than nested under Access & IAM — see the module's
+                    own layout component for why. Not yet linked from anywhere in the app
+                    besides the sidebar nav entry (adminModules.ts) until Phases 2-5 land. */}
+                <Route path="/admin/external-portal" element={<AdminPortalRoute><ExternalPortalDashboard /></AdminPortalRoute>} />
+                <Route path="/admin/external-portal/accounts" element={<AdminPortalRoute><ExternalPortalAccounts /></AdminPortalRoute>} />
+                <Route path="/admin/external-portal/links" element={<AdminPortalRoute><ExternalPortalAccessLinks /></AdminPortalRoute>} />
+                <Route path="/admin/external-portal/sessions" element={<AdminPortalRoute><ExternalPortalActiveSessions /></AdminPortalRoute>} />
+                <Route path="/admin/external-portal/otp" element={<AdminPortalRoute><ExternalPortalOtpManagement /></AdminPortalRoute>} />
+                <Route path="/admin/external-portal/login-history" element={<AdminPortalRoute><ExternalPortalLoginHistory /></AdminPortalRoute>} />
+                <Route path="/admin/external-portal/audit-logs" element={<AdminPortalRoute><ExternalPortalAuditLogs /></AdminPortalRoute>} />
+                <Route path="/admin/external-portal/recycle-bin" element={<AdminPortalRoute><ExternalPortalRecycleBin /></AdminPortalRoute>} />
+                <Route path="/admin/external-portal/settings" element={<AdminPortalRoute><ExternalPortalSettings /></AdminPortalRoute>} />
 
                 {/* ============ LEGACY ROUTES (kept for backward compat) ============ */}
                 <Route path="/claimant" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_claimants", "referring_attorney"]}><ClaimantForm /></PermissionProtectedRoute></ProtectedRoute>} />
