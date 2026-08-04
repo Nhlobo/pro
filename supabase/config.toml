@@ -125,3 +125,14 @@ verify_jwt = true
 
 [functions.webauthn-authenticate]
 verify_jwt = true
+
+# External Portal Module (isolated) — Referring Attorney & Medical Expert
+# shared portal authentication. external-portal-auth is public because
+# external users are never Supabase auth.users; it enforces its own
+# authorization entirely via the external_portal_* tables (service role).
+# external-portal-admin-links is staff-only and does require a JWT.
+[functions.external-portal-auth]
+verify_jwt = false  # Public endpoint — external users have no Supabase auth.users JWT. Auth validated in code via one-time links, OTP and session tokens.
+
+[functions.external-portal-admin-links]
+verify_jwt = true  # Staff-only; admin role re-checked in code via has_role()
