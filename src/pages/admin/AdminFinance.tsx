@@ -75,6 +75,9 @@ const AdminFinance: React.FC = () => {
   const [aodDocs, setAodDocs] = useState<AodFinanceDoc[]>([]);
   const [shortTermDocs, setShortTermDocs] = useState<ShortTermFinanceDoc[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aodError, setAodError] = useState<string | null>(null);
+  const [shortTermError, setShortTermError] = useState<string | null>(null);
+
   const [syncing, setSyncing] = useState(false);
   const [attorneySearchDraft, setAttorneySearchDraft] = useState('');
   const [attorneySearch, setAttorneySearch] = useState('');
