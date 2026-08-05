@@ -69,4 +69,33 @@ export function getAttorneyCase(sessionToken: string, appointmentId: string): Pr
   return invoke('get_case', sessionToken, { appointment_id: appointmentId });
 }
 
+export interface PortalDocument {
+  id: string;
+  file_name: string;
+  file_type: string | null;
+  file_size: number | null;
+  document_type: string;
+  upload_date: string;
+}
+
+export function listAttorneyDocuments(sessionToken: string, appointmentId: string): Promise<{ documents: PortalDocument[] }> {
+  return invoke('list_documents', sessionToken, { appointment_id: appointmentId });
+}
+
+export function getAttorneyDocumentUrl(sessionToken: string, documentId: string): Promise<{ url: string; file_name: string }> {
+  return invoke('get_document_url', sessionToken, { document_id: documentId });
+}
+
+export interface PortalCasePhase {
+  phase_name: string;
+  phase_order: number;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export function listAttorneyProgress(sessionToken: string, appointmentId: string): Promise<{ phases: PortalCasePhase[] }> {
+  return invoke('list_progress', sessionToken, { appointment_id: appointmentId });
+}
+
 export type { ApiError };
