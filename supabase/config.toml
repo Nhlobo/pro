@@ -140,8 +140,8 @@ verify_jwt = true  # Staff-only; admin role re-checked in code via has_role()
 [functions.external-portal-attorney-data]
 verify_jwt = false  # Public endpoint — authorization is via the session_token in the request body, validated in code against external_portal_sessions.
 
-[functions.external-portal-engagement]
-verify_jwt = false  # Public endpoint — same session_token-based authorization; serves documents, case progress and notifications for both portal types.
-
 [functions.external-portal-expert-data]
 verify_jwt = false  # Public endpoint — same session_token-based authorization as external-portal-attorney-data.
+
+[functions.external-portal-messages]
+verify_jwt = false  # Public endpoint — same session_token-based authorization; shared by both portal types.
