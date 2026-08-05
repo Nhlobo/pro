@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Stethoscope, LogOut } from 'lucide-react';
 import { useExternalPortalSession } from '@/hooks/externalPortal/useExternalPortalSession';
+import PortalNotificationBell from '@/components/external-portal/PortalNotificationBell';
 
 const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session, clearSession } = useExternalPortalSession();
@@ -24,9 +25,12 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
               {session && <p className="text-xs text-slate-500">{session.full_name}</p>}
             </div>
           </div>
-          <Button variant="outline" size="sm" className="rounded-none border-black/15" onClick={handleSignOut}>
-            <LogOut className="mr-1.5 h-3.5 w-3.5" /> Sign Out
-          </Button>
+          <div className="flex items-center gap-2">
+            <PortalNotificationBell />
+            <Button variant="outline" size="sm" className="rounded-none border-black/15" onClick={handleSignOut}>
+              <LogOut className="mr-1.5 h-3.5 w-3.5" /> <span className="hidden sm:inline">Sign Out</span>
+            </Button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
