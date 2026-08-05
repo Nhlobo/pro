@@ -149,6 +149,8 @@ const ExternalPortalSignIn = lazy(() => import("./pages/external-portal/External
 const ExternalPortalHome = lazy(() => import("./pages/external-portal/ExternalPortalHome"));
 const AttorneyPortalCases = lazy(() => import("./pages/external-portal/attorney/AttorneyPortalCases"));
 const AttorneyPortalCaseDetail = lazy(() => import("./pages/external-portal/attorney/AttorneyPortalCaseDetail"));
+const ExpertPortalCases = lazy(() => import("./pages/external-portal/expert/ExpertPortalCases"));
+const ExpertPortalCaseDetail = lazy(() => import("./pages/external-portal/expert/ExpertPortalCaseDetail"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -248,6 +250,25 @@ const App = () => (
                   element={
                     <ExternalPortalSessionRoute>
                       <AttorneyPortalCaseDetail />
+                    </ExternalPortalSessionRoute>
+                  }
+                />
+                {/* Medical Expert Portal (Phase 4) — same pattern as the
+                    Attorney Portal above, scoped via the same
+                    external_portal_case_links table. */}
+                <Route
+                  path="/external-portal/expert/cases"
+                  element={
+                    <ExternalPortalSessionRoute>
+                      <ExpertPortalCases />
+                    </ExternalPortalSessionRoute>
+                  }
+                />
+                <Route
+                  path="/external-portal/expert/cases/:appointmentId"
+                  element={
+                    <ExternalPortalSessionRoute>
+                      <ExpertPortalCaseDetail />
                     </ExternalPortalSessionRoute>
                   }
                 />
