@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { formatDateTimeShort } from '@/utils/dateTime';
+import PortalCaseDocuments from '@/components/external-portal/PortalCaseDocuments';
+import PortalCaseProgress from '@/components/external-portal/PortalCaseProgress';
 
 const REPORT_STATUS_LABEL: Record<string, string> = {
   pending: 'Pending',
@@ -85,9 +87,9 @@ const ExpertPortalCaseDetail: React.FC = () => {
             </CardContent>
           </Card>
 
-          <p className="text-center text-xs text-slate-400">
-            Document upload/download and case messaging are coming in a future update.
-          </p>
+          <PortalCaseProgress appointmentId={appointmentId} />
+
+          <PortalCaseDocuments appointmentId={appointmentId} />
         </div>
       )}
     </ExpertPortalLayout>
