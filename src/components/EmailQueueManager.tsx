@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useEmailQueue, EmailQueueItem } from "@/hooks/useEmailQueue";
+import { useEmailQueue, useEmailBody, EmailQueueListItem } from "@/hooks/useEmailQueue";
 import { Button } from "@/components/ui/button";
 // Every panel on this page is a docked side panel, not a centered modal —
 // Sheet is the same Radix dialog primitive under the hood (behaviour, focus
@@ -91,7 +91,7 @@ const StatusPill: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
-const AttendancePill: React.FC<{ email: EmailQueueItem }> = ({ email }) => {
+const AttendancePill: React.FC<{ email: EmailQueueListItem }> = ({ email }) => {
   if (email.is_responded) {
     return (
       <AdminPill tone="success">
@@ -129,6 +129,7 @@ export const EmailQueueManager = () => {
   const {
     emails,
     isLoading,
+    error,
     stats,
     markAsRead,
     markAsResponded,
@@ -138,8 +139,11 @@ export const EmailQueueManager = () => {
   } = useEmailQueue(activeTab);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [previewEmail, setPreviewEmail] = useState<EmailQueueItem | null>(null);
-  const [forwardDialog, setForwardDialog] = useState<EmailQueueItem | null>(null);
+  const [previewEmail, setPreviewEmail] = useState<EmailQueueListItem | null>(null);
+  // html_content isn't in the list payload (see useEmailQueue) — fetched
+  // separately, only while a preview panel is actually open.
+  const { data: previewBody, isLoading: isPreviewBodyLoading } = useEmailBody(previewEmail?.id ?? null);
+  const [forwardDialog, setForwardDialog] = useState<EmailQueueListItem | null>(null);
   const [forwardTo, setForwardTo] = useState("");
   const [forwardNotes, setForwardNotes] = useState("");
 
@@ -166,7 +170,7 @@ export const EmailQueueManager = () => {
     setForwardNotes("");
   };
 
-  const handlePreviewOpen = (email: EmailQueueItem) => {
+  const handlePreviewOpen = (email: EmailQueueListItem) => {
     setPreviewEmail(email);
     if (!email.is_read) {
       markAsRead(email.id);
@@ -237,7 +241,13 @@ export const EmailQueueManager = () => {
           description={searchTerm ? "Filtered results from this tab." : "Every email logged in this tab."}
         />
 
-        {isLoading ? (
+        {error ? (
+          <AdminEmptyState
+            icon={AlertCircle}
+            title="Couldn't load email history"
+            description={(error as any)?.message || "The request failed. Check your connection and try Refresh."}
+          />
+        ) : isLoading ? (
           <AdminLoadingState label="Loading email history…" />
         ) : !visibleEmails || visibleEmails.length === 0 ? (
           <AdminEmptyState
@@ -452,18 +462,26 @@ export const EmailQueueManager = () => {
                 </TabsList>
                 <TabsContent value="preview" className="mt-3">
                   <ScrollArea className="h-[45vh] border border-black/10">
-                    {/* Sandboxed iframe prevents stored-XSS from arbitrary html_content */}
-                    <iframe
-                      title="Email preview"
-                      sandbox=""
-                      srcDoc={previewEmail.html_content || ""}
-                      className="h-[45vh] w-full border-0 bg-white"
-                    />
+                    {isPreviewBodyLoading ? (
+                      <AdminLoadingState label="Loading email body…" />
+                    ) : (
+                      // Sandboxed iframe prevents stored-XSS from arbitrary html_content
+                      <iframe
+                        title="Email preview"
+                        sandbox=""
+                        srcDoc={previewBody?.html_content || ""}
+                        className="h-[45vh] w-full border-0 bg-white"
+                      />
+                    )}
                   </ScrollArea>
                 </TabsContent>
                 <TabsContent value="html" className="mt-3">
                   <ScrollArea className="h-[45vh] border border-black/10 p-4">
-                    <pre className="whitespace-pre-wrap text-xs">{previewEmail.html_content}</pre>
+                    {isPreviewBodyLoading ? (
+                      <AdminLoadingState label="Loading email body…" />
+                    ) : (
+                      <pre className="whitespace-pre-wrap text-xs">{previewBody?.html_content}</pre>
+                    )}
                   </ScrollArea>
                 </TabsContent>
                 {previewEmail.metadata && (
