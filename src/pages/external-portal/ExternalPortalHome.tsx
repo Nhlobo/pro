@@ -1,5 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
+import { Navigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ShieldCheck, LogOut } from 'lucide-react';
@@ -7,15 +8,18 @@ import { useExternalPortalSession } from '@/hooks/externalPortal/useExternalPort
 import { PORTAL_TYPE_LABEL } from '@/types/externalPortal';
 
 /**
- * Temporary landing page. Confirms sign-in worked end-to-end for both
- * portal types. Phase 3 replaces this for `portal_type === 'attorney'`
- * with the real Referring Attorney Portal; Phase 4 does the same for
- * `'expert'`.
+ * Landing router right after sign-in. Referring Attorneys go straight
+ * into their real portal (Phase 3). Medical Experts still see the
+ * placeholder until Phase 4 builds their portal.
  */
 const ExternalPortalHome: React.FC = () => {
   const { session, clearSession } = useExternalPortalSession();
 
   if (!session) return null;
+
+  if (session.portal_type === 'attorney') {
+    return <Navigate to="/external-portal/attorney/cases" replace />;
+  }
 
   return (
     <div className="brand-legal-theme flex min-h-screen items-center justify-center bg-slate-50 px-4">
@@ -32,8 +36,7 @@ const ExternalPortalHome: React.FC = () => {
             Welcome, <span className="font-medium text-black">{session.full_name}</span>.
           </p>
           <p className="text-xs text-slate-500">
-            Case views for the {PORTAL_TYPE_LABEL[session.portal_type]} Portal aren't wired up yet —
-            that's Phase {session.portal_type === 'attorney' ? '3' : '4'} of the External Portal Module.
+            The Medical Expert Portal isn't wired up yet — that's the next phase of the External Portal Module.
           </p>
           <Button variant="outline" className="w-full rounded-none border-black/15" onClick={clearSession}>
             <LogOut className="mr-1.5 h-4 w-4" /> Sign Out
