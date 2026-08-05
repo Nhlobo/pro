@@ -147,6 +147,8 @@ const ExternalPortalSettings = lazy(() => import("./pages/admin/external-portal/
 // External Portal Module — public, end-user-facing pages (not under /admin).
 const ExternalPortalSignIn = lazy(() => import("./pages/external-portal/ExternalPortalSignIn"));
 const ExternalPortalHome = lazy(() => import("./pages/external-portal/ExternalPortalHome"));
+const AttorneyPortalCases = lazy(() => import("./pages/external-portal/attorney/AttorneyPortalCases"));
+const AttorneyPortalCaseDetail = lazy(() => import("./pages/external-portal/attorney/AttorneyPortalCaseDetail"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -228,6 +230,24 @@ const App = () => (
                   element={
                     <ExternalPortalSessionRoute>
                       <ExternalPortalHome />
+                    </ExternalPortalSessionRoute>
+                  }
+                />
+                {/* Referring Attorney Portal (Phase 3) — read-only case views,
+                    scoped server-side to this account's linked cases only. */}
+                <Route
+                  path="/external-portal/attorney/cases"
+                  element={
+                    <ExternalPortalSessionRoute>
+                      <AttorneyPortalCases />
+                    </ExternalPortalSessionRoute>
+                  }
+                />
+                <Route
+                  path="/external-portal/attorney/cases/:appointmentId"
+                  element={
+                    <ExternalPortalSessionRoute>
+                      <AttorneyPortalCaseDetail />
                     </ExternalPortalSessionRoute>
                   }
                 />
