@@ -5,22 +5,104 @@
 // one-time secure link" step. This function never runs on behalf of
 // an external end user — that's external-portal-auth, a separate
 // function with a separate trust boundary.
+//
+// Deliberately self-contained: no imports from ../_shared or
+// ../_external-portal-shared. Everything this function needs (CORS,
+// crypto helpers, email sending) is inlined below so deployment never
+// depends on the bundler resolving sibling folders.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { withErrorHandler } from "../_shared/errors.ts";
-import { sendEmail } from "../_shared/email.ts";
-import {
-  corsHeaders,
-  jsonResponse,
-  errorResponse,
-  sha256Hex,
-  randomToken,
-  getPortalSettings,
-  registrationLinkEmailHtml,
-  PORTAL_LABEL,
-} from "../_external-portal-shared/helpers.ts";
+import { Resend } from "npm:resend@4.0.0";
 
-const APP_ORIGIN = "https://kamedico-legal.co.za";
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const APP_ORIGIN = "https://medico-legal-pro-71z1.onrender.com";
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...CORS_HEADERS },
+  });
+}
+
+function errorResponse(message: string, status = 400): Response {
+  return jsonResponse({ success: false, error: message }, status);
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function randomToken(bytes = 32): string {
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+const PORTAL_LABEL: Record<string, string> = { attorney: "Referring Attorney", expert: "Medical Expert" };
+
+interface PortalSettings {
+  access_link_expiry_hours: number;
+  otp_length: number;
+  otp_expiry_minutes: number;
+  otp_max_attempts: number;
+  session_expiry_hours: number;
+  auto_expire_on_all_cases_closed: boolean;
+}
+
+const DEFAULT_SETTINGS: PortalSettings = {
+  access_link_expiry_hours: 72,
+  otp_length: 6,
+  otp_expiry_minutes: 10,
+  otp_max_attempts: 5,
+  session_expiry_hours: 12,
+  auto_expire_on_all_cases_closed: true,
+};
+
+// deno-lint-ignore no-explicit-any
+async function getPortalSettings(supabaseAdmin: any): Promise<PortalSettings> {
+  const { data } = await supabaseAdmin.from("external_portal_settings").select("*").eq("id", 1).maybeSingle();
+  return data ? { ...DEFAULT_SETTINGS, ...data } : DEFAULT_SETTINGS;
+}
+
+async function sendLinkEmail(to: string, fullName: string, link: string, expiryHours: number, portalLabel: string): Promise<boolean> {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendApiKey) {
+    console.error("RESEND_API_KEY not configured — access link email not sent");
+    return false;
+  }
+  const resend = new Resend(resendApiKey);
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+      <p>Hi ${escapeHtml(fullName)},</p>
+      <p>You've been granted access to the ${escapeHtml(portalLabel)} Portal. Use the secure link below to register — it can only be used once and expires in ${expiryHours} hours:</p>
+      <p style="margin: 24px 0;"><a href="${link}" style="background:#00BAAD;color:#fff;padding:12px 20px;text-decoration:none;border-radius:4px;">Access Your Portal</a></p>
+      <p>If the button doesn't work, copy this link into your browser:<br/>${link}</p>
+    </div>`;
+  try {
+    await resend.emails.send({
+      from: "Kutlwano & Associate <noreply@kamedico-legal.co.za>",
+      to: [to],
+      subject: `Your ${portalLabel} Portal access link`,
+      html,
+      reply_to: "info@kamedico-legal.co.za",
+    });
+    return true;
+  } catch (err) {
+    console.error("Failed to send access link email:", err);
+    return false;
+  }
+}
 
 type Action = "generate_link" | "revoke_link";
 
@@ -32,131 +114,112 @@ interface RequestBody {
   send_email?: boolean;
 }
 
-serve(withErrorHandler(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders() });
-  }
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS_HEADERS });
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return errorResponse("Missing authorization header", 401);
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return errorResponse("Missing authorization header", 401);
 
-  const supabaseAuth = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-    { global: { headers: { Authorization: authHeader } } },
-  );
-  const supabaseAdmin = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-  );
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    );
 
-  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
-  if (authError || !user) return errorResponse("Invalid authentication", 401);
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) return errorResponse("Invalid authentication", 401);
 
-  const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: user.id, _role: "admin" });
-  if (!isAdmin) return errorResponse("Admin privileges required", 403);
+    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: user.id, _role: "admin" });
+    if (!isAdmin) return errorResponse("Admin privileges required", 403);
 
-  const body: RequestBody = await req.json();
+    const body: RequestBody = await req.json();
 
-  if (body.action === "generate_link") {
-    if (!body.account_id) return errorResponse("account_id is required");
+    if (body.action === "generate_link") {
+      if (!body.account_id) return errorResponse("account_id is required");
 
-    const { data: account, error: acctError } = await supabaseAdmin
-      .from("external_portal_accounts")
-      .select("id, full_name, email, portal_type, status, deleted_at")
-      .eq("id", body.account_id)
-      .single();
+      const { data: account, error: acctError } = await supabaseAdmin
+        .from("external_portal_accounts")
+        .select("id, full_name, email, portal_type, status, deleted_at")
+        .eq("id", body.account_id)
+        .single();
 
-    if (acctError || !account) return errorResponse("Account not found", 404);
-    if (account.deleted_at) return errorResponse("Account is in the Recycle Bin — restore it first", 409);
-    if (account.status !== "active") return errorResponse(`Account is ${account.status} — set it to Active first`, 409);
+      if (acctError || !account) return errorResponse("Account not found");
+      if (account.deleted_at) return errorResponse("Account is in the Recycle Bin — restore it first");
+      if (account.status !== "active") return errorResponse(`Account is ${account.status} — set it to Active first`);
 
-    // Revoke any still-pending links for this account first — only one
-    // live registration link per account at a time.
-    await supabaseAdmin
-      .from("external_portal_access_links")
-      .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_reason: "Superseded by new link" })
-      .eq("account_id", account.id)
-      .eq("status", "pending");
+      await supabaseAdmin
+        .from("external_portal_access_links")
+        .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_reason: "Superseded by new link" })
+        .eq("account_id", account.id)
+        .eq("status", "pending");
 
-    const settings = await getPortalSettings(supabaseAdmin);
-    const rawToken = randomToken(32);
-    const tokenHash = await sha256Hex(rawToken);
-    const expiresAt = new Date(Date.now() + settings.access_link_expiry_hours * 60 * 60 * 1000).toISOString();
+      const settings = await getPortalSettings(supabaseAdmin);
+      const rawToken = randomToken(32);
+      const tokenHash = await sha256Hex(rawToken);
+      const expiresAt = new Date(Date.now() + settings.access_link_expiry_hours * 60 * 60 * 1000).toISOString();
 
-    const { data: link, error: linkError } = await supabaseAdmin
-      .from("external_portal_access_links")
-      .insert({
-        account_id: account.id,
-        token_hash: tokenHash,
-        expires_at: expiresAt,
-        created_by: user.id,
-      })
-      .select("id, expires_at, created_at")
-      .single();
+      const { data: link, error: linkError } = await supabaseAdmin
+        .from("external_portal_access_links")
+        .insert({ account_id: account.id, token_hash: tokenHash, expires_at: expiresAt, created_by: user.id })
+        .select("id, expires_at, created_at")
+        .single();
 
-    if (linkError) return errorResponse(linkError.message, 500);
+      if (linkError) return errorResponse(linkError.message);
 
-    const portalLabel = PORTAL_LABEL[account.portal_type] ?? "External";
-    const linkUrl = `${APP_ORIGIN}/external-portal/sign-in?token=${rawToken}`;
+      const portalLabel = PORTAL_LABEL[account.portal_type] ?? "External";
+      const linkUrl = `${APP_ORIGIN}/external-portal/sign-in?token=${rawToken}`;
 
-    let emailSent = false;
-    if (body.send_email !== false) {
-      const result = await sendEmail({
-        to: account.email,
-        subject: `Your ${portalLabel} Portal access link`,
-        html: registrationLinkEmailHtml({
-          fullName: account.full_name,
-          link: linkUrl,
-          expiryHours: settings.access_link_expiry_hours,
-          portalLabel,
-        }),
+      let emailSent = false;
+      if (body.send_email !== false) {
+        emailSent = await sendLinkEmail(account.email, account.full_name, linkUrl, settings.access_link_expiry_hours, portalLabel);
+      }
+
+      await supabaseAdmin.rpc("external_portal_log_audit", {
+        _actor_type: "admin",
+        _actor_id: user.id,
+        _account_id: account.id,
+        _action: "access_link_generated",
+        _details: { link_id: link.id, email_sent: emailSent },
       });
-      emailSent = !!result.success;
+
+      return jsonResponse({
+        success: true,
+        data: { link_id: link.id, link_url: linkUrl, expires_at: link.expires_at, email_sent: emailSent },
+      });
     }
 
-    await supabaseAdmin.rpc("external_portal_log_audit", {
-      _actor_type: "admin",
-      _actor_id: user.id,
-      _account_id: account.id,
-      _action: "access_link_generated",
-      _details: { link_id: link.id, email_sent: emailSent },
-    });
+    if (body.action === "revoke_link") {
+      if (!body.link_id) return errorResponse("link_id is required");
 
-    return jsonResponse({
-      success: true,
-      data: {
-        link_id: link.id,
-        link_url: linkUrl,
-        expires_at: link.expires_at,
-        email_sent: emailSent,
-      },
-    });
+      const { data: link, error } = await supabaseAdmin
+        .from("external_portal_access_links")
+        .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_reason: body.reason || "Revoked by admin" })
+        .eq("id", body.link_id)
+        .eq("status", "pending")
+        .select("id, account_id")
+        .single();
+
+      if (error || !link) return errorResponse("Link not found or already used/revoked");
+
+      await supabaseAdmin.rpc("external_portal_log_audit", {
+        _actor_type: "admin",
+        _actor_id: user.id,
+        _account_id: link.account_id,
+        _action: "access_link_revoked",
+        _details: { link_id: link.id, reason: body.reason || null },
+      });
+
+      return jsonResponse({ success: true, data: { link_id: link.id } });
+    }
+
+    return errorResponse("Unknown action", 400);
+  } catch (err) {
+    console.error("external-portal-admin-links error:", err);
+    return errorResponse(err instanceof Error ? err.message : "Internal server error", 500);
   }
-
-  if (body.action === "revoke_link") {
-    if (!body.link_id) return errorResponse("link_id is required");
-
-    const { data: link, error } = await supabaseAdmin
-      .from("external_portal_access_links")
-      .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_reason: body.reason || "Revoked by admin" })
-      .eq("id", body.link_id)
-      .eq("status", "pending")
-      .select("id, account_id")
-      .single();
-
-    if (error || !link) return errorResponse("Link not found or already used/revoked", 404);
-
-    await supabaseAdmin.rpc("external_portal_log_audit", {
-      _actor_type: "admin",
-      _actor_id: user.id,
-      _account_id: link.account_id,
-      _action: "access_link_revoked",
-      _details: { link_id: link.id, reason: body.reason || null },
-    });
-
-    return jsonResponse({ success: true, data: { link_id: link.id } });
-  }
-
-  return errorResponse("Unknown action", 400);
-}));
+});
