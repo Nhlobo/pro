@@ -3,13 +3,21 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export interface EmailQueueItem {
+// Columns for the list/table view. Deliberately excludes html_content —
+// that's the full rendered email body (branding, inline styles, everything)
+// and can be tens of KB per row. Pulling it for every row on every 30s poll
+// is what was making this page hang/time out as the queue grew. The list
+// only ever needs it when a single email is opened in the preview panel,
+// so it's fetched on demand instead (see useEmailBody below).
+const LIST_COLUMNS =
+  "id, email_type, recipient_email, recipient_name, subject, metadata, status, related_record_id, related_table, created_at, reviewed_at, reviewed_by, sent_at, error_message, is_read, read_at, read_by, is_responded, responded_at, responded_by, forwarded_to, forwarded_at, forwarded_by, forward_notes";
+
+export interface EmailQueueListItem {
   id: string;
   email_type: string;
   recipient_email: string;
   recipient_name: string | null;
   subject: string;
-  html_content: string;
   metadata: any;
   status: "pending" | "approved" | "sent" | "rejected";
   related_record_id: string | null;
@@ -31,6 +39,21 @@ export interface EmailQueueItem {
   forward_notes: string | null;
 }
 
+// Full row, including the html_content body — only fetched for the one
+// email currently open in the preview panel, never for the list.
+export interface EmailQueueItem extends EmailQueueListItem {
+  html_content: string;
+}
+
+// Hard cap on how many queue rows the list view will ever pull in one go.
+// The table has no natural bound (every appointment/assessment/payment
+// email logs a row), so an uncapped query is a standing timeout risk as
+// volume grows. 500 is generous for "recent history" while keeping the
+// payload predictable; older items are still in the DB, just not loaded
+// into this view. If a real archive/search-back need shows up, that's a
+// server-side date-range or search query, not raising this number.
+const LIST_ROW_CAP = 500;
+
 export const useEmailQueue = (status?: string) => {
   const queryClient = useQueryClient();
 
@@ -46,20 +69,50 @@ export const useEmailQueue = (status?: string) => {
   // fetch in a disabled state (stats stuck at 0, list stuck empty). Instead
   // it fetches on mount and polls lightly so the page stays in sync on its
   // own, in addition to the manual Refresh button.
-  const { data: allEmails, isLoading, refetch } = useQuery({
+  const { data: allEmails, isLoading, error, refetch } = useQuery({
     queryKey: ["email-queue"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("email_queue")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select(LIST_COLUMNS)
+        .order("created_at", { ascending: false })
+        .range(0, LIST_ROW_CAP - 1);
 
       if (error) throw error;
-      return data as EmailQueueItem[];
+      return data as EmailQueueListItem[];
     },
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     refetchInterval: 30_000,
+  });
+
+  // Lightweight exact counts for the stat cards, computed server-side with
+  // count-only queries (head: true → no rows transferred) instead of being
+  // derived from the capped `allEmails` array, which would under-report
+  // once the queue exceeds LIST_ROW_CAP.
+  const { data: totalCount } = useQuery({
+    queryKey: ["email-queue-count", "total"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("email_queue")
+        .select("*", { count: "exact", head: true });
+      if (error) throw error;
+      return count ?? 0;
+    },
+    staleTime: 30_000,
+  });
+
+  const { data: unattendedCount } = useQuery({
+    queryKey: ["email-queue-count", "unattended"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("email_queue")
+        .select("*", { count: "exact", head: true })
+        .eq("is_read", false);
+      if (error) throw error;
+      return count ?? 0;
+    },
+    staleTime: 30_000,
   });
 
   const emails = useMemo(() => {
@@ -138,19 +191,24 @@ export const useEmailQueue = (status?: string) => {
     onError: (error: any) => toast.error(`Failed to forward: ${error.message}`),
   });
 
+  // total/unattended come from the exact server-side counts above so they
+  // stay correct even once the queue passes LIST_ROW_CAP; the rest are
+  // derived from the loaded page since they're informational breakdowns,
+  // not the headline "is anything stuck" numbers.
   const stats = useMemo(() => ({
-    total: allEmails?.length || 0,
-    unattended: allEmails?.filter((e) => !e.is_read).length || 0,
+    total: totalCount ?? allEmails?.length ?? 0,
+    unattended: unattendedCount ?? allEmails?.filter((e) => !e.is_read).length ?? 0,
     read: allEmails?.filter((e) => e.is_read && !e.is_responded).length || 0,
     responded: allEmails?.filter((e) => e.is_responded).length || 0,
     forwarded: allEmails?.filter((e) => e.forwarded_to).length || 0,
     sent: allEmails?.filter((e) => e.status === "sent").length || 0,
     failed: allEmails?.filter((e) => (e.status as string) === "failed").length || 0,
-  }), [allEmails]);
+  }), [allEmails, totalCount, unattendedCount]);
 
   return {
     emails,
     isLoading,
+    error,
     stats,
     markAsRead: markAsReadMutation.mutate,
     markAsResponded: markAsRespondedMutation.mutate,
@@ -158,4 +216,23 @@ export const useEmailQueue = (status?: string) => {
     isForwarding: forwardEmailMutation.isPending,
     refetch,
   };
+};
+
+// Fetches the one field the list intentionally leaves out — html_content —
+// for a single email, only when its preview panel is actually opened.
+export const useEmailBody = (emailId: string | null) => {
+  return useQuery({
+    queryKey: ["email-queue-body", emailId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("email_queue")
+        .select("id, html_content")
+        .eq("id", emailId as string)
+        .single();
+      if (error) throw error;
+      return data as { id: string; html_content: string };
+    },
+    enabled: !!emailId,
+    staleTime: 5 * 60 * 1000,
+  });
 };
