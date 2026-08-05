@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { AdminPill, AdminEmptyState, AdminLoadingState } from '@/components/admin/ui/AdminUI';
-import { Search, Link2, X, FolderOpen } from 'lucide-react';
+import { Search, Link2, X, FolderOpen, MessageSquare } from 'lucide-react';
 import {
   useAccountCaseLinks,
   useSearchCases,
@@ -11,6 +11,7 @@ import {
   useUnlinkCaseFromAccount,
 } from '@/hooks/externalPortal/useExternalPortalCaseLinks';
 import { formatDateTimeShort } from '@/utils/dateTime';
+import CaseMessagesAdminDialog from './CaseMessagesAdminDialog';
 
 interface Props {
   accountId: string | null;
@@ -25,6 +26,7 @@ const ManageCaseLinksDialog: React.FC<Props> = ({ accountId, accountName, open, 
   const { data: searchResults, isLoading: searchLoading } = useSearchCases(query);
   const linkCase = useLinkCaseToAccount();
   const unlinkCase = useUnlinkCaseFromAccount();
+  const [messagesFor, setMessagesFor] = useState<{ appointmentId: string; label: string } | null>(null);
 
   const linkedAppointmentIds = new Set((linkedCases || []).map((c) => c.appointment_id));
 
@@ -57,6 +59,14 @@ const ManageCaseLinksDialog: React.FC<Props> = ({ accountId, accountName, open, 
                         {c.case_status && ` · ${c.case_status}`}
                       </p>
                     </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 shrink-0 rounded-none px-2"
+                      onClick={() => setMessagesFor({ appointmentId: c.appointment_id, label: `${accountName} · ${c.claimant_name}` })}
+                    >
+                      <MessageSquare className="h-3.5 w-3.5" />
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -127,6 +137,14 @@ const ManageCaseLinksDialog: React.FC<Props> = ({ accountId, accountName, open, 
           </div>
         </div>
       </DialogContent>
+
+      <CaseMessagesAdminDialog
+        accountId={accountId}
+        appointmentId={messagesFor?.appointmentId ?? null}
+        caseLabel={messagesFor?.label ?? ''}
+        open={!!messagesFor}
+        onOpenChange={(o) => !o && setMessagesFor(null)}
+      />
     </Dialog>
   );
 };
