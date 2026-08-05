@@ -3,12 +3,13 @@ import { Helmet } from 'react-helmet-async';
 import { useParams, useNavigate } from 'react-router-dom';
 import AttorneyPortalLayout from './AttorneyPortalLayout';
 import { useAttorneyCase } from '@/hooks/externalPortal/useAttorneyPortal';
+import CaseDocumentsSection from '../shared/CaseDocumentsSection';
+import CaseProgressSection from '../shared/CaseProgressSection';
+import CaseMessagesSection from '../shared/CaseMessagesSection';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { formatDateTimeShort } from '@/utils/dateTime';
-import PortalCaseDocuments from '@/components/external-portal/PortalCaseDocuments';
-import PortalCaseProgress from '@/components/external-portal/PortalCaseProgress';
 
 const REPORT_STATUS_LABEL: Record<string, string> = {
   pending: 'Pending',
@@ -94,9 +95,13 @@ const AttorneyPortalCaseDetail: React.FC = () => {
             </CardContent>
           </Card>
 
-          <PortalCaseProgress appointmentId={appointmentId} />
-
-          <PortalCaseDocuments appointmentId={appointmentId} />
+          {appointmentId && (
+            <>
+              <CaseProgressSection appointmentId={appointmentId} />
+              <CaseDocumentsSection appointmentId={appointmentId} />
+              <CaseMessagesSection appointmentId={appointmentId} />
+            </>
+          )}
         </div>
       )}
     </AttorneyPortalLayout>
