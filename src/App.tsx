@@ -19,7 +19,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
 import BrandedPageLoader from "@/components/BrandedPageLoader";
-import { BiometricLockGate } from "@/components/BiometricLockGate";
 import { BiometricEnrollPrompt } from "@/components/BiometricEnrollPrompt";
 
 // Eager: top-level entry points + portal layouts (small, always needed when in portal)
@@ -207,7 +206,6 @@ const App = () => (
               <IdleLogoutGuard />
               <ExitConfirmationGuard />
               <Suspense fallback={<RouteFallback />}>
-              <BiometricLockGate>
               <BiometricEnrollPrompt />
               <Routes>
                 <Route path="/" element={<Navigate to="/auth" replace />} />
@@ -397,7 +395,6 @@ const App = () => (
                 <Route path="/api-docs" element={<ApiDocs />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
-              </BiometricLockGate>
               </Suspense>
             </BrowserRouter>
             </ConfirmDialogProvider>
