@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -15,26 +16,53 @@ export interface FAQArticle {
   updated_at: string;
 }
 
+const FAQ_KEY = ['faq-articles'] as const;
+
+const REQUEST_TIMEOUT_MS = 20_000;
+const ROW_CAP = 500;
+
+function timeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(new Error('Request timed out')), ms);
+  return controller.signal;
+}
+
+/**
+ * Knowledge-base data layer. react-query backed so the Support Hub
+ * overview and the Knowledge Base workspace share one request, with a
+ * bounded timeout and a surfaced error instead of an endless spinner.
+ */
 export const useFAQ = () => {
-  const [articles, setArticles] = useState<FAQArticle[]>([]);
-  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data, isLoading: loading, error, refetch } = useQuery({
+    queryKey: FAQ_KEY,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('faq_articles')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .range(0, ROW_CAP - 1)
+        .abortSignal(timeoutSignal(REQUEST_TIMEOUT_MS));
+
+      if (error) throw error;
+      return (data as unknown as FAQArticle[]) || [];
+    },
+    staleTime: 60_000,
+    retry: 1,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+
+  const invalidate = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: FAQ_KEY });
+  }, [queryClient]);
 
   const fetchArticles = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('faq_articles')
-      .select('*')
-      .order('sort_order', { ascending: true });
-
-    if (error) {
-      toast({ title: 'Error loading FAQ', description: error.message, variant: 'destructive' });
-    } else {
-      setArticles((data as any[]) || []);
-    }
-    setLoading(false);
-  }, [toast]);
+    await refetch();
+  }, [refetch]);
 
   const createArticle = async (article: { question: string; answer: string; category: string; target_audience: string }) => {
     if (!user) return null;
@@ -49,7 +77,7 @@ export const useFAQ = () => {
       return null;
     }
     toast({ title: 'FAQ article created' });
-    fetchArticles();
+    invalidate();
     return data;
   };
 
@@ -59,7 +87,7 @@ export const useFAQ = () => {
       toast({ title: 'Error updating FAQ', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'FAQ updated' });
-      fetchArticles();
+      invalidate();
     }
   };
 
@@ -69,11 +97,17 @@ export const useFAQ = () => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'FAQ deleted' });
-      fetchArticles();
+      invalidate();
     }
   };
 
-  useEffect(() => { fetchArticles(); }, [fetchArticles]);
-
-  return { articles, loading, fetchArticles, createArticle, updateArticle, deleteArticle };
+  return {
+    articles: data || [],
+    loading,
+    error: error as Error | null,
+    fetchArticles,
+    createArticle,
+    updateArticle,
+    deleteArticle,
+  };
 };
