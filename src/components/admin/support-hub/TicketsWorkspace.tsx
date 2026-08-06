@@ -17,6 +17,8 @@ import {
   AdminPill,
   AdminEmptyState,
   AdminLoadingState,
+  AdminErrorState,
+
 } from '@/components/admin/ui/AdminUI';
 
 type PillTone = 'neutral' | 'teal' | 'success' | 'warning' | 'destructive';
