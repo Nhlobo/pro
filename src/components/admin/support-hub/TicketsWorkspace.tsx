@@ -47,7 +47,7 @@ const ROW_HEIGHT = 92;
  * same message send/fetch calls).
  */
 const TicketsWorkspace: React.FC = () => {
-  const { tickets, loading, updateTicketStatus, fetchMessages, sendMessage } = useSupportTickets();
+  const { tickets, loading, error, fetchTickets, updateTicketStatus, fetchMessages, sendMessage } = useSupportTickets();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
