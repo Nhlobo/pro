@@ -67,6 +67,19 @@ const AnnouncementsWorkspace: React.FC = () => {
     return <AdminCard><AdminLoadingState label="Loading announcements…" /></AdminCard>;
   }
 
+  if (error) {
+    return (
+      <AdminCard>
+        <AdminErrorState
+          title="Could not load announcements"
+          message={error.message}
+          onRetry={() => { void fetchAnnouncements(); }}
+        />
+      </AdminCard>
+    );
+  }
+
+
   const published = announcements.filter(a => a.is_published).length;
 
   return (
