@@ -253,6 +253,63 @@ export async function enrollTrustedDevice({ userId, userEmail, label }: { userId
 }
 
 /**
+ * Signs a user in from scratch using a previously enrolled biometric device — no
+ * password, no existing session required. Used on the /auth sign-in page.
+ *
+ * Unlike {@link verifyTrustedDevice} (which re-verifies an *already signed-in*
+ * session, e.g. after the app has been idle), this calls the public
+ * `webauthn-login` function, which looks the user up by email, runs the WebAuthn
+ * ceremony, and on success exchanges the verified assertion for a real Supabase
+ * session via a server-generated one-time token — establishing a full session in
+ * the browser, exactly like a password sign-in would.
+ *
+ * @param userEmail - Email address of the account to sign in as (from the local
+ *   enrollment cache — see {@link getEnrolledEmail}).
+ * @returns `{ ok: true }` once a real Supabase session has been established,
+ *   otherwise `{ ok: false, error }` with a display-safe reason.
+ */
+export async function loginWithTrustedDevice(userEmail: string): Promise<{ ok: boolean; error?: string; status?: BiometricSupportStatus }> {
+  try {
+    const support = await getBiometricSupportStatus();
+    if (support.status !== 'available') return { ok: false, error: SUPPORT_STATUS_MESSAGES[support.status], status: support.status };
+
+    const optionsResult = await supabase.functions.invoke('webauthn-login', { body: { action: 'options', email: userEmail } });
+    if (optionsResult.error) {
+      if (getErrorStatus(optionsResult.error) === 404) {
+        // No account/device match for this email on the server (revoked, or the
+        // local cache is stale/from a different environment). Clear the stale
+        // local flag so the sign-in page stops offering a biometric button that
+        // can never succeed, and falls back to the password form.
+        clearTrustedDevice();
+        return { ok: false, error: 'Biometric sign-in is not set up for this account on this device. Please sign in with your password.' };
+      }
+      throw optionsResult.error;
+    }
+    const { options } = unwrap<{ options: any }>(optionsResult.data);
+    const response = await startAuthentication({ optionsJSON: options });
+
+    const verifyResult = await supabase.functions.invoke('webauthn-login', { body: { action: 'verify', email: userEmail, response } });
+    if (verifyResult.error) throw verifyResult.error;
+    const verified = unwrap<{ verified: boolean; tokenHash?: string }>(verifyResult.data);
+    if (!verified.verified || !verified.tokenHash) return { ok: false, error: 'Biometric sign-in could not be verified.' };
+
+    // Exchange the one-time token the server minted for a real session. This is
+    // the same mechanism magic-link email sign-in uses, just without ever
+    // sending an email — the token was proven safe to hand back because the
+    // caller just completed the WebAuthn ceremony.
+    const { error: otpError } = await supabase.auth.verifyOtp({ token_hash: verified.tokenHash, type: 'email' });
+    if (otpError) return { ok: false, error: 'Biometric sign-in succeeded, but starting your session failed. Please sign in with your password.' };
+
+    markUnlocked();
+    return { ok: true };
+  } catch (e) {
+    const error = await describeError(e);
+    console.warn('trusted device login failed', e);
+    return { ok: false, error };
+  }
+}
+
+/**
  * Verifies the current user with a trusted biometric device and records a successful unlock.
  *
  * @returns `{ verified: true }` on success, otherwise `{ verified: false, error }` with a display-safe reason.
@@ -303,7 +360,7 @@ export function getLastUnlockAgeMs() { try { const at = Number(sessionStorage.ge
  * @param userId - The user ID used to filter the devices
  * @returns Trusted device records ordered by creation time, or an empty array if retrieval fails
  */
-export async function fetchServerDevices(userId?: string) { try { let q = supabase.from('trusted_devices').select('id, credential_id, device_label, platform, user_agent, last_used_at, revoked_at, created_at').order('created_at', { ascending: false }); if (userId) q = q.eq('user_id', userId); const { data, error } = await q; if (error) throw error; return (data ?? []) as ServerTrustedDevice[]; } catch (e) { console.warn('trusted device server fetch failed', e); return []; } }
+export async function fetchServerDevices(userId?: string) { try { let q = supabase.from('trusted_devices').select('id, credential_id, device_label, platform, user_agent, last_used_at, revoked_at, created_at').is('revoked_at', null).order('created_at', { ascending: false }); if (userId) q = q.eq('user_id', userId); const { data, error } = await q; if (error) throw error; return (data ?? []) as ServerTrustedDevice[]; } catch (e) { console.warn('trusted device server fetch failed', e); return []; } }
 /**
  * Revokes a server-side trusted device with a specified reason.
  *
