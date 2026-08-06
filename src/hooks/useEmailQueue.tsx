@@ -29,7 +29,9 @@ export interface EmailQueueListItem {
   recipient_email: string;
   recipient_name: string | null;
   subject: string;
-  metadata: any;
+  /** Not part of the list payload — populated only for the previewed email. */
+  metadata?: any;
+
   status: "pending" | "approved" | "sent" | "rejected";
   related_record_id: string | null;
   related_table: string | null;
