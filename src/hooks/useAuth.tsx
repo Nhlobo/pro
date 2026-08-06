@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { logDeviceLogout } from '@/utils/trustedDevice';
 
 interface AuthContextType {
   user: User | null;
@@ -65,6 +66,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     try {
+      // Must run BEFORE signOut() — it's a plain authenticated insert, not an
+      // edge function, so it needs the still-active session to satisfy RLS.
+      await logDeviceLogout(user?.id);
       cleanupAuthState();
       await supabase.auth.signOut({ scope: 'global' });
       window.location.href = '/auth';
