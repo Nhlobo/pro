@@ -89,30 +89,39 @@ export const useEmailQueue = (status?: string) => {
         .from("email_queue")
         .select(LIST_COLUMNS)
         .order("created_at", { ascending: false })
-        .range(0, LIST_ROW_CAP - 1);
+        .range(0, LIST_ROW_CAP - 1)
+        .abortSignal(timeoutSignal(REQUEST_TIMEOUT_MS));
 
       if (error) throw error;
-      return data as EmailQueueListItem[];
+      return (data ?? []) as unknown as EmailQueueListItem[];
     },
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
+    // A stalled or failing request must settle into the visible error state
+    // rather than retrying behind an endless spinner.
+    retry: 1,
+    retryDelay: 1500,
   });
 
   // Lightweight exact counts for the stat cards, computed server-side with
   // count-only queries (head: true → no rows transferred) instead of being
   // derived from the capped `allEmails` array, which would under-report
-  // once the queue exceeds LIST_ROW_CAP.
+  // once the queue exceeds LIST_ROW_CAP. These are best-effort: if a count
+  // fails the stats fall back to the loaded page (see `stats` below) so the
+  // page still renders real numbers instead of zeros.
   const { data: totalCount } = useQuery({
     queryKey: ["email-queue-count", "total"],
     queryFn: async () => {
       const { count, error } = await supabase
         .from("email_queue")
-        .select("*", { count: "exact", head: true });
+        .select("id", { count: "exact", head: true })
+        .abortSignal(timeoutSignal(REQUEST_TIMEOUT_MS));
       if (error) throw error;
       return count ?? 0;
     },
     staleTime: 30_000,
+    retry: 1,
   });
 
   const { data: unattendedCount } = useQuery({
@@ -120,13 +129,16 @@ export const useEmailQueue = (status?: string) => {
     queryFn: async () => {
       const { count, error } = await supabase
         .from("email_queue")
-        .select("*", { count: "exact", head: true })
-        .eq("is_read", false);
+        .select("id", { count: "exact", head: true })
+        .eq("is_read", false)
+        .abortSignal(timeoutSignal(REQUEST_TIMEOUT_MS));
       if (error) throw error;
       return count ?? 0;
     },
     staleTime: 30_000,
+    retry: 1,
   });
+
 
   const emails = useMemo(() => {
     if (!allEmails) return allEmails;
