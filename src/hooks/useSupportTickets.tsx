@@ -174,7 +174,9 @@ export const useSupportTickets = () => {
   return {
     tickets: tickets || [],
     loading,
+    error: error as Error | null,
     fetchTickets,
+
     createTicket: createTicketMutation.mutateAsync,
     isCreatingTicket: createTicketMutation.isPending,
     updateTicketStatus: (ticketId: string, status: string) => updateTicketStatusMutation.mutate({ ticketId, status }),
