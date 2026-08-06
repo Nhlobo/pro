@@ -15,6 +15,7 @@ import {
   detectDevicePlatform,
   enrollTrustedDevice,
   fetchServerDevices,
+  formatDeviceLocation,
   getManualBiometricSetupInstructions,
   isTrustedDeviceEnrolled,
   openBiometricDeviceSettings,
@@ -148,17 +149,20 @@ export const BiometricTrustedDeviceCard = () => {
             <p className="border border-black/10 p-3 text-xs text-slate-500">No trusted devices enrolled.</p>
           ) : (
             devices.map((d) => (
-              <div key={d.id} className="flex items-center justify-between gap-3 border border-black/10 p-3">
-                <div className="min-w-0">
+              <div key={d.id} className="flex flex-col gap-3 border border-black/10 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-2 text-sm font-medium text-black">
                     <ShieldCheck className="h-4 w-4 shrink-0 text-[#00BAAD]" />
                     <span className="truncate">{d.device_label}</span>
                   </p>
                   <p className="mt-0.5 truncate text-xs text-slate-500">
-                    {d.platform || d.user_agent || 'Unknown platform'} · Last used {d.last_used_at ? new Date(d.last_used_at).toLocaleString() : 'never'}
+                    {d.platform || d.user_agent || 'Unknown platform'} · {formatDeviceLocation(d)}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    Last used {d.last_used_at ? new Date(d.last_used_at).toLocaleString() : 'never'} · Enrolled {new Date(d.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
                   <AdminPill tone="success">Active</AdminPill>
                   <Button
                     variant="outline"
