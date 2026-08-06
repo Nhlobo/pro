@@ -12,6 +12,8 @@ import {
   AdminPill,
   AdminEmptyState,
   AdminLoadingState,
+  AdminErrorState,
+
   BRAND_TEAL,
 } from '@/components/admin/ui/AdminUI';
 
@@ -38,7 +40,7 @@ const AUDIENCE_OPTIONS = [
  * list, so a growing announcement history stays easy to scan.
  */
 const AnnouncementsWorkspace: React.FC = () => {
-  const { announcements, loading, createAnnouncement, publishAnnouncement, deleteAnnouncement } = useAnnouncements();
+  const { announcements, loading, error, fetchAnnouncements, createAnnouncement, publishAnnouncement, deleteAnnouncement } = useAnnouncements();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ title: '', content: '', target_audience: 'all', priority: 'normal' });
   const [search, setSearch] = useState('');
@@ -64,6 +66,19 @@ const AnnouncementsWorkspace: React.FC = () => {
   if (loading) {
     return <AdminCard><AdminLoadingState label="Loading announcements…" /></AdminCard>;
   }
+
+  if (error) {
+    return (
+      <AdminCard>
+        <AdminErrorState
+          title="Could not load announcements"
+          message={error.message}
+          onRetry={() => { void fetchAnnouncements(); }}
+        />
+      </AdminCard>
+    );
+  }
+
 
   const published = announcements.filter(a => a.is_published).length;
 

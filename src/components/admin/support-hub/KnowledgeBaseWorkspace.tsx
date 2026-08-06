@@ -15,6 +15,8 @@ import {
   AdminPill,
   AdminEmptyState,
   AdminLoadingState,
+  AdminErrorState,
+
   BRAND_TEAL,
 } from '@/components/admin/ui/AdminUI';
 
@@ -41,7 +43,7 @@ const AUDIENCE_OPTIONS = [
  * instead of a long scroll.
  */
 const KnowledgeBaseWorkspace: React.FC = () => {
-  const { articles, loading, createArticle, deleteArticle } = useFAQ();
+  const { articles, loading, error, fetchArticles, createArticle, deleteArticle } = useFAQ();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ question: '', answer: '', category: 'general', target_audience: 'all' });
   const [search, setSearch] = useState('');
@@ -75,6 +77,19 @@ const KnowledgeBaseWorkspace: React.FC = () => {
   if (loading) {
     return <AdminCard><AdminLoadingState label="Loading FAQ articles…" /></AdminCard>;
   }
+
+  if (error) {
+    return (
+      <AdminCard>
+        <AdminErrorState
+          title="Could not load the knowledge base"
+          message={error.message}
+          onRetry={() => { void fetchArticles(); }}
+        />
+      </AdminCard>
+    );
+  }
+
 
   return (
     <div className="space-y-3">

@@ -35,6 +35,18 @@ export interface TicketMessage {
 
 const TICKETS_KEY = ['support-tickets'] as const;
 
+// Hard ceiling on any one request, so a stalled fetch can't leave the
+// Support Hub spinning forever with every stat on 0.
+const REQUEST_TIMEOUT_MS = 20_000;
+const ROW_CAP = 500;
+
+function timeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(new Error('Request timed out')), ms);
+  return controller.signal;
+}
+
+
 /**
  * Shared support-ticket data layer. Backed by react-query so the Admin
  * Support Hub and the portal support widget read from one cache instead of
@@ -50,19 +62,24 @@ export const useSupportTickets = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: tickets, isLoading: loading, refetch } = useQuery({
+  const { data: tickets, isLoading: loading, error, refetch } = useQuery({
     queryKey: TICKETS_KEY,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('support_tickets')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, ROW_CAP - 1)
+        .abortSignal(timeoutSignal(REQUEST_TIMEOUT_MS));
       if (error) throw error;
       return (data as SupportTicket[]) || [];
     },
     staleTime: 15_000,
+    retry: 1,
     refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
+
 
   const fetchTickets = useCallback(async () => {
     await refetch();
@@ -157,7 +174,9 @@ export const useSupportTickets = () => {
   return {
     tickets: tickets || [],
     loading,
+    error: error as Error | null,
     fetchTickets,
+
     createTicket: createTicketMutation.mutateAsync,
     isCreatingTicket: createTicketMutation.isPending,
     updateTicketStatus: (ticketId: string, status: string) => updateTicketStatusMutation.mutate({ ticketId, status }),

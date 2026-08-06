@@ -17,6 +17,8 @@ import {
   AdminPill,
   AdminEmptyState,
   AdminLoadingState,
+  AdminErrorState,
+
 } from '@/components/admin/ui/AdminUI';
 
 type PillTone = 'neutral' | 'teal' | 'success' | 'warning' | 'destructive';
@@ -47,7 +49,7 @@ const ROW_HEIGHT = 92;
  * same message send/fetch calls).
  */
 const TicketsWorkspace: React.FC = () => {
-  const { tickets, loading, updateTicketStatus, fetchMessages, sendMessage } = useSupportTickets();
+  const { tickets, loading, error, fetchTickets, updateTicketStatus, fetchMessages, sendMessage } = useSupportTickets();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -103,6 +105,19 @@ const TicketsWorkspace: React.FC = () => {
   if (loading) {
     return <AdminCard><AdminLoadingState label="Loading tickets…" /></AdminCard>;
   }
+
+  if (error) {
+    return (
+      <AdminCard>
+        <AdminErrorState
+          title="Could not load tickets"
+          message={error.message}
+          onRetry={() => { void fetchTickets(); }}
+        />
+      </AdminCard>
+    );
+  }
+
 
   return (
     <div className="space-y-3">
