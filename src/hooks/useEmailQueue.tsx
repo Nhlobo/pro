@@ -243,20 +243,22 @@ export const useEmailQueue = (status?: string) => {
   };
 };
 
-// Fetches the one field the list intentionally leaves out — html_content —
-// for a single email, only when its preview panel is actually opened.
+// Fetches the fields the list intentionally leaves out — html_content and
+// metadata — for a single email, only when its preview panel is opened.
 export const useEmailBody = (emailId: string | null) => {
   return useQuery({
     queryKey: ["email-queue-body", emailId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("email_queue")
-        .select("id, html_content")
+        .select("id, html_content, metadata")
         .eq("id", emailId as string)
+        .abortSignal(timeoutSignal(REQUEST_TIMEOUT_MS))
         .single();
       if (error) throw error;
-      return data as { id: string; html_content: string };
+      return data as { id: string; html_content: string; metadata: any };
     },
+
     enabled: !!emailId,
     staleTime: 5 * 60 * 1000,
   });
