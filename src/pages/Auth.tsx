@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react';
+import { Eye, EyeOff, Fingerprint, Loader2, Lock, Mail } from 'lucide-react';
 import { getDashboardPathForRole, isValidPortalRole } from '@/utils/authRoutes';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt';
+import type { User } from '@supabase/supabase-js';
+import { getEnrolledEmail, isBiometricSupported, loginWithTrustedDevice } from '@/utils/trustedDevice';
 
 const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
 
@@ -22,6 +24,8 @@ const Auth = () => {
   const [error, setError] = useState('');
   const [authMode, setAuthMode] = useState<'sign-in' | 'forgot-password'>('sign-in');
   const [resetLoading, setResetLoading] = useState(false);
+  const [bioEmail, setBioEmail] = useState<string | null>(null);
+  const [bioLoading, setBioLoading] = useState(false);
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -38,6 +42,18 @@ const Auth = () => {
     }, 600);
     return () => window.clearTimeout(timer);
   }, [authMode]);
+
+  useEffect(() => {
+    let active = true;
+    const checkBiometric = async () => {
+      const enrolled = getEnrolledEmail();
+      if (!enrolled) return;
+      const supported = await isBiometricSupported();
+      if (active && supported) setBioEmail(enrolled);
+    };
+    checkBiometric();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const ensureNoSession = async () => {
@@ -60,6 +76,72 @@ const Auth = () => {
 
   const handlePasswordKeyState = (e: React.KeyboardEvent<HTMLInputElement>) => {
     setCapsLockOn(e.getModifierState('CapsLock'));
+  };
+
+  // Shared by both password sign-in and biometric sign-in: once Supabase has
+  // established a session for `user` (however it got there), look up their
+  // profile/role, show the right welcome toast, and redirect — or sign them
+  // back out if their account isn't authorized for a portal.
+  const finishSignIn = async (user: User) => {
+    if (user.email === 'boshomane@kutlwanoassociate.com') {
+      toast({
+        title: 'Welcome back, Mr. Boshomane!',
+        description: 'You have full administrative access to the system.',
+      });
+      window.location.replace(getDashboardPathForRole('admin'));
+      return;
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role, user_type, first_name, last_name, position')
+      .eq('id', user.id)
+      .single();
+
+    if (profile) {
+      const userType = profile.user_type || 'user';
+      const role = profile.role || 'user';
+      const userName = profile.first_name
+        ? `${profile.first_name}${profile.last_name ? ` ${profile.last_name}` : ''}`
+        : user.email?.split('@')[0];
+
+      const { data: userRoleData } = await supabase.rpc('get_current_user_role');
+      const secureRole = (userRoleData as string) || role;
+
+      const hasValidRole = isValidPortalRole(secureRole) || isValidPortalRole(role);
+      const hasValidUserType = isValidPortalRole(userType);
+
+      if (hasValidRole || hasValidUserType) {
+        if (userType === 'admin' || secureRole === 'admin' || role === 'admin') {
+          toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in with admin privileges.' });
+        } else if (userType === 'employee' || secureRole === 'employee' || role === 'employee') {
+          const position = profile.position ? ` (${profile.position})` : '';
+          toast({ title: `Welcome back, ${userName}${position}!`, description: 'You have successfully signed in as an employee.' });
+        } else if (secureRole === 'sales_consultant' || userType === 'sales_consultant') {
+          const position = profile.position ? ` (${profile.position})` : '';
+          toast({ title: `Welcome back, ${userName}${position}!`, description: 'You have successfully signed in as a Sales Consultant.' });
+        } else if (userType === 'referring_attorney' || secureRole === 'referring_attorney' || role === 'referring_attorney') {
+          toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in. You can access your referring attorney data.' });
+        } else if (secureRole === 'medical_expert' || userType === 'medical_expert') {
+          toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in as a Medical Expert.' });
+        } else {
+          toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in.' });
+        }
+      } else {
+        await supabase.auth.signOut();
+        setError('Access not authorized. Please contact your administrator for assistance.');
+        return;
+      }
+
+      window.location.replace(getDashboardPathForRole(secureRole, userType));
+    } else if (profileError) {
+      console.error('Profile fetch error:', profileError);
+      await supabase.auth.signOut();
+      setError('Unable to verify account permissions. Please contact support.');
+    } else {
+      await supabase.auth.signOut();
+      setError('Account not found or access not authorized. Please contact support.');
+    }
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -90,72 +172,37 @@ const Auth = () => {
       }
 
       if (data.user) {
-        if (data.user.email === 'boshomane@kutlwanoassociate.com') {
-          toast({
-            title: 'Welcome back, Mr. Boshomane!',
-            description: 'You have full administrative access to the system.',
-          });
-          window.location.replace(getDashboardPathForRole('admin'));
-          return;
-        }
-
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role, user_type, first_name, last_name, position')
-          .eq('id', data.user.id)
-          .single();
-
-        if (profile) {
-          const userType = profile.user_type || 'user';
-          const role = profile.role || 'user';
-          const userName = profile.first_name
-            ? `${profile.first_name}${profile.last_name ? ` ${profile.last_name}` : ''}`
-            : data.user.email?.split('@')[0];
-
-          const { data: userRoleData } = await supabase.rpc('get_current_user_role');
-          const secureRole = (userRoleData as string) || role;
-
-          const hasValidRole = isValidPortalRole(secureRole) || isValidPortalRole(role);
-          const hasValidUserType = isValidPortalRole(userType);
-
-          if (hasValidRole || hasValidUserType) {
-            if (userType === 'admin' || secureRole === 'admin' || role === 'admin') {
-              toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in with admin privileges.' });
-            } else if (userType === 'employee' || secureRole === 'employee' || role === 'employee') {
-              const position = profile.position ? ` (${profile.position})` : '';
-              toast({ title: `Welcome back, ${userName}${position}!`, description: 'You have successfully signed in as an employee.' });
-            } else if (secureRole === 'sales_consultant' || userType === 'sales_consultant') {
-              const position = profile.position ? ` (${profile.position})` : '';
-              toast({ title: `Welcome back, ${userName}${position}!`, description: 'You have successfully signed in as a Sales Consultant.' });
-            } else if (userType === 'referring_attorney' || secureRole === 'referring_attorney' || role === 'referring_attorney') {
-              toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in. You can access your referring attorney data.' });
-            } else if (secureRole === 'medical_expert' || userType === 'medical_expert') {
-              toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in as a Medical Expert.' });
-            } else {
-              toast({ title: `Welcome back, ${userName}!`, description: 'You have successfully signed in.' });
-            }
-          } else {
-            await supabase.auth.signOut();
-            setError('Access not authorized. Please contact your administrator for assistance.');
-            return;
-          }
-
-          window.location.replace(getDashboardPathForRole(secureRole, userType));
-        } else if (profileError) {
-          console.error('Profile fetch error:', profileError);
-          await supabase.auth.signOut();
-          setError('Unable to verify account permissions. Please contact support.');
-          return;
-        } else {
-          await supabase.auth.signOut();
-          setError('Account not found or access not authorized. Please contact support.');
-          return;
-        }
+        await finishSignIn(data.user);
       }
     } catch {
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBiometricSignIn = async () => {
+    if (!bioEmail) return;
+    setBioLoading(true);
+    setError('');
+    try {
+      cleanupAuthState();
+      const result = await loginWithTrustedDevice(bioEmail);
+      if (!result.ok) {
+        setError(result.error || 'Biometric sign-in failed. Please sign in with your password.');
+        if (!getEnrolledEmail()) setBioEmail(null); // cache was cleared (stale/revoked) — hide the button
+        return;
+      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError('Signed in, but could not load your account. Please try again.');
+        return;
+      }
+      await finishSignIn(user);
+    } catch {
+      setError('An unexpected error occurred. Please try again.');
+    } finally {
+      setBioLoading(false);
     }
   };
 
@@ -253,6 +300,26 @@ const Auth = () => {
 
             {authMode === 'sign-in' ? (
               <form onSubmit={handleSignIn} className="space-y-5">
+                {bioEmail && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleBiometricSignIn}
+                      disabled={bioLoading}
+                      className="h-12 w-full rounded-none border-[#00BAAD]/50 text-[#00BAAD] hover:bg-[#00BAAD]/10"
+                    >
+                      {bioLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Fingerprint className="mr-2 h-4 w-4" />}
+                      Sign in with biometrics
+                    </Button>
+                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                      <div className="h-px flex-1 bg-black/10" />
+                      <span>or use your password</span>
+                      <div className="h-px flex-1 bg-black/10" />
+                    </div>
+                  </>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-sm font-semibold text-black">Email Address</Label>
                   <div className="relative">
