@@ -44,9 +44,9 @@ type TabValue = (typeof TABS)[number]['value'];
 const AdminSupportHub: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabValue>('tickets');
 
-  const { tickets } = useSupportTickets();
-  const { announcements } = useAnnouncements();
-  const { articles } = useFAQ();
+  const { tickets, loading: ticketsLoading, error: ticketsError } = useSupportTickets();
+  const { announcements, loading: annLoading, error: annError } = useAnnouncements();
+  const { articles, loading: faqLoading, error: faqError } = useFAQ();
 
   const overview = useMemo(() => {
     const open = tickets.filter(t => t.status === 'open').length;
@@ -55,6 +55,10 @@ const AdminSupportHub: React.FC = () => {
     const published = announcements.filter(a => a.is_published).length;
     return { open, inProgress, resolved, published };
   }, [tickets, announcements]);
+
+  // A failed fetch must not read as "zero tickets" — show a dash instead so
+  // an outage is never mistaken for a genuinely quiet support queue.
+  const ticketStat = (value: number) => (ticketsError ? '—' : value);
 
   return (
     <AdminPage className="max-w-7xl">
@@ -67,16 +71,22 @@ const AdminSupportHub: React.FC = () => {
 
       {/* Cross-domain overview strip */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <AdminStatCard label="Open Tickets" value={overview.open} icon={Inbox} />
-        <AdminStatCard label="In Progress" value={overview.inProgress} icon={Clock} />
-        <AdminStatCard label="Resolved" value={overview.resolved} icon={CheckCircle2} />
+        <AdminStatCard label="Open Tickets" value={ticketStat(overview.open)} icon={Inbox} loading={ticketsLoading} />
+        <AdminStatCard label="In Progress" value={ticketStat(overview.inProgress)} icon={Clock} loading={ticketsLoading} />
+        <AdminStatCard label="Resolved" value={ticketStat(overview.resolved)} icon={CheckCircle2} loading={ticketsLoading} />
         <AdminStatCard
           label="Published Announcements"
-          value={overview.published}
+          value={annError ? '—' : overview.published}
           icon={Megaphone}
-          hint={`${articles.length} FAQ article${articles.length === 1 ? '' : 's'} in the knowledge base`}
+          loading={annLoading}
+          hint={faqError
+            ? 'Knowledge base unavailable'
+            : faqLoading
+              ? 'Loading knowledge base…'
+              : `${articles.length} FAQ article${articles.length === 1 ? '' : 's'} in the knowledge base`}
         />
       </div>
+
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="w-full">
         <AdminTabList sticky columns={TABS.length}>
