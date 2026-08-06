@@ -62,19 +62,24 @@ export const useSupportTickets = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: tickets, isLoading: loading, refetch } = useQuery({
+  const { data: tickets, isLoading: loading, error, refetch } = useQuery({
     queryKey: TICKETS_KEY,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('support_tickets')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, ROW_CAP - 1)
+        .abortSignal(timeoutSignal(REQUEST_TIMEOUT_MS));
       if (error) throw error;
       return (data as SupportTicket[]) || [];
     },
     staleTime: 15_000,
+    retry: 1,
     refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
+
 
   const fetchTickets = useCallback(async () => {
     await refetch();
