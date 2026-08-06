@@ -78,6 +78,19 @@ const KnowledgeBaseWorkspace: React.FC = () => {
     return <AdminCard><AdminLoadingState label="Loading FAQ articles…" /></AdminCard>;
   }
 
+  if (error) {
+    return (
+      <AdminCard>
+        <AdminErrorState
+          title="Could not load the knowledge base"
+          message={error.message}
+          onRetry={() => { void fetchArticles(); }}
+        />
+      </AdminCard>
+    );
+  }
+
+
   return (
     <div className="space-y-3">
       {/* Toolbar */}
