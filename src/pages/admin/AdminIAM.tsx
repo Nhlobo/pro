@@ -1,5 +1,6 @@
 import React from 'react';
 import UserManagement from '@/pages/UserManagement';
+import { AdminTrustedDevicesCard } from '@/components/AdminTrustedDevicesCard';
 
 // The Admin Portal top bar already renders this page's title and a
 // "Back to Operations Dashboard" control (see AdminPortalLayout), so this
@@ -10,8 +11,9 @@ import UserManagement from '@/pages/UserManagement';
 // that redundant button and let the portal chrome own back-navigation.
 const AdminIAM: React.FC = () => {
   return (
-    <div className="brand-legal-theme">
+    <div className="brand-legal-theme space-y-6">
       <UserManagement embedded />
+      <AdminTrustedDevicesCard />
     </div>
   );
 };
