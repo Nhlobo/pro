@@ -43,7 +43,7 @@ const AUDIENCE_OPTIONS = [
  * instead of a long scroll.
  */
 const KnowledgeBaseWorkspace: React.FC = () => {
-  const { articles, loading, createArticle, deleteArticle } = useFAQ();
+  const { articles, loading, error, fetchArticles, createArticle, deleteArticle } = useFAQ();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ question: '', answer: '', category: 'general', target_audience: 'all' });
   const [search, setSearch] = useState('');
