@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -17,26 +18,56 @@ export interface Announcement {
   updated_at: string;
 }
 
+const ANNOUNCEMENTS_KEY = ['announcements'] as const;
+
+// Hard ceiling on any one request. Without it a stalled fetch leaves the
+// Support Hub spinning on "Loading announcements…" forever.
+const REQUEST_TIMEOUT_MS = 20_000;
+const ROW_CAP = 500;
+
+function timeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(new Error('Request timed out')), ms);
+  return controller.signal;
+}
+
+/**
+ * Announcements data layer. Backed by react-query so the Support Hub
+ * overview strip and the Announcements workspace share one cache/one
+ * request, with a bounded timeout and a real error surface instead of a
+ * silent empty list.
+ */
 export const useAnnouncements = () => {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data, isLoading: loading, error, refetch } = useQuery({
+    queryKey: ANNOUNCEMENTS_KEY,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(0, ROW_CAP - 1)
+        .abortSignal(timeoutSignal(REQUEST_TIMEOUT_MS));
+
+      if (error) throw error;
+      return (data as unknown as Announcement[]) || [];
+    },
+    staleTime: 30_000,
+    retry: 1,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+  });
+
+  const invalidate = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ANNOUNCEMENTS_KEY });
+  }, [queryClient]);
 
   const fetchAnnouncements = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('announcements')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast({ title: 'Error loading announcements', description: error.message, variant: 'destructive' });
-    } else {
-      setAnnouncements((data as any[]) || []);
-    }
-    setLoading(false);
-  }, [toast]);
+    await refetch();
+  }, [refetch]);
 
   const createAnnouncement = async (announcement: { title: string; content: string; target_audience: string; priority: string }) => {
     if (!user) return null;
@@ -51,7 +82,7 @@ export const useAnnouncements = () => {
       return null;
     }
     toast({ title: 'Announcement created' });
-    fetchAnnouncements();
+    invalidate();
     return data;
   };
 
@@ -64,7 +95,7 @@ export const useAnnouncements = () => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: publish ? 'Announcement published' : 'Announcement unpublished' });
-      fetchAnnouncements();
+      invalidate();
     }
   };
 
@@ -74,11 +105,17 @@ export const useAnnouncements = () => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Announcement deleted' });
-      fetchAnnouncements();
+      invalidate();
     }
   };
 
-  useEffect(() => { fetchAnnouncements(); }, [fetchAnnouncements]);
-
-  return { announcements, loading, fetchAnnouncements, createAnnouncement, publishAnnouncement, deleteAnnouncement };
+  return {
+    announcements: data || [],
+    loading,
+    error: error as Error | null,
+    fetchAnnouncements,
+    createAnnouncement,
+    publishAnnouncement,
+    deleteAnnouncement,
+  };
 };
