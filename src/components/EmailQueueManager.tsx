@@ -440,10 +440,10 @@ export const EmailQueueManager = () => {
                     )}
                   </div>
                 )}
-                {previewEmail.metadata?.cc_addresses?.length > 0 && (
+                {previewBody?.metadata?.cc_addresses?.length > 0 && (
                   <div className="sm:col-span-2">
                     <span className="font-medium text-slate-500">CC:</span>{" "}
-                    <span className="text-black">{previewEmail.metadata.cc_addresses.join(", ")}</span>
+                    <span className="text-black">{previewBody.metadata.cc_addresses.join(", ")}</span>
                   </div>
                 )}
                 {previewEmail.error_message && (
@@ -458,7 +458,7 @@ export const EmailQueueManager = () => {
                 <TabsList className="h-auto w-max gap-1 rounded-none border border-black/15 bg-transparent p-1">
                   <TabsTrigger value="preview" className={flatTab}>Preview</TabsTrigger>
                   <TabsTrigger value="html" className={flatTab}>HTML Source</TabsTrigger>
-                  {previewEmail.metadata && <TabsTrigger value="metadata" className={flatTab}>Metadata</TabsTrigger>}
+                  {previewBody?.metadata && <TabsTrigger value="metadata" className={flatTab}>Metadata</TabsTrigger>}
                 </TabsList>
                 <TabsContent value="preview" className="mt-3">
                   <ScrollArea className="h-[45vh] border border-black/10">
@@ -484,10 +484,10 @@ export const EmailQueueManager = () => {
                     )}
                   </ScrollArea>
                 </TabsContent>
-                {previewEmail.metadata && (
+                {previewBody?.metadata && (
                   <TabsContent value="metadata" className="mt-3">
                     <ScrollArea className="h-[45vh] border border-black/10 p-4">
-                      <pre className="text-xs">{JSON.stringify(previewEmail.metadata, null, 2)}</pre>
+                      <pre className="text-xs">{JSON.stringify(previewBody.metadata, null, 2)}</pre>
                     </ScrollArea>
                   </TabsContent>
                 )}
