@@ -104,6 +104,19 @@ const TicketsWorkspace: React.FC = () => {
     return <AdminCard><AdminLoadingState label="Loading tickets…" /></AdminCard>;
   }
 
+  if (error) {
+    return (
+      <AdminCard>
+        <AdminErrorState
+          title="Could not load tickets"
+          message={error.message}
+          onRetry={() => { void fetchTickets(); }}
+        />
+      </AdminCard>
+    );
+  }
+
+
   return (
     <div className="space-y-3">
       {/* Filters */}
