@@ -35,6 +35,18 @@ export interface TicketMessage {
 
 const TICKETS_KEY = ['support-tickets'] as const;
 
+// Hard ceiling on any one request, so a stalled fetch can't leave the
+// Support Hub spinning forever with every stat on 0.
+const REQUEST_TIMEOUT_MS = 20_000;
+const ROW_CAP = 500;
+
+function timeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(new Error('Request timed out')), ms);
+  return controller.signal;
+}
+
+
 /**
  * Shared support-ticket data layer. Backed by react-query so the Admin
  * Support Hub and the portal support widget read from one cache instead of
