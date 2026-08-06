@@ -3,14 +3,25 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-// Columns for the list/table view. Deliberately excludes html_content —
-// that's the full rendered email body (branding, inline styles, everything)
-// and can be tens of KB per row. Pulling it for every row on every 30s poll
-// is what was making this page hang/time out as the queue grew. The list
-// only ever needs it when a single email is opened in the preview panel,
-// so it's fetched on demand instead (see useEmailBody below).
+// Columns for the list/table view. Deliberately excludes html_content and
+// metadata — the body is tens of KB per row and metadata is unbounded JSON.
+// Neither is needed by the table; both are pulled on demand for the single
+// email open in the preview panel (see useEmailBody below). Fetching them
+// for 500 rows on every poll is what made this page hang and never settle.
 const LIST_COLUMNS =
-  "id, email_type, recipient_email, recipient_name, subject, metadata, status, related_record_id, related_table, created_at, reviewed_at, reviewed_by, sent_at, error_message, is_read, read_at, read_by, is_responded, responded_at, responded_by, forwarded_to, forwarded_at, forwarded_by, forward_notes";
+  "id, email_type, recipient_email, recipient_name, subject, status, related_record_id, related_table, created_at, reviewed_at, reviewed_by, sent_at, error_message, is_read, read_at, read_by, is_responded, responded_at, responded_by, forwarded_to, forwarded_at, forwarded_by, forward_notes";
+
+// Hard ceiling on how long any one queue request may stay in flight before
+// it is aborted and surfaced as an error. Without this a stalled request
+// leaves the page on "Loading email history…" forever with every stat on 0.
+const REQUEST_TIMEOUT_MS = 20_000;
+
+function timeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(new Error("Request timed out")), ms);
+  return controller.signal;
+}
+
 
 export interface EmailQueueListItem {
   id: string;
