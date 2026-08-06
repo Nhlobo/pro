@@ -6,7 +6,32 @@ const UNLOCK_KEY = 'mlp.trusted-devices.unlockedAt';
 const DISMISS_PREFIX = 'mlp.trusted-devices.dismissed.';
 
 type LocalDevice = { userEmail: string; credentialId: string; label: string; enrolledAt: string };
-export type ServerTrustedDevice = { id: string; credential_id: string; device_label: string; platform: string | null; user_agent: string | null; last_used_at: string | null; revoked_at: string | null; created_at: string };
+export type ServerTrustedDevice = {
+  id: string;
+  credential_id: string;
+  device_label: string;
+  platform: string | null;
+  user_agent: string | null;
+  last_used_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  location_city: string | null;
+  location_region: string | null;
+  location_country: string | null;
+};
+
+/** Extends {@link ServerTrustedDevice} with whose device it is — used on the admin Access & IAM screen, which sees every user's devices, not just the current user's. */
+export type AdminTrustedDevice = ServerTrustedDevice & {
+  user_id: string;
+  user_name: string;
+  user_email: string | null;
+};
+
+/** Formats location_city/region/country into one display string, or a fallback when the IP lookup didn't resolve (no browser location permission is ever requested — this is purely a best-effort server-side IP lookup). */
+export function formatDeviceLocation(d: Pick<ServerTrustedDevice, 'location_city' | 'location_region' | 'location_country'>): string {
+  const parts = [d.location_city, d.location_region, d.location_country].filter(Boolean);
+  return parts.length ? parts.join(', ') : 'Unknown location';
+}
 
 const read = (): LocalDevice[] => { try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { console.warn('trusted device cache read failed', e); return []; } };
 const write = (items: LocalDevice[]) => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch (e) { console.warn('trusted device cache write failed', e); } };
@@ -184,6 +209,29 @@ export function isTrustedDeviceEnrolled(userEmail?: string) { return listTrusted
  * @returns The enrolled email address, or `null` when no device is cached.
  */
 export function getEnrolledEmail() { return read()[0]?.userEmail ?? null; }
+
+/**
+ * Records a "logout" event for this browser's enrolled device, if any — called
+ * from useAuth's signOut() right before the Supabase session is torn down (it
+ * needs to run while the user is still authenticated, since it's a plain
+ * authenticated insert, not an edge function call). Purely best-effort: if
+ * there's no enrolled device, or the insert fails for any reason, this is a
+ * silent no-op and never blocks or delays sign-out.
+ */
+export async function logDeviceLogout(currentUserId?: string | null): Promise<void> {
+  try {
+    const local = read()[0];
+    if (!local || !currentUserId) return;
+    await supabase.from('trusted_device_events').insert({
+      user_id: currentUserId,
+      event_type: 'logout',
+      user_agent: navigator.userAgent,
+      metadata: {},
+    } as any);
+  } catch (e) {
+    console.warn('trusted device logout event failed', e);
+  }
+}
 /**
  * Clears all locally cached trusted devices.
  */
@@ -360,7 +408,46 @@ export function getLastUnlockAgeMs() { try { const at = Number(sessionStorage.ge
  * @param userId - The user ID used to filter the devices
  * @returns Trusted device records ordered by creation time, or an empty array if retrieval fails
  */
-export async function fetchServerDevices(userId?: string) { try { let q = supabase.from('trusted_devices').select('id, credential_id, device_label, platform, user_agent, last_used_at, revoked_at, created_at').is('revoked_at', null).order('created_at', { ascending: false }); if (userId) q = q.eq('user_id', userId); const { data, error } = await q; if (error) throw error; return (data ?? []) as ServerTrustedDevice[]; } catch (e) { console.warn('trusted device server fetch failed', e); return []; } }
+const DEVICE_COLUMNS = 'id, credential_id, device_label, platform, user_agent, last_used_at, revoked_at, created_at, location_city, location_region, location_country';
+
+export async function fetchServerDevices(userId?: string) { try { let q = supabase.from('trusted_devices' as any).select(DEVICE_COLUMNS).is('revoked_at', null).order('created_at', { ascending: false }); if (userId) q = q.eq('user_id', userId); const { data, error } = await q; if (error) throw error; return (data ?? []) as unknown as ServerTrustedDevice[]; } catch (e) { console.warn('trusted device server fetch failed', e); return []; } }
+
+/**
+ * Admin-only: fetches every user's active trusted devices for the Access & IAM
+ * screen, along with whose device each one is. Relies on the existing
+ * "Admins can view all profiles" / trusted_devices admin RLS policies — a
+ * non-admin calling this simply gets back only their own device(s), same as
+ * {@link fetchServerDevices}, since RLS filters rows regardless of what the
+ * client asks for.
+ */
+export async function fetchAdminTrustedDevices(): Promise<AdminTrustedDevice[]> {
+  try {
+    const { data: devices, error } = await supabase
+      .from('trusted_devices' as any)
+      .select(`user_id, ${DEVICE_COLUMNS}`)
+      .is('revoked_at', null)
+      .order('last_used_at', { ascending: false, nullsFirst: false });
+    if (error) throw error;
+    if (!devices?.length) return [];
+
+    const userIds = Array.from(new Set(devices.map((d: any) => d.user_id)));
+    const { data: profiles } = await supabase.from('profiles').select('id, first_name, last_name, email').in('id', userIds);
+    const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+
+    return devices.map((d: any) => {
+      const p = byId.get(d.user_id);
+      const name = p ? `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() : '';
+      return {
+        ...d,
+        user_name: name || p?.email || 'Unknown user',
+        user_email: p?.email ?? null,
+      } as AdminTrustedDevice;
+    });
+  } catch (e) {
+    console.warn('admin trusted devices fetch failed', e);
+    return [];
+  }
+}
 /**
  * Revokes a server-side trusted device with a specified reason.
  *
