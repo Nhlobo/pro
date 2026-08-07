@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
+import { useExpertCase as useExternalExpertCase } from '@/hooks/externalPortal/useExpertPortal';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -38,6 +40,19 @@ const ExpertCaseDetail: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Dual-mode identity: Supabase-auth expert session (unchanged below,
+  // load() already no-ops when `user` is null), or an External Portal
+  // Module OTP/access-link session, populated from useExternalExpertCase
+  // instead — see the effect after load(). Documents and payment/debt
+  // history aren't part of that projection (no list_documents action is
+  // implemented server-side yet), so they stay empty in this mode rather
+  // than guessing. Report/appointment write actions further below are
+  // gated the same way, since none of them have a session-safe endpoint
+  // yet and previously either silently no-op'd or — worse, for
+  // accept/decline — showed a false "success" toast while the RLS-blocked
+  // write actually failed.
+  const { isExternalSession } = usePortalIdentity();
+  const externalCaseQuery = useExternalExpertCase(appointmentId);
 
   const [loading, setLoading] = useState(true);
   const [appointment, setAppointment] = useState<any>(null);
@@ -54,6 +69,7 @@ const ExpertCaseDetail: React.FC = () => {
   const [expertDebt, setExpertDebt] = useState<any[]>([]);
 
   useEffect(() => {
+    if (isExternalSession) return;
     const load = async () => {
       if (!user || !appointmentId) return;
 
@@ -117,7 +133,42 @@ const ExpertCaseDetail: React.FC = () => {
       setLoading(false);
     };
     load();
-  }, [user, appointmentId]);
+  }, [user, appointmentId, isExternalSession]);
+
+  // External Portal Module (OTP/access-link) session: derive the same
+  // appointment/report shape from the session-scoped case detail.
+  useEffect(() => {
+    if (!isExternalSession) return;
+    if (externalCaseQuery.isLoading) { setLoading(true); return; }
+    if (externalCaseQuery.isError || !externalCaseQuery.data?.case) {
+      toast({ title: 'Access Denied', description: 'Case not found or not assigned to you.', variant: 'destructive' });
+      navigate('/expert-portal/cases');
+      return;
+    }
+    const c = externalCaseQuery.data.case;
+    setAppointment({
+      id: c.appointment_id,
+      appointment_date: c.appointment_date,
+      case_status: c.case_status,
+      matter_type: c.matter_type,
+      assessment_code: c.assessment_code,
+      claimants: c.claimant ? { first_name: c.claimant.first_name, last_name: c.claimant.last_name, auto_id: c.claimant.auto_id, contact_number: c.claimant.contact_number } : null,
+      referring_attorneys: c.referring_attorney ? { name: c.referring_attorney.name, email: c.referring_attorney.email, phone: c.referring_attorney.phone, contact_person: c.referring_attorney.contact_person } : null,
+      medical_experts: null,
+    });
+    setReport(c.report ? {
+      id: null,
+      report_status: c.report.report_status,
+      report_due_date: c.report.report_due_date,
+      report_submitted_date: c.report.report_submitted_date,
+      days_to_complete: null,
+      created_at: null,
+      notes: null,
+    } : null);
+    setDocuments([]);
+    setExpertDebt([]);
+    setLoading(false);
+  }, [isExternalSession, externalCaseQuery.data, externalCaseQuery.isLoading, externalCaseQuery.isError]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -126,7 +177,16 @@ const ExpertCaseDetail: React.FC = () => {
   };
 
   const handleUploadReport = async () => {
-    if (!selectedFile || !expertId || !appointmentId || !user) return;
+    if (!selectedFile || !appointmentId) return;
+    if (isExternalSession) {
+      toast({
+        title: 'Not available yet',
+        description: 'Report upload isn\'t available via secure portal sign-in yet. Please contact your case manager.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!expertId || !user) return;
     setUploading(true);
 
     try {
@@ -197,6 +257,14 @@ const ExpertCaseDetail: React.FC = () => {
 
   const handleAcceptAppointment = async () => {
     if (!appointmentId) return;
+    if (isExternalSession) {
+      toast({
+        title: 'Not available yet',
+        description: 'Accepting an appointment isn\'t available via secure portal sign-in yet. Please contact your case manager.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setAccepting(true);
     try {
       await supabase.from('appointments').update({
@@ -214,6 +282,14 @@ const ExpertCaseDetail: React.FC = () => {
 
   const handleDeclineAppointment = async () => {
     if (!appointmentId || !declineReason.trim()) return;
+    if (isExternalSession) {
+      toast({
+        title: 'Not available yet',
+        description: 'Declining an appointment isn\'t available via secure portal sign-in yet. Please contact your case manager.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setDeclining(true);
     try {
       await supabase.from('appointments').update({
