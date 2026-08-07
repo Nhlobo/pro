@@ -14,6 +14,7 @@ import { ActivityTrackerMount } from "@/hooks/useActivityTracker";
 import { OfflineRedirectGuard } from "@/hooks/useOfflineRedirect";
 import IdleLogoutGuard from "@/components/IdleLogoutGuard";
 import ExternalPortalSessionRoute from "@/components/external-portal/ExternalPortalSessionRoute";
+import { useExternalPortalSession } from "@/hooks/externalPortal/useExternalPortalSession";
 import { ExitConfirmationGuard } from "@/hooks/useExitConfirmation";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
@@ -169,11 +170,27 @@ const AdminPortalRoute = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
-const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => (
-  <ProtectedRoute>
-    <ExpertPortalLayout>{children}</ExpertPortalLayout>
-  </ProtectedRoute>
-);
+// Referring Attorney Portal & Medical Expert Portal (the "old" External
+// Portal, now reconnected as the active one) are authenticated entirely
+// through the External Portal Module's own OTP/access-link session —
+// same as /external-portal/* — never through ProtectedRoute/Supabase
+// auth. See ExternalPortalSessionRoute for why that's a deliberate,
+// separate auth boundary. The portal_type check below just improves UX
+// (send an attorney session away from /expert-portal, etc); the real
+// authorization boundary is still server-side, per session, per call.
+const AttorneyPortalRoute = ({ children }: { children: React.ReactNode }) => {
+  const { session, isAuthenticated } = useExternalPortalSession();
+  if (!isAuthenticated) return <Navigate to="/external-portal/sign-in" replace />;
+  if (session?.portal_type !== 'attorney') return <Navigate to="/expert-portal" replace />;
+  return <>{children}</>;
+};
+
+const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => {
+  const { session, isAuthenticated } = useExternalPortalSession();
+  if (!isAuthenticated) return <Navigate to="/external-portal/sign-in" replace />;
+  if (session?.portal_type !== 'expert') return <Navigate to="/attorney-portal" replace />;
+  return <>{children}</>;
+};
 
 // Shown by <Suspense> while a lazy-loaded route's JS chunk is downloading.
 // Intentionally reuses BrandedPageLoader (the same teal spinner shown by
@@ -219,12 +236,25 @@ const App = () => (
                 <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
                 <Route path="/Expertzone/case-access" element={<ExpertCaseAccess />} />
 
-                {/* External Portal Module — shared sign-in for Referring Attorney &
-                    Medical Expert portals. Public routes: these users have no
-                    Supabase auth session, so no auth wrapper here (same pattern as
-                    the legacy case-access routes above). /home is gated by the
-                    module's own session check, not the app's ProtectedRoute. */}
+                {/* External Portal Module — shared OTP/access-link sign-in.
+                    Kept ACTIVE: this is the auth entry point the old
+                    /attorney-portal and /expert-portal now sign in through
+                    too (see AttorneyPortalRoute/ExpertPortalRoute above and
+                    ExternalPortalSignIn's post-login redirect). Public
+                    route: these users have no Supabase auth session. */}
                 <Route path="/external-portal/sign-in" element={<ExternalPortalSignIn />} />
+
+                {/* --- UNWIRED (2026-08-07): the new module's own end-user UI ---
+                    The External Portal Management page has been reconnected to the
+                    old /attorney-portal and /expert-portal experience instead (see
+                    AttorneyPortalRoute/ExpertPortalRoute above). These routes are
+                    intentionally disabled, not deleted — the components, hooks and
+                    edge functions behind them (useAttorneyPortal, useExpertPortal,
+                    external-portal-attorney-data, etc.) are still in the codebase
+                    and are in fact reused by the reconnected old portal pages. Only
+                    this standalone UI (ExternalPortalHome, AttorneyPortalCases,
+                    AttorneyPortalCaseDetail, ExpertPortalCases,
+                    ExpertPortalCaseDetail) is unreachable while paused.
                 <Route
                   path="/external-portal/home"
                   element={
@@ -233,8 +263,6 @@ const App = () => (
                     </ExternalPortalSessionRoute>
                   }
                 />
-                {/* Referring Attorney Portal (Phase 3) — read-only case views,
-                    scoped server-side to this account's linked cases only. */}
                 <Route
                   path="/external-portal/attorney/cases"
                   element={
@@ -251,9 +279,6 @@ const App = () => (
                     </ExternalPortalSessionRoute>
                   }
                 />
-                {/* Medical Expert Portal (Phase 4) — same pattern as the
-                    Attorney Portal above, scoped via the same
-                    external_portal_case_links table. */}
                 <Route
                   path="/external-portal/expert/cases"
                   element={
@@ -270,6 +295,7 @@ const App = () => (
                     </ExternalPortalSessionRoute>
                   }
                 />
+                --- end unwired new-module UI --- */}
                 <Route path="/contact-us" element={<ContactUs />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 
@@ -372,15 +398,15 @@ const App = () => (
                 <Route path="/availability-heatmap" element={<ProtectedRoute><div className="min-h-screen bg-background"><div className="container mx-auto p-4 md:p-6"><AdminHeatmap /></div></div></ProtectedRoute>} />
 
                 {/* Attorney Portal Routes */}
-                <Route path="/attorney-portal" element={<ProtectedRoute><AttorneyPortalDashboard /></ProtectedRoute>} />
-                <Route path="/attorney-portal/cases" element={<ProtectedRoute><AttorneyMyCases /></ProtectedRoute>} />
-                <Route path="/attorney-portal/case-status" element={<ProtectedRoute><AttorneyCaseStatus /></ProtectedRoute>} />
-                <Route path="/attorney-portal/appointments" element={<ProtectedRoute><AttorneyAppointments /></ProtectedRoute>} />
-                <Route path="/attorney-portal/reports" element={<ProtectedRoute><AttorneyReports /></ProtectedRoute>} />
-                <Route path="/attorney-portal/payments" element={<ProtectedRoute><AttorneyPayments /></ProtectedRoute>} />
-                <Route path="/attorney-portal/agreements" element={<ProtectedRoute><AttorneyAgreements /></ProtectedRoute>} />
-                <Route path="/attorney-portal/notifications" element={<ProtectedRoute><AttorneyNotifications /></ProtectedRoute>} />
-                <Route path="/attorney-portal/support" element={<ProtectedRoute><AttorneySupport /></ProtectedRoute>} />
+                <Route path="/attorney-portal" element={<AttorneyPortalRoute><AttorneyPortalDashboard /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/cases" element={<AttorneyPortalRoute><AttorneyMyCases /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/case-status" element={<AttorneyPortalRoute><AttorneyCaseStatus /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/appointments" element={<AttorneyPortalRoute><AttorneyAppointments /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/reports" element={<AttorneyPortalRoute><AttorneyReports /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/payments" element={<AttorneyPortalRoute><AttorneyPayments /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/agreements" element={<AttorneyPortalRoute><AttorneyAgreements /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/notifications" element={<AttorneyPortalRoute><AttorneyNotifications /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/support" element={<AttorneyPortalRoute><AttorneySupport /></AttorneyPortalRoute>} />
                 
                 {/* ============ EXPERT PORTAL ============ */}
                 <Route path="/expert-portal" element={<ExpertPortalRoute><ExpertDashboard /></ExpertPortalRoute>} />
