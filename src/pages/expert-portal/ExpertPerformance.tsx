@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { BarChart3, TrendingUp, Clock, CheckCircle2, AlertTriangle, Award, Target, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
 import { differenceInDays, parseISO, format, subMonths } from 'date-fns';
 
 interface PerformanceMetrics {
@@ -24,10 +25,19 @@ interface PerformanceMetrics {
 
 const ExpertPerformance: React.FC = () => {
   const { user } = useAuth();
+  // Performance metrics here (avg turnaround, on-time rate, quality
+  // rating) depend on `days_to_complete` and `expert_performance`, which
+  // external-portal-expert-data's case-list projection doesn't include.
+  // Rather than compute misleading zeros from missing data, this page
+  // shows its existing "No performance data available" state for
+  // External Portal Module (OTP/access-link) sessions instead of loading
+  // forever — see the loading resolution below.
+  const { isExternalSession } = usePortalIdentity();
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isExternalSession) { setLoading(false); return; }
     const load = async () => {
       if (!user) return;
       const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
@@ -100,7 +110,7 @@ const ExpertPerformance: React.FC = () => {
       setLoading(false);
     };
     load();
-  }, [user]);
+  }, [user, isExternalSession]);
 
   const getScoreColor = (score: number) => {
     if (score >= 85) return 'text-success';
