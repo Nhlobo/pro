@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
+import { useExpertCases as useExternalExpertCases } from '@/hooks/externalPortal/useExpertPortal';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
@@ -33,6 +35,15 @@ interface CaseAssignment {
 
 const ExpertCases: React.FC = () => {
   const { user } = useAuth();
+  // Dual-mode identity: Supabase-auth expert session (unchanged below,
+  // loadCases() already no-ops when `user` is null), or an External
+  // Portal Module OTP/access-link session. The latter is populated from
+  // external-portal-expert-data's session-scoped case list instead —
+  // see the effect after loadCases(). document_count, days_to_complete
+  // and location aren't part of that projection, so they default to
+  // 0/null in this mode rather than guessing.
+  const { isExternalSession } = usePortalIdentity();
+  const externalCasesQuery = useExternalExpertCases();
   const navigate = useNavigate();
   const [cases, setCases] = useState<CaseAssignment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,6 +102,31 @@ const ExpertCases: React.FC = () => {
     };
     loadCases();
   }, [user]);
+
+  // External Portal Module (OTP/access-link) session: derive the same
+  // CaseAssignment[] shape from the session-scoped case list.
+  useEffect(() => {
+    if (!isExternalSession) return;
+    if (externalCasesQuery.isLoading) { setLoading(true); return; }
+    const mapped: CaseAssignment[] = (externalCasesQuery.data?.cases || []).map(c => ({
+      id: c.appointment_id,
+      appointment_date: c.appointment_date,
+      matter_type: c.matter_type,
+      case_status: c.case_status,
+      claimant_name: c.claimant ? `${c.claimant.first_name} ${c.claimant.last_name}`.trim() : 'Unknown',
+      claimant_auto_id: c.claimant?.reference || '',
+      attorney_name: c.referring_attorney?.name || 'N/A',
+      report_status: c.report?.report_status || null,
+      report_due_date: c.report?.report_due_date || null,
+      report_submitted_date: c.report?.report_submitted_date || null,
+      days_to_complete: null,
+      document_count: 0,
+      location: null,
+      payment_status: c.payment_status,
+    }));
+    setCases(mapped);
+    setLoading(false);
+  }, [isExternalSession, externalCasesQuery.data, externalCasesQuery.isLoading]);
 
   const now = new Date();
 
