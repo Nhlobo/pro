@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
+import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -80,11 +80,27 @@ const navigationItems = [
   },
 ];
 
+/**
+ * Supabase-auth attorney sessions keep the mandatory-MFA gate (POPIA
+ * Sec. 19). External Portal Module sessions have no auth.users row, so
+ * Supabase MFA does not apply to them — they are already verified by the
+ * OTP / secure-access-link flow that the management page controls.
+ */
+const PortalAuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isExternalSession } = usePortalIdentity();
+  if (isExternalSession) return <>{children}</>;
+  return <MFARequiredGuard roleLabel="Referring Attorney">{children}</MFARequiredGuard>;
+};
+
 export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
-  const { isReferringAttorney, loading } = usePermissions();
+  // Dual-mode identity: original Supabase-auth attorney session, or an
+  // External Portal Module OTP / access-link session issued from the
+  // External Portal Management page.
+  const { isExternalSession, displayName, signOutPortal } = usePortalIdentity();
+  const { isReferringAttorney, loading: permissionsLoading } = usePermissions();
+  const loading = isExternalSession ? false : permissionsLoading;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Redirect non-referring attorneys (temporarily relaxed for admin preview)
@@ -99,7 +115,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
   }
 
   return (
-    <MFARequiredGuard roleLabel="Referring Attorney">
+    <PortalAuthGuard>
     <div className="flex min-h-screen bg-background">
       <RouteFirstVisitTour routes={ATTORNEY_PAGE_TOURS} />
       {/* Sidebar */}
@@ -169,7 +185,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
               {!sidebarCollapsed && (
                 <div className="flex-1 overflow-hidden">
                   <p className="text-xs font-medium text-foreground truncate">
-                    {user?.email}
+                    {displayName}
                   </p>
                   <p className="text-xs text-muted-foreground">Referring Attorney</p>
                 </div>
@@ -182,7 +198,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
                 "w-full mt-2 text-muted-foreground hover:text-destructive",
                 sidebarCollapsed && "px-2"
               )}
-              onClick={() => signOut()}
+              onClick={() => signOutPortal()}
               title={sidebarCollapsed ? "Sign Out" : undefined}
             >
               <LogOut className="h-4 w-4" />
@@ -207,7 +223,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
         </div>
       </main>
     </div>
-    </MFARequiredGuard>
+    </PortalAuthGuard>
   );
 };
 
