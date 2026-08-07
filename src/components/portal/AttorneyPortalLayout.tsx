@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { usePermissions } from '@/hooks/usePermissions';
+import { useExternalPortalSession } from '@/hooks/externalPortal/useExternalPortalSession';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   LayoutDashboard,
@@ -25,8 +25,13 @@ import TourLauncher from '@/components/tour/TourLauncher';
 import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
 import { ATTORNEY_TOUR, ATTORNEY_TOUR_KEY } from '@/config/tours';
 import { ATTORNEY_PAGE_TOURS } from '@/config/pageTours';
-import MFARequiredGuard from '@/components/MFARequiredGuard';
-import BrandedPageLoader from '@/components/BrandedPageLoader';
+
+// NOTE: This portal is authenticated entirely through the External
+// Portal Module's own OTP/access-link session (see
+// useExternalPortalSession) — these are external referring attorneys,
+// not internal Supabase-auth staff. MFARequiredGuard and usePermissions
+// were built for the internal app's Supabase-auth users and don't apply
+// here; OTP verification is this portal's second factor.
 
 interface AttorneyPortalLayoutProps {
   children: React.ReactNode;
@@ -52,6 +57,7 @@ const navigationItems = [
     title: 'Appointments',
     href: '/attorney-portal/appointments',
     icon: Calendar,
+    unavailable: true,
   },
   {
     title: 'Reports',
@@ -62,16 +68,19 @@ const navigationItems = [
     title: 'AOD & Payments',
     href: '/attorney-portal/payments',
     icon: CreditCard,
+    unavailable: true,
   },
   {
     title: 'Agreements',
     href: '/attorney-portal/agreements',
     icon: FileSignature,
+    unavailable: true,
   },
   {
     title: 'Notifications',
     href: '/attorney-portal/notifications',
     icon: Bell,
+    unavailable: true,
   },
   {
     title: 'Support',
@@ -83,23 +92,15 @@ const navigationItems = [
 export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, user } = useAuth();
-  const { isReferringAttorney, loading } = usePermissions();
+  const { session, clearSession } = useExternalPortalSession();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Redirect non-referring attorneys (temporarily relaxed for admin preview)
-  // React.useEffect(() => {
-  //   if (!loading && !isReferringAttorney()) {
-  //     navigate('/dashboard');
-  //   }
-  // }, [loading, isReferringAttorney, navigate]);
-
-  if (loading) {
-    return <BrandedPageLoader message="Loading…" />;
-  }
+  const handleSignOut = async () => {
+    await clearSession();
+    navigate('/external-portal/sign-in', { replace: true });
+  };
 
   return (
-    <MFARequiredGuard roleLabel="Referring Attorney">
     <div className="flex min-h-screen bg-background">
       <RouteFirstVisitTour routes={ATTORNEY_PAGE_TOURS} />
       {/* Sidebar */}
@@ -150,7 +151,14 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
                     title={sidebarCollapsed ? item.title : undefined}
                   >
                     <item.icon className="h-5 w-5 flex-shrink-0" />
-                    {!sidebarCollapsed && <span>{item.title}</span>}
+                    {!sidebarCollapsed && (
+                      <span className="flex flex-1 items-center justify-between gap-2">
+                        {item.title}
+                        {item.unavailable && (
+                          <Badge variant="outline" className="text-[10px] font-normal">Soon</Badge>
+                        )}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -169,7 +177,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
               {!sidebarCollapsed && (
                 <div className="flex-1 overflow-hidden">
                   <p className="text-xs font-medium text-foreground truncate">
-                    {user?.email}
+                    {session?.full_name || session?.email}
                   </p>
                   <p className="text-xs text-muted-foreground">Referring Attorney</p>
                 </div>
@@ -182,7 +190,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
                 "w-full mt-2 text-muted-foreground hover:text-destructive",
                 sidebarCollapsed && "px-2"
               )}
-              onClick={() => signOut()}
+              onClick={handleSignOut}
               title={sidebarCollapsed ? "Sign Out" : undefined}
             >
               <LogOut className="h-4 w-4" />
@@ -207,7 +215,6 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
         </div>
       </main>
     </div>
-    </MFARequiredGuard>
   );
 };
 
