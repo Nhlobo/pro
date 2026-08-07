@@ -4,6 +4,8 @@ import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
+import { useAttorneyCases } from '@/hooks/externalPortal/useAttorneyPortal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -149,6 +151,15 @@ const StatCard: React.FC<{
 const AttorneyCaseStatus: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  // Dual-mode identity: Supabase-auth attorney session (unchanged below,
+  // steps 1 & 2 already no-op when `user` is null), or an External Portal
+  // Module OTP/access-link session managed from the External Portal
+  // Management page. Neither loadData() below nor the user_attorney_links
+  // lookup can work for the latter (no auth.uid()), so that case is
+  // populated separately from the session-scoped case list instead —
+  // see the effect after loadData().
+  const { isExternalSession } = usePortalIdentity();
+  const externalCasesQuery = useAttorneyCases();
 
   const [view, setView] = useState<'dashboard' | 'detail'>('dashboard');
   const [selectedClaimantId, setSelectedClaimantId] = useState<string | null>(null);
@@ -298,6 +309,68 @@ const AttorneyCaseStatus: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // 2b. External Portal Module (OTP/access-link) session: derive the same
+  // ClaimantCase[] shape from external-portal-attorney-data's case list
+  // instead, grouped by claimant reference (the summary has no claimant
+  // id, only name + reference). Reuses the exact same computeStage /
+  // isReportReceived / isReportOverdue logic as the Supabase-auth path
+  // above so both modes classify a case's stage identically.
+  useEffect(() => {
+    if (!isExternalSession) return;
+    if (externalCasesQuery.isLoading) {
+      setLoading(true);
+      return;
+    }
+    const cases = externalCasesQuery.data?.cases || [];
+    const groups = new Map<string, typeof cases>();
+    cases.forEach((c) => {
+      const key = c.claimant?.reference || c.appointment_id;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(c);
+    });
+
+    const result: ClaimantCase[] = Array.from(groups.entries()).map(([reference, group]) => {
+      const assessmentRows: AssessmentRow[] = group.map(c => ({
+        appointment_id: c.appointment_id,
+        appointment_date: c.appointment_date,
+        case_status: c.case_status,
+        matter_type: c.matter_type,
+        expert_type: c.expert?.expert_type || 'Unknown',
+        report_status: c.report?.report_status || null,
+        report_submitted_date: c.report?.report_submitted_date || null,
+        report_due_date: c.report?.report_due_date || null,
+        // Not exposed by external-portal-attorney-data's list_cases action —
+        // the report download button degrades to unavailable in this mode
+        // rather than guessing a file path.
+        report_file_path: null,
+      }));
+
+      const reportsRequired = assessmentRows.length;
+      const reportsReceived = assessmentRows.filter(a => isReportReceived(a.report_status)).length;
+      const { stage, pct } = computeStage(assessmentRows);
+      const hasOverdue = assessmentRows.some(a => isReportOverdue(a.report_due_date, a.report_status));
+      const first = group[0];
+
+      return {
+        claimantId: reference,
+        claimantAutoId: reference,
+        claimantName: first.claimant ? `${first.claimant.first_name || ''} ${first.claimant.last_name || ''}`.trim() || 'Unknown' : 'Unknown',
+        matterType: assessmentRows.find(a => a.matter_type)?.matter_type || null,
+        lastUpdated: assessmentRows.map(a => a.report_submitted_date).filter(Boolean).sort().pop() || first.appointment_date,
+        assessments: assessmentRows,
+        reportsRequired,
+        reportsReceived,
+        reportsOutstanding: reportsRequired - reportsReceived,
+        stage,
+        progressPct: pct,
+        hasOverdue,
+      };
+    });
+
+    setClaimants(result);
+    setLoading(false);
+  }, [isExternalSession, externalCasesQuery.data, externalCasesQuery.isLoading]);
 
   // Realtime subscriptions — reflect admin changes immediately
   useEffect(() => {
