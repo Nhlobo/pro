@@ -131,7 +131,10 @@ const ExternalPortalSignIn: React.FC = () => {
         email: result.account.email,
       });
       toast.success(`Welcome, ${result.account.full_name}`);
-      navigate('/external-portal/home', { replace: true });
+      // Reconnected to the old External Portal (2026-08-07): route into
+      // /attorney-portal or /expert-portal instead of the new module's
+      // own /external-portal/home, which is now unwired.
+      navigate(result.portal_type === 'expert' ? '/expert-portal' : '/attorney-portal', { replace: true });
     } catch (err) {
       toast.error((err as ApiError).message || 'Invalid or expired code.');
     } finally {
