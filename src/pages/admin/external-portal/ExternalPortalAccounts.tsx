@@ -269,6 +269,8 @@ const ExternalPortalAccounts: React.FC = () => {
         </SheetContent>
       </Sheet>
 
+      <LegacyPortalUsersCard />
+
       <ManageCaseLinksDialog
         accountId={manageCasesFor?.id ?? null}
         accountName={manageCasesFor?.name ?? ''}
@@ -276,6 +278,7 @@ const ExternalPortalAccounts: React.FC = () => {
         onOpenChange={(open) => !open && setManageCasesFor(null)}
       />
     </ExternalPortalManagementLayout>
+
   );
 };
 
