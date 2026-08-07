@@ -35,6 +35,8 @@ import { PORTAL_TYPE_LABEL, ACCOUNT_STATUS_LABEL, ACCOUNT_STATUS_TONE, type Exte
 import { formatDateTimeShort } from '@/utils/dateTime';
 import { toast } from 'sonner';
 import ManageCaseLinksDialog from './ManageCaseLinksDialog';
+import LegacyPortalUsersCard from './LegacyPortalUsersCard';
+
 
 const EMPTY_FORM: CreateExternalPortalAccountInput = {
   portal_type: 'attorney',
@@ -269,6 +271,8 @@ const ExternalPortalAccounts: React.FC = () => {
         </SheetContent>
       </Sheet>
 
+      <LegacyPortalUsersCard />
+
       <ManageCaseLinksDialog
         accountId={manageCasesFor?.id ?? null}
         accountName={manageCasesFor?.name ?? ''}
@@ -276,6 +280,7 @@ const ExternalPortalAccounts: React.FC = () => {
         onOpenChange={(open) => !open && setManageCasesFor(null)}
       />
     </ExternalPortalManagementLayout>
+
   );
 };
 
