@@ -35,6 +35,8 @@ import { PORTAL_TYPE_LABEL, ACCOUNT_STATUS_LABEL, ACCOUNT_STATUS_TONE, type Exte
 import { formatDateTimeShort } from '@/utils/dateTime';
 import { toast } from 'sonner';
 import ManageCaseLinksDialog from './ManageCaseLinksDialog';
+import LegacyPortalUsersCard from './LegacyPortalUsersCard';
+
 
 const EMPTY_FORM: CreateExternalPortalAccountInput = {
   portal_type: 'attorney',
