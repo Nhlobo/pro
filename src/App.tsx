@@ -170,26 +170,33 @@ const AdminPortalRoute = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
-// Referring Attorney Portal & Medical Expert Portal (the "old" External
-// Portal, now reconnected as the active one) are authenticated entirely
-// through the External Portal Module's own OTP/access-link session —
-// same as /external-portal/* — never through ProtectedRoute/Supabase
-// auth. See ExternalPortalSessionRoute for why that's a deliberate,
-// separate auth boundary. The portal_type check below just improves UX
-// (send an attorney session away from /expert-portal, etc); the real
-// authorization boundary is still server-side, per session, per call.
+// Referring Attorney Portal & Medical Expert Portal — the "old" External
+// Portal, restored as the ACTIVE portal and wired to the External Portal
+// Management page. Two accepted ways in (see usePortalIdentity):
+//  1. The original Supabase-auth role session (ProtectedRoute + the
+//     layout's own permission/MFA checks) — unchanged from before.
+//  2. An External Portal Module OTP / secure-access-link session issued
+//     and managed from the External Portal Management page. Those users
+//     have no Supabase auth session; their real authorization boundary
+//     stays server-side, per session, per call.
+// The portal_type check below is UX only (send an attorney session away
+// from /expert-portal, etc).
 const AttorneyPortalRoute = ({ children }: { children: React.ReactNode }) => {
   const { session, isAuthenticated } = useExternalPortalSession();
-  if (!isAuthenticated) return <Navigate to="/external-portal/sign-in" replace />;
-  if (session?.portal_type !== 'attorney') return <Navigate to="/expert-portal" replace />;
-  return <>{children}</>;
+  if (isAuthenticated) {
+    if (session?.portal_type !== 'attorney') return <Navigate to="/expert-portal" replace />;
+    return <>{children}</>;
+  }
+  return <ProtectedRoute>{children}</ProtectedRoute>;
 };
 
 const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => {
   const { session, isAuthenticated } = useExternalPortalSession();
-  if (!isAuthenticated) return <Navigate to="/external-portal/sign-in" replace />;
-  if (session?.portal_type !== 'expert') return <Navigate to="/attorney-portal" replace />;
-  return <>{children}</>;
+  if (isAuthenticated) {
+    if (session?.portal_type !== 'expert') return <Navigate to="/attorney-portal" replace />;
+    return <>{children}</>;
+  }
+  return <ProtectedRoute>{children}</ProtectedRoute>;
 };
 
 // Shown by <Suspense> while a lazy-loaded route's JS chunk is downloading.

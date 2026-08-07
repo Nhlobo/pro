@@ -1,113 +1,237 @@
 import React from 'react';
-import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
-import { useAttorneyCases } from '@/hooks/externalPortal/useAttorneyPortal';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
+import { useAttorneyDebts } from '@/hooks/useAttorneyDebts';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
+import { LiveCaseTracker } from '@/components/LiveCaseTracker';
 import { Link } from 'react-router-dom';
-import { Loader2, Briefcase, Clock, FileCheck2, AlertCircle, ArrowRight } from 'lucide-react';
-import { formatDateTimeShort } from '@/utils/dateTime';
+import {
+  Briefcase,
+  Calendar,
+  Clock,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  TrendingUp,
+  ArrowRight,
+  Wallet,
+  Scale,
+  BookOpen
+} from "lucide-react";
 
-// Data comes from the External Portal Module's case-link-scoped
-// list_cases action (external-portal-attorney-data), the same source
-// used by the OTP-authenticated new-module UI. See useAttorneyPortal.ts.
 const AttorneyPortalDashboard: React.FC = () => {
-  const { data, isLoading, isError, error } = useAttorneyCases();
-  const cases = data?.cases ?? [];
+  const { stats, liveCases, loading, refetchStats } = useAttorneyDashboardStats();
+  const { debtSummary, loading: debtsLoading } = useAttorneyDebts();
 
-  const scheduled = cases.filter(c => c.case_status === 'scheduled').length;
-  const assessed = cases.filter(c => c.case_status === 'assessed').length;
-  const reportsOutstanding = cases.filter(c => c.report && c.report.report_status !== 'submitted' && c.report.report_status !== 'finalized').length;
+  // Derive litigation-ready cases (all phases completed / report ready)
+  const litigationReadyCases = liveCases.filter(c =>
+    c.phases.every(p => p.status === 'completed')
+  ).length;
+
+  // Cases in booking stage (pending or only referral received)
+  const bookingStageCases = liveCases.filter(c => {
+    const completedCount = c.phases.filter(p => p.status === 'completed').length;
+    return completedCount <= 2; // Referral Received + maybe Documents Verified
+  }).length;
+
+  // Reports outstanding
+  const reportsOutstanding = liveCases.filter(c => {
+    const reportPhase = c.phases.find(p => p.name === 'Report Ready');
+    return reportPhase?.status !== 'completed';
+  }).length;
+
+  const statCards = [
+    {
+      title: 'Total Active Cases',
+      value: liveCases.length,
+      icon: Briefcase,
+      color: 'text-primary',
+      bgColor: 'bg-primary/10',
+      description: 'All your referred cases'
+    },
+    {
+      title: 'Booking Stage',
+      value: bookingStageCases,
+      icon: BookOpen,
+      color: 'text-kutlwano-blue',
+      bgColor: 'bg-kutlwano-blue/10',
+      description: 'Awaiting scheduling'
+    },
+    {
+      title: 'Reports Outstanding',
+      value: reportsOutstanding,
+      icon: Clock,
+      color: 'text-warning',
+      bgColor: 'bg-warning/10',
+      description: 'Reports not yet ready'
+    },
+    {
+      title: 'Litigation Ready',
+      value: litigationReadyCases,
+      icon: Scale,
+      color: 'text-success',
+      bgColor: 'bg-success/10',
+      description: 'All reports submitted'
+    },
+    {
+      title: 'Reports In Progress',
+      value: stats.reportsInProgress,
+      icon: FileText,
+      color: 'text-info',
+      bgColor: 'bg-info/10',
+      description: 'Being prepared'
+    },
+    {
+      title: 'Reports Completed',
+      value: stats.reportsReadyToDownload,
+      icon: CheckCircle2,
+      color: 'text-success',
+      bgColor: 'bg-success/10',
+      description: 'Ready to download'
+    },
+    {
+      title: 'Outstanding Balance',
+      value: debtSummary ? `R${debtSummary.total_owed.toLocaleString()}` : 'R0',
+      icon: Wallet,
+      color: 'text-destructive',
+      bgColor: 'bg-destructive/10',
+      description: 'AOD balance due',
+      isAmount: true
+    },
+    {
+      title: 'Actions Needed',
+      value: stats.actionsNeeded,
+      icon: AlertCircle,
+      color: 'text-destructive',
+      bgColor: 'bg-destructive/10',
+      description: `${stats.missingDocuments} docs, ${stats.pendingConfirmations} confirmations`
+    }
+  ];
 
   return (
     <AttorneyPortalLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-foreground">Welcome{data?.account?.full_name ? `, ${data.account.full_name}` : ''}</h1>
-        <p className="text-sm text-muted-foreground">Here's an overview of your linked cases.</p>
-      </div>
-
-      {isLoading && (
-        <div className="flex items-center gap-2 py-12 text-sm text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" /> Loading your cases…
+      <div className="space-y-8">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Welcome to Your Portal</h1>
+          <p className="text-muted-foreground mt-1">
+            Track your matters, monitor progress, and manage your cases
+          </p>
         </div>
-      )}
 
-      {isError && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {(error as any)?.message || 'Could not load your cases. Please try again.'}
-        </p>
-      )}
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {statCards.map((stat, index) => (
+            <Card key={index} className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  {stat.title}
+                </CardTitle>
+                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
+                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${stat.color}`}>
+                  {loading || debtsLoading ? '...' : stat.value}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
 
-      {!isLoading && !isError && (
-        <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Briefcase className="h-4 w-4" /> Total Cases
-                </CardTitle>
-              </CardHeader>
-              <CardContent><p className="text-2xl font-bold">{cases.length}</p></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <Clock className="h-4 w-4" /> Scheduled
-                </CardTitle>
-              </CardHeader>
-              <CardContent><p className="text-2xl font-bold">{scheduled}</p></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <FileCheck2 className="h-4 w-4" /> Assessed
-                </CardTitle>
-              </CardHeader>
-              <CardContent><p className="text-2xl font-bold">{assessed}</p></CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <AlertCircle className="h-4 w-4" /> Reports Outstanding
-                </CardTitle>
-              </CardHeader>
-              <CardContent><p className="text-2xl font-bold">{reportsOutstanding}</p></CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Recent Cases</CardTitle>
-              <Button variant="ghost" size="sm" asChild>
-                <Link to="/attorney-portal/cases">View all <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
-              </Button>
+        {/* Quick Access Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="bg-gradient-card border-border/50 shadow-soft">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-kutlwano-blue" />
+                Upcoming Appointments
+              </CardTitle>
+              <CardDescription>
+                {liveCases.filter(c => new Date(c.appointmentDate) >= new Date()).length} appointments scheduled
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
-              {cases.length === 0 && (
-                <p className="py-6 text-center text-sm text-muted-foreground">No cases have been linked to your portal account yet.</p>
-              )}
-              {cases.slice(0, 5).map(c => (
-                <Link
-                  key={c.appointment_id}
-                  to={`/attorney-portal/case-status?case=${c.appointment_id}`}
-                  className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm hover:bg-accent"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">
-                      {c.claimant ? `${c.claimant.first_name} ${c.claimant.last_name}` : 'Claimant'}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {c.matter_type || 'Matter'} · {formatDateTimeShort(c.appointment_date)}
-                    </p>
-                  </div>
-                  <span className="shrink-0 rounded border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {c.case_status || 'Unknown'}
-                  </span>
+            <CardContent>
+              <Button asChild className="w-full">
+                <Link to="/attorney-portal/appointments">
+                  View All <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
-              ))}
+              </Button>
             </CardContent>
           </Card>
-        </>
-      )}
+
+          <Card className="bg-gradient-card border-border/50 shadow-soft">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-kutlwano-teal" />
+                Reports Ready
+              </CardTitle>
+              <CardDescription>
+                {stats.reportsReadyToDownload} reports available for download
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline" className="w-full">
+                <Link to="/attorney-portal/reports">
+                  View Reports <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-card border-border/50 shadow-soft">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-warning" />
+                Payment Summary
+              </CardTitle>
+              <CardDescription>
+                View your AOD balances and payment schedule
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline" className="w-full">
+                <Link to="/attorney-portal/payments">
+                  View Payments <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Live Case Tracker */}
+        <Card className="bg-gradient-card border-border/50 shadow-soft">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-kutlwano-blue" />
+              Live Case Progress
+            </CardTitle>
+            <CardDescription>
+              Real-time tracking of your case progress through all stages
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LiveCaseTracker 
+              cases={liveCases.slice(0, 5)} 
+              loading={loading} 
+              onRefresh={refetchStats} 
+            />
+            {liveCases.length > 5 && (
+              <div className="mt-4 text-center">
+                <Button asChild variant="outline">
+                  <Link to="/attorney-portal/cases">
+                    View All {liveCases.length} Cases
+                  </Link>
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </AttorneyPortalLayout>
   );
 };

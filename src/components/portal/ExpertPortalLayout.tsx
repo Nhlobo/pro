@@ -6,7 +6,7 @@ import PortalSwitcher from './PortalSwitcher';
 import {
   Stethoscope, LayoutDashboard, Briefcase, Calendar, BarChart3, User, FileText, LogOut
 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
 import TourLauncher from '@/components/tour/TourLauncher';
 import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
 import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
@@ -23,13 +23,24 @@ const NAV_ITEMS = [
   { label: 'Profile', path: '/expert-portal/profile', icon: User },
 ];
 
+/**
+ * Same dual-mode gate as the attorney portal: Supabase-auth expert
+ * sessions keep mandatory MFA; External Portal Module OTP / access-link
+ * sessions are verified by the portal module itself.
+ */
+const PortalAuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isExternalSession } = usePortalIdentity();
+  if (isExternalSession) return <>{children}</>;
+  return <MFARequiredGuard roleLabel="Medical Expert">{children}</MFARequiredGuard>;
+};
+
 const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut } = useAuth();
+  const { isExternalSession, signOutPortal } = usePortalIdentity();
 
   return (
-    <MFARequiredGuard roleLabel="Medical Expert">
+    <PortalAuthGuard>
     <div className="min-h-screen bg-background">
       <RouteFirstVisitTour routes={EXPERT_PAGE_TOURS} />
       {/* Top bar */}
@@ -44,7 +55,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           </div>
           <div className="flex items-center gap-1">
             <TourLauncher steps={EXPERT_TOUR} storageKey={EXPERT_TOUR_KEY} compact />
-            <Button variant="ghost" size="sm" onClick={() => signOut()} className="text-muted-foreground">
+            <Button variant="ghost" size="sm" onClick={() => signOutPortal()} className="text-muted-foreground">
               <LogOut className="h-4 w-4 mr-1" /> Sign Out
             </Button>
           </div>
@@ -80,7 +91,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
       </main>
       <InternalChatWidget />
     </div>
-    </MFARequiredGuard>
+    </PortalAuthGuard>
   );
 };
 
