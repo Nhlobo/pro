@@ -6,10 +6,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileText, Clock, CheckCircle2, AlertTriangle, TrendingUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
+import { useExpertCases as useExternalExpertCases } from '@/hooks/externalPortal/useExpertPortal';
 import { format, parseISO, differenceInDays } from 'date-fns';
 
 const ExpertReportTracking: React.FC = () => {
   const { user } = useAuth();
+  // Dual-mode identity — see ExpertSchedule.tsx for the full rationale.
+  const { isExternalSession } = usePortalIdentity();
+  const externalCasesQuery = useExternalExpertCases();
   const [reports, setReports] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +38,29 @@ const ExpertReportTracking: React.FC = () => {
     };
     load();
   }, [user]);
+
+  // External Portal Module (OTP/access-link) session: derive the same
+  // reports/appointments shape from the session-scoped case list.
+  useEffect(() => {
+    if (!isExternalSession) return;
+    if (externalCasesQuery.isLoading) { setLoading(true); return; }
+    const cases = externalCasesQuery.data?.cases || [];
+    setAppointments(cases.map(c => ({
+      id: c.appointment_id,
+      appointment_date: c.appointment_date,
+      matter_type: c.matter_type,
+      claimants: c.claimant ? { first_name: c.claimant.first_name, last_name: c.claimant.last_name, auto_id: c.claimant.reference } : null,
+      referring_attorneys: c.referring_attorney ? { name: c.referring_attorney.name } : null,
+    })));
+    setReports(cases.filter(c => c.report).map(c => ({
+      id: c.appointment_id,
+      appointment_id: c.appointment_id,
+      report_status: c.report!.report_status,
+      report_due_date: c.report!.report_due_date,
+      report_submitted_date: c.report!.report_submitted_date,
+    })));
+    setLoading(false);
+  }, [isExternalSession, externalCasesQuery.data, externalCasesQuery.isLoading]);
 
   const getStatusBadge = (status: string | null) => {
     switch (status) {
