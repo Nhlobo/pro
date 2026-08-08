@@ -3,12 +3,16 @@
 // Processes public.internal_sage_queue ONLY. Never touches the legacy
 // public.sageone_invoice_queue, its trigger, or its function.
 //
-// STATUS: Sage submission is structurally disabled — see
-// _shared/sageone-client.ts. This function claims queue rows, loads and
-// validates the linked internal_invoices row, and — while Sage remains
-// unconfigured — releases the claim without ever attempting an external
-// call and without marking anything permanently failed. It makes ZERO
-// external HTTP requests and ZERO financial mutations.
+// STATUS: the real Sage HTTP client structure now exists
+// (_shared/sageone-client.ts), but this function only ever reaches it
+// when getSageOneClient().isConfigured is true, which requires
+// SAGEONE_ENABLED=true AND every required credential/config value to
+// be present. In the current/default deployment SAGEONE_ENABLED is
+// unset, so `sage.isConfigured` is false, no queue rows are claimed,
+// no HTTP request is made, and no database state changes. No sandbox
+// Sage company has been tested against as of this change — do not
+// enable outside a controlled test. See
+// SAGE_API_RESEARCH.md for the verified API contract and open items.
 //
 // Not wired to pg_cron yet. Invoke manually (authenticated) to test.
 
@@ -57,10 +61,25 @@ type InvoiceRow = {
   referring_attorney_id: string | null;
 };
 
+/** The Sage "customer" for an internal invoice is the referring
+ * attorney (law firm), not the claimant. Columns confirmed against
+ * src/integrations/supabase/types.ts — referring_attorneys has no VAT
+ * number, business registration number, or structured multi-line
+ * address, so those Sage Customer fields are always left unset rather
+ * than invented (see SAGE_API_RESEARCH.md, section 6). */
+type ReferringAttorneyRow = {
+  id: string;
+  name: string;
+  contact_person: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+};
+
 type ItemOutcome =
   | { itemId: string; outcome: "skipped_disabled"; reason: string }
   | { itemId: string; outcome: "validation_failed"; reason: string }
-  | { itemId: string; outcome: "would_succeed_but_disabled" };
+  | { itemId: string; outcome: "processed" };
 
 /**
  * Atomically claims up to `limit` pending rows. Uses `FOR UPDATE SKIP
@@ -126,11 +145,12 @@ async function recordFailure(row: QueueRow, message: string, retryable: boolean)
   }
 }
 
-/** Loads and validates the invoice this queue row points to. Never
- * mutates internal_invoices — read-only. */
+/** Loads and validates the invoice this queue row points to, plus the
+ * referring attorney it will be invoiced to in Sage. Never mutates
+ * internal_invoices or referring_attorneys — read-only. */
 async function loadAndValidateInvoice(
   internalInvoiceId: string,
-): Promise<{ invoice: InvoiceRow } | { error: string }> {
+): Promise<{ invoice: InvoiceRow; attorney: ReferringAttorneyRow } | { error: string }> {
   const { data, error } = await supabaseAdmin
     .from("internal_invoices")
     .select(
@@ -160,19 +180,48 @@ async function loadAndValidateInvoice(
   if (!invoice.appointment_id) {
     return { error: `Invoice ${invoice.id} is missing appointment_id.` };
   }
+  if (!invoice.referring_attorney_id) {
+    return {
+      error: `Invoice ${invoice.invoice_number} has no referring_attorney_id — cannot determine the Sage customer.`,
+    };
+  }
 
-  return { invoice };
+  const { data: attorneyData, error: attorneyError } = await supabaseAdmin
+    .from("referring_attorneys")
+    .select("id, name, contact_person, email, phone, address")
+    .eq("id", invoice.referring_attorney_id)
+    .maybeSingle();
+
+  if (attorneyError) {
+    return { error: `Failed to load referring_attorneys row: ${attorneyError.message}` };
+  }
+  if (!attorneyData) {
+    return {
+      error: `referring_attorneys row ${invoice.referring_attorney_id} not found for invoice ${invoice.invoice_number}.`,
+    };
+  }
+  const attorney = attorneyData as ReferringAttorneyRow;
+  if (!attorney.name || !attorney.name.trim()) {
+    return {
+      error: `referring_attorneys row ${attorney.id} has no name — Sage requires Customer.Name and none is available.`,
+    };
+  }
+
+  return { invoice, attorney };
 }
 
 async function processQueueItem(row: QueueRow, sage: ReturnType<typeof getSageOneClient>): Promise<ItemOutcome> {
   // Idempotency guard: a row that already has a sage_reference must never
-  // be resubmitted, regardless of how it got claimed.
+  // be resubmitted, regardless of how it got claimed. This is OUR side
+  // of duplicate protection — Sage itself does not offer a confirmed
+  // dedupe mechanism (see SAGE_API_RESEARCH.md). The remaining risk
+  // window is documented at the sage_reference write below.
   if (row.sage_reference) {
     await supabaseAdmin
       .from("internal_sage_queue")
       .update({ status: "processed", processed_at: new Date().toISOString(), claimed_at: null })
       .eq("id", row.id);
-    return { itemId: row.id, outcome: "would_succeed_but_disabled" };
+    return { itemId: row.id, outcome: "processed" };
   }
 
   const loaded = await loadAndValidateInvoice(row.internal_invoice_id);
@@ -189,14 +238,23 @@ async function processQueueItem(row: QueueRow, sage: ReturnType<typeof getSageOn
     return { itemId: row.id, outcome: "skipped_disabled", reason: sage.configurationStatus };
   }
 
-  // Unreachable today: getSageOneClient() only ever returns a disabled
-  // client. Kept here so the real flow is fully wired for when a live
-  // client implementation lands — only sageone-client.ts changes then.
+  // Reachable ONLY when SAGEONE_ENABLED=true and every required config
+  // value is present (see getSageOneClient in _shared/sageone-client.ts).
+  // In the default/current deployment this branch never runs — the
+  // isConfigured check above always short-circuits first.
   try {
     await sage.authenticate();
     const customer = await sage.findOrCreateCustomer({
-      referringAttorneyId: loaded.invoice.referring_attorney_id ?? "",
-      name: "", // populated once customer-mapping source is confirmed
+      referringAttorneyId: loaded.attorney.id,
+      name: loaded.attorney.name,
+      contactName: loaded.attorney.contact_person,
+      email: loaded.attorney.email,
+      telephone: loaded.attorney.phone,
+      addressLine1: loaded.attorney.address,
+      // No VAT/tax-registration-number column exists on
+      // referring_attorneys today — deliberately left unset rather than
+      // invented. See SAGE_API_RESEARCH.md, section 6.
+      taxReference: null,
     });
     const result = await sage.createInvoice({
       internalInvoiceId: loaded.invoice.id,
@@ -209,6 +267,24 @@ async function processQueueItem(row: QueueRow, sage: ReturnType<typeof getSageOn
       totalAmount: loaded.invoice.total_amount,
     });
 
+    // KNOWN DUPLICATE-RISK WINDOW (documented, not solved): if the
+    // process crashes/is killed between Sage accepting the
+    // TaxInvoice/Save call above and this UPDATE committing, this row
+    // stays 'processing' with no sage_reference. A later run will treat
+    // it as never-submitted and call Sage again, creating a second
+    // invoice — Sage's API confirms no idempotency key / dedupe support
+    // (see SAGE_API_RESEARCH.md, item 1). Given the API's documented
+    // inability to filter Get queries by string fields, we also cannot
+    // reliably ask Sage "does an invoice with ExternalReference=X
+    // already exist?" as a pre-check. This window is real and currently
+    // unmitigated beyond "keep it small" (this UPDATE runs immediately
+    // after the Sage response, with no other work in between). Resolving
+    // it fully would need either a Sage-side idempotency mechanism that
+    // isn't documented to exist, or a local pre-commit write before the
+    // Sage call (which trades this risk for a different one: marking a
+    // row as submitted before confirming Sage actually received it).
+    // Left as an explicit item for the controlled sandbox test rather
+    // than guessed at here.
     await supabaseAdmin
       .from("internal_sage_queue")
       .update({
@@ -220,7 +296,7 @@ async function processQueueItem(row: QueueRow, sage: ReturnType<typeof getSageOn
       })
       .eq("id", row.id);
 
-    return { itemId: row.id, outcome: "would_succeed_but_disabled" };
+    return { itemId: row.id, outcome: "processed" };
   } catch (err) {
     const { category, message, retryable } = classifyError(err);
     if (category === "DUPLICATE_INVOICE") {
@@ -229,7 +305,7 @@ async function processQueueItem(row: QueueRow, sage: ReturnType<typeof getSageOn
         .from("internal_sage_queue")
         .update({ status: "processed", processed_at: new Date().toISOString(), claimed_at: null, last_error: null })
         .eq("id", row.id);
-      return { itemId: row.id, outcome: "would_succeed_but_disabled" };
+      return { itemId: row.id, outcome: "processed" };
     }
     await recordFailure(row, `[${category}] ${message}`, retryable);
     return { itemId: row.id, outcome: "validation_failed", reason: message };
@@ -289,7 +365,7 @@ serve(
     const summary = {
       sageConfigured: sage.isConfigured,
       claimed: batch.length,
-      processed: outcomes.filter((o) => o.outcome === "would_succeed_but_disabled").length,
+      processed: outcomes.filter((o) => o.outcome === "processed").length,
       failed: outcomes.filter((o) => o.outcome === "validation_failed").length,
       skippedDisabled: outcomes.filter((o) => o.outcome === "skipped_disabled").length,
     };
