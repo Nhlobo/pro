@@ -6,7 +6,6 @@ import PortalSwitcher from './PortalSwitcher';
 import {
   Stethoscope, LayoutDashboard, Briefcase, Calendar, BarChart3, User, FileText, LogOut
 } from 'lucide-react';
-import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
 import TourLauncher from '@/components/tour/TourLauncher';
 import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
 import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
@@ -29,7 +28,7 @@ const NAV_ITEMS = [
  * sessions are verified by the portal module itself.
  */
 const PortalAuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isExternalSession } = usePortalIdentity();
+  const isExternalSession = false;
   if (isExternalSession) return <>{children}</>;
   return <MFARequiredGuard roleLabel="Medical Expert">{children}</MFARequiredGuard>;
 };
@@ -37,7 +36,8 @@ const PortalAuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) 
 const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isExternalSession, signOutPortal } = usePortalIdentity();
+  const isExternalSession = false;
+  const signOutPortal = undefined;
 
   return (
     <PortalAuthGuard>

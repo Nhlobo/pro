@@ -11,8 +11,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
-import { useExpertCases as useExternalExpertCases } from '@/hooks/externalPortal/useExpertPortal';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
@@ -42,7 +40,7 @@ const ExpertCases: React.FC = () => {
   // see the effect after loadCases(). document_count, days_to_complete
   // and location aren't part of that projection, so they default to
   // 0/null in this mode rather than guessing.
-  const { isExternalSession } = usePortalIdentity();
+  const isExternalSession = false;
   const externalCasesQuery = useExternalExpertCases();
   const navigate = useNavigate();
   const [cases, setCases] = useState<CaseAssignment[]>([]);

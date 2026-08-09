@@ -1,7 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { usePermissions } from '@/hooks/usePermissions';
-import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -87,7 +86,7 @@ const navigationItems = [
  * OTP / secure-access-link flow that the management page controls.
  */
 const PortalAuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isExternalSession } = usePortalIdentity();
+  const isExternalSession = false;
   if (isExternalSession) return <>{children}</>;
   return <MFARequiredGuard roleLabel="Referring Attorney">{children}</MFARequiredGuard>;
 };
@@ -98,7 +97,9 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
   // Dual-mode identity: original Supabase-auth attorney session, or an
   // External Portal Module OTP / access-link session issued from the
   // External Portal Management page.
-  const { isExternalSession, displayName, signOutPortal } = usePortalIdentity();
+  const isExternalSession = false;
+  const displayName = undefined;
+  const signOutPortal = undefined;
   const { isReferringAttorney, loading: permissionsLoading } = usePermissions();
   const loading = isExternalSession ? false : permissionsLoading;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

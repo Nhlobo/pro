@@ -30,12 +30,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { UserPlus, MoreHorizontal, PauseCircle, PlayCircle, XCircle, Trash2, Users, FolderCog } from 'lucide-react';
+import { UserPlus, MoreHorizontal, PauseCircle, PlayCircle, XCircle, Trash2, Users } from 'lucide-react';
 import { PORTAL_TYPE_LABEL, ACCOUNT_STATUS_LABEL, ACCOUNT_STATUS_TONE, type ExternalPortalType } from '@/types/externalPortal';
 import { formatDateTimeShort } from '@/utils/dateTime';
 import { toast } from 'sonner';
-import ManageCaseLinksDialog from './ManageCaseLinksDialog';
-import LegacyPortalUsersCard from './LegacyPortalUsersCard';
 
 
 const EMPTY_FORM: CreateExternalPortalAccountInput = {
@@ -55,7 +53,6 @@ const ExternalPortalAccounts: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<'all' | ExternalPortalType>('all');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<CreateExternalPortalAccountInput>(EMPTY_FORM);
-  const [manageCasesFor, setManageCasesFor] = useState<{ id: string; name: string } | null>(null);
 
   const filtered = useMemo(() => {
     return (accounts || []).filter((a) => {
@@ -143,13 +140,7 @@ const ExternalPortalAccounts: React.FC = () => {
                         <AdminPill tone={ACCOUNT_STATUS_TONE[a.status]}>{ACCOUNT_STATUS_LABEL[a.status]}</AdminPill>
                       </TableCell>
                       <TableCell>
-                        <button
-                          type="button"
-                          className="underline decoration-dotted underline-offset-2 hover:text-black"
-                          onClick={() => setManageCasesFor({ id: a.id, name: a.full_name })}
-                        >
-                          {a.open_case_count} open / {a.linked_case_count} total
-                        </button>
+                        <span>{a.open_case_count} open / {a.linked_case_count} total</span>
                       </TableCell>
                       <TableCell className="text-slate-500">{formatDateTimeShort(a.created_at)}</TableCell>
                       <TableCell>
@@ -160,10 +151,6 @@ const ExternalPortalAccounts: React.FC = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-none">
-                            <DropdownMenuItem onClick={() => setManageCasesFor({ id: a.id, name: a.full_name })}>
-                              <FolderCog className="mr-2 h-4 w-4" /> Manage Linked Cases
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
                             {a.status !== 'active' && (
                               <DropdownMenuItem onClick={() => setStatus.mutate({ accountId: a.id, status: 'active' })}>
                                 <PlayCircle className="mr-2 h-4 w-4" /> Set Active
@@ -270,15 +257,6 @@ const ExternalPortalAccounts: React.FC = () => {
           </div>
         </SheetContent>
       </Sheet>
-
-      <LegacyPortalUsersCard />
-
-      <ManageCaseLinksDialog
-        accountId={manageCasesFor?.id ?? null}
-        accountName={manageCasesFor?.name ?? ''}
-        open={!!manageCasesFor}
-        onOpenChange={(open) => !open && setManageCasesFor(null)}
-      />
     </ExternalPortalManagementLayout>
 
   );

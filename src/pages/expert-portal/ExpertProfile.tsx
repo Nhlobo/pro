@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
 import { useToast } from '@/hooks/use-toast';
 import {
   format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isToday, isSameDay
@@ -39,7 +38,7 @@ const ExpertProfile: React.FC = () => {
   // Module (OTP/access-link) sessions get a clear "not available in this
   // sign-in mode" state instead — see the render guard below and the
   // load-effect skip.
-  const { isExternalSession } = usePortalIdentity();
+  const isExternalSession = false;
   const [expertId, setExpertId] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [editing, setEditing] = useState(false);

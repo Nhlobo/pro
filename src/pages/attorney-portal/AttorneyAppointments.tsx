@@ -2,7 +2,6 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
 import { useAuth } from '@/hooks/useAuth';
-import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,7 +29,7 @@ const AttorneyAppointments: React.FC = () => {
   // RLS (profiles → referring_attorney_id) and has no External Portal
   // Module equivalent yet. Already silently no-ops under an OTP session
   // (`user` is null there) — isExternalSession lets us say why instead.
-  const { isExternalSession } = usePortalIdentity();
+  const isExternalSession = false;
   const { toast } = useToast();
   const [filterPeriod, setFilterPeriod] = useState<string>('all');
   

@@ -6,14 +6,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { FileText, Clock, CheckCircle2, AlertTriangle, TrendingUp } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
-import { useExpertCases as useExternalExpertCases } from '@/hooks/externalPortal/useExpertPortal';
 import { format, parseISO, differenceInDays } from 'date-fns';
 
 const ExpertReportTracking: React.FC = () => {
   const { user } = useAuth();
   // Dual-mode identity — see ExpertSchedule.tsx for the full rationale.
-  const { isExternalSession } = usePortalIdentity();
+  const isExternalSession = false;
   const externalCasesQuery = useExternalExpertCases();
   const [reports, setReports] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);

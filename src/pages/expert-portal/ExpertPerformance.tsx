@@ -5,7 +5,6 @@ import { Progress } from '@/components/ui/progress';
 import { BarChart3, TrendingUp, Clock, CheckCircle2, AlertTriangle, Award, Target, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
 import { differenceInDays, parseISO, format, subMonths } from 'date-fns';
 
 interface PerformanceMetrics {
@@ -32,7 +31,7 @@ const ExpertPerformance: React.FC = () => {
   // shows its existing "No performance data available" state for
   // External Portal Module (OTP/access-link) sessions instead of loading
   // forever — see the loading resolution below.
-  const { isExternalSession } = usePortalIdentity();
+  const isExternalSession = false;
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 

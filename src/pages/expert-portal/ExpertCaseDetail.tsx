@@ -25,8 +25,6 @@ import {
 } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
-import { useExpertCase as useExternalExpertCase } from '@/hooks/externalPortal/useExpertPortal';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -51,7 +49,7 @@ const ExpertCaseDetail: React.FC = () => {
   // yet and previously either silently no-op'd or — worse, for
   // accept/decline — showed a false "success" toast while the RLS-blocked
   // write actually failed.
-  const { isExternalSession } = usePortalIdentity();
+  const isExternalSession = false;
   const externalCaseQuery = useExternalExpertCase(appointmentId);
 
   const [loading, setLoading] = useState(true);
