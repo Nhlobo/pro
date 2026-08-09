@@ -150,11 +150,47 @@ function escapeHtml(str: string): string {
 function otpEmailHtml(params: { fullName: string; code: string; expiryMinutes: number; portalLabel: string }): string {
   const { fullName, code, expiryMinutes, portalLabel } = params;
   return `
-    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
-      <p>Hi ${escapeHtml(fullName)},</p>
-      <p>Here is your one-time verification code for the ${escapeHtml(portalLabel)} Portal:</p>
-      <p style="font-size: 32px; font-weight: 700; letter-spacing: 6px; margin: 24px 0;">${escapeHtml(code)}</p>
-      <p>This code expires in ${expiryMinutes} minutes. If you didn't request this, you can safely ignore this email.</p>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f6f7;">
+      <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: #ffffff; padding: 22px 24px; text-align: center;">
+          <h1 style="margin: 0; font-size: 16px; letter-spacing: 0.5px;">KUTLWANO &amp; ASSOCIATES (PTY) LTD</h1>
+          <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.9;">Medico-Legal Service</p>
+        </div>
+
+        <div style="padding: 28px 28px 8px;">
+          <p style="color: #1f2937; font-size: 14px; margin: 0 0 12px;">Hi ${escapeHtml(fullName)},</p>
+          <p style="color: #374151; font-size: 14px; margin: 0 0 20px;">
+            Here is your one-time verification code for the <strong>${escapeHtml(portalLabel)} Portal</strong>:
+          </p>
+
+          <div style="text-align: center; margin: 24px 0;">
+            <span style="display: inline-block; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #159baf; background: #eaf9fb; border: 1px solid #b9ecf1; border-radius: 6px; padding: 14px 22px;">
+              ${escapeHtml(code)}
+            </span>
+          </div>
+
+          <p style="color: #374151; font-size: 13px; margin: 0 0 8px;">
+            This code expires in <strong>${expiryMinutes} minutes</strong>.
+          </p>
+          <p style="color: #6b7280; font-size: 12px; margin: 0 0 20px;">
+            If you didn't request this, you can safely ignore this email — no changes will be made to your account.
+          </p>
+        </div>
+
+        <hr style="margin: 0; border: none; border-top: 1px solid #eee;">
+
+        <div style="padding: 18px 28px 24px;">
+          <p style="font-style: italic; color: #1fb6ce; font-size: 12px; margin: 0 0 10px;">
+            "We touch a file, we change a life, we are Kutlwano and Associate"
+          </p>
+          <p style="font-size: 10px; color: #999; margin: 0;">
+            This is an automated security email. Please do not reply directly to this message.
+          </p>
+        </div>
+      </div>
+      <p style="text-align: center; font-size: 10px; color: #9ca3af; margin: 14px 0 0;">
+        Kutlwano &amp; Associates (Pty) Ltd | Registration: 2016/461385/07
+      </p>
     </div>
   `;
 }
