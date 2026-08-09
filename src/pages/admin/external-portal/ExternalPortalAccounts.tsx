@@ -35,7 +35,6 @@ import { PORTAL_TYPE_LABEL, ACCOUNT_STATUS_LABEL, ACCOUNT_STATUS_TONE, type Exte
 import { formatDateTimeShort } from '@/utils/dateTime';
 import { toast } from 'sonner';
 
-
 const EMPTY_FORM: CreateExternalPortalAccountInput = {
   portal_type: 'attorney',
   full_name: '',
@@ -125,7 +124,7 @@ const ExternalPortalAccounts: React.FC = () => {
                     <TableHead>Portal</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Linked Cases</TableHead>
+                    <TableHead>Login</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
@@ -140,7 +139,11 @@ const ExternalPortalAccounts: React.FC = () => {
                         <AdminPill tone={ACCOUNT_STATUS_TONE[a.status]}>{ACCOUNT_STATUS_LABEL[a.status]}</AdminPill>
                       </TableCell>
                       <TableCell>
-                        <span>{a.open_case_count} open / {a.linked_case_count} total</span>
+                        {a.is_bridged ? (
+                          <AdminPill tone="success">Signed in</AdminPill>
+                        ) : (
+                          <span className="text-slate-400">Not yet</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-slate-500">{formatDateTimeShort(a.created_at)}</TableCell>
                       <TableCell>
@@ -258,7 +261,6 @@ const ExternalPortalAccounts: React.FC = () => {
         </SheetContent>
       </Sheet>
     </ExternalPortalManagementLayout>
-
   );
 };
 
