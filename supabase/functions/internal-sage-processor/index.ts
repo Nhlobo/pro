@@ -413,6 +413,28 @@ serve(
         `internal-sage-processor: SINGLE_TEST mode. queueId=${queueId} sage.isConfigured=${sage.isConfigured} status="${sage.configurationStatus}"`,
       );
 
+      // Mirror the batch path's guarantee: while Sage is disabled, do not
+      // claim anything at all — not even the one explicitly-named test
+      // row. (processQueueItem already refuses to call Sage and releases
+      // the claim without penalty in this case, so this check is not
+      // strictly required for safety — no Sage call could ever happen
+      // either way — but it means single_test causes zero DB writes
+      // whatsoever while disabled, matching the batch path exactly rather
+      // than a transient claim-then-release.)
+      if (!sage.isConfigured) {
+        return new Response(
+          JSON.stringify({
+            mode: "single_test",
+            queueId,
+            sageConfigured: false,
+            configurationStatus: sage.configurationStatus,
+            claimed: 0,
+            message: "SageOne integration is disabled. The test row was not claimed or modified.",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       const row = await claimSingleTestRow(queueId);
       if (!row) {
         return new Response(
