@@ -75,7 +75,32 @@ async function getPortalSettings(supabaseAdmin: any): Promise<PortalSettings> {
   return data ? { ...DEFAULT_SETTINGS, ...data } : DEFAULT_SETTINGS;
 }
 
-async function sendLinkEmail(to: string, fullName: string, link: string, expiryHours: number, portalLabel: string): Promise<boolean> {
+// Shown only to Medical Expert accounts — MFA is currently required for
+// that role only (POPIA Sec. 19: medical records / ID copies / reports).
+// Inline SVG rather than a hosted <img>, so it can never show up as a
+// broken image in a client that blocks remote images.
+const AUTHENTICATOR_NOTICE = `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin: 22px 0; background: #f0fbfc; border: 1px solid #b9ecf1; border-radius: 6px;">
+    <tr>
+      <td style="padding: 16px 18px; vertical-align: top; width: 40px;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L4 5v6c0 5.25 3.4 9.74 8 11 4.6-1.26 8-5.75 8-11V5l-8-3z" stroke="#159baf" stroke-width="1.6" stroke-linejoin="round"/>
+          <path d="M9 12.2l2.1 2.1L15.5 9.8" stroke="#159baf" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </td>
+      <td style="padding: 16px 18px 16px 0; vertical-align: top;">
+        <p style="margin: 0 0 4px; font-size: 13px; font-weight: 700; color: #0f766e;">You'll need an authenticator app</p>
+        <p style="margin: 0; font-size: 12px; color: #374151; line-height: 1.5;">
+          As a Medical Expert, your account requires two-factor authentication to protect medical records and reports.
+          Before your first login, install a free authenticator app such as <strong>Google Authenticator</strong>,
+          <strong>Microsoft Authenticator</strong>, <strong>Authy</strong>, or <strong>1Password</strong> on your phone —
+          you'll scan a QR code to finish setting up your account.
+        </p>
+      </td>
+    </tr>
+  </table>`;
+
+async function sendLinkEmail(to: string, fullName: string, link: string, expiryHours: number, portalLabel: string, portalType: string): Promise<boolean> {
   const resendApiKey = Deno.env.get("RESEND_API_KEY");
   if (!resendApiKey) {
     console.error("RESEND_API_KEY not configured — access link email not sent");
@@ -83,11 +108,48 @@ async function sendLinkEmail(to: string, fullName: string, link: string, expiryH
   }
   const resend = new Resend(resendApiKey);
   const html = `
-    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
-      <p>Hi ${escapeHtml(fullName)},</p>
-      <p>You've been granted access to the ${escapeHtml(portalLabel)} Portal. Use the secure link below to register — it can only be used once and expires in ${expiryHours} hours:</p>
-      <p style="margin: 24px 0;"><a href="${link}" style="background:#00BAAD;color:#fff;padding:12px 20px;text-decoration:none;border-radius:4px;">Access Your Portal</a></p>
-      <p>If the button doesn't work, copy this link into your browser:<br/>${link}</p>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f6f7;">
+      <div style="background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: #ffffff; padding: 22px 24px; text-align: center;">
+          <h1 style="margin: 0; font-size: 16px; letter-spacing: 0.5px;">KUTLWANO &amp; ASSOCIATES (PTY) LTD</h1>
+          <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.9;">Medico-Legal Service</p>
+        </div>
+
+        <div style="padding: 28px 28px 8px;">
+          <p style="color: #1f2937; font-size: 14px; margin: 0 0 12px;">Hi ${escapeHtml(fullName)},</p>
+          <p style="color: #374151; font-size: 14px; margin: 0 0 8px;">
+            You've been granted access to the <strong>${escapeHtml(portalLabel)} Portal</strong>. Use the secure
+            link below to register — it can only be used once and expires in ${expiryHours} hours.
+          </p>
+
+          <div style="text-align: center; margin: 26px 0;">
+            <a href="${link}" style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: #ffffff; padding: 13px 28px; text-decoration: none; border-radius: 5px; font-size: 14px; font-weight: 600; display: inline-block;">
+              Access Your Portal
+            </a>
+          </div>
+
+          <p style="color: #6b7280; font-size: 12px; margin: 0 0 20px;">
+            If the button doesn't work, copy and paste this link into your browser:<br/>
+            <a href="${link}" style="color: #159baf; word-break: break-all;">${link}</a>
+          </p>
+
+          ${portalType === "expert" ? AUTHENTICATOR_NOTICE : ""}
+        </div>
+
+        <hr style="margin: 0; border: none; border-top: 1px solid #eee;">
+
+        <div style="padding: 18px 28px 24px;">
+          <p style="font-style: italic; color: #1fb6ce; font-size: 12px; margin: 0 0 10px;">
+            "We touch a file, we change a life, we are Kutlwano and Associate"
+          </p>
+          <p style="font-size: 10px; color: #999; margin: 0;">
+            This is an automated security email. Please do not reply directly to this message.
+          </p>
+        </div>
+      </div>
+      <p style="text-align: center; font-size: 10px; color: #9ca3af; margin: 14px 0 0;">
+        Kutlwano &amp; Associates (Pty) Ltd | Registration: 2016/461385/07
+      </p>
     </div>`;
   try {
     await resend.emails.send({
@@ -176,7 +238,7 @@ serve(async (req) => {
 
       let emailSent = false;
       if (body.send_email !== false) {
-        emailSent = await sendLinkEmail(account.email, account.full_name, linkUrl, settings.access_link_expiry_hours, portalLabel);
+        emailSent = await sendLinkEmail(account.email, account.full_name, linkUrl, settings.access_link_expiry_hours, portalLabel, account.portal_type);
       }
 
       await supabaseAdmin.rpc("external_portal_log_audit", {
