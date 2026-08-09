@@ -24,6 +24,13 @@
 // manual procedure. Normal batch behavior (the default, body-less
 // invocation) is completely unchanged by this addition.
 //
+// CUSTOMER MAPPING: getOrCreateSageCustomerMapping (below) persists
+// referring_attorney_id -> sage_customer_id in
+// public.sage_customer_mappings (see the DRAFT migration
+// DRAFT_create_sage_customer_mappings.sql, not yet applied), so the
+// same attorney is never billed to more than one Sage customer across
+// separate invoice runs.
+//
 // Not wired to pg_cron yet. Invoke manually (authenticated) to test.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -33,6 +40,8 @@ import {
   getSageOneClient,
   SageOperationError,
   type SageErrorCategory,
+  type SageOneClient,
+  type SageCustomerResult,
 } from "../_shared/sageone-client.ts";
 
 /** Bounded batch size per invocation — never "process all pending in one
@@ -272,6 +281,133 @@ async function loadAndValidateInvoice(
   return { invoice, attorney };
 }
 
+// ---------------------------------------------------------------------
+// Persistent Sage customer mapping (referring_attorney_id -> sage_customer_id)
+//
+// Sage's Get endpoints cannot be filtered by string fields (confirmed —
+// see SAGE_API_RESEARCH.md), so there is no way to ask Sage "does a
+// customer for this attorney already exist?". Without this table,
+// findOrCreateCustomer() would create a brand-new Sage customer on
+// every single invoice run for the same attorney. This table
+// (public.sage_customer_mappings — see the DRAFT migration, not yet
+// applied) is the only reliable source of truth for that lookup.
+//
+// `SageCustomerMappingStore` is a small seam purely so this logic is
+// unit-testable without a live/injected Postgres connection — the real
+// implementation (`createSupabaseSageCustomerMappingStore`, used by
+// default) is a thin wrapper around supabaseAdmin, matching the same
+// direct-supabaseAdmin-access pattern already used everywhere else in
+// this file.
+// ---------------------------------------------------------------------
+
+export interface SageCustomerMappingStore {
+  /** Returns the existing sage_customer_id for this attorney, or null if none exists. */
+  get(referringAttorneyId: string): Promise<string | null>;
+  /**
+   * Attempts to insert a brand-new mapping. If a concurrent call already
+   * won (unique-violation on referring_attorney_id), this recovers by
+   * re-reading the winning row rather than throwing — see "why this is
+   * concurrency-safe" in the accompanying report. Returns `inserted:
+   * true` only when THIS call created the row.
+   */
+  insert(
+    referringAttorneyId: string,
+    sageCustomerId: string,
+  ): Promise<{ inserted: boolean; sageCustomerId: string }>;
+}
+
+function createSupabaseSageCustomerMappingStore(): SageCustomerMappingStore {
+  return {
+    async get(referringAttorneyId: string): Promise<string | null> {
+      const { data, error } = await supabaseAdmin
+        .from("sage_customer_mappings")
+        .select("sage_customer_id")
+        .eq("referring_attorney_id", referringAttorneyId)
+        .maybeSingle();
+      if (error) {
+        throw new HttpError(
+          "INTERNAL_ERROR",
+          `Failed to look up sage_customer_mappings for attorney ${referringAttorneyId}: ${error.message}`,
+        );
+      }
+      return data?.sage_customer_id ?? null;
+    },
+
+    async insert(
+      referringAttorneyId: string,
+      sageCustomerId: string,
+    ): Promise<{ inserted: boolean; sageCustomerId: string }> {
+      const { data, error } = await supabaseAdmin
+        .from("sage_customer_mappings")
+        .insert({ referring_attorney_id: referringAttorneyId, sage_customer_id: sageCustomerId })
+        .select("sage_customer_id")
+        .single();
+
+      if (!error) {
+        return { inserted: true, sageCustomerId: data.sage_customer_id };
+      }
+
+      // Postgres unique-violation — the UNIQUE(referring_attorney_id)
+      // constraint rejected a second row for this attorney. Recover by
+      // reading the row that won, same pattern already used elsewhere
+      // in this repo (see supabase/functions/upsert-expert-report and
+      // src/utils/expertReports.ts).
+      if ((error as { code?: string }).code === "23505") {
+        const winner = await this.get(referringAttorneyId);
+        if (!winner) {
+          throw new HttpError(
+            "INTERNAL_ERROR",
+            `Lost a sage_customer_mappings race for attorney ${referringAttorneyId} but could not re-read the winning row.`,
+          );
+        }
+        return { inserted: false, sageCustomerId: winner };
+      }
+
+      throw new HttpError(
+        "INTERNAL_ERROR",
+        `Failed to persist sage_customer_mappings for attorney ${referringAttorneyId}: ${error.message}`,
+      );
+    },
+  };
+}
+
+/**
+ * Reuses an existing Sage customer for this referring attorney, or
+ * creates one in Sage and persists the mapping. Never writes a mapping
+ * row before Sage has actually returned a customer id (if
+ * `sage.findOrCreateCustomer` throws, this function throws too, and
+ * `store.insert` is never called — no fake/incomplete mapping is ever
+ * saved).
+ */
+export async function getOrCreateSageCustomerMapping(
+  attorney: ReferringAttorneyRow,
+  sage: SageOneClient,
+  store: SageCustomerMappingStore = createSupabaseSageCustomerMappingStore(),
+): Promise<SageCustomerResult> {
+  const existing = await store.get(attorney.id);
+  if (existing) {
+    return { sageCustomerId: existing };
+  }
+
+  // No mapping yet — ask Sage to create the customer. Nothing is
+  // written to sage_customer_mappings before this succeeds.
+  const created = await sage.findOrCreateCustomer({
+    referringAttorneyId: attorney.id,
+    name: attorney.name,
+    contactName: attorney.contact_person,
+    email: attorney.email,
+    telephone: attorney.phone,
+    addressLine1: attorney.address,
+    // No VAT/tax-registration-number column exists on
+    // referring_attorneys today — deliberately left unset rather than
+    // invented. See SAGE_API_RESEARCH.md, section 6.
+    taxReference: null,
+  });
+
+  const result = await store.insert(attorney.id, created.sageCustomerId);
+  return { sageCustomerId: result.sageCustomerId };
+}
+
 async function processQueueItem(row: QueueRow, sage: ReturnType<typeof getSageOneClient>): Promise<ItemOutcome> {
   // Idempotency guard: a row that already has a sage_reference must never
   // be resubmitted, regardless of how it got claimed. This is OUR side
@@ -296,6 +432,8 @@ async function processQueueItem(row: QueueRow, sage: ReturnType<typeof getSageOn
     // Not a failure. Release the claim, touch nothing else. The 458
     // pre-existing records (and any new ones) remain 'pending' exactly
     // as required until the real integration is explicitly enabled.
+    // getOrCreateSageCustomerMapping is never called on this path, so
+    // sage_customer_mappings is never touched while disabled either.
     await releaseWithoutPenalty(row.id);
     return { itemId: row.id, outcome: "skipped_disabled", reason: sage.configurationStatus };
   }
@@ -306,18 +444,7 @@ async function processQueueItem(row: QueueRow, sage: ReturnType<typeof getSageOn
   // isConfigured check above always short-circuits first.
   try {
     await sage.authenticate();
-    const customer = await sage.findOrCreateCustomer({
-      referringAttorneyId: loaded.attorney.id,
-      name: loaded.attorney.name,
-      contactName: loaded.attorney.contact_person,
-      email: loaded.attorney.email,
-      telephone: loaded.attorney.phone,
-      addressLine1: loaded.attorney.address,
-      // No VAT/tax-registration-number column exists on
-      // referring_attorneys today — deliberately left unset rather than
-      // invented. See SAGE_API_RESEARCH.md, section 6.
-      taxReference: null,
-    });
+    const customer = await getOrCreateSageCustomerMapping(loaded.attorney, sage);
     const result = await sage.createInvoice({
       internalInvoiceId: loaded.invoice.id,
       invoiceNumber: loaded.invoice.invoice_number,
