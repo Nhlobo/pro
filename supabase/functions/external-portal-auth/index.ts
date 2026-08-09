@@ -12,23 +12,188 @@
 //   request_otp    — (re)send an OTP, for registration or login
 //   verify_otp     — verify a code -> issues a session token
 //   logout         — revoke a session token
+//
+// Deliberately self-contained: no imports from ../_shared or
+// ../_external-portal-shared. Everything this function needs (CORS,
+// crypto helpers, email sending) is inlined below so deployment never
+// depends on the bundler resolving sibling folders — same pattern
+// external-portal-admin-links already uses, for the same reason.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { withErrorHandler } from "../_shared/errors.ts";
-import { sendEmail } from "../_shared/email.ts";
-import {
-  corsHeaders,
-  jsonResponse,
-  errorResponse,
-  sha256Hex,
-  randomToken,
-  randomOtpCode,
-  maskEmail,
-  getClientIp,
-  getPortalSettings,
-  otpEmailHtml,
-  PORTAL_LABEL,
-} from "../_external-portal-shared/helpers.ts";
+import { Resend } from "npm:resend@4.0.0";
+
+// ---------------------------------------------------------------------
+// inlined from _shared/errors.ts (withErrorHandler only)
+// ---------------------------------------------------------------------
+
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
+
+type Handler = (req: Request) => Promise<Response> | Response;
+
+function withErrorHandler(handler: Handler) {
+  return async (req: Request): Promise<Response> => {
+    if (req.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders() });
+    }
+    try {
+      return await handler(req);
+    } catch (err) {
+      console.error("Unhandled error in external-portal-auth:", err);
+      return jsonResponse(
+        { success: false, error: err instanceof Error ? err.message : "Internal server error" },
+        500,
+      );
+    }
+  };
+}
+
+// ---------------------------------------------------------------------
+// inlined from _external-portal-shared/helpers.ts
+// ---------------------------------------------------------------------
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders() },
+  });
+}
+
+function errorResponse(message: string, status = 400, code?: string): Response {
+  return jsonResponse({ success: false, error: message, code }, status);
+}
+
+/** SHA-256 hex digest — used to store only hashes of tokens/OTP codes at rest. */
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/** Cryptographically random URL-safe token for one-time links and sessions. */
+function randomToken(bytes = 32): string {
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+/** Numeric OTP code of the given length, e.g. "483920" for length 6. */
+function randomOtpCode(length: number): string {
+  const arr = new Uint8Array(length);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, (b) => (b % 10).toString()).join("");
+}
+
+/** "jane.doe@example.com" -> "j***@example.com" — never expose the full address pre-auth. */
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***";
+  const visible = local.slice(0, 1);
+  return `${visible}${"*".repeat(Math.max(local.length - 1, 3))}@${domain}`;
+}
+
+function getClientIp(req: Request): string | null {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    null
+  );
+}
+
+interface PortalSettings {
+  access_link_expiry_hours: number;
+  otp_length: number;
+  otp_expiry_minutes: number;
+  otp_max_attempts: number;
+  session_expiry_hours: number;
+  auto_expire_on_all_cases_closed: boolean;
+}
+
+const DEFAULT_SETTINGS: PortalSettings = {
+  access_link_expiry_hours: 72,
+  otp_length: 6,
+  otp_expiry_minutes: 10,
+  otp_max_attempts: 5,
+  session_expiry_hours: 12,
+  auto_expire_on_all_cases_closed: true,
+};
+
+// deno-lint-ignore no-explicit-any
+async function getPortalSettings(supabaseAdmin: any): Promise<PortalSettings> {
+  const { data } = await supabaseAdmin
+    .from("external_portal_settings")
+    .select("*")
+    .eq("id", 1)
+    .maybeSingle();
+  return data ? { ...DEFAULT_SETTINGS, ...data } : DEFAULT_SETTINGS;
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function otpEmailHtml(params: { fullName: string; code: string; expiryMinutes: number; portalLabel: string }): string {
+  const { fullName, code, expiryMinutes, portalLabel } = params;
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+      <p>Hi ${escapeHtml(fullName)},</p>
+      <p>Here is your one-time verification code for the ${escapeHtml(portalLabel)} Portal:</p>
+      <p style="font-size: 32px; font-weight: 700; letter-spacing: 6px; margin: 24px 0;">${escapeHtml(code)}</p>
+      <p>This code expires in ${expiryMinutes} minutes. If you didn't request this, you can safely ignore this email.</p>
+    </div>
+  `;
+}
+
+const PORTAL_LABEL: Record<string, string> = {
+  attorney: "Referring Attorney",
+  expert: "Medical Expert",
+};
+
+// ---------------------------------------------------------------------
+// inlined from _shared/email.ts (simplified — this function never
+// sends attachments, so the batching logic there doesn't apply)
+// ---------------------------------------------------------------------
+
+async function sendEmail(options: { to: string; subject: string; html: string }): Promise<{ success: boolean; error?: string }> {
+  const resendApiKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendApiKey) {
+    console.error("Missing Resend API key");
+    return { success: false, error: "Resend API key is not configured" };
+  }
+  try {
+    const resend = new Resend(resendApiKey);
+    const { error } = await resend.emails.send({
+      from: "Kutlwano & Associate <noreply@kamedico-legal.co.za>",
+      to: [options.to],
+      subject: options.subject,
+      html: options.html,
+      reply_to: "info@kamedico-legal.co.za",
+    });
+    if (error) {
+      console.error("Resend API error:", error);
+      return { success: false, error: `Resend API error: ${error.message}` };
+    }
+    return { success: true };
+  } catch (error) {
+    console.error("Resend email error:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Failed to send email via Resend" };
+  }
+}
 
 type Action = "consume_link" | "request_otp" | "verify_otp" | "logout";
 
@@ -92,7 +257,7 @@ serve(withErrorHandler(async (req) => {
 
     await logHistory(supabaseAdmin, account.id, account.email, "registration_link_opened", true, null, ip, userAgent);
 
-    await issueOtp(supabaseAdmin, {
+    const otpResult = await issueOtp(supabaseAdmin, {
       accountId: account.id,
       accessLinkId: link.id,
       destination: account.email,
@@ -103,6 +268,15 @@ serve(withErrorHandler(async (req) => {
       ip,
       userAgent,
     });
+
+    if (!otpResult.success) {
+      await logHistory(supabaseAdmin, account.id, account.email, "otp_email_failed", false, otpResult.error ?? null, ip, userAgent);
+      return errorResponse(
+        "We couldn't send your verification code email. Please try again in a moment — if this keeps happening, contact your administrator.",
+        502,
+        "EMAIL_SEND_FAILED",
+      );
+    }
 
     return jsonResponse({
       success: true,
@@ -141,7 +315,7 @@ serve(withErrorHandler(async (req) => {
         return errorResponse("This account no longer has active portal access.", 403, "ACCOUNT_NOT_ACTIVE");
       }
 
-      await issueOtp(supabaseAdmin, {
+      const otpResult = await issueOtp(supabaseAdmin, {
         accountId: account.id,
         accessLinkId: link.id,
         destination: account.email,
@@ -152,6 +326,15 @@ serve(withErrorHandler(async (req) => {
         ip,
         userAgent,
       });
+
+      if (!otpResult.success) {
+        await logHistory(supabaseAdmin, account.id, account.email, "otp_email_failed", false, otpResult.error ?? null, ip, userAgent);
+        return errorResponse(
+          "We couldn't send your verification code email. Please try again in a moment — if this keeps happening, contact your administrator.",
+          502,
+          "EMAIL_SEND_FAILED",
+        );
+      }
 
       return jsonResponse({ success: true, data: { masked_email: maskEmail(account.email) } });
     }
@@ -169,7 +352,7 @@ serve(withErrorHandler(async (req) => {
       .maybeSingle();
 
     if (account && account.status === "active") {
-      await issueOtp(supabaseAdmin, {
+      const otpResult = await issueOtp(supabaseAdmin, {
         accountId: account.id,
         accessLinkId: null,
         destination: account.email,
@@ -180,7 +363,24 @@ serve(withErrorHandler(async (req) => {
         ip,
         userAgent,
       });
-      await logHistory(supabaseAdmin, account.id, account.email, "otp_requested", true, null, ip, userAgent);
+      // Deliberately still returns the generic message below either way —
+      // revealing send success/failure here would tell a caller whether
+      // this email has an account, which is exactly what this endpoint's
+      // generic response is designed to avoid. The failure is instead
+      // recorded to this account's own history, where an admin who is
+      // looking into "this attorney says they never got a code" can
+      // actually find it — instead of only a Supabase function log
+      // nobody but a developer would think to check.
+      await logHistory(
+        supabaseAdmin,
+        account.id,
+        account.email,
+        otpResult.success ? "otp_requested" : "otp_email_failed",
+        otpResult.success,
+        otpResult.success ? null : otpResult.error ?? null,
+        ip,
+        userAgent,
+      );
     }
 
     return jsonResponse({ success: true, data: { message: GENERIC_REQUEST_MESSAGE } });
@@ -192,7 +392,15 @@ serve(withErrorHandler(async (req) => {
   if (body.action === "verify_otp") {
     if (!body.code) return errorResponse("code is required");
 
-    let account: { id: string; full_name: string; email: string; portal_type: string; status: string } | null = null;
+    let account: {
+      id: string;
+      full_name: string;
+      email: string;
+      portal_type: string;
+      status: string;
+      referring_attorney_id: string | null;
+      medical_expert_id: string | null;
+    } | null = null;
     let link: { id: string } | null = null;
 
     if (body.mode === "registration") {
@@ -211,7 +419,7 @@ serve(withErrorHandler(async (req) => {
 
       const { data: acct } = await supabaseAdmin
         .from("external_portal_accounts")
-        .select("id, full_name, email, portal_type, status")
+        .select("id, full_name, email, portal_type, status, referring_attorney_id, medical_expert_id")
         .eq("id", linkRow.account_id)
         .single();
       account = acct;
@@ -219,7 +427,7 @@ serve(withErrorHandler(async (req) => {
       if (!body.email || !body.portal_type) return errorResponse("email and portal_type are required");
       const { data: acct } = await supabaseAdmin
         .from("external_portal_accounts")
-        .select("id, full_name, email, portal_type, status")
+        .select("id, full_name, email, portal_type, status, referring_attorney_id, medical_expert_id")
         .eq("email", body.email.trim().toLowerCase())
         .eq("portal_type", body.portal_type)
         .is("deleted_at", null)
@@ -304,6 +512,14 @@ serve(withErrorHandler(async (req) => {
       _details: {},
     });
 
+    // Bridge into a real Supabase Auth session — mint (or reuse) a
+    // shadow auth.users record for this external account and hand the
+    // frontend a one-time magiclink token it can redeem client-side
+    // via supabase.auth.verifyOtp(). This is what lets a correct OTP
+    // land the person on the actual, unmodified /attorney-portal or
+    // /expert-portal instead of a dead end.
+    const bridge = await bridgeToSupabaseAuth(supabaseAdmin, account);
+
     return jsonResponse({
       success: true,
       data: {
@@ -311,6 +527,9 @@ serve(withErrorHandler(async (req) => {
         expires_at: sessionExpiresAt,
         portal_type: account.portal_type,
         account: { full_name: account.full_name, email: account.email },
+        bridge_email: bridge.bridgeEmail,
+        bridge_token: bridge.bridgeToken,
+        portal_path: bridge.portalPath,
       },
     });
   }
@@ -390,11 +609,112 @@ async function issueOtp(supabaseAdmin: any, params: {
   });
 
   const portalLabel = PORTAL_LABEL[portalType] ?? "External";
-  await sendEmail({
+  const sendResult = await sendEmail({
     to: destination,
     subject: `Your ${portalLabel} Portal verification code`,
     html: otpEmailHtml({ fullName, code, expiryMinutes: settings.otp_expiry_minutes, portalLabel }),
   });
+
+  if (!sendResult.success) {
+    // The OTP row above is still written (so a subsequent resend can
+    // reuse the same "one active code" invalidation logic cleanly),
+    // but the caller MUST know this failed — previously this result
+    // was discarded entirely, so a Resend outage/misconfiguration
+    // looked identical to a normal successful send: the frontend said
+    // "check your email" and nobody ever got a code, with no error
+    // anywhere the person using the portal could see.
+    console.error(`external-portal-auth: failed to send OTP email to ${destination}:`, sendResult.error);
+  }
+
+  return sendResult;
+}
+
+// Portal-account role/table mapping used when provisioning the shadow
+// Supabase Auth user that backs the bridged session.
+const PORTAL_ROLE: Record<string, string> = {
+  attorney: "referring_attorney",
+  expert: "medical_expert",
+};
+const PORTAL_PATH: Record<string, string> = {
+  attorney: "/attorney-portal",
+  expert: "/expert-portal",
+};
+
+// deno-lint-ignore no-explicit-any
+async function bridgeToSupabaseAuth(supabaseAdmin: any, account: {
+  id: string;
+  full_name: string;
+  email: string;
+  portal_type: string;
+  referring_attorney_id: string | null;
+  medical_expert_id: string | null;
+}): Promise<{ bridgeEmail: string; bridgeToken: string; portalPath: string }> {
+  const email = account.email.trim().toLowerCase();
+  const role = PORTAL_ROLE[account.portal_type];
+  const portalPath = PORTAL_PATH[account.portal_type] ?? "/";
+
+  const [firstName, ...rest] = account.full_name.trim().split(/\s+/);
+  const lastName = rest.join(" ") || firstName;
+
+  // Find an existing shadow auth user for this email, if one was
+  // already provisioned on a previous login.
+  let authUserId: string | null = null;
+  {
+    const { data: existing } = await supabaseAdmin.auth.admin.listUsers();
+    const match = existing?.users?.find(
+      (u: { id: string; email?: string }) => u.email?.toLowerCase() === email,
+    );
+    if (match) authUserId = match.id;
+  }
+
+  // First login for this external account — create the shadow user.
+  // email_confirm is true because they've already proven ownership of
+  // the inbox by receiving and entering the OTP.
+  if (!authUserId) {
+    const { data: created, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: { first_name: firstName, last_name: lastName, external_portal: true },
+    });
+    if (createError || !created?.user) {
+      throw new Error(`Could not provision portal session: ${createError?.message ?? "unknown error"}`);
+    }
+    authUserId = created.user.id;
+  }
+
+  // Keep the profile in sync with the external_portal_accounts record
+  // on every login (name changes, re-links to a different
+  // attorney/expert row, etc. all flow through here).
+  await supabaseAdmin.from("profiles").upsert({
+    id: authUserId,
+    email,
+    first_name: firstName,
+    last_name: lastName,
+    role,
+    user_type: "external_portal",
+    is_external_portal_user: true,
+    referring_attorney_id: account.portal_type === "attorney" ? account.referring_attorney_id : null,
+    expert_id: account.portal_type === "expert" ? account.medical_expert_id : null,
+    is_active: true,
+    account_status: "active",
+  });
+
+  await supabaseAdmin
+    .from("user_roles")
+    .upsert({ user_id: authUserId, role }, { onConflict: "user_id,role" });
+
+  // Mint a one-time magiclink token the frontend redeems client-side
+  // via supabase.auth.verifyOtp({ email, token, type: 'magiclink' }).
+  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+  });
+  const bridgeToken = linkData?.properties?.email_otp;
+  if (linkError || !bridgeToken) {
+    throw new Error(`Could not mint portal session token: ${linkError?.message ?? "unknown error"}`);
+  }
+
+  return { bridgeEmail: email, bridgeToken, portalPath };
 }
 
 async function logHistory(
