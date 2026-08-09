@@ -31,14 +31,6 @@ const formatZAR = (raw: string): string => {
 const ExpertProfile: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  // This entire page is the expert's own profile/fee/availability record
-  // (medical_experts), not case data — external-portal-expert-data has no
-  // equivalent endpoint for it (only list_cases/get_case exist). Rather
-  // than build a new edge-function capability here, External Portal
-  // Module (OTP/access-link) sessions get a clear "not available in this
-  // sign-in mode" state instead — see the render guard below and the
-  // load-effect skip.
-  const isExternalSession = false;
   const [expertId, setExpertId] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [editing, setEditing] = useState(false);
@@ -83,7 +75,6 @@ const ExpertProfile: React.FC = () => {
   });
 
   useEffect(() => {
-    if (isExternalSession) { setLoading(false); return; }
     const load = async () => {
       if (!user) return;
       const { data: prof } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
@@ -123,7 +114,7 @@ const ExpertProfile: React.FC = () => {
       setLoading(false);
     };
     load();
-  }, [user, isExternalSession]);
+  }, [user]);
 
   const loadFeeHistory = async (eid: string) => {
     const { data } = await (supabase as any)
@@ -288,7 +279,6 @@ const ExpertProfile: React.FC = () => {
   const getAvailForDate = (date: Date) => availability.find(a => isSameDay(parseISO(a.date), date));
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Loading profile...</div>;
-  if (isExternalSession) return <div className="text-center py-12 text-muted-foreground">Profile, fee, and availability management aren't available via secure portal sign-in yet. Please contact your case manager for changes.</div>;
   if (!expertId) return <div className="text-center py-12 text-muted-foreground">Expert profile not linked. Contact an administrator.</div>;
 
   return (
