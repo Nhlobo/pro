@@ -10,6 +10,226 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// ---------------------------------------------------------------------
+// Shared email branding — same header logo chip + gradient footer band
+// used on the OTP / access-link emails (external-portal-auth,
+// external-portal-admin-links), so every automated email out of this
+// system now looks like one product. Sharp corners throughout — no
+// border-radius anywhere in these cards.
+// ---------------------------------------------------------------------
+
+const EXTERNAL_PORTAL_APP_ORIGIN = "https://medico-legal-pro-71z1.onrender.com";
+const HEADER_LOGO_URL = `${EXTERNAL_PORTAL_APP_ORIGIN}/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png`;
+const FOOTER_LOGO_URL = `${EXTERNAL_PORTAL_APP_ORIGIN}/lovable-uploads/d45f27ec-34bf-470c-bc47-015dff5748e0.png`;
+
+function brandedHeader(subtitle: string): string {
+  return `
+        <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 22px 24px; text-align: center; margin-bottom: 20px; border-radius: 0;">
+          <div style="display: inline-block; background: #ffffff; padding: 8px 12px; margin-bottom: 12px;">
+            <img src="${HEADER_LOGO_URL}" alt="Kutlwano & Associate" width="96" style="display: block; height: auto; border: 0;" />
+          </div>
+          <h1 style="margin: 0; font-size: 16px; letter-spacing: 0.5px;">KUTLWANO &amp; ASSOCIATES (PTY) LTD</h1>
+          <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.9;">${subtitle}</p>
+        </div>`;
+}
+
+const COMPANY_FOOTER_HTML = `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse; margin-top: 20px;">
+    <tr>
+      <td style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); padding: 22px 24px; text-align: center;">
+        <div style="display: inline-block; background: #ffffff; padding: 8px 14px; margin-bottom: 10px;">
+          <img src="${FOOTER_LOGO_URL}" alt="Kutlwano & Associate" width="150" style="display: block; height: auto; border: 0;" />
+        </div>
+        <p style="margin: 0 0 10px; color: #ffffff; font-size: 12px; font-style: italic; text-shadow: 0 1px 2px rgba(0,0,0,0.15);">
+          "We Touch a File, We Change a Life, We are Kutlwano &amp; Associate"
+        </p>
+        <p style="margin: 0; font-size: 10px; color: rgba(255,255,255,0.85);">
+          This is an automated email. Please do not reply directly to this message.
+        </p>
+      </td>
+    </tr>
+  </table>`;
+
+// ---------------------------------------------------------------------
+// External Portal wiring — when an appointment is scheduled/confirmed,
+// the referring attorney and medical expert on it should be able to
+// reach the External Portal (external_portal_accounts /
+// external-portal-auth), not just the legacy attorney/expert
+// access-code pages below. This does NOT touch or replace that legacy
+// system — it runs alongside it.
+//
+//   - No external_portal_accounts row yet for this attorney/expert ->
+//     create one (status defaults to 'active').
+//   - Account exists but has never completed registration
+//     (registered_at is null) -> mint a one-time registration link,
+//     exactly like Admin > External Portal > "Generate Link" does.
+//     Any previous still-pending link for that account is revoked
+//     first, same as that admin action, since only the newest token's
+//     raw value is ever recoverable (only its hash is stored).
+//   - Account has already registered -> no token needed at all; they
+//     can return to the portal any time and sign in with email + OTP,
+//     so we just point them at the general sign-in page.
+//   - Account exists but is paused/expired/deleted -> skip silently;
+//     an admin has deliberately taken access away, appointment emails
+//     should not hand out a new way in.
+// ---------------------------------------------------------------------
+
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function randomToken(bytes = 32): string {
+  const arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  return btoa(String.fromCharCode(...arr)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+interface ExternalPortalLinkResult {
+  url: string;
+  isNewRegistration: boolean; // true = one-time registration link, false = plain sign-in
+  expiryHours: number | null; // only meaningful when isNewRegistration is true
+}
+
+// deno-lint-ignore no-explicit-any
+async function ensureExternalPortalAccess(supabase: any, params: {
+  portalType: "attorney" | "expert";
+  fullName: string;
+  email?: string | null;
+  referringAttorneyId?: string | null;
+  medicalExpertId?: string | null;
+}): Promise<ExternalPortalLinkResult | null> {
+  const email = params.email?.trim().toLowerCase();
+  if (!email) return null;
+
+  try {
+    // Look up by the linked attorney/expert record first (the stable
+    // identifier), falling back to email for accounts created before
+    // that link existed.
+    let account: { id: string; status: string; registered_at: string | null } | null = null;
+
+    if (params.portalType === "attorney" && params.referringAttorneyId) {
+      const { data } = await supabase
+        .from("external_portal_accounts")
+        .select("id, status, registered_at")
+        .eq("portal_type", "attorney")
+        .eq("referring_attorney_id", params.referringAttorneyId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      account = data;
+    } else if (params.portalType === "expert" && params.medicalExpertId) {
+      const { data } = await supabase
+        .from("external_portal_accounts")
+        .select("id, status, registered_at")
+        .eq("portal_type", "expert")
+        .eq("medical_expert_id", params.medicalExpertId)
+        .is("deleted_at", null)
+        .maybeSingle();
+      account = data;
+    }
+
+    if (!account) {
+      const { data } = await supabase
+        .from("external_portal_accounts")
+        .select("id, status, registered_at")
+        .eq("portal_type", params.portalType)
+        .eq("email", email)
+        .is("deleted_at", null)
+        .maybeSingle();
+      account = data;
+    }
+
+    if (!account) {
+      const { data: created, error: createError } = await supabase
+        .from("external_portal_accounts")
+        .insert({
+          portal_type: params.portalType,
+          full_name: params.fullName,
+          email,
+          referring_attorney_id: params.portalType === "attorney" ? params.referringAttorneyId ?? null : null,
+          medical_expert_id: params.portalType === "expert" ? params.medicalExpertId ?? null : null,
+          created_by: null,
+        })
+        .select("id, status, registered_at")
+        .single();
+
+      if (createError || !created) {
+        console.error("ensureExternalPortalAccess: could not create account", createError);
+        return null;
+      }
+      account = created;
+
+      await supabase.rpc("external_portal_log_audit", {
+        _actor_type: "system",
+        _actor_id: null,
+        _account_id: account.id,
+        _action: "account_created",
+        _details: { portal_type: params.portalType, email, source: "appointment_scheduled" },
+      });
+    }
+
+    if (account.status !== "active") {
+      console.log(`ensureExternalPortalAccess: account ${account.id} is ${account.status}, skipping link`);
+      return null;
+    }
+
+    // Already registered — no token, just send them to sign in.
+    if (account.registered_at) {
+      return {
+        url: `${EXTERNAL_PORTAL_APP_ORIGIN}/external-portal/sign-in`,
+        isNewRegistration: false,
+        expiryHours: null,
+      };
+    }
+
+    // Not yet registered — mint a fresh one-time registration link,
+    // same as Admin > External Portal > Generate Link.
+    await supabase
+      .from("external_portal_access_links")
+      .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_reason: "Superseded by new link" })
+      .eq("account_id", account.id)
+      .eq("status", "pending");
+
+    const { data: settingsRow } = await supabase
+      .from("external_portal_settings")
+      .select("access_link_expiry_hours")
+      .eq("id", 1)
+      .maybeSingle();
+    const expiryHours = settingsRow?.access_link_expiry_hours ?? 72;
+
+    const rawToken = randomToken(32);
+    const tokenHash = await sha256Hex(rawToken);
+    const expiresAt = new Date(Date.now() + expiryHours * 60 * 60 * 1000).toISOString();
+
+    const { error: linkError } = await supabase
+      .from("external_portal_access_links")
+      .insert({ account_id: account.id, token_hash: tokenHash, expires_at: expiresAt, created_by: null });
+
+    if (linkError) {
+      console.error("ensureExternalPortalAccess: could not create access link", linkError);
+      return null;
+    }
+
+    await supabase.rpc("external_portal_log_audit", {
+      _actor_type: "system",
+      _actor_id: null,
+      _account_id: account.id,
+      _action: "access_link_generated",
+      _details: { source: "appointment_scheduled" },
+    });
+
+    return {
+      url: `${EXTERNAL_PORTAL_APP_ORIGIN}/external-portal/sign-in?token=${rawToken}`,
+      isNewRegistration: true,
+      expiryHours,
+    };
+  } catch (err) {
+    console.error("ensureExternalPortalAccess: unexpected error", err);
+    return null;
+  }
+}
+
 /**
  * Maps appointment matter_type to the phrase used in the email/PDF sentence:
  *   "...provide a comprehensive medico-legal report in relation to <PHRASE>."
@@ -817,6 +1037,25 @@ const handler = async (req: Request): Promise<Response> => {
       location: locationOverride || customLocation || appointment.medical_experts.practice_address,
     };
 
+    // Wire this appointment into the External Portal — creates the
+    // attorney/expert's external_portal_accounts row if it doesn't
+    // exist yet, and returns a URL for the email: a one-time
+    // registration link for a first-time account, or the plain
+    // sign-in page for one that's already registered. Failures here
+    // are logged but never block the appointment email itself.
+    const attorneyPortal = await ensureExternalPortalAccess(supabase, {
+      portalType: "attorney",
+      fullName: appointmentData.attorney_name,
+      email: appointmentData.attorney_email,
+      referringAttorneyId: appointment.referring_attorney_id,
+    });
+    const expertPortal = await ensureExternalPortalAccess(supabase, {
+      portalType: "expert",
+      fullName: appointmentData.expert_name,
+      email: appointmentData.expert_email,
+      medicalExpertId: appointment.expert_id,
+    });
+
     // Format the appointment date and time
     const appointmentDateTime = new Date(appointmentData.appointment_date);
     const formattedDate = appointmentDateTime.toLocaleDateString('en-ZA', {
@@ -971,17 +1210,13 @@ const handler = async (req: Request): Promise<Response> => {
     // Email template for medical expert
     const expertEmailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; font-size: 11px; color: #374151;">
-        <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px;">
-          <h1 style="margin: 0; font-size: 14px; font-weight: bold; letter-spacing: 0.5px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
-          <p style="margin: 5px 0; font-size: 10px;">Medico-Legal Service</p>
-          <p style="margin: 5px 0; font-size: 10px; font-style: italic;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
-        </div>
+        ${brandedHeader('Medico-Legal Service')}
         
-        <div style="background-color: #e0f7fa; border-left: 4px solid #1fb6ce; padding: 12px 20px; border-radius: 4px; margin-bottom: 20px;">
+        <div style="background-color: #e0f7fa; border-left: 4px solid #1fb6ce; padding: 12px 20px; border-radius: 0; margin-bottom: 20px;">
           <h2 style="color: #1fb6ce; margin: 0; font-size: 13px; font-weight: bold;">Expert Appointment Letter</h2>
         </div>
         
-        <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+        <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 0; padding: 20px; margin-bottom: 20px;">
           <p style="margin-bottom: 15px; font-size: 11px;">Dear ${expertDrTitle},</p>
           
           ${customExpertBody ? `<p style="margin-bottom: 15px; font-size: 11px; line-height: 1.6;">${customExpertBody.replace(/\n/g, '<br/>')}</p>` : `
@@ -1023,13 +1258,13 @@ const handler = async (req: Request): Promise<Response> => {
           </table>
         </div>
 
-        <div style="background-color: #e0f7fa; border: 1px solid #1fb6ce; padding: 12px 15px; border-radius: 8px; margin-bottom: 20px;">
+        <div style="background-color: #e0f7fa; border: 1px solid #1fb6ce; padding: 12px 15px; border-radius: 0; margin-bottom: 20px;">
           <p style="color: #0e7490; margin: 0; font-size: 11px; font-weight: bold;">
             📋 Important: This appointment was scheduled by Kutlwano & Associate. For any rescheduling requests or queries, please contact us directly.
           </p>
         </div>
 
-        <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 16px; margin: 20px 0; border-radius: 8px;">
+        <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 16px; margin: 20px 0; border-radius: 0;">
           <h3 style="color: #92400e; margin: 0 0 12px 0; font-size: 13px;">⚠️ IMPORTANT REQUIREMENTS</h3>
           <div style="margin-bottom: 10px;">
             <p style="color: #92400e; margin: 0 0 5px 0; font-weight: bold; font-size: 12px;">📋 Please Note:</p>
@@ -1051,33 +1286,30 @@ const handler = async (req: Request): Promise<Response> => {
         <p style="margin-bottom: 5px; font-size: 11px;">Kindly,</p>
         <p style="font-weight: bold; margin-bottom: 0; font-size: 12px; color: #1fb6ce;">Kutlwano & Associates</p>
         <p style="color: #6b7280; font-size: 10px; margin-top: 0;">Medico-Legal Assessment Coordination Team</p>
-        
-        ${expertAccessCode ? `
-        <div style="margin-top: 20px; padding: 20px; background-color: #ecfdf5; border: 2px solid #10b981; border-radius: 8px; text-align: center;">
-          <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; color: #065f46;">🔑 Your Expert Case Access Code</p>
-          <p style="margin: 0 0 10px 0; font-size: 11px; color: #065f46;">Use this secure code to view your assigned cases, report deadlines, and appointment details:</p>
-          <div style="background-color: #d1fae5; padding: 10px 20px; border-radius: 6px; display: inline-block; margin-bottom: 10px;">
-            <span style="font-family: monospace; font-size: 22px; font-weight: bold; color: #065f46; letter-spacing: 3px;">${expertAccessCode}</span>
+
+        ${expertPortal ? `
+        <div style="margin-top: 20px; background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 0; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); padding: 14px 20px; text-align: center;">
+            <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: bold; letter-spacing: 0.3px;">🌐 ${expertPortal.isNewRegistration ? 'Set Up Your Portal' : 'Log In To Your Portal'}</p>
           </div>
-          <p style="color: #065f46; margin: 8px 0 10px 0; font-size: 11px;">Or click the button below to access your cases directly:</p>
-          <a href="${expertAccessLink}" style="display: inline-block; padding: 12px 32px; background-color: #e85d04; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold; letter-spacing: 0.5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">🔗 VIEW MY CASES</a>
-          <p style="color: #6b7280; margin: 10px 0 0 0; font-size: 10px; font-style: italic;">
-            This code is valid for 1 year or until the matter is closed (report delivered & payment received).
-          </p>
+          <div style="padding: 18px 20px; text-align: center;">
+            <p style="margin: 0 0 14px 0; font-size: 11px; color: #374151;">
+              ${expertPortal.isNewRegistration
+                ? `View your case status, appointments and report deadlines — set up your portal login below, then a verification code is sent to your email each time you sign in. This link is valid for ${expertPortal.expiryHours} hours.`
+                : `View your case status, upcoming appointments and report deadlines. Sign in with your email — we'll send a one-time verification code.`}
+            </p>
+            <a href="${expertPortal.url}" style="display: inline-block; padding: 12px 32px; background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: #ffffff; text-decoration: none; border-radius: 0; font-size: 14px; font-weight: bold; letter-spacing: 0.5px;">
+              ${expertPortal.isNewRegistration ? '🔗 SET UP YOUR PORTAL' : '🔗 LOG IN TO YOUR PORTAL'}
+            </a>
+          </div>
         </div>
         ` : `
-        <div style="margin-top: 20px; padding: 20px; background-color: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 8px; text-align: center;">
-          <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; color: #0369a1;">📊 Expert Portal Access</p>
-          <p style="margin: 0 0 12px 0; font-size: 11px; color: #374151;">View your case status, upcoming appointments, report deadlines and performance dashboard.</p>
-          <a href="https://kamedico-legal.lovable.app/Expertzone/case-access" style="display: inline-block; padding: 12px 32px; background-color: #e85d04; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 14px; font-weight: bold; letter-spacing: 0.5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">🔗 ACCESS EXPERT PORTAL</a>
+        <div style="margin-top: 20px; padding: 16px 20px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0; text-align: center;">
+          <p style="margin: 0; font-size: 11px; color: #6b7280;">Portal access for your account is being set up — we'll be in touch separately with your login details.</p>
         </div>
         `}
 
-        <div style="margin-top: 16px; padding: 12px 20px; background: linear-gradient(135deg, #1fb6ce, #159baf); border-radius: 6px; text-align: center; font-size: 9px; color: #fff;">
-          <p style="font-style: italic; margin: 3px 0;">Kutlwano & Associates (Pty) Ltd | Medico-Legal Service</p>
-          <p style="font-style: italic; margin: 3px 0;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
-          <p style="margin: 3px 0; opacity: 0.8;">This is an automated email. Please do not reply directly to this message.</p>
-        </div>
+        ${COMPANY_FOOTER_HTML}
       </div>
     `;
 
@@ -1155,13 +1387,9 @@ const handler = async (req: Request): Promise<Response> => {
     // Email template for referring attorney with PDF attachment
     const attorneyEmailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; font-size: 11px; color: #374151;">
-        <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px;">
-          <h1 style="margin: 0; font-size: 14px; font-weight: bold; letter-spacing: 0.5px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
-          <p style="margin: 5px 0; font-size: 10px;">Medico-Legal Service</p>
-          <p style="margin: 5px 0; font-size: 10px; font-style: italic;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
-        </div>
+        ${brandedHeader('Medico-Legal Service')}
         
-        <div style="background-color: #1fb6ce; padding: 14px 20px; border-radius: 8px; margin-bottom: 20px;">
+        <div style="background-color: #1fb6ce; padding: 14px 20px; border-radius: 0; margin-bottom: 20px;">
           <h2 style="color: white; margin: 0; font-size: 13px; font-weight: bold;">✅ Appointment Confirmation – Assessment${appointmentsList.length > 1 ? 's' : ''} Scheduled</h2>
         </div>
         
@@ -1188,14 +1416,14 @@ const handler = async (req: Request): Promise<Response> => {
           </table>
           
           
-          <div style="background-color: #e0f7fa; border-left: 4px solid #1fb6ce; padding: 12px 15px; margin: 16px 0; border-radius: 4px;">
+          <div style="background-color: #e0f7fa; border-left: 4px solid #1fb6ce; padding: 12px 15px; margin: 16px 0; border-radius: 0;">
             <p style="color: #0e7490; margin: 0; font-size: 11px; font-weight: bold;">📋 Important Note:</p>
             <p style="color: #0e7490; margin: 5px 0 0 0; font-size: 10px; line-height: 1.5;">
               This appointment was scheduled by Kutlwano & Associate. For any rescheduling requests or queries regarding this appointment, the expert must contact us directly.
             </p>
           </div>
           
-          <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 16px; margin: 16px 0; border-radius: 8px;">
+          <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 16px; margin: 16px 0; border-radius: 0;">
             <h3 style="color: #92400e; margin: 0 0 12px 0; font-size: 13px; font-weight: bold;">⚠️ IMPORTANT REQUIREMENTS</h3>
             
             <div style="margin-bottom: 12px;">
@@ -1254,22 +1482,27 @@ const handler = async (req: Request): Promise<Response> => {
             </div>
           </div>
           
-          ${accessCode ? `
-          <div style="background-color: #ecfdf5; border: 2px solid #10b981; padding: 16px; margin: 16px 0; border-radius: 8px; text-align: center;">
-            <h3 style="color: #065f46; margin: 0 0 10px 0; font-size: 13px;">🔑 Your Case Access Code</h3>
-            <p style="color: #065f46; margin: 0 0 10px 0; font-size: 11px;">Use this secure code to track your case status online:</p>
-            <div style="background-color: #d1fae5; padding: 10px 20px; border-radius: 6px; display: inline-block; margin-bottom: 10px;">
-              <span style="font-family: monospace; font-size: 22px; font-weight: bold; color: #065f46; letter-spacing: 3px;">${accessCode}</span>
+          ${attorneyPortal ? `
+          <div style="background-color: #ffffff; border: 1px solid #e5e7eb; margin: 16px 0; border-radius: 0; overflow: hidden;">
+            <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); padding: 14px 20px; text-align: center;">
+              <p style="margin: 0; color: #ffffff; font-size: 13px; font-weight: bold; letter-spacing: 0.3px;">🌐 ${attorneyPortal.isNewRegistration ? 'Set Up Your Portal' : 'Log In To Your Portal'}</p>
             </div>
-            <p style="color: #065f46; margin: 8px 0 5px 0; font-size: 11px;">Or click the link below to access your case directly:</p>
-            <a href="${accessLink}" style="display: inline-block; background-color: #1fb6ce; color: white; padding: 10px 24px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 12px;">
-              View Case Status
-            </a>
-            <p style="color: #6b7280; margin: 8px 0 0 0; font-size: 10px; font-style: italic;">
-              This access code will remain active until the case is completed and paid in full.
-            </p>
+            <div style="padding: 18px 20px; text-align: center;">
+              <p style="margin: 0 0 14px 0; font-size: 11px; color: #374151;">
+                ${attorneyPortal.isNewRegistration
+                  ? `Track your case status online — set up your portal login below, then a verification code is sent to your email each time you sign in. This link is valid for ${attorneyPortal.expiryHours} hours.`
+                  : `Track your case status online. Sign in with your email — we'll send a one-time verification code.`}
+              </p>
+              <a href="${attorneyPortal.url}" style="display: inline-block; background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 10px 24px; border-radius: 0; text-decoration: none; font-weight: bold; font-size: 12px;">
+                ${attorneyPortal.isNewRegistration ? '🔗 SET UP YOUR PORTAL' : '🔗 LOG IN TO YOUR PORTAL'}
+              </a>
+            </div>
           </div>
-          ` : ''}
+          ` : `
+          <div style="margin: 16px 0; padding: 16px 20px; background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 0; text-align: center;">
+            <p style="margin: 0; font-size: 11px; color: #6b7280;">Portal access for your account is being set up — we'll be in touch separately with your login details.</p>
+          </div>
+          `}
           
           <p style="margin-bottom: 16px; font-size: 11px;">
             📎 A detailed PDF summary of ${appointmentsList.length === 1 ? 'this appointment' : 'all scheduled appointments'} is attached to this email for your records.
@@ -1282,11 +1515,7 @@ const handler = async (req: Request): Promise<Response> => {
           <p style="color: #6b7280; font-size: 10px; margin-top: 0;">Medico-Legal Assessment Coordination Team</p>
         </div>
         
-        <div style="margin-top: 20px; padding: 12px 20px; background: linear-gradient(135deg, #1fb6ce, #159baf); border-radius: 6px; text-align: center; font-size: 9px; color: #fff;">
-          <p style="font-style: italic; margin: 3px 0;">Kutlwano & Associates (Pty) Ltd | Medico-Legal Service</p>
-          <p style="font-style: italic; margin: 3px 0;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
-          <p style="margin: 3px 0; opacity: 0.8;">This is an automated email. Please do not reply directly to this message.</p>
-        </div>
+        ${COMPANY_FOOTER_HTML}
       </div>
     `;
 
@@ -1428,15 +1657,11 @@ const handler = async (req: Request): Promise<Response> => {
 
       expertEmailHtmlFinal = `
         <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px;">
-            <h1 style="margin: 0; font-size: 24px;">KUTLWANO & ASSOCIATES (PTY) LTD</h1>
-            <p style="margin: 5px 0; font-size: 10px;">Medico-Legal Service</p>
-            <p style="margin: 5px 0; font-size: 10px; font-style: italic;">"We touch a file, We change a life, We are Kutlwano and Associate"</p>
-          </div>
-          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+          ${brandedHeader('Medico-Legal Service')}
+          <div style="background-color: #f8f9fa; padding: 20px; border-radius: 0; margin-bottom: 20px;">
             <h2 style="color: #2563eb; margin: 0;">RE: ASSESSMENT ROAD ACCIDENT FUND CLAIMS</h2>
           </div>
-          <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+          <div style="background-color: white; border: 1px solid #e5e7eb; border-radius: 0; padding: 20px; margin-bottom: 20px;">
             <p style="color: #374151; margin-bottom: 15px;">Dear Dr. ${expertDisplayName},</p>
             <p style="color: #374151; margin-bottom: 15px;">
               We are appointed as <strong>Kutlwano and Associate Pty Ltd</strong>. Please find below ${patients.length} patient(s) scheduled for assessment. We request the assessment, Report and RAF4 for each patient listed.
@@ -1454,7 +1679,7 @@ const handler = async (req: Request): Promise<Response> => {
               <tbody>${patientListHtml}</tbody>
             </table>
           </div>
-          <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 8px;">
+          <div style="background-color: #fef3c7; border: 2px solid #f59e0b; padding: 20px; margin: 20px 0; border-radius: 0;">
             <h3 style="color: #92400e; margin: 0 0 15px 0;">⚠️ IMPORTANT REQUIREMENTS</h3>
             <div style="margin-bottom: 10px;">
               <p style="color: #92400e; margin: 0 0 5px 0; font-weight: bold;">📋 Please Note:</p>
@@ -1474,9 +1699,7 @@ const handler = async (req: Request): Promise<Response> => {
           <p style="color: #374151; margin-bottom: 5px;">Kindly,</p>
           <p style="color: #374151; font-weight: bold;">Kutlwano & Associates</p>
           <p style="color: #6b7280; font-size: 14px;">Medico-Legal Assessment Coordination Team</p>
-          <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #1fb6ce; text-align: center; font-size: 10px; color: #666;">
-            <p style="font-style: italic;">This is an automated email. Please do not reply directly to this message.</p>
-          </div>
+          ${COMPANY_FOOTER_HTML}
         </div>
       `;
 
