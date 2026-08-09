@@ -99,7 +99,13 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
   }
 
   return (
-    <MFARequiredGuard roleLabel="Referring Attorney">
+    // MFARequiredGuard (TOTP + QR code enrollment) intentionally
+    // disabled for the external portal per explicit request — it was
+    // forcing external attorneys/experts through a third auth factor
+    // on top of the link + email OTP they already complete, which was
+    // making the portal unusable for them. Re-wrap with
+    // <MFARequiredGuard roleLabel="Referring Attorney"> to restore it.
+    <>
     <div className="flex min-h-screen bg-background">
       <RouteFirstVisitTour routes={ATTORNEY_PAGE_TOURS} />
       {/* Sidebar */}
@@ -207,7 +213,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
         </div>
       </main>
     </div>
-    </MFARequiredGuard>
+    </>
   );
 };
 
