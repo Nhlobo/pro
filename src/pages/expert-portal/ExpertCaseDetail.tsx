@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/portal/ExpertPortalCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -357,7 +357,7 @@ const ExpertCaseDetail: React.FC = () => {
         {/* Left Column: Claimant & Attorney Info */}
         <div className="md:col-span-1 space-y-6">
           {/* A. Claimant Information */}
-          <Card className="border-border/50">
+          <Card className="border-black/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <User className="h-4 w-4 text-primary" /> Claimant Information
@@ -410,7 +410,7 @@ const ExpertCaseDetail: React.FC = () => {
           </Card>
 
           {/* D. Report Status Tracking */}
-          <Card className="border-border/50">
+          <Card className="border-black/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Clock className="h-4 w-4 text-warning" /> Report Status Tracking
@@ -475,7 +475,7 @@ const ExpertCaseDetail: React.FC = () => {
 
           {/* Expert Debt for this case */}
           {expertDebt.length > 0 && (
-            <Card className="border-border/50">
+            <Card className="border-black/10">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <RandSign className="h-4 w-4 text-warning" /> Payment Information
@@ -496,7 +496,7 @@ const ExpertCaseDetail: React.FC = () => {
         {/* Right Column: Documents & Report Upload */}
         <div className="md:col-span-2 space-y-6">
           {/* B. Documents Available - Grouped by category */}
-          <Card className="border-border/50">
+          <Card className="border-black/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <FileText className="h-4 w-4 text-primary" /> Documents Available
@@ -513,7 +513,7 @@ const ExpertCaseDetail: React.FC = () => {
                       <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{category}</h4>
                       <div className="space-y-2">
                         {(docs as any[]).map((doc: any) => (
-                          <div key={doc.id} className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/10 hover:bg-muted/30 transition-colors">
+                          <div key={doc.id} className="flex items-center justify-between p-3 rounded-none border border-black/10 bg-black/5 hover:bg-black/[0.06] transition-colors">
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <span className="text-lg">{getDocTypeIcon(doc.document_type)}</span>
                               <div className="min-w-0">
@@ -539,7 +539,7 @@ const ExpertCaseDetail: React.FC = () => {
           </Card>
 
           {/* C. Report Submission Section */}
-          <Card className="border-border/50">
+          <Card className="border-black/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Upload className="h-4 w-4 text-primary" /> Report Submission
@@ -552,7 +552,7 @@ const ExpertCaseDetail: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {report?.report_status === 'completed' && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-success/10 border border-success/20">
+                <div className="flex items-center gap-2 p-3 rounded-none bg-success/10 border border-success/20">
                   <CheckCircle2 className="h-5 w-5 text-success" />
                   <div>
                     <p className="text-sm font-medium text-foreground">Report Submitted</p>
