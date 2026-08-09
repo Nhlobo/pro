@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/portal/ExpertPortalCard';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -72,7 +72,7 @@ const ExpertReportTracking: React.FC = () => {
           { label: 'Completed', value: stats.completed, icon: CheckCircle2, color: 'text-success' },
           { label: 'Overdue', value: stats.overdue, icon: AlertTriangle, color: 'text-destructive' },
         ].map(s => (
-          <Card key={s.label} className="border-border/50">
+          <Card key={s.label} className="border-black/10">
             <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
               <s.icon className={`h-5 w-5 ${s.color}`} />
               <div>
@@ -84,7 +84,7 @@ const ExpertReportTracking: React.FC = () => {
         ))}
       </div>
 
-      <Card className="border-border/50">
+      <Card className="border-black/10">
         <CardContent className="p-0">
           <ScrollArea className="max-h-[500px]">
             <Table>
