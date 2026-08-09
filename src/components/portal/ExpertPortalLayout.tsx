@@ -35,7 +35,13 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   const isExternalUser = useIsExternalPortalUser();
 
   return (
-    <MFARequiredGuard roleLabel="Medical Expert">
+    // MFARequiredGuard (TOTP + QR code enrollment) intentionally
+    // disabled for the external portal per explicit request — it was
+    // forcing external attorneys/experts through a third auth factor
+    // on top of the link + email OTP they already complete, which was
+    // making the portal unusable for them. Re-wrap with
+    // <MFARequiredGuard roleLabel="Medical Expert"> to restore it.
+    <>
     <div className="min-h-screen bg-background">
       <RouteFirstVisitTour routes={EXPERT_PAGE_TOURS} />
       {/* Top bar */}
@@ -86,7 +92,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
       </main>
       {!isExternalUser && <InternalChatWidget />}
     </div>
-    </MFARequiredGuard>
+    </>
   );
 };
 
