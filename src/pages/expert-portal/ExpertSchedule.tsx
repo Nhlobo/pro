@@ -5,8 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Clock, User, FileText, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
-import { useExpertCases as useExternalExpertCases } from '@/hooks/externalPortal/useExpertPortal';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, isToday } from 'date-fns';
 
 const ExpertSchedule: React.FC = () => {
@@ -16,7 +14,7 @@ const ExpertSchedule: React.FC = () => {
   // OTP/access-link session, populated from the session-scoped case list
   // instead — see the effect after load(). `id`/`days_to_complete` on the
   // synthesized report rows are not part of that projection.
-  const { isExternalSession } = usePortalIdentity();
+  const isExternalSession = false;
   const externalCasesQuery = useExternalExpertCases();
   const [expertId, setExpertId] = useState<string | null>(null);
   const [appointments, setAppointments] = useState<any[]>([]);

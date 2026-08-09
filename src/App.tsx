@@ -13,8 +13,6 @@ import { HelmetProvider } from "react-helmet-async";
 import { ActivityTrackerMount } from "@/hooks/useActivityTracker";
 import { OfflineRedirectGuard } from "@/hooks/useOfflineRedirect";
 import IdleLogoutGuard from "@/components/IdleLogoutGuard";
-import ExternalPortalSessionRoute from "@/components/external-portal/ExternalPortalSessionRoute";
-import { useExternalPortalSession } from "@/hooks/externalPortal/useExternalPortalSession";
 import { ExitConfirmationGuard } from "@/hooks/useExitConfirmation";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
@@ -146,11 +144,6 @@ const ExternalPortalSettings = lazy(() => import("./pages/admin/external-portal/
 
 // External Portal Module — public, end-user-facing pages (not under /admin).
 const ExternalPortalSignIn = lazy(() => import("./pages/external-portal/ExternalPortalSignIn"));
-const ExternalPortalHome = lazy(() => import("./pages/external-portal/ExternalPortalHome"));
-const AttorneyPortalCases = lazy(() => import("./pages/external-portal/attorney/AttorneyPortalCases"));
-const AttorneyPortalCaseDetail = lazy(() => import("./pages/external-portal/attorney/AttorneyPortalCaseDetail"));
-const ExpertPortalCases = lazy(() => import("./pages/external-portal/expert/ExpertPortalCases"));
-const ExpertPortalCaseDetail = lazy(() => import("./pages/external-portal/expert/ExpertPortalCaseDetail"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -170,34 +163,13 @@ const AdminPortalRoute = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
-// Referring Attorney Portal & Medical Expert Portal — the "old" External
-// Portal, restored as the ACTIVE portal and wired to the External Portal
-// Management page. Two accepted ways in (see usePortalIdentity):
-//  1. The original Supabase-auth role session (ProtectedRoute + the
-//     layout's own permission/MFA checks) — unchanged from before.
-//  2. An External Portal Module OTP / secure-access-link session issued
-//     and managed from the External Portal Management page. Those users
-//     have no Supabase auth session; their real authorization boundary
-//     stays server-side, per session, per call.
-// The portal_type check below is UX only (send an attorney session away
-// from /expert-portal, etc).
-const AttorneyPortalRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, isAuthenticated } = useExternalPortalSession();
-  if (isAuthenticated) {
-    if (session?.portal_type !== 'attorney') return <Navigate to="/expert-portal" replace />;
-    return <>{children}</>;
-  }
-  return <ProtectedRoute>{children}</ProtectedRoute>;
-};
+const AttorneyPortalRoute = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedRoute>{children}</ProtectedRoute>
+);
 
-const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => {
-  const { session, isAuthenticated } = useExternalPortalSession();
-  if (isAuthenticated) {
-    if (session?.portal_type !== 'expert') return <Navigate to="/attorney-portal" replace />;
-    return <>{children}</>;
-  }
-  return <ProtectedRoute>{children}</ProtectedRoute>;
-};
+const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedRoute>{children}</ProtectedRoute>
+);
 
 // Shown by <Suspense> while a lazy-loaded route's JS chunk is downloading.
 // Intentionally reuses BrandedPageLoader (the same teal spinner shown by
@@ -251,58 +223,6 @@ const App = () => (
                     route: these users have no Supabase auth session. */}
                 <Route path="/external-portal/sign-in" element={<ExternalPortalSignIn />} />
 
-                {/* --- UNWIRED (2026-08-07): the new module's own end-user UI ---
-                    The External Portal Management page has been reconnected to the
-                    old /attorney-portal and /expert-portal experience instead (see
-                    AttorneyPortalRoute/ExpertPortalRoute above). These routes are
-                    intentionally disabled, not deleted — the components, hooks and
-                    edge functions behind them (useAttorneyPortal, useExpertPortal,
-                    external-portal-attorney-data, etc.) are still in the codebase
-                    and are in fact reused by the reconnected old portal pages. Only
-                    this standalone UI (ExternalPortalHome, AttorneyPortalCases,
-                    AttorneyPortalCaseDetail, ExpertPortalCases,
-                    ExpertPortalCaseDetail) is unreachable while paused.
-                <Route
-                  path="/external-portal/home"
-                  element={
-                    <ExternalPortalSessionRoute>
-                      <ExternalPortalHome />
-                    </ExternalPortalSessionRoute>
-                  }
-                />
-                <Route
-                  path="/external-portal/attorney/cases"
-                  element={
-                    <ExternalPortalSessionRoute>
-                      <AttorneyPortalCases />
-                    </ExternalPortalSessionRoute>
-                  }
-                />
-                <Route
-                  path="/external-portal/attorney/cases/:appointmentId"
-                  element={
-                    <ExternalPortalSessionRoute>
-                      <AttorneyPortalCaseDetail />
-                    </ExternalPortalSessionRoute>
-                  }
-                />
-                <Route
-                  path="/external-portal/expert/cases"
-                  element={
-                    <ExternalPortalSessionRoute>
-                      <ExpertPortalCases />
-                    </ExternalPortalSessionRoute>
-                  }
-                />
-                <Route
-                  path="/external-portal/expert/cases/:appointmentId"
-                  element={
-                    <ExternalPortalSessionRoute>
-                      <ExpertPortalCaseDetail />
-                    </ExternalPortalSessionRoute>
-                  }
-                />
-                --- end unwired new-module UI --- */}
                 <Route path="/contact-us" element={<ContactUs />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 

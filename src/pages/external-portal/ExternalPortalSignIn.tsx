@@ -9,7 +9,6 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
-import { useExternalPortalSession } from '@/hooks/externalPortal/useExternalPortalSession';
 import {
   consumeAccessLink,
   requestRegistrationOtp,
@@ -40,7 +39,6 @@ type Step = 'loading-link' | 'login-request' | 'otp' | 'link-error';
 const ExternalPortalSignIn: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { setSession } = useExternalPortalSession();
 
   const linkToken = searchParams.get('token');
   const [step, setStep] = useState<Step>(linkToken ? 'loading-link' : 'login-request');
@@ -123,13 +121,13 @@ const ExternalPortalSignIn: React.FC = () => {
         ? await verifyRegistrationOtp(linkToken, code.trim())
         : await verifyLoginOtp(email.trim(), portalType, code.trim());
 
-      setSession({
+      window.localStorage.setItem('external_portal_session', JSON.stringify({
         session_token: result.session_token,
         expires_at: result.expires_at,
         portal_type: result.portal_type,
         full_name: result.account.full_name,
         email: result.account.email,
-      });
+      }));
       toast.success(`Welcome, ${result.account.full_name}`);
       // Reconnected to the old External Portal (2026-08-07): route into
       // /attorney-portal or /expert-portal instead of the new module's

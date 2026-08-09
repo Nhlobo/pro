@@ -4,8 +4,6 @@ import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
-import { useAttorneyCases } from '@/hooks/externalPortal/useAttorneyPortal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -158,7 +156,7 @@ const AttorneyCaseStatus: React.FC = () => {
   // lookup can work for the latter (no auth.uid()), so that case is
   // populated separately from the session-scoped case list instead —
   // see the effect after loadData().
-  const { isExternalSession } = usePortalIdentity();
+  const isExternalSession = false;
   const externalCasesQuery = useAttorneyCases();
 
   const [view, setView] = useState<'dashboard' | 'detail'>('dashboard');

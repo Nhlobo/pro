@@ -1,14 +1,11 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
-import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
-import { useAttorneyCases } from '@/hooks/externalPortal/useAttorneyPortal';
-import type { AttorneyCaseSummary } from '@/services/externalPortal/externalPortalAttorneyClient';
 
 // Hook to provide attorney dashboard stats with page lock awareness
 //
 // This hook has two data sources depending on how the caller is signed in
-// (see usePortalIdentity):
+// Legacy external portal session handling previously supported:
 //   1. Supabase-auth session (unchanged, original behaviour below) — RLS
 //      scopes every query to the signed-in attorney automatically.
 //   2. External Portal Module OTP/access-link session — has no
@@ -91,7 +88,7 @@ export interface LiveCaseStatus {
 }
 
 export const useAttorneyDashboardStats = () => {
-  const { isExternalSession } = usePortalIdentity();
+  const isExternalSession = false;
 
   // External Portal Module (OTP/access-link) session: always call this
   // hook (react-query no-ops it via `enabled` when there's no session),

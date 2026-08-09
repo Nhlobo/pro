@@ -3,7 +3,6 @@ import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { usePortalIdentity } from '@/hooks/portal/usePortalIdentity';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -60,7 +59,7 @@ const AttorneyMyCases: React.FC = () => {
   // Under an OTP/access-link session `user` is null, so these already
   // silently no-op today (`if (!user) return`) — isExternalSession lets
   // us tell the person clearly why, instead of a silent no-op.
-  const { isExternalSession } = usePortalIdentity();
+  const isExternalSession = false;
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
