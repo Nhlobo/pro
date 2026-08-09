@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/portal/ExpertPortalCard';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { BarChart3, TrendingUp, Clock, CheckCircle2, AlertTriangle, Award, Target, Zap } from 'lucide-react';
@@ -122,7 +122,7 @@ const ExpertPerformance: React.FC = () => {
       </div>
 
       {/* Overall Score */}
-      <Card className="border-border/50 bg-gradient-to-r from-primary/5 to-transparent">
+      <Card className="border-black/10 bg-gradient-to-r from-primary/5 to-transparent">
         <CardContent className="pt-6 pb-5 flex flex-col md:flex-row items-center gap-6">
           <div className="relative">
             <div className={`text-5xl font-black ${getScoreColor(metrics.overallScore)}`}>{metrics.overallScore}</div>
@@ -150,7 +150,7 @@ const ExpertPerformance: React.FC = () => {
           { label: 'On-Time Rate', value: `${metrics.onTimeRate}%`, icon: Zap, color: 'text-primary' },
           { label: 'Overdue', value: metrics.overdueCount, icon: AlertTriangle, color: 'text-destructive' },
         ].map(s => (
-          <Card key={s.label} className="border-border/50">
+          <Card key={s.label} className="border-black/10">
             <CardContent className="pt-4 pb-3 px-4 flex items-center gap-3">
               <s.icon className={`h-5 w-5 ${s.color}`} />
               <div>
@@ -164,7 +164,7 @@ const ExpertPerformance: React.FC = () => {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Quality Breakdown */}
-        <Card className="border-border/50">
+        <Card className="border-black/10">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Quality Ratings Breakdown</CardTitle>
             <CardDescription className="text-xs">Based on admin performance evaluations</CardDescription>
@@ -193,7 +193,7 @@ const ExpertPerformance: React.FC = () => {
         </Card>
 
         {/* Monthly Trend */}
-        <Card className="border-border/50">
+        <Card className="border-black/10">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" /> Monthly Trend
