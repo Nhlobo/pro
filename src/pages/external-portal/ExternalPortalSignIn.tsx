@@ -9,6 +9,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
   consumeAccessLink,
   requestRegistrationOtp,
@@ -19,19 +20,24 @@ import {
 } from '@/services/externalPortal/externalPortalAuthClient';
 import type { ExternalPortalType } from '@/types/externalPortal';
 
+const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
+
 /**
- * External Portal Sign In — the ONE shared sign-in flow for both the
- * Referring Attorney Portal and the Medical Expert Portal, per the
- * architecture requirement that both portal types use exactly the
- * same authentication flow.
+ * External Portal Sign In — the ONE shared sign-in flow for both
+ * referring attorneys and medical experts.
+ *
+ * This is now purely a front door: link/OTP verification happens
+ * against external_portal_accounts exactly as before, but a correct
+ * code no longer opens a separate rebuilt portal. It bridges into a
+ * REAL Supabase Auth session (supabase.auth.verifyOtp, using a token
+ * external-portal-auth mints server-side) and lands the person on the
+ * actual, unmodified /attorney-portal or /expert-portal — the same
+ * pages, same data access, same everything a staff login gets.
  *
  * Two entry paths into the same OTP step:
- *  - `?token=...` in the URL -> one-time registration link (Phase 2 flow:
- *    Admin creates access -> link emailed -> user opens it here).
+ *  - `?token=...` in the URL -> one-time registration link (Admin
+ *    creates access -> link emailed -> user opens it here).
  *  - No token -> returning user -> email + portal type -> OTP login.
- *
- * This page never touches the app's normal Supabase auth session —
- * see useExternalPortalSession.
  */
 
 type Step = 'loading-link' | 'login-request' | 'otp' | 'link-error';
@@ -121,18 +127,24 @@ const ExternalPortalSignIn: React.FC = () => {
         ? await verifyRegistrationOtp(linkToken, code.trim())
         : await verifyLoginOtp(email.trim(), portalType, code.trim());
 
-      window.localStorage.setItem('external_portal_session', JSON.stringify({
-        session_token: result.session_token,
-        expires_at: result.expires_at,
-        portal_type: result.portal_type,
-        full_name: result.account.full_name,
-        email: result.account.email,
-      }));
+      // Exchange the bridge token for a REAL Supabase session — from
+      // this point on, this person is logged in exactly like any
+      // staff attorney/expert, and lands on the actual unmodified
+      // portal pages (not a separate rebuilt one).
+      const { error: sessionError } = await supabase.auth.verifyOtp({
+        email: result.bridge_email,
+        token: result.bridge_token,
+        type: 'magiclink',
+      });
+
+      if (sessionError) {
+        toast.error('We verified your code, but could not complete sign-in. Please try again.');
+        setSubmitting(false);
+        return;
+      }
+
       toast.success(`Welcome, ${result.account.full_name}`);
-      // Reconnected to the old External Portal (2026-08-07): route into
-      // /attorney-portal or /expert-portal instead of the new module's
-      // own /external-portal/home, which is now unwired.
-      navigate(result.portal_type === 'expert' ? '/expert-portal' : '/attorney-portal', { replace: true });
+      navigate(result.portal_path, { replace: true });
     } catch (err) {
       toast.error((err as ApiError).message || 'Invalid or expired code.');
     } finally {
@@ -141,20 +153,27 @@ const ExternalPortalSignIn: React.FC = () => {
   };
 
   return (
-    <div className="brand-legal-theme flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <Helmet><title>External Portal Sign In</title></Helmet>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-kutlwano-blue/8 via-background to-kutlwano-teal/6 p-4">
+      <Helmet><title>Portal Sign In — Medico-Legal Assessment System</title></Helmet>
 
-      <Card className="w-full max-w-md rounded-none border-black/10 shadow-sm">
+      {/* Background decoration — matches the staff sign-in page exactly */}
+      <div className="absolute inset-0 bg-gradient-to-r from-kutlwano-blue/5 to-kutlwano-teal/5" />
+      <div className="absolute -translate-x-1/2 -translate-y-1/2 top-0 left-0 h-64 w-64 rounded-full bg-kutlwano-blue/10 blur-3xl sm:h-96 sm:w-96" />
+      <div className="absolute translate-x-1/2 translate-y-1/2 bottom-0 right-0 h-64 w-64 rounded-full bg-kutlwano-teal/10 blur-3xl sm:h-96 sm:w-96" />
+      <div className="absolute top-20 right-20 hidden h-32 w-32 rotate-45 rounded-lg border-2 border-kutlwano-blue/20 animate-[spin_20s_linear_infinite] sm:block" />
+      <div className="absolute bottom-32 left-20 hidden h-24 w-24 rounded-full border-2 border-kutlwano-teal/20 animate-pulse sm:block" />
+
+      <Card className="relative z-10 w-full max-w-md animate-scale-in border-kutlwano-blue/20 bg-card/95 shadow-2xl shadow-kutlwano-blue/10 backdrop-blur-sm">
         <CardHeader className="items-center text-center">
-          <ShieldCheck className="mb-2 h-8 w-8 text-[#00BAAD]" />
-          <CardTitle>External Portal Sign In</CardTitle>
+          <img src={logoSrc} alt="Kutlwano & Associate" className="mb-3 h-12 w-12 object-contain sm:h-14 sm:w-14" />
+          <CardTitle className="text-xl sm:text-2xl">Portal Sign In</CardTitle>
           <CardDescription>Referring Attorney &amp; Medical Expert access</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
           {step === 'loading-link' && (
-            <div className="flex flex-col items-center gap-3 py-8 text-sm text-slate-500">
-              <Loader2 className="h-6 w-6 animate-spin" />
+            <div className="flex flex-col items-center gap-3 py-8 text-sm text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin text-kutlwano-blue" />
               Validating your access link…
             </div>
           )}
@@ -162,7 +181,11 @@ const ExternalPortalSignIn: React.FC = () => {
           {step === 'link-error' && (
             <div className="space-y-4 text-center">
               <p className="text-sm text-destructive">{linkError}</p>
-              <Button variant="outline" className="rounded-none border-black/15" onClick={() => { setStep('login-request'); setLinkError(null); }}>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => { setStep('login-request'); setLinkError(null); }}
+              >
                 Sign in with email instead
               </Button>
             </div>
@@ -170,32 +193,33 @@ const ExternalPortalSignIn: React.FC = () => {
 
           {step === 'login-request' && (
             <div className="space-y-4">
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label>Portal</Label>
                 <Select value={portalType} onValueChange={(v) => setPortalType(v as ExternalPortalType)}>
-                  <SelectTrigger className="rounded-none border-black/15"><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="attorney">Referring Attorney</SelectItem>
                     <SelectItem value="expert">Medical Expert</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <Label>Email</Label>
+              <div className="space-y-2">
+                <Label htmlFor="portal-email">Email</Label>
                 <Input
+                  id="portal-email"
                   type="email"
-                  className="rounded-none border-black/15"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
+                  placeholder="your@email.com"
                   onKeyDown={(e) => e.key === 'Enter' && handleRequestLoginOtp()}
                 />
               </div>
               <Button
-                className="w-full rounded-none bg-black text-white hover:bg-black/85"
+                className="w-full bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal hover:opacity-90"
                 disabled={submitting}
                 onClick={handleRequestLoginOtp}
               >
+                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {submitting ? 'Sending…' : 'Send Verification Code'}
               </Button>
             </div>
@@ -203,10 +227,10 @@ const ExternalPortalSignIn: React.FC = () => {
 
           {step === 'otp' && (
             <div className="space-y-5">
-              <p className="text-center text-sm text-slate-600">
-                Enter the code sent to <span className="font-medium text-black">{maskedEmail || email}</span>
+              <p className="text-center text-sm text-muted-foreground">
+                Enter the code sent to <span className="font-medium text-foreground">{maskedEmail || email}</span>
               </p>
-              <div className="flex justify-center">
+              <div className="flex justify-center overflow-x-auto">
                 <InputOTP maxLength={6} value={code} onChange={setCode}>
                   <InputOTPGroup>
                     {Array.from({ length: 6 }).map((_, i) => (
@@ -216,15 +240,16 @@ const ExternalPortalSignIn: React.FC = () => {
                 </InputOTP>
               </div>
               <Button
-                className="w-full rounded-none bg-black text-white hover:bg-black/85"
+                className="w-full bg-gradient-to-r from-kutlwano-blue to-kutlwano-teal hover:opacity-90"
                 disabled={submitting}
                 onClick={handleVerify}
               >
+                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                 {submitting ? 'Verifying…' : 'Verify & Sign In'}
               </Button>
               <button
                 type="button"
-                className="w-full text-center text-xs text-slate-500 underline disabled:opacity-50"
+                className="w-full text-center text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-50"
                 disabled={resendCooldown > 0 || submitting}
                 onClick={handleResend}
               >
