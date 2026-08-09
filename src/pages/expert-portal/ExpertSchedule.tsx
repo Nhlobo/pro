@@ -9,13 +9,6 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDa
 
 const ExpertSchedule: React.FC = () => {
   const { user } = useAuth();
-  // Dual-mode identity: Supabase-auth session (unchanged below, load()
-  // already no-ops when `user` is null), or an External Portal Module
-  // OTP/access-link session, populated from the session-scoped case list
-  // instead — see the effect after load(). `id`/`days_to_complete` on the
-  // synthesized report rows are not part of that projection.
-  const isExternalSession = false;
-  const externalCasesQuery = useExternalExpertCases();
   const [expertId, setExpertId] = useState<string | null>(null);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
@@ -46,31 +39,6 @@ const ExpertSchedule: React.FC = () => {
     };
     load();
   }, [user]);
-
-  // External Portal Module (OTP/access-link) session: derive the same
-  // appointments/reports shape from the session-scoped case list.
-  useEffect(() => {
-    if (!isExternalSession) return;
-    if (externalCasesQuery.isLoading) { setLoading(true); return; }
-    const cases = externalCasesQuery.data?.cases || [];
-    setAppointments(cases.map(c => ({
-      id: c.appointment_id,
-      appointment_date: c.appointment_date,
-      matter_type: c.matter_type,
-      case_status: c.case_status,
-      claimants: c.claimant ? { first_name: c.claimant.first_name, last_name: c.claimant.last_name, auto_id: c.claimant.reference } : null,
-      referring_attorneys: c.referring_attorney ? { name: c.referring_attorney.name } : null,
-    })));
-    setReports(cases.filter(c => c.report).map(c => ({
-      id: c.appointment_id,
-      appointment_id: c.appointment_id,
-      report_status: c.report!.report_status,
-      report_due_date: c.report!.report_due_date,
-      report_submitted_date: c.report!.report_submitted_date,
-      days_to_complete: null,
-    })));
-    setLoading(false);
-  }, [isExternalSession, externalCasesQuery.data, externalCasesQuery.isLoading]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
