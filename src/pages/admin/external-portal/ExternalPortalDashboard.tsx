@@ -16,7 +16,7 @@ const ExternalPortalDashboard: React.FC = () => {
   const active = accounts?.filter((a) => a.status === 'active').length || 0;
   const paused = accounts?.filter((a) => a.status === 'paused').length || 0;
   const expired = accounts?.filter((a) => a.status === 'expired').length || 0;
-  const openCases = accounts?.reduce((sum, a) => sum + a.open_case_count, 0) || 0;
+  const bridged = accounts?.filter((a) => a.is_bridged).length || 0;
 
   const recent = [...(accounts || [])]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -30,7 +30,7 @@ const ExternalPortalDashboard: React.FC = () => {
         <AdminStatCard label="Total Accounts" value={total} icon={Users} loading={isLoading} />
         <AdminStatCard label="Referring Attorneys" value={attorneys} icon={Scale} loading={isLoading} />
         <AdminStatCard label="Medical Experts" value={experts} icon={Stethoscope} loading={isLoading} />
-        <AdminStatCard label="Open Linked Cases" value={openCases} icon={FolderOpen} loading={isLoading} />
+        <AdminStatCard label="Signed In" value={bridged} icon={FolderOpen} loading={isLoading} />
         <AdminStatCard label="Active" value={active} icon={Users} loading={isLoading} />
         <AdminStatCard label="Paused" value={paused} icon={PauseCircle} loading={isLoading} />
         <AdminStatCard label="Expired" value={expired} icon={XCircle} loading={isLoading} />
