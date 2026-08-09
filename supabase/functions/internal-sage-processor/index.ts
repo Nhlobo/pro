@@ -14,6 +14,16 @@
 // enable outside a controlled test. See
 // SAGE_API_RESEARCH.md for the verified API contract and open items.
 //
+// SINGLE-RECORD TEST MODE: POSTing { mode: "single_test", queueId,
+// confirm: true } claims and processes EXACTLY the one
+// internal_sage_queue row identified by queueId — never a batch. This
+// exists so a controlled sandbox test can submit ONE invoice without
+// running claim_internal_sage_queue_batch (which needs the still-
+// unapplied DRAFT migration) and without any risk of touching the rest
+// of the queue. See SAGE_API_RESEARCH.md / SANDBOX_TEST.md for the full
+// manual procedure. Normal batch behavior (the default, body-less
+// invocation) is completely unchanged by this addition.
+//
 // Not wired to pg_cron yet. Invoke manually (authenticated) to test.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -98,6 +108,32 @@ async function claimPendingBatch(limit: number): Promise<QueueRow[]> {
   return (data ?? []) as QueueRow[];
 }
 
+/**
+ * TEST-MODE ONLY claim path. Claims EXACTLY the one internal_sage_queue
+ * row matching `queueId`, and only if it is currently 'pending' — the
+ * `.eq("id", queueId)` makes it structurally impossible for this to
+ * affect any other row, with or without concurrent invocations. Unlike
+ * claimPendingBatch, this does NOT call the claim_internal_sage_queue_batch
+ * RPC (which needs the still-unapplied DRAFT migration) — it uses a
+ * plain, narrowly-scoped UPDATE, matching the pattern already used by
+ * releaseWithoutPenalty below. Returns null (touching nothing) if the
+ * row doesn't exist or isn't 'pending'.
+ */
+async function claimSingleTestRow(queueId: string): Promise<QueueRow | null> {
+  const { data, error } = await supabaseAdmin
+    .from("internal_sage_queue")
+    .update({ status: "processing", claimed_at: new Date().toISOString() })
+    .eq("id", queueId)
+    .eq("status", "pending")
+    .select("id, internal_invoice_id, status, attempts, last_error, sage_reference, claimed_at, processed_at, created_at")
+    .maybeSingle();
+
+  if (error) {
+    throw new HttpError("INTERNAL_ERROR", `Failed to claim test queue row ${queueId}: ${error.message}`);
+  }
+  return (data as QueueRow | null) ?? null;
+}
+
 /** Releases a claimed row back to 'pending' without counting it as a
  * failed attempt — used only for the "Sage disabled" case, per the
  * requirement that disabled-integration runs must never burn attempts
@@ -112,6 +148,32 @@ async function releaseWithoutPenalty(queueId: string): Promise<void> {
   if (error) {
     console.error(`internal-sage-processor: failed to release queue item ${queueId}:`, error.message);
   }
+}
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Pure validation for a single_test request body — no DB/network access,
+ * so this is directly unit-testable (see index.test.ts). Mirrors exactly
+ * what the handler below requires: mode === "single_test" is the caller's
+ * responsibility to check first; this validates the rest.
+ */
+export function parseSingleTestRequest(
+  body: { queueId?: string; confirm?: boolean },
+): { queueId: string } | { error: string } {
+  if (!body.confirm) {
+    return {
+      error:
+        "single_test mode requires confirm: true in the request body — this is a deliberate extra guard against accidental invocation.",
+    };
+  }
+  if (!body.queueId || typeof body.queueId !== "string") {
+    return { error: "single_test mode requires a queueId (internal_sage_queue.id)." };
+  }
+  if (!UUID_PATTERN.test(body.queueId)) {
+    return { error: `queueId "${body.queueId}" is not a valid UUID.` };
+  }
+  return { queueId: body.queueId };
 }
 
 export function classifyError(err: unknown): { category: SageErrorCategory; message: string; retryable: boolean } {
@@ -326,15 +388,63 @@ serve(
       throw new HttpError("UNAUTHORIZED", "Missing bearer token.");
     }
 
-    let body: { batchSize?: number } = {};
+    let body: { batchSize?: number; mode?: string; queueId?: string; confirm?: boolean } = {};
     try {
       body = await req.json();
     } catch {
       // empty body is fine, defaults apply
     }
-    const batchSize = Math.min(body.batchSize ?? DEFAULT_BATCH_SIZE, MAX_BATCH_SIZE);
 
     const sage = getSageOneClient();
+
+    // --- SINGLE-RECORD TEST MODE ---------------------------------------
+    // Only entered when the caller explicitly opts in with all three of
+    // mode, queueId, and confirm. Any normal/default invocation (no body,
+    // or just { batchSize }) falls straight through to the unchanged
+    // batch path below and can never hit this branch.
+    if (body.mode === "single_test") {
+      const parsed = parseSingleTestRequest(body);
+      if ("error" in parsed) {
+        throw new HttpError("VALIDATION_ERROR", parsed.error);
+      }
+      const { queueId } = parsed;
+
+      console.log(
+        `internal-sage-processor: SINGLE_TEST mode. queueId=${queueId} sage.isConfigured=${sage.isConfigured} status="${sage.configurationStatus}"`,
+      );
+
+      const row = await claimSingleTestRow(queueId);
+      if (!row) {
+        return new Response(
+          JSON.stringify({
+            mode: "single_test",
+            queueId,
+            claimed: 0,
+            message:
+              `No internal_sage_queue row with id=${queueId} and status='pending' was found. ` +
+              `Nothing was claimed or modified.`,
+          }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      const outcome = await processQueueItem(row, sage);
+      return new Response(
+        JSON.stringify({
+          mode: "single_test",
+          queueId,
+          sageConfigured: sage.isConfigured,
+          configurationStatus: sage.configurationStatus,
+          claimed: 1,
+          outcome,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    // --- end single-record test mode ------------------------------------
+
+    const batchSize = Math.min(body.batchSize ?? DEFAULT_BATCH_SIZE, MAX_BATCH_SIZE);
+
     console.log(
       `internal-sage-processor: starting run. sage.isConfigured=${sage.isConfigured} status="${sage.configurationStatus}" batchSize=${batchSize}`,
     );
