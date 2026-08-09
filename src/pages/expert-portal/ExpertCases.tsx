@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/portal/ExpertPortalCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -204,7 +204,7 @@ const ExpertCases: React.FC = () => {
 
       {/* Case Cards */}
       {filteredCases.length === 0 ? (
-        <Card className="border-border/50">
+        <Card className="border-black/10">
           <CardContent className="text-center py-12">
             <Briefcase className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
             <p className="text-muted-foreground">No cases match your filters</p>
@@ -218,7 +218,7 @@ const ExpertCases: React.FC = () => {
             return (
               <Card
                 key={c.id}
-                className={`border-border/50 cursor-pointer hover:shadow-md transition-shadow ${
+                className={`border-black/10 cursor-pointer hover:border-black/25 transition-colors ${
                   urgency === 'overdue' || urgency === 'critical' ? 'border-l-4 border-l-destructive' :
                   urgency === 'urgent' ? 'border-l-4 border-l-warning' :
                   isUpcoming ? 'border-l-4 border-l-primary' : ''
