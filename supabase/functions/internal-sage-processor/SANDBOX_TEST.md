@@ -197,6 +197,11 @@ runs the ordinary (unchanged) batch path — so there is no way to
 
 Expected response shapes:
 
+- Sage disabled (e.g. secrets not yet set for this test):
+  `{ "mode": "single_test", "queueId": "...", "sageConfigured": false, "claimed": 0, "message": "SageOne integration is disabled. The test row was not claimed or modified." }`
+  (Nothing is claimed in this case — matches the batch path's behavior
+  exactly. Useful as a safe dry run to confirm the function deploys and
+  auth/routing works before secrets are configured.)
 - Row not found / not pending:
   `{ "mode": "single_test", "queueId": "...", "claimed": 0, "message": "No internal_sage_queue row with id=... and status='pending' was found. Nothing was claimed or modified." }`
   (HTTP 404 — nothing touched.)
