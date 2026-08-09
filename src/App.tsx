@@ -18,6 +18,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
 import BrandedPageLoader from "@/components/BrandedPageLoader";
+import { BiometricLockGate } from "@/components/BiometricLockGate";
 import { BiometricEnrollPrompt } from "@/components/BiometricEnrollPrompt";
 
 // Eager: top-level entry points + portal layouts (small, always needed when in portal)
@@ -143,6 +144,10 @@ const ExternalPortalRecycleBin = lazy(() => import("./pages/admin/external-porta
 const ExternalPortalSettings = lazy(() => import("./pages/admin/external-portal/ExternalPortalSettings"));
 
 // External Portal Module — public, end-user-facing pages (not under /admin).
+// External Portal login (link + OTP) — bridges into a real Supabase
+// session and lands the person on the actual /attorney-portal or
+// /expert-portal above. No separate portal UI beyond the sign-in page
+// itself; see external-portal-auth's login bridge.
 const ExternalPortalSignIn = lazy(() => import("./pages/external-portal/ExternalPortalSignIn"));
 
 const queryClient = new QueryClient({
@@ -163,12 +168,10 @@ const AdminPortalRoute = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
-const AttorneyPortalRoute = ({ children }: { children: React.ReactNode }) => (
-  <ProtectedRoute>{children}</ProtectedRoute>
-);
-
 const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => (
-  <ProtectedRoute>{children}</ProtectedRoute>
+  <ProtectedRoute>
+    <ExpertPortalLayout>{children}</ExpertPortalLayout>
+  </ProtectedRoute>
 );
 
 // Shown by <Suspense> while a lazy-loaded route's JS chunk is downloading.
@@ -202,6 +205,7 @@ const App = () => (
               <IdleLogoutGuard />
               <ExitConfirmationGuard />
               <Suspense fallback={<RouteFallback />}>
+              <BiometricLockGate>
               <BiometricEnrollPrompt />
               <Routes>
                 <Route path="/" element={<Navigate to="/auth" replace />} />
@@ -215,14 +219,15 @@ const App = () => (
                 <Route path="/Attorneyzone/case-access" element={<CaseAccess />} />
                 <Route path="/Expertzone/case-access" element={<ExpertCaseAccess />} />
 
-                {/* External Portal Module — shared OTP/access-link sign-in.
-                    Kept ACTIVE: this is the auth entry point the old
-                    /attorney-portal and /expert-portal now sign in through
-                    too (see AttorneyPortalRoute/ExpertPortalRoute above and
-                    ExternalPortalSignIn's post-login redirect). Public
-                    route: these users have no Supabase auth session. */}
+                {/* External Portal login — link + OTP sign-in for Referring
+                    Attorney & Medical Expert accounts. Public route: these
+                    users authenticate via external-portal-auth, not the
+                    app's Supabase auth session, until the OTP is verified
+                    and the login bridge hands them a real one. From there
+                    they land on the actual /attorney-portal or
+                    /expert-portal below — same pages, same data, same
+                    everything a staff login gets. */}
                 <Route path="/external-portal/sign-in" element={<ExternalPortalSignIn />} />
-
                 <Route path="/contact-us" element={<ContactUs />} />
                 <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
                 
@@ -325,15 +330,15 @@ const App = () => (
                 <Route path="/availability-heatmap" element={<ProtectedRoute><div className="min-h-screen bg-background"><div className="container mx-auto p-4 md:p-6"><AdminHeatmap /></div></div></ProtectedRoute>} />
 
                 {/* Attorney Portal Routes */}
-                <Route path="/attorney-portal" element={<AttorneyPortalRoute><AttorneyPortalDashboard /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/cases" element={<AttorneyPortalRoute><AttorneyMyCases /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/case-status" element={<AttorneyPortalRoute><AttorneyCaseStatus /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/appointments" element={<AttorneyPortalRoute><AttorneyAppointments /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/reports" element={<AttorneyPortalRoute><AttorneyReports /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/payments" element={<AttorneyPortalRoute><AttorneyPayments /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/agreements" element={<AttorneyPortalRoute><AttorneyAgreements /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/notifications" element={<AttorneyPortalRoute><AttorneyNotifications /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/support" element={<AttorneyPortalRoute><AttorneySupport /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal" element={<ProtectedRoute><AttorneyPortalDashboard /></ProtectedRoute>} />
+                <Route path="/attorney-portal/cases" element={<ProtectedRoute><AttorneyMyCases /></ProtectedRoute>} />
+                <Route path="/attorney-portal/case-status" element={<ProtectedRoute><AttorneyCaseStatus /></ProtectedRoute>} />
+                <Route path="/attorney-portal/appointments" element={<ProtectedRoute><AttorneyAppointments /></ProtectedRoute>} />
+                <Route path="/attorney-portal/reports" element={<ProtectedRoute><AttorneyReports /></ProtectedRoute>} />
+                <Route path="/attorney-portal/payments" element={<ProtectedRoute><AttorneyPayments /></ProtectedRoute>} />
+                <Route path="/attorney-portal/agreements" element={<ProtectedRoute><AttorneyAgreements /></ProtectedRoute>} />
+                <Route path="/attorney-portal/notifications" element={<ProtectedRoute><AttorneyNotifications /></ProtectedRoute>} />
+                <Route path="/attorney-portal/support" element={<ProtectedRoute><AttorneySupport /></ProtectedRoute>} />
                 
                 {/* ============ EXPERT PORTAL ============ */}
                 <Route path="/expert-portal" element={<ExpertPortalRoute><ExpertDashboard /></ExpertPortalRoute>} />
@@ -348,6 +353,7 @@ const App = () => (
                 <Route path="/api-docs" element={<ApiDocs />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </BiometricLockGate>
               </Suspense>
             </BrowserRouter>
             </ConfirmDialogProvider>
