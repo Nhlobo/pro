@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/portal/ExpertPortalCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -185,7 +185,7 @@ const ExpertDashboard: React.FC = () => {
           { label: 'Avg Days', value: stats.averageDays, icon: TrendingUp, color: 'text-muted-foreground' },
           { label: 'Payments', value: stats.outstandingDebt > 0 ? `R${stats.outstandingDebt.toLocaleString()}` : 'R0', icon: RandSign, color: 'text-primary' },
         ].map(s => (
-          <Card key={s.label} className="border-border/50 cursor-pointer hover:shadow-md transition-shadow" onClick={s.onClick}>
+          <Card key={s.label} className="border-black/10 cursor-pointer hover:border-black/25 transition-colors" onClick={s.onClick}>
             <CardContent className="pt-3 pb-2 px-3 flex items-center gap-2">
               <s.icon className={`h-4 w-4 ${s.color} shrink-0`} />
               <div>
@@ -209,7 +209,7 @@ const ExpertDashboard: React.FC = () => {
           <CardContent>
             <div className="space-y-2">
               {overdueReports.map(r => (
-                <div key={r.id} className="flex items-center justify-between p-3 rounded-lg border border-destructive/20 bg-background">
+                <div key={r.id} className="flex items-center justify-between p-3 rounded-none border border-destructive/20 bg-background">
                   <div>
                     <p className="font-medium text-sm text-foreground">
                       {r.appointment?.claimants?.first_name} {r.appointment?.claimants?.last_name}
@@ -238,7 +238,7 @@ const ExpertDashboard: React.FC = () => {
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Upcoming Appointments */}
-        <Card className="border-border/50">
+        <Card className="border-black/10">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
@@ -256,7 +256,7 @@ const ExpertDashboard: React.FC = () => {
                 {upcomingCases.map(c => (
                   <div
                     key={c.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors"
+                    className="flex items-center justify-between p-3 rounded-none border border-black/10 bg-black/5 cursor-pointer hover:bg-black/[0.06] transition-colors"
                     onClick={() => navigate(`/expert-portal/case/${c.id}`)}
                   >
                     <div className="flex-1">
@@ -285,7 +285,7 @@ const ExpertDashboard: React.FC = () => {
         </Card>
 
         {/* Pending Reports */}
-        <Card className="border-border/50">
+        <Card className="border-black/10">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
@@ -303,7 +303,7 @@ const ExpertDashboard: React.FC = () => {
                 {pendingReportsList.map(r => (
                   <div
                     key={r.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors"
+                    className="flex items-center justify-between p-3 rounded-none border border-black/10 bg-black/5 cursor-pointer hover:bg-black/[0.06] transition-colors"
                     onClick={() => navigate(`/expert-portal/case/${r.appointment_id}`)}
                   >
                     <div>
@@ -336,7 +336,7 @@ const ExpertDashboard: React.FC = () => {
 
       {/* Recently Completed */}
       {recentlyCompleted.length > 0 && (
-        <Card className="border-border/50">
+        <Card className="border-black/10">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-success" />
@@ -346,7 +346,7 @@ const ExpertDashboard: React.FC = () => {
           <CardContent>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
               {recentlyCompleted.map(r => (
-                <div key={r.id} className="p-3 rounded-lg border border-success/20 bg-success/5 cursor-pointer hover:bg-success/10 transition-colors"
+                <div key={r.id} className="p-3 rounded-none border border-success/20 bg-success/5 cursor-pointer hover:bg-success/10 transition-colors"
                   onClick={() => navigate(`/expert-portal/case/${r.appointment_id}`)}>
                   <p className="font-medium text-sm text-foreground">
                     {r.appointment?.claimants?.first_name} {r.appointment?.claimants?.last_name}
