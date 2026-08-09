@@ -18,6 +18,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
 import BrandedPageLoader from "@/components/BrandedPageLoader";
+import MFARequiredGuard from "@/components/MFARequiredGuard";
 import { BiometricLockGate } from "@/components/BiometricLockGate";
 import { BiometricEnrollPrompt } from "@/components/BiometricEnrollPrompt";
 
@@ -168,9 +169,16 @@ const AdminPortalRoute = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
+// POPIA Sec. 19 — Medical Experts routinely access medical records, ID
+// copies, and medico-legal reports (both staff-created and bridged
+// external-portal accounts land here via the same route), so this is
+// the one shared choke point where two-factor is enforced for the role.
+// Referring Attorneys are not required to enrol at this time.
 const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
-    <ExpertPortalLayout>{children}</ExpertPortalLayout>
+    <MFARequiredGuard roleLabel="Medical Expert">
+      <ExpertPortalLayout>{children}</ExpertPortalLayout>
+    </MFARequiredGuard>
   </ProtectedRoute>
 );
 
