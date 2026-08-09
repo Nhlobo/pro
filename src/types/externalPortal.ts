@@ -30,6 +30,8 @@ export interface ExternalPortalAccount {
   phone: string | null;
   referring_attorney_id: string | null;
   medical_expert_id: string | null;
+  /** The real auth.users row bridged to this account on first login. Null until they've signed in at least once. */
+  auth_user_id: string | null;
   status: ExternalPortalAccountStatus;
   paused_at: string | null;
   paused_reason: string | null;
@@ -48,8 +50,16 @@ export interface ExternalPortalAccount {
 
 /** Account row enriched with fields the list/detail views need, joined client-side. */
 export interface ExternalPortalAccountWithMeta extends ExternalPortalAccount {
-  linked_case_count: number;
-  open_case_count: number;
+  /**
+   * Whether this account has completed the login bridge at least once
+   * (has a real auth.users row provisioned). Replaces the old
+   * linked_case_count/open_case_count/active_access_link fields —
+   * those tracked the now-retired admin-curated case-links list;
+   * access is now identity-based (referring_attorney_id / expert_id +
+   * RLS), same as every staff attorney/expert login, so there's
+   * nothing case-by-case left to show here.
+   */
+  is_bridged: boolean;
   active_access_link: boolean;
 }
 
