@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/portal/ExpertPortalCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, Clock, User, FileText, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle } from 'lucide-react';
@@ -69,7 +69,7 @@ const ExpertSchedule: React.FC = () => {
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Calendar */}
-        <Card className="md:col-span-2 border-border/50">
+        <Card className="md:col-span-2 border-black/10">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
@@ -116,7 +116,7 @@ const ExpertSchedule: React.FC = () => {
         </Card>
 
         {/* Selected Day Detail */}
-        <Card className="border-border/50">
+        <Card className="border-black/10">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
               {selectedDate ? format(selectedDate, 'dd MMMM yyyy') : 'Select a date'}
@@ -130,7 +130,7 @@ const ExpertSchedule: React.FC = () => {
             ) : (
               <div className="space-y-3">
                 {selectedDayAppts.map(a => (
-                  <div key={a.id} className="p-3 rounded-lg border border-border/50 bg-muted/20 space-y-2">
+                  <div key={a.id} className="p-3 rounded-none border border-black/10 bg-black/5 space-y-2">
                     <p className="font-medium text-sm text-foreground">{a.claimants?.first_name} {a.claimants?.last_name}</p>
                     <div className="space-y-1 text-xs text-muted-foreground">
                       <p className="flex items-center gap-1"><Clock className="h-3 w-3" />{format(parseISO(a.appointment_date), 'HH:mm')}</p>
@@ -148,7 +148,7 @@ const ExpertSchedule: React.FC = () => {
 
       {/* Report Submission Tracking */}
       <div className="grid md:grid-cols-2 gap-6">
-        <Card className="border-border/50">
+        <Card className="border-black/10">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-warning" /> Pending Reports ({pendingReports.length})
@@ -162,7 +162,7 @@ const ExpertSchedule: React.FC = () => {
                 {pendingReports.map(r => {
                   const appt = appointments.find(a => a.id === r.appointment_id);
                   return (
-                    <div key={r.id} className="flex items-center justify-between p-2 rounded border border-border/50 text-sm">
+                    <div key={r.id} className="flex items-center justify-between p-2 rounded border border-black/10 text-sm">
                       <span className="text-foreground">{appt?.claimants?.first_name} {appt?.claimants?.last_name}</span>
                       <div className="flex items-center gap-2">
                         {r.report_due_date && <span className="text-xs text-muted-foreground">Due: {format(parseISO(r.report_due_date), 'dd MMM')}</span>}
@@ -176,7 +176,7 @@ const ExpertSchedule: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-border/50">
+        <Card className="border-black/10">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-success" /> Completed Reports ({completedReports.length})
@@ -190,7 +190,7 @@ const ExpertSchedule: React.FC = () => {
                 {completedReports.slice(0, 10).map(r => {
                   const appt = appointments.find(a => a.id === r.appointment_id);
                   return (
-                    <div key={r.id} className="flex items-center justify-between p-2 rounded border border-border/50 text-sm">
+                    <div key={r.id} className="flex items-center justify-between p-2 rounded border border-black/10 text-sm">
                       <span className="text-foreground">{appt?.claimants?.first_name} {appt?.claimants?.last_name}</span>
                       <div className="flex items-center gap-2">
                         {r.report_submitted_date && <span className="text-xs text-muted-foreground">{format(parseISO(r.report_submitted_date), 'dd MMM yyyy')}</span>}
