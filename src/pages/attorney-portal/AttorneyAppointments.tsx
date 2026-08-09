@@ -25,11 +25,6 @@ import { formatExpertType } from '@/utils/expertTypeMapping';
 const AttorneyAppointments: React.FC = () => {
   const { liveCases, loading, refetchStats } = useAttorneyDashboardStats();
   const { user } = useAuth();
-  // New-appointment-request submission below reads/writes via Supabase-auth
-  // RLS (profiles → referring_attorney_id) and has no External Portal
-  // Module equivalent yet. Already silently no-ops under an OTP session
-  // (`user` is null there) — isExternalSession lets us say why instead.
-  const isExternalSession = false;
   const { toast } = useToast();
   const [filterPeriod, setFilterPeriod] = useState<string>('all');
   
@@ -91,16 +86,7 @@ const AttorneyAppointments: React.FC = () => {
 
   // Handle system appointment request
   const handleSystemRequest = async () => {
-    if (!systemRequest.firstName || !systemRequest.lastName) return;
-    if (isExternalSession) {
-      toast({
-        title: 'Not available yet',
-        description: 'Submitting a new appointment request isn\'t available via secure portal sign-in yet. Please contact your case manager.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    if (!user) return;
+    if (!user || !systemRequest.firstName || !systemRequest.lastName) return;
     setSubmitting(true);
     try {
       const { data: profile } = await supabase
@@ -149,16 +135,7 @@ const AttorneyAppointments: React.FC = () => {
 
   // Handle email appointment request
   const handleEmailRequest = async () => {
-    if (!emailRequest.firstName || !emailRequest.lastName) return;
-    if (isExternalSession) {
-      toast({
-        title: 'Not available yet',
-        description: 'Submitting a new appointment request isn\'t available via secure portal sign-in yet. Please contact your case manager.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    if (!user) return;
+    if (!user || !emailRequest.firstName || !emailRequest.lastName) return;
     setEmailSubmitting(true);
     try {
       const { data: profile } = await supabase
