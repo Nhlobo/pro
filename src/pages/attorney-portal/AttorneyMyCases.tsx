@@ -54,12 +54,6 @@ const DOCUMENT_TYPES = [
 const AttorneyMyCases: React.FC = () => {
   const { liveCases, loading, refetchStats } = useAttorneyDashboardStats();
   const { user } = useAuth();
-  // Document upload and new-referral submission below write directly via
-  // Supabase-auth RLS and have no External Portal Module equivalent yet.
-  // Under an OTP/access-link session `user` is null, so these already
-  // silently no-op today (`if (!user) return`) — isExternalSession lets
-  // us tell the person clearly why, instead of a silent no-op.
-  const isExternalSession = false;
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -254,16 +248,7 @@ const AttorneyMyCases: React.FC = () => {
 
   // Upload document
   const handleUploadDocument = async (file: File) => {
-    if (!selectedCaseForUpload) return;
-    if (isExternalSession) {
-      toast({
-        title: 'Not available yet',
-        description: 'Document upload isn\'t available via secure portal sign-in yet. Please contact your case manager.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    if (!user) return;
+    if (!selectedCaseForUpload || !user) return;
     setUploading(true);
     try {
       const filePath = `attorney-documents/${selectedCaseForUpload}/${Date.now()}_${file.name}`;
@@ -296,16 +281,7 @@ const AttorneyMyCases: React.FC = () => {
 
   // Submit new referral
   const handleSubmitReferral = async () => {
-    if (!newReferral.firstName || !newReferral.lastName) return;
-    if (isExternalSession) {
-      toast({
-        title: 'Not available yet',
-        description: 'Submitting a new referral isn\'t available via secure portal sign-in yet. Please contact your case manager.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    if (!user) return;
+    if (!user || !newReferral.firstName || !newReferral.lastName) return;
     setSubmittingReferral(true);
     try {
       const { data: profile } = await supabase
