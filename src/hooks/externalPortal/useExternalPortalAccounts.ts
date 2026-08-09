@@ -12,10 +12,13 @@ import type {
 /**
  * External Portal Module — admin account management.
  *
- * Phase 1 scope only: create/list/pause/resume/expire/soft-delete/
- * restore/permanently-delete accounts, and link them to existing
- * cases (appointments) for later display. No link-generation, OTP,
- * or session logic lives here — that's Phase 2.
+ * Create/list/pause/resume/expire/soft-delete/restore/permanently-
+ * delete accounts. Access to case data is no longer curated here
+ * case-by-case — a bridged account sees every case tied to its
+ * linked referring_attorney_id / medical_expert_id, exactly like a
+ * staff attorney/expert login (see external-portal-auth's login
+ * bridge). This page's job is who gets a login at all, not which
+ * cases they can see once they have one.
  *
  * Every mutation that changes lifecycle state goes through the
  * `external_portal_set_account_status` / permanent-delete RPCs
@@ -34,7 +37,6 @@ export interface CreateExternalPortalAccountInput {
   referring_attorney_id?: string | null;
   medical_expert_id?: string | null;
   notes?: string;
-  case_appointment_ids?: string[];
 }
 
 async function fetchAccounts(includeDeleted: boolean): Promise<ExternalPortalAccountWithMeta[]> {
@@ -56,20 +58,6 @@ async function fetchAccounts(includeDeleted: boolean): Promise<ExternalPortalAcc
   if (accounts.length === 0) return [];
 
   const accountIds = accounts.map((a) => a.id);
-  const { data: links, error: linksError } = await supabase
-    .from('external_portal_case_links' as any)
-    .select('account_id, appointment_id, revoked_at, appointments:appointment_id(case_status)')
-    .in('account_id', accountIds);
-
-  if (linksError) throw linksError;
-
-  const linkRows = (links || []) as unknown as Array<{
-    account_id: string;
-    appointment_id: string;
-    revoked_at: string | null;
-    appointments: { case_status: string | null } | null;
-  }>;
-
   const { data: pendingLinks } = await supabase
     .from('external_portal_access_links' as any)
     .select('account_id, status')
@@ -80,16 +68,11 @@ async function fetchAccounts(includeDeleted: boolean): Promise<ExternalPortalAcc
     ((pendingLinks || []) as unknown as Array<{ account_id: string }>).map((l) => l.account_id)
   );
 
-  return accounts.map((account) => {
-    const accountLinks = linkRows.filter((l) => l.account_id === account.id && !l.revoked_at);
-    const openCount = accountLinks.filter((l) => l.appointments?.case_status === 'scheduled').length;
-    return {
-      ...account,
-      linked_case_count: accountLinks.length,
-      open_case_count: openCount,
-      active_access_link: activeLinkAccountIds.has(account.id),
-    };
-  });
+  return accounts.map((account) => ({
+    ...account,
+    is_bridged: !!account.auth_user_id,
+    active_access_link: activeLinkAccountIds.has(account.id),
+  }));
 }
 
 export function useExternalPortalAccounts(includeDeleted = false) {
@@ -124,17 +107,6 @@ export function useCreateExternalPortalAccount() {
 
       if (error) throw error;
       const account = data as unknown as ExternalPortalAccount;
-
-      if (input.case_appointment_ids && input.case_appointment_ids.length > 0) {
-        const { error: linkError } = await supabase.from('external_portal_case_links' as any).insert(
-          input.case_appointment_ids.map((appointment_id) => ({
-            account_id: account.id,
-            appointment_id,
-            granted_by: userData?.user?.id || null,
-          }))
-        );
-        if (linkError) throw linkError;
-      }
 
       await supabase.rpc('external_portal_log_audit' as any, {
         _actor_type: 'admin',
