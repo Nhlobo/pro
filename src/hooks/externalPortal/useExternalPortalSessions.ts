@@ -44,15 +44,20 @@ export function useRevokeExternalPortalSession() {
 
   return useMutation({
     mutationFn: async (sessionId: string) => {
-      const { error } = await supabase.rpc('external_portal_revoke_session' as any, {
-        _session_id: sessionId,
-        _reason: 'Revoked by admin',
+      // Goes through external-portal-admin-links (staff-JWT verified)
+      // rather than a direct RPC, because revoking now also has to
+      // sign the person's real bridged Supabase session out — not
+      // just mark this tracking row revoked, or they'd stay logged
+      // into /attorney-portal or /expert-portal regardless.
+      const { data, error } = await supabase.functions.invoke('external-portal-admin-links', {
+        body: { action: 'revoke_session', session_id: sessionId },
       });
       if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error || 'Failed to revoke session');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY });
-      toast.success('Session revoked');
+      toast.success('Session revoked — they have been signed out');
     },
     onError: (error: any) => toast.error(error?.message || 'Failed to revoke session'),
   });
