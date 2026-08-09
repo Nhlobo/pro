@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/portal/ExpertPortalCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -306,7 +306,7 @@ const ExpertProfile: React.FC = () => {
 
       {/* Profile Info */}
       <div className="grid md:grid-cols-2 gap-6">
-        <Card className="border-border/50">
+        <Card className="border-black/10">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Professional Details</CardTitle>
             <CardDescription className="text-xs">
@@ -352,7 +352,7 @@ const ExpertProfile: React.FC = () => {
           </CardContent>
         </Card>
 
-        <Card className="border-border/50">
+        <Card className="border-black/10">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Contact Information</CardTitle>
           </CardHeader>
@@ -393,7 +393,7 @@ const ExpertProfile: React.FC = () => {
       </div>
 
       {/* Consultation & Court Fees */}
-      <Card className="border-border/50">
+      <Card className="border-black/10">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Consultation & Court Fees (ZAR)</CardTitle>
           <CardDescription className="text-xs">Read-only. Use the Annual Fee Review Request below to propose a change — it takes effect once an administrator approves it.</CardDescription>
@@ -420,7 +420,7 @@ const ExpertProfile: React.FC = () => {
       </Card>
 
       {/* Annual Fee Review Request */}
-      <Card className="border-border/50">
+      <Card className="border-black/10">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Edit className="h-4 w-4 text-primary" /> Annual Fee Review Request
@@ -519,7 +519,7 @@ const ExpertProfile: React.FC = () => {
                       const fmt = (v: any) => v == null ? '—' : `R${Number(v).toLocaleString('en-ZA')}`;
                       const variant = r.status === 'approved' ? 'default' : r.status === 'rejected' ? 'destructive' : 'secondary';
                       return (
-                        <tr key={r.id} className="border-b border-border/30 align-top">
+                        <tr key={r.id} className="border-b border-black/10 align-top">
                           <td className="py-2 pr-3 text-xs text-muted-foreground">{format(parseISO(r.created_at), 'dd MMM yyyy')}</td>
                           <td className="py-2 pr-3">{labels[r.fee_field] || r.fee_field}</td>
                           <td className="py-2 pr-3">{fmt(r.current_value)} → <span className="font-medium">{fmt(r.proposed_value)}</span></td>
@@ -545,7 +545,7 @@ const ExpertProfile: React.FC = () => {
       </Card>
 
       {/* Fee Change History */}
-      <Card className="border-border/50">
+      <Card className="border-black/10">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Clock className="h-4 w-4 text-primary" /> Fee Change History
@@ -580,7 +580,7 @@ const ExpertProfile: React.FC = () => {
                     const fmt = (v: any) =>
                       v == null ? <span className="text-muted-foreground">—</span> : `R${Number(v).toLocaleString('en-ZA')}`;
                     return (
-                      <tr key={h.id} className="border-b border-border/30">
+                      <tr key={h.id} className="border-b border-black/10">
                         <td className="py-2 pr-4 text-xs text-muted-foreground">
                           {format(parseISO(h.changed_at), 'dd MMM yyyy HH:mm')}
                         </td>
@@ -600,7 +600,7 @@ const ExpertProfile: React.FC = () => {
 
 
       {/* Availability Calendar */}
-      <Card className="border-border/50">
+      <Card className="border-black/10">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Calendar className="h-4 w-4 text-primary" /> Availability Calendar
