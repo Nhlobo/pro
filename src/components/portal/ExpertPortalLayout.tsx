@@ -6,12 +6,14 @@ import PortalSwitcher from './PortalSwitcher';
 import {
   Stethoscope, LayoutDashboard, Briefcase, Calendar, BarChart3, User, FileText, LogOut
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 import TourLauncher from '@/components/tour/TourLauncher';
 import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
 import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
 import { EXPERT_PAGE_TOURS } from '@/config/pageTours';
 import MFARequiredGuard from '@/components/MFARequiredGuard';
 import InternalChatWidget from '@/components/internalChat/InternalChatWidget';
+import { useIsExternalPortalUser } from '@/hooks/useIsExternalPortalUser';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/expert-portal', icon: LayoutDashboard },
@@ -22,25 +24,18 @@ const NAV_ITEMS = [
   { label: 'Profile', path: '/expert-portal/profile', icon: User },
 ];
 
-/**
- * Same dual-mode gate as the attorney portal: Supabase-auth expert
- * sessions keep mandatory MFA; External Portal Module OTP / access-link
- * sessions are verified by the portal module itself.
- */
-const PortalAuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const isExternalSession = false;
-  if (isExternalSession) return <>{children}</>;
-  return <MFARequiredGuard roleLabel="Medical Expert">{children}</MFARequiredGuard>;
-};
-
 const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isExternalSession = false;
-  const signOutPortal = undefined;
+  const { signOut } = useAuth();
+  // Internal chat is staff-to-staff communication — a real medical
+  // expert logging in via link+OTP has no business seeing that bubble,
+  // even though the server already prevents them from using it
+  // (get_internal_chat_users only lists admin/employee/etc roles).
+  const isExternalUser = useIsExternalPortalUser();
 
   return (
-    <PortalAuthGuard>
+    <MFARequiredGuard roleLabel="Medical Expert">
     <div className="min-h-screen bg-background">
       <RouteFirstVisitTour routes={EXPERT_PAGE_TOURS} />
       {/* Top bar */}
@@ -55,7 +50,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           </div>
           <div className="flex items-center gap-1">
             <TourLauncher steps={EXPERT_TOUR} storageKey={EXPERT_TOUR_KEY} compact />
-            <Button variant="ghost" size="sm" onClick={() => signOutPortal()} className="text-muted-foreground">
+            <Button variant="ghost" size="sm" onClick={() => signOut()} className="text-muted-foreground">
               <LogOut className="h-4 w-4 mr-1" /> Sign Out
             </Button>
           </div>
@@ -89,9 +84,9 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
       <main className="p-4 md:p-6 max-w-[1400px] mx-auto">
         {children}
       </main>
-      <InternalChatWidget />
+      {!isExternalUser && <InternalChatWidget />}
     </div>
-    </PortalAuthGuard>
+    </MFARequiredGuard>
   );
 };
 
