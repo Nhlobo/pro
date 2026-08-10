@@ -5,16 +5,19 @@ import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { LiveCaseTracker } from '@/components/LiveCaseTracker';
 import { Link } from 'react-router-dom';
 import {
-  PortalPageHeader,
+  PortalPage,
+  PortalHeader,
   SyncStatus,
-  StatTile,
-  PortalSection,
+  PortalStatCard,
+  PortalCard,
+  PortalCardHeader,
+  PortalCardBody,
   QuickLinkRow,
   AlertStrip,
-  PortalTone,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { Button } from '@/components/ui/button';
 import {
+  LayoutDashboard,
   Briefcase,
   Calendar,
   Clock,
@@ -53,88 +56,84 @@ const AttorneyPortalDashboard: React.FC = () => {
   ).length;
 
   const isLoading = loading || debtsLoading;
+  const hasOutstandingBalance = !!debtSummary && debtSummary.total_owed > 0;
 
   const statTiles: {
     label: string;
     value: React.ReactNode;
     icon: typeof Briefcase;
-    tone: PortalTone;
-    description: string;
+    hint?: string;
     href?: string;
+    urgent?: boolean;
   }[] = [
     {
       label: 'Total Active Cases',
       value: liveCases.length,
       icon: Briefcase,
-      tone: 'primary',
-      description: 'All referred cases',
+      hint: 'All referred cases',
       href: '/attorney-portal/cases',
     },
     {
       label: 'Booking Stage',
       value: bookingStageCases,
       icon: BookOpen,
-      tone: 'info',
-      description: 'Awaiting scheduling',
+      hint: 'Awaiting scheduling',
       href: '/attorney-portal/appointments',
     },
     {
       label: 'Reports Outstanding',
       value: reportsOutstanding,
       icon: Clock,
-      tone: 'warning',
-      description: 'Not yet ready',
+      hint: 'Not yet ready',
       href: '/attorney-portal/case-status',
     },
     {
       label: 'Litigation Ready',
       value: litigationReadyCases,
       icon: Scale,
-      tone: 'success',
-      description: 'All reports submitted',
+      hint: 'All reports submitted',
       href: '/attorney-portal/cases',
     },
     {
       label: 'Reports In Progress',
       value: stats.reportsInProgress,
       icon: FileText,
-      tone: 'info',
-      description: 'Being prepared',
+      hint: 'Being prepared',
       href: '/attorney-portal/reports',
     },
     {
       label: 'Reports Completed',
       value: stats.reportsReadyToDownload,
       icon: CheckCircle2,
-      tone: 'success',
-      description: 'Ready to download',
+      hint: 'Ready to download',
       href: '/attorney-portal/reports',
     },
     {
       label: 'Outstanding Balance',
       value: debtSummary ? `R${debtSummary.total_owed.toLocaleString()}` : 'R0',
       icon: Wallet,
-      tone: 'destructive',
-      description: 'AOD balance due',
+      hint: 'AOD balance due',
       href: '/attorney-portal/payments',
+      urgent: hasOutstandingBalance,
     },
     {
       label: 'Actions Needed',
       value: stats.actionsNeeded,
       icon: AlertCircle,
-      tone: 'destructive',
-      description: `${stats.missingDocuments} docs · ${stats.pendingConfirmations} confirmations`,
+      hint: `${stats.missingDocuments} docs · ${stats.pendingConfirmations} confirmations`,
       href: '/attorney-portal/notifications',
+      urgent: stats.actionsNeeded > 0,
     },
   ];
 
   return (
     <AttorneyPortalLayout>
-      <div className="space-y-6">
-        <PortalPageHeader
+      <PortalPage>
+        <PortalHeader
           eyebrow="Attorney Portal"
           title="Dashboard"
           description="Track your matters, monitor progress, and manage your cases."
+          icon={LayoutDashboard}
           actions={<SyncStatus loading={isLoading} onRefresh={refetchStats} label="Live data" />}
         />
 
@@ -145,83 +144,82 @@ const AttorneyPortalDashboard: React.FC = () => {
             title={`${stats.actionsNeeded} action${stats.actionsNeeded === 1 ? '' : 's'} need your attention`}
             description={`${stats.missingDocuments} case${stats.missingDocuments === 1 ? '' : 's'} missing documents, ${stats.pendingConfirmations} confirmation${stats.pendingConfirmations === 1 ? '' : 's'} pending.`}
             action={
-              <Button asChild size="sm" variant="outline">
+              <Button asChild size="sm" variant="outline" className="rounded-none">
                 <Link to="/attorney-portal/notifications">Review</Link>
               </Button>
             }
           />
         )}
 
-        {/* KPI instrument panel */}
+        {/* KPI panel */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {statTiles.map((tile) => (
-            <StatTile
+            <PortalStatCard
               key={tile.label}
               icon={tile.icon}
               label={tile.label}
               value={tile.value}
-              tone={tile.tone}
-              description={tile.description}
+              hint={tile.hint}
               loading={isLoading}
               href={tile.href}
+              urgent={tile.urgent}
             />
           ))}
         </div>
 
         {/* Primary content: live case tracker + compact quick-access panel */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <PortalSection
-              icon={TrendingUp}
-              title="Live Case Progress"
-              description="Real-time tracking of your case progress through all stages"
-              tone="primary"
-            >
-              <LiveCaseTracker cases={liveCases.slice(0, 5)} loading={loading} onRefresh={refetchStats} />
-              {liveCases.length > 5 && (
-                <div className="mt-4 text-center">
-                  <Button asChild variant="outline">
-                    <Link to="/attorney-portal/cases">View All {liveCases.length} Cases</Link>
-                  </Button>
-                </div>
-              )}
-            </PortalSection>
+            <PortalCard>
+              <PortalCardHeader
+                icon={TrendingUp}
+                title="Live Case Progress"
+                description="Real-time tracking of your case progress through all stages"
+              />
+              <PortalCardBody>
+                <LiveCaseTracker cases={liveCases.slice(0, 5)} loading={loading} onRefresh={refetchStats} />
+                {liveCases.length > 5 && (
+                  <div className="mt-4 text-center">
+                    <Button asChild variant="outline" className="rounded-none">
+                      <Link to="/attorney-portal/cases">View All {liveCases.length} Cases</Link>
+                    </Button>
+                  </div>
+                )}
+              </PortalCardBody>
+            </PortalCard>
           </div>
 
           <div className="lg:col-span-1">
-            <PortalSection title="Quick Access" description="Jump to a section" noPadding>
+            <PortalCard>
+              <PortalCardHeader title="Quick Access" description="Jump to a section" />
               <QuickLinkRow
                 icon={Calendar}
-                tone="info"
                 title="Upcoming Appointments"
                 subtitle={`${upcomingAppointments} scheduled`}
                 href="/attorney-portal/appointments"
               />
               <QuickLinkRow
                 icon={FileText}
-                tone="teal"
                 title="Reports Ready"
                 subtitle={`${stats.reportsReadyToDownload} available to download`}
                 href="/attorney-portal/reports"
               />
               <QuickLinkRow
                 icon={Wallet}
-                tone="warning"
                 title="Payment Summary"
                 subtitle="AOD balances & payment schedule"
                 href="/attorney-portal/payments"
               />
               <QuickLinkRow
                 icon={Scale}
-                tone="purple"
                 title="My Cases"
                 subtitle={`${liveCases.length} total cases`}
                 href="/attorney-portal/cases"
               />
-            </PortalSection>
+            </PortalCard>
           </div>
         </div>
-      </div>
+      </PortalPage>
     </AttorneyPortalLayout>
   );
 };
