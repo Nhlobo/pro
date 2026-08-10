@@ -1,111 +1,76 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { ChevronRight, LucideIcon, RefreshCw } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import { ChevronRight, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
 
 /**
  * Shared building blocks for the redesigned Attorney Portal.
  *
- * Rules this file encodes (so every page that adopts it looks and behaves
- * the same way, instead of each page inventing its own card/spacing):
- *  - One page-level heading pattern (`PortalPageHeader`).
- *  - One content-container width/gutter rhythm — pages should not add their
- *    own outer max-width; that lives in `AttorneyPortalLayout`.
- *  - One KPI tile shape (`StatTile`) — border-led, not shadow-led, so a grid
- *    of 8 of them reads as one systematic instrument panel, not 8 separate
- *    "cards" competing for attention.
- *  - One section wrapper (`PortalSection`) with a consistent header row.
- *  - One compact list-row shape (`QuickLinkRow`) for secondary navigation,
- *    replacing ad-hoc full-size cards for what is really a linked list.
- *
- * Everything here reads existing design tokens (bg-card, border-border,
- * text-muted-foreground, the brand + semantic colors already defined in
- * index.css) rather than inventing new colors, so it matches the system
- * without being a re-skin of the old gradient/shadow-heavy cards.
+ * This is the Attorney Portal's version of `admin/ui/AdminUI.tsx` — same
+ * design system, not a new one: flat black/white surfaces, hairline
+ * `border-black/10`, sharp corners (no rounding), and a single teal accent
+ * (`BRAND_TEAL`, imported from AdminUI so the two portals literally share
+ * one color constant). Color beyond that is semantic only — success/
+ * warning/destructive are used for real state (overdue, ready, at risk),
+ * never as decoration or category coding. That mirrors exactly how
+ * AdminStatCard / AdminOperationsDashboard already behave; this file just
+ * gives the Attorney Portal the same primitives so its pages don't drift
+ * from that system the way the first pass did.
  */
 
-export type PortalTone =
-  | 'primary'
-  | 'info'
-  | 'success'
-  | 'warning'
-  | 'destructive'
-  | 'teal'
-  | 'purple'
-  | 'neutral';
-
-const TONE_TEXT: Record<PortalTone, string> = {
-  primary: 'text-primary',
-  info: 'text-info',
-  success: 'text-success',
-  warning: 'text-warning',
-  destructive: 'text-destructive',
-  teal: 'text-kutlwano-teal',
-  purple: 'text-kutlwano-purple',
-  neutral: 'text-foreground',
-};
-
-const TONE_BORDER: Record<PortalTone, string> = {
-  primary: 'border-l-primary',
-  info: 'border-l-info',
-  success: 'border-l-success',
-  warning: 'border-l-warning',
-  destructive: 'border-l-destructive',
-  teal: 'border-l-kutlwano-teal',
-  purple: 'border-l-kutlwano-purple',
-  neutral: 'border-l-border',
-};
-
-const TONE_BG: Record<PortalTone, string> = {
-  primary: 'bg-primary/10',
-  info: 'bg-info/10',
-  success: 'bg-success/10',
-  warning: 'bg-warning/10',
-  destructive: 'bg-destructive/10',
-  teal: 'bg-kutlwano-teal/10',
-  purple: 'bg-kutlwano-purple/10',
-  neutral: 'bg-muted',
-};
-
 /* -------------------------------------------------------------------- */
-/* Page header                                                          */
+/* Page shell / header                                                  */
 /* -------------------------------------------------------------------- */
 
-interface PortalPageHeaderProps {
+export const PortalPage: React.FC<{ children: React.ReactNode; className?: string }> = ({
+  children,
+  className,
+}) => <div className={cn('space-y-4 md:space-y-6', className)}>{children}</div>;
+
+interface PortalHeaderProps {
   eyebrow?: string;
   title: string;
   description?: string;
+  icon?: LucideIcon;
   actions?: React.ReactNode;
 }
 
-export const PortalPageHeader: React.FC<PortalPageHeaderProps> = ({
+export const PortalHeader: React.FC<PortalHeaderProps> = ({
   eyebrow,
   title,
   description,
+  icon: Icon,
   actions,
 }) => (
-  <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-end sm:justify-between">
-    <div className="min-w-0">
-      {eyebrow && (
-        <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-          {eyebrow}
+  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex min-w-0 items-center gap-3">
+      {Icon && (
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/5">
+          <Icon className="h-5 w-5" style={{ color: BRAND_TEAL }} />
         </div>
       )}
-      <h1 className="mt-0.5 text-2xl font-bold leading-tight text-foreground sm:text-[1.75rem]">
-        {title}
-      </h1>
-      {description && (
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{description}</p>
-      )}
+      <div className="min-w-0">
+        {eyebrow && (
+          <div
+            className="text-[11px] font-semibold uppercase tracking-[0.2em]"
+            style={{ color: BRAND_TEAL }}
+          >
+            {eyebrow}
+          </div>
+        )}
+        <h1 className="truncate text-xl font-bold text-black md:text-2xl">{title}</h1>
+        {description && <p className="text-xs text-slate-500 md:text-sm">{description}</p>}
+      </div>
     </div>
     {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
   </div>
 );
 
 /* -------------------------------------------------------------------- */
-/* Refresh / sync indicator — small, reusable, so every page can show   */
-/* live-data status the same way instead of a bespoke spinner each time */
+/* Sync / refresh indicator                                             */
 /* -------------------------------------------------------------------- */
 
 interface SyncStatusProps {
@@ -115,13 +80,10 @@ interface SyncStatusProps {
 }
 
 export const SyncStatus: React.FC<SyncStatusProps> = ({ loading, onRefresh, label = 'Live data' }) => (
-  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+  <div className="flex items-center gap-2 text-xs text-slate-500">
     <span className="flex items-center gap-1.5">
       <span
-        className={cn(
-          'h-1.5 w-1.5 rounded-full',
-          loading ? 'bg-warning animate-pulse' : 'bg-success'
-        )}
+        className={cn('h-1.5 w-1.5 rounded-full', loading ? 'bg-amber-500 animate-pulse' : 'bg-success')}
         aria-hidden="true"
       />
       {loading ? 'Syncing…' : label}
@@ -130,7 +92,7 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({ loading, onRefresh, labe
       <Button
         variant="ghost"
         size="icon"
-        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+        className="h-7 w-7 rounded-none text-slate-500 hover:bg-black/5 hover:text-black"
         onClick={onRefresh}
         disabled={loading}
         aria-label="Refresh data"
@@ -142,109 +104,147 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({ loading, onRefresh, labe
 );
 
 /* -------------------------------------------------------------------- */
-/* KPI stat tile                                                        */
+/* Card                                                                  */
 /* -------------------------------------------------------------------- */
 
-interface StatTileProps {
-  icon: LucideIcon;
+export const PortalCard: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+  className,
+  ...props
+}) => (
+  <div
+    className={cn('rounded-none border border-black/10 bg-white shadow-none', className)}
+    {...props}
+  />
+);
+
+export const PortalCardHeader: React.FC<{
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  icon?: LucideIcon;
+  actions?: React.ReactNode;
+  className?: string;
+}> = ({ title, description, icon: Icon, actions, className }) => (
+  <div
+    className={cn(
+      'flex flex-col gap-2 border-b border-black/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
+      className
+    )}
+  >
+    <div className="min-w-0">
+      <div className="flex items-center gap-2 text-sm font-semibold text-black">
+        {Icon && <Icon className="h-4 w-4 shrink-0" style={{ color: BRAND_TEAL }} />}
+        <span className="truncate">{title}</span>
+      </div>
+      {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
+    </div>
+    {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+  </div>
+);
+
+export const PortalCardBody: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+  className,
+  ...props
+}) => <div className={cn('p-4', className)} {...props} />;
+
+/* -------------------------------------------------------------------- */
+/* KPI stat card — single teal accent, no category color-coding         */
+/* -------------------------------------------------------------------- */
+
+interface PortalStatCardProps {
   label: string;
   value: React.ReactNode;
-  description?: string;
-  tone?: PortalTone;
+  icon?: LucideIcon;
+  hint?: React.ReactNode;
   loading?: boolean;
   href?: string;
+  /** Only for genuinely urgent/at-risk numbers (e.g. overdue balance). */
+  urgent?: boolean;
 }
 
-export const StatTile: React.FC<StatTileProps> = ({
-  icon: Icon,
+export const PortalStatCard: React.FC<PortalStatCardProps> = ({
   label,
   value,
-  description,
-  tone = 'primary',
+  icon: Icon,
+  hint,
   loading,
   href,
+  urgent,
 }) => {
-  const content = (
-    <div
-      className={cn(
-        'group relative flex h-full flex-col justify-between border border-border border-l-2 bg-card px-4 py-3.5 transition-colors',
-        TONE_BORDER[tone],
-        href && 'hover:bg-muted/40'
-      )}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </span>
-        <div className={cn('flex h-6 w-6 shrink-0 items-center justify-center', TONE_BG[tone])}>
-          <Icon className={cn('h-3.5 w-3.5', TONE_TEXT[tone])} />
-        </div>
-      </div>
-      <div className="mt-2">
-        <div className={cn('text-2xl font-bold leading-none tabular-nums', TONE_TEXT[tone])}>
-          {loading ? <span className="inline-block h-6 w-12 animate-pulse rounded-sm bg-muted" /> : value}
-        </div>
-        {description && (
-          <p className="mt-1.5 truncate text-[11px] text-muted-foreground">{description}</p>
+  const valueText = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+  const valueLen = valueText.replace(/\s/g, '').length;
+  const valueSizeClass =
+    valueLen > 14 ? 'text-base md:text-lg' : valueLen > 10 ? 'text-lg md:text-xl' : 'text-xl md:text-2xl';
+
+  const inner = (
+    <div className="min-w-0 px-3 pb-3 pt-3 md:px-4">
+      <div className="mb-2 flex items-center justify-between">
+        {Icon && (
+          <div className="rounded-full bg-black/5 p-1.5 md:p-2">
+            <Icon className={cn('h-4 w-4', urgent && 'text-destructive')} style={urgent ? undefined : { color: BRAND_TEAL }} />
+          </div>
         )}
       </div>
+      <p
+        className={cn(
+          'font-bold tabular-nums leading-tight break-words [overflow-wrap:anywhere]',
+          urgent ? 'text-destructive' : 'text-black',
+          valueSizeClass
+        )}
+        title={valueText || undefined}
+      >
+        {loading ? '–' : value}
+      </p>
+      <p className="text-[11px] leading-tight text-slate-500">{label}</p>
+      {hint && <p className="mt-0.5 text-[10px] text-slate-400">{hint}</p>}
     </div>
   );
 
-  if (href) {
-    return (
-      <Link to={href} className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        {content}
-      </Link>
-    );
-  }
-  return content;
+  return (
+    <PortalCard
+      className={cn(
+        'min-w-0 overflow-hidden transition-colors hover:border-black/25',
+        href && 'cursor-pointer'
+      )}
+    >
+      {href ? (
+        <Link to={href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {inner}
+        </Link>
+      ) : (
+        inner
+      )}
+    </PortalCard>
+  );
 };
 
 /* -------------------------------------------------------------------- */
-/* Section wrapper                                                      */
+/* Pill (status label — used sparingly, for real status only)           */
 /* -------------------------------------------------------------------- */
 
-interface PortalSectionProps {
-  icon?: LucideIcon;
-  title: string;
-  description?: string;
-  actions?: React.ReactNode;
-  tone?: PortalTone;
-  children: React.ReactNode;
-  className?: string;
-  noPadding?: boolean;
-}
+export type PortalPillTone = 'neutral' | 'teal' | 'success' | 'warning' | 'destructive';
 
-export const PortalSection: React.FC<PortalSectionProps> = ({
-  icon: Icon,
-  title,
-  description,
-  actions,
-  tone = 'primary',
-  children,
-  className,
-  noPadding,
-}) => (
-  <section className={cn('flex h-full flex-col border border-border bg-card', className)}>
-    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3 sm:px-5">
-      <div className="flex min-w-0 items-center gap-2">
-        {Icon && (
-          <div className={cn('flex h-7 w-7 shrink-0 items-center justify-center', TONE_BG[tone])}>
-            <Icon className={cn('h-4 w-4', TONE_TEXT[tone])} />
-          </div>
-        )}
-        <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold text-foreground">{title}</h2>
-          {description && (
-            <p className="truncate text-xs text-muted-foreground">{description}</p>
-          )}
-        </div>
-      </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
-    </header>
-    <div className={cn('flex-1 min-h-0', !noPadding && 'p-4 sm:p-5')}>{children}</div>
-  </section>
+const PILL_TONE_CLASSES: Record<PortalPillTone, string> = {
+  neutral: 'border-black/15 text-black',
+  teal: 'border-[#00BAAD]/40 text-[#00BAAD]',
+  success: 'border-success/40 text-success',
+  warning: 'border-warning/40 text-warning',
+  destructive: 'border-destructive/40 text-destructive',
+};
+
+export const PortalPill: React.FC<{
+  children: React.ReactNode;
+  tone?: PortalPillTone;
+  className?: string;
+}> = ({ children, tone = 'neutral', className }) => (
+  <span
+    className={cn(
+      'inline-flex items-center gap-1 rounded-none border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+      PILL_TONE_CLASSES[tone],
+      className
+    )}
+  >
+    {children}
+  </span>
 );
 
 /* -------------------------------------------------------------------- */
@@ -256,63 +256,87 @@ interface QuickLinkRowProps {
   title: string;
   subtitle: string;
   href: string;
-  tone?: PortalTone;
   badge?: React.ReactNode;
 }
 
-export const QuickLinkRow: React.FC<QuickLinkRowProps> = ({
-  icon: Icon,
-  title,
-  subtitle,
-  href,
-  tone = 'primary',
-  badge,
-}) => (
+export const QuickLinkRow: React.FC<QuickLinkRowProps> = ({ icon: Icon, title, subtitle, href, badge }) => (
   <Link
     to={href}
-    className="flex items-center gap-3 border-b border-border px-4 py-3 last:border-b-0 transition-colors hover:bg-muted/40 sm:px-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+    className="flex items-center gap-3 border-b border-black/10 px-4 py-3 last:border-b-0 transition-colors hover:bg-black/5 sm:px-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
   >
-    <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center', TONE_BG[tone])}>
-      <Icon className={cn('h-4 w-4', TONE_TEXT[tone])} />
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/5">
+      <Icon className="h-4 w-4" style={{ color: BRAND_TEAL }} />
     </div>
     <div className="min-w-0 flex-1">
-      <div className="truncate text-sm font-medium text-foreground">{title}</div>
-      <div className="truncate text-xs text-muted-foreground">{subtitle}</div>
+      <div className="truncate text-sm font-medium text-black">{title}</div>
+      <div className="truncate text-xs text-slate-500">{subtitle}</div>
     </div>
     {badge}
-    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/60" />
+    <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
   </Link>
 );
 
 /* -------------------------------------------------------------------- */
-/* Inline alert strip (for "actions needed" style callouts)             */
+/* Alert strip — for "action needed" callouts. Warning/destructive only,*/
+/* used because it's true, not as page decoration.                      */
 /* -------------------------------------------------------------------- */
 
 interface AlertStripProps {
   icon: LucideIcon;
   title: string;
   description: string;
-  tone?: Extract<PortalTone, 'warning' | 'destructive' | 'info'>;
+  tone?: 'warning' | 'destructive';
   action?: React.ReactNode;
 }
 
-export const AlertStrip: React.FC<AlertStripProps> = ({
-  icon: Icon,
-  title,
-  description,
-  tone = 'warning',
-  action,
-}) => (
-  <div className={cn('flex flex-col gap-3 border border-l-2 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between', TONE_BORDER[tone])}>
+export const AlertStrip: React.FC<AlertStripProps> = ({ icon: Icon, title, description, tone = 'warning', action }) => (
+  <div
+    className={cn(
+      'flex flex-col gap-3 rounded-none border bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
+      tone === 'destructive' ? 'border-destructive/30' : 'border-warning/30'
+    )}
+  >
     <div className="flex items-start gap-3">
-      <div className={cn('mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center', TONE_BG[tone])}>
-        <Icon className={cn('h-4 w-4', TONE_TEXT[tone])} />
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/5">
+        <Icon className={cn('h-4 w-4', tone === 'destructive' ? 'text-destructive' : 'text-warning')} />
       </div>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-foreground">{title}</p>
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="text-sm font-semibold text-black">{title}</p>
+        <p className="text-xs text-slate-500">{description}</p>
       </div>
     </div>
     {action && <div className="shrink-0 pl-10 sm:pl-0">{action}</div>}
+  </div>
+);
+
+/* -------------------------------------------------------------------- */
+/* Empty / loading states                                               */
+/* -------------------------------------------------------------------- */
+
+export const PortalEmptyState: React.FC<{
+  icon?: LucideIcon;
+  title: string;
+  description?: string;
+  action?: React.ReactNode;
+}> = ({ icon: Icon, title, description, action }) => (
+  <div className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
+    {Icon && (
+      <div className="mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-black/5">
+        <Icon className="h-6 w-6 text-slate-400" />
+      </div>
+    )}
+    <p className="text-sm font-medium text-black">{title}</p>
+    {description && <p className="max-w-sm text-xs text-slate-500">{description}</p>}
+    {action}
+  </div>
+);
+
+export const PortalLoadingState: React.FC<{ label?: string }> = ({ label = 'Loading…' }) => (
+  <div className="flex items-center justify-center px-4 py-12 text-sm text-slate-500">
+    <span
+      className="mr-2 h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/15 border-t-[#00BAAD]"
+      aria-hidden="true"
+    />
+    {label}
   </div>
 );
