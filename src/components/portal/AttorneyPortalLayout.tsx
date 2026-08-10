@@ -259,7 +259,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
           </div>
         </header>
 
-        <div className="min-w-0 p-3 sm:p-4 lg:p-6">{children}</div>
+        <div className="min-w-0 mx-auto w-full max-w-7xl p-3 sm:p-4 lg:p-6">{children}</div>
       </main>
     </div>
   );
