@@ -9,7 +9,8 @@ import {
   PortalPage,
   PortalHeader,
   SyncStatus,
-  PortalStatCard,
+  PortalStatStrip,
+  PortalStatTile,
   PortalCard,
   PortalCardHeader,
   PortalCardBody,
@@ -95,13 +96,7 @@ const AttorneyPortalDashboard: React.FC = () => {
   const isLoading = loading || debtsLoading;
   const hasOutstandingBalance = !!debtSummary && debtSummary.total_owed > 0;
 
-  const statTiles: {
-    label: string;
-    value: React.ReactNode;
-    icon: typeof Briefcase;
-    hint?: string;
-    urgent?: boolean;
-  }[] = [
+  const statTiles: PortalStatTile[] = [
     { label: 'Total Active Cases', value: liveCases.length, icon: Briefcase, hint: 'All referred cases' },
     { label: 'Booking Stage', value: bookingStageCases, icon: BookOpen, hint: 'Awaiting scheduling' },
     { label: 'Reports Outstanding', value: reportsOutstanding, icon: Clock, hint: 'Not yet ready' },
@@ -128,9 +123,9 @@ const AttorneyPortalDashboard: React.FC = () => {
     <AttorneyPortalLayout>
       <PortalPage>
         <PortalHeader
-          eyebrow="Attorney Portal"
+          eyebrow="Overview"
           title="Dashboard"
-          description="Everything that changed since you last checked — not a menu, that's what the sidebar is for."
+          description="Your active caseload, appointments, and account status, updated in real time."
           icon={LayoutDashboard}
           actions={<SyncStatus loading={isLoading} onRefresh={refetchStats} label="Live data" />}
         />
@@ -149,22 +144,10 @@ const AttorneyPortalDashboard: React.FC = () => {
           />
         )}
 
-        {/* KPI panel — informational only. These numbers are read here so
-            you don't have to open every page to know where things stand;
-            they are not buttons to the pages the sidebar already opens. */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {statTiles.map((tile) => (
-            <PortalStatCard
-              key={tile.label}
-              icon={tile.icon}
-              label={tile.label}
-              value={tile.value}
-              hint={tile.hint}
-              loading={isLoading}
-              urgent={tile.urgent}
-            />
-          ))}
-        </div>
+        {/* KPI panel — one bordered ledger, not eight floating cards.
+            Informational only: these numbers are read here so you don't
+            have to open every page to know where things stand. */}
+        <PortalStatStrip tiles={statTiles} loading={isLoading} />
 
         {/* Primary content */}
         <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">
