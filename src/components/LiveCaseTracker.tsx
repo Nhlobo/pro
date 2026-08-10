@@ -1,180 +1,199 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import React, { useMemo, useState, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  FileText, 
-  Calendar, 
-  ClipboardCheck, 
-  UserCheck, 
-  Edit3, 
-  CheckCircle2, 
+import {
+  FileText,
+  Calendar,
+  ClipboardCheck,
+  UserCheck,
+  Edit3,
+  CheckCircle2,
   Download,
   Search,
   RefreshCw,
-  ChevronRight
+  ChevronRight,
+  Circle
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { LiveCaseStatus } from '@/hooks/useAttorneyDashboardStats';
+import {
+  PortalCard,
+  PortalCardHeader,
+  PortalPill,
+  PortalEmptyState,
+  type PortalPillTone,
+} from '@/components/attorney-portal/ui/PortalPrimitives';
+import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
 
 interface LiveCaseTrackerProps {
   cases: LiveCaseStatus[];
   loading: boolean;
   onRefresh: () => void;
+  /**
+   * When true, this renders as bare content (search + legend + list) with
+   * no outer card/title of its own — for use inside a page that already
+   * wraps it in a PortalCard + PortalCardHeader (e.g. the Attorney Portal
+   * dashboard's "Live Case Progress" panel), so the title/description and
+   * the card border aren't duplicated. Defaults to false so existing
+   * standalone usages (e.g. the internal Referring Attorney CRM tab) are
+   * unaffected.
+   */
+  embedded?: boolean;
 }
 
 const phaseIcons: Record<string, React.ReactNode> = {
-  'Referral Received': <FileText className="h-4 w-4" />,
-  'Documents Verified': <ClipboardCheck className="h-4 w-4" />,
-  'Appointment Scheduled': <Calendar className="h-4 w-4" />,
-  'Claimant Assessed': <UserCheck className="h-4 w-4" />,
-  'Report Drafting': <Edit3 className="h-4 w-4" />,
-  'Quality Review': <CheckCircle2 className="h-4 w-4" />,
-  'Report Ready': <Download className="h-4 w-4" />
+  'Referral Received': <FileText className="h-3.5 w-3.5" />,
+  'Documents Verified': <ClipboardCheck className="h-3.5 w-3.5" />,
+  'Appointment Scheduled': <Calendar className="h-3.5 w-3.5" />,
+  'Claimant Assessed': <UserCheck className="h-3.5 w-3.5" />,
+  'Report Drafting': <Edit3 className="h-3.5 w-3.5" />,
+  'Quality Review': <CheckCircle2 className="h-3.5 w-3.5" />,
+  'Report Ready': <Download className="h-3.5 w-3.5" />
 };
 
-const phaseColors: Record<string, string> = {
-  'Referral Received': 'bg-kutlwano-blue',
-  'Documents Verified': 'bg-kutlwano-teal',
-  'Appointment Scheduled': 'bg-blue-500',
-  'Claimant Assessed': 'bg-purple-500',
-  'Report Drafting': 'bg-orange-500',
-  'Quality Review': 'bg-amber-500',
-  'Report Ready': 'bg-success'
+/**
+ * Single-accent status system — same three states everywhere in the
+ * Attorney Portal (PortalPill: neutral / teal / success), not a distinct
+ * color per phase. Progress is still legible from position + icon + label,
+ * it just no longer reads as seven unrelated brand colors.
+ */
+const STATUS_TONE: Record<'pending' | 'in_progress' | 'completed', PortalPillTone> = {
+  pending: 'neutral',
+  in_progress: 'teal',
+  completed: 'success',
 };
 
-export const LiveCaseTracker: React.FC<LiveCaseTrackerProps> = ({ cases, loading, onRefresh }) => {
+const STATUS_LABEL: Record<'pending' | 'in_progress' | 'completed', string> = {
+  pending: 'Pending',
+  in_progress: 'Active',
+  completed: 'Done',
+};
+
+function stepClasses(status: 'pending' | 'in_progress' | 'completed') {
+  if (status === 'completed') return 'text-white shadow-sm';
+  if (status === 'in_progress') return 'text-white shadow-sm';
+  return 'bg-black/5 text-slate-400';
+}
+
+function stepStyle(status: 'pending' | 'in_progress' | 'completed'): React.CSSProperties {
+  if (status === 'completed') return { backgroundColor: '#16a34a' };
+  if (status === 'in_progress') return { backgroundColor: BRAND_TEAL, boxShadow: `0 0 0 3px ${BRAND_TEAL}33` };
+  return {};
+}
+
+export const LiveCaseTracker: React.FC<LiveCaseTrackerProps> = ({ cases, loading, onRefresh, embedded = false }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCase, setExpandedCase] = useState<string | null>(null);
 
-  const filteredCases = cases.filter(c => 
-    c.claimantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.claimantAutoId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.expertType.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const getStatusBadge = (status: 'completed' | 'in_progress' | 'pending') => {
-    switch (status) {
-      case 'completed':
-        return <Badge className="bg-success/20 text-success border-success/30 text-xs">Done</Badge>;
-      case 'in_progress':
-        return <Badge className="bg-warning/20 text-warning border-warning/30 text-xs animate-pulse">Active</Badge>;
-      default:
-        return <Badge variant="outline" className="text-muted-foreground text-xs">Pending</Badge>;
-    }
-  };
-
-  if (loading) {
-    return (
-      <Card className="bg-gradient-card border-border/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <RefreshCw className="h-5 w-5 animate-spin" />
-            Loading Case Tracker...
-          </CardTitle>
-        </CardHeader>
-      </Card>
+  // Filtering only runs when its inputs actually change, not on every
+  // unrelated re-render (e.g. expanding/collapsing a different case).
+  const filteredCases = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return cases;
+    return cases.filter((c) =>
+      c.claimantName.toLowerCase().includes(term) ||
+      c.claimantAutoId.toLowerCase().includes(term) ||
+      c.expertType.toLowerCase().includes(term)
     );
-  }
+  }, [cases, searchTerm]);
 
-  return (
-    <Card className="bg-gradient-card border-border/50 shadow-soft">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-kutlwano-blue">
-              <FileText className="h-5 w-5" />
-              Live Case Tracker
-            </CardTitle>
-            <CardDescription>
-              Real-time progress tracking for all your matters
-            </CardDescription>
+  const toggleExpanded = useCallback((id: string) => {
+    setExpandedCase((current) => (current === id ? null : id));
+  }, []);
+
+  const searchAndList = (
+    <>
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Input
+          placeholder="Search by claimant name, ID, or expert type…"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="rounded-none border-black/15 pl-9"
+        />
+      </div>
+
+      {/* Status legend — three states, not seven colors */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        {(['pending', 'in_progress', 'completed'] as const).map((status) => (
+          <div key={status} className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <Circle
+              className="h-2.5 w-2.5 shrink-0"
+              style={{ color: status === 'pending' ? '#cbd5e1' : status === 'completed' ? '#16a34a' : BRAND_TEAL }}
+              fill="currentColor"
+              strokeWidth={0}
+            />
+            {STATUS_LABEL[status]}
           </div>
-          <Button variant="outline" size="sm" onClick={onRefresh}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-        </div>
-        <div className="relative mt-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by claimant name, ID, or expert type..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-      </CardHeader>
-      <CardContent>
-        {/* Timeline Legend */}
-        <div className="flex flex-wrap gap-2 mb-6 p-4 bg-muted/30 rounded-lg">
-          {Object.entries(phaseIcons).map(([phase, icon]) => (
-            <div key={phase} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <div className={`p-1 rounded ${phaseColors[phase]} text-white`}>
-                {icon}
-              </div>
-              <span>{phase}</span>
-            </div>
-          ))}
-        </div>
+        ))}
+      </div>
 
-        <ScrollArea className="h-[500px] pr-4">
-          <div className="space-y-4">
-            {filteredCases.map((caseItem) => (
-              <Card 
-                key={caseItem.id} 
-                className={`bg-background/50 border-border/50 transition-all duration-300 hover:shadow-md cursor-pointer ${
-                  expandedCase === caseItem.id ? 'ring-2 ring-kutlwano-blue/50' : ''
-                }`}
-                onClick={() => setExpandedCase(expandedCase === caseItem.id ? null : caseItem.id)}
+      <ScrollArea className="mt-4 max-h-[70vh] pr-2 sm:max-h-[520px]">
+        <div className="space-y-3">
+          {filteredCases.map((caseItem) => {
+            const isExpanded = expandedCase === caseItem.id;
+            const currentStatus =
+              caseItem.phases.find((p) => p.name === caseItem.currentPhase)?.status || 'pending';
+
+            return (
+              <div
+                key={caseItem.id}
+                className={cn(
+                  'cursor-pointer border border-black/10 bg-white transition-colors hover:border-black/25',
+                  isExpanded && 'border-[#00BAAD]/50'
+                )}
+                onClick={() => toggleExpanded(caseItem.id)}
               >
-                <CardContent className="p-4">
-                  {/* Case Header */}
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <div className="font-semibold text-foreground">{caseItem.claimantName}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {caseItem.claimantAutoId} • {caseItem.expertType}
+                <div className="p-3 sm:p-4">
+                  {/* Case header */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-black">{caseItem.claimantName}</div>
+                      <div className="truncate text-xs text-slate-500">
+                        {caseItem.claimantAutoId} · {caseItem.expertType}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={`${phaseColors[caseItem.currentPhase]} text-white`}>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <PortalPill tone={STATUS_TONE[currentStatus]} className="hidden sm:inline-flex">
                         {caseItem.currentPhase}
-                      </Badge>
-                      <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${
-                        expandedCase === caseItem.id ? 'rotate-90' : ''
-                      }`} />
+                      </PortalPill>
+                      <ChevronRight
+                        className={cn('h-4 w-4 text-slate-400 transition-transform', isExpanded && 'rotate-90')}
+                      />
                     </div>
                   </div>
+                  <PortalPill tone={STATUS_TONE[currentStatus]} className="mt-2 sm:hidden">
+                    {caseItem.currentPhase}
+                  </PortalPill>
 
-                  {/* Timeline Progress Bar */}
-                  <div className="relative">
-                    <div className="flex items-center justify-between">
+                  {/* Timeline — horizontally scrollable so it never gets
+                      crushed on narrow screens; each step keeps a fixed
+                      minimum width instead of squeezing to a percentage. */}
+                  <div className="mt-4 -mx-1 overflow-x-auto px-1 pb-1">
+                    <div className="flex min-w-max items-start">
                       {caseItem.phases.map((phase, index) => (
-                        <div 
-                          key={phase.name} 
-                          className="flex flex-col items-center relative z-10"
-                          style={{ width: `${100 / caseItem.phases.length}%` }}
-                        >
-                          <div 
-                            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
-                              phase.status === 'completed' 
-                                ? `${phaseColors[phase.name]} text-white shadow-lg` 
-                                : phase.status === 'in_progress'
-                                  ? `${phaseColors[phase.name]} text-white animate-pulse shadow-lg ring-4 ring-offset-2 ring-offset-background ring-${phaseColors[phase.name]}/30`
-                                  : 'bg-muted text-muted-foreground'
-                            }`}
-                          >
-                            {phaseIcons[phase.name]}
+                        <div key={phase.name} className="flex items-start">
+                          <div className="flex w-16 flex-col items-center text-center sm:w-20">
+                            <div
+                              className={cn(
+                                'flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors sm:h-8 sm:w-8',
+                                stepClasses(phase.status)
+                              )}
+                              style={stepStyle(phase.status)}
+                              title={`${phase.name} — ${STATUS_LABEL[phase.status]}`}
+                            >
+                              {phaseIcons[phase.name]}
+                            </div>
+                            <span className="mt-1 line-clamp-2 text-[10px] leading-tight text-slate-500">
+                              {phase.name}
+                            </span>
                           </div>
                           {index < caseItem.phases.length - 1 && (
-                            <div 
-                              className={`absolute top-4 left-[calc(50%+16px)] h-0.5 transition-all duration-300 ${
-                                phase.status === 'completed' ? 'bg-success' : 'bg-muted'
-                              }`}
-                              style={{ width: 'calc(100% - 32px)' }}
+                            <div
+                              className={cn('mt-3.5 h-0.5 w-6 shrink-0 sm:mt-4 sm:w-10')}
+                              style={{ backgroundColor: phase.status === 'completed' ? '#16a34a' : '#e2e8f0' }}
                             />
                           )}
                         </div>
@@ -182,80 +201,117 @@ export const LiveCaseTracker: React.FC<LiveCaseTrackerProps> = ({ cases, loading
                     </div>
                   </div>
 
-                  {/* Expanded Details */}
-                  {expandedCase === caseItem.id && (
-                    <div className="mt-6 pt-4 border-t border-border/50">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  {/* Expanded details */}
+                  {isExpanded && (
+                    <div className="mt-4 border-t border-black/10 pt-3">
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <div>
-                          <div className="text-xs text-muted-foreground">Appointment Date</div>
-                          <div className="font-medium">
-                            {caseItem.appointmentDate 
-                              ? format(new Date(caseItem.appointmentDate), 'MMM dd, yyyy')
-                              : 'Not scheduled'
-                            }
+                          <div className="text-[10px] uppercase tracking-wide text-slate-400">Appointment</div>
+                          <div className="text-sm font-medium text-black">
+                            {caseItem.appointmentDate ? format(new Date(caseItem.appointmentDate), 'MMM d, yyyy') : 'Not scheduled'}
                           </div>
                         </div>
                         <div>
-                          <div className="text-xs text-muted-foreground">Current Stage</div>
-                          <div className="font-medium">{caseItem.currentPhase}</div>
+                          <div className="text-[10px] uppercase tracking-wide text-slate-400">Current Stage</div>
+                          <div className="truncate text-sm font-medium text-black">{caseItem.currentPhase}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-muted-foreground">Progress</div>
-                          <div className="font-medium">
-                            {caseItem.phases.filter(p => p.status === 'completed').length} / {caseItem.phases.length} steps
+                          <div className="text-[10px] uppercase tracking-wide text-slate-400">Progress</div>
+                          <div className="text-sm font-medium text-black">
+                            {caseItem.phases.filter((p) => p.status === 'completed').length} / {caseItem.phases.length} steps
                           </div>
                         </div>
                         <div>
-                          <div className="text-xs text-muted-foreground">Expert Type</div>
-                          <div className="font-medium">{caseItem.expertType}</div>
+                          <div className="text-[10px] uppercase tracking-wide text-slate-400">Expert Type</div>
+                          <div className="truncate text-sm font-medium text-black">{caseItem.expertType}</div>
                         </div>
                       </div>
 
-                      {/* Detailed Phase List */}
-                      <div className="space-y-2">
+                      <div className="mt-3 space-y-1">
                         {caseItem.phases.map((phase, index) => (
-                          <div 
-                            key={phase.name}
-                            className={`flex items-center justify-between p-2 rounded-lg transition-colors ${
-                              phase.status === 'in_progress' ? 'bg-warning/10' : ''
-                            }`}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                                phase.status === 'completed' 
-                                  ? 'bg-success text-white' 
-                                  : phase.status === 'in_progress'
-                                    ? 'bg-warning text-white'
-                                    : 'bg-muted text-muted-foreground'
-                              }`}>
+                          <div key={phase.name} className="flex items-center justify-between gap-3 py-1.5">
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <div
+                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] text-white"
+                                style={
+                                  phase.status === 'pending'
+                                    ? { backgroundColor: '#cbd5e1', color: '#475569' }
+                                    : stepStyle(phase.status)
+                                }
+                              >
                                 {index + 1}
                               </div>
-                              <span className={phase.status === 'pending' ? 'text-muted-foreground' : ''}>
+                              <span className={cn('truncate text-sm', phase.status === 'pending' ? 'text-slate-500' : 'text-black')}>
                                 {phase.name}
                               </span>
                             </div>
-                            {getStatusBadge(phase.status)}
+                            <PortalPill tone={STATUS_TONE[phase.status]} className="shrink-0">
+                              {STATUS_LABEL[phase.status]}
+                            </PortalPill>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            ))}
-
-            {filteredCases.length === 0 && (
-              <div className="text-center py-12">
-                <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">No Cases Found</h3>
-                <p className="text-muted-foreground">
-                  {searchTerm ? 'Try adjusting your search terms' : 'No active cases to display'}
-                </p>
+                </div>
               </div>
-            )}
+            );
+          })}
+
+          {filteredCases.length === 0 && (
+            <PortalEmptyState
+              icon={FileText}
+              title="No cases found"
+              description={searchTerm ? 'Try adjusting your search terms.' : 'No active cases to display.'}
+            />
+          )}
+        </div>
+      </ScrollArea>
+    </>
+  );
+
+  if (embedded) {
+    // Parent page already supplies the PortalCard + PortalCardHeader
+    // ("Live Case Progress"), so this stays content-only.
+    return loading ? (
+      <div className="flex items-center justify-center py-12 text-sm text-slate-500">
+        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+        Loading case tracker…
+      </div>
+    ) : (
+      searchAndList
+    );
+  }
+
+  return (
+    <PortalCard>
+      <PortalCardHeader
+        icon={FileText}
+        title="Live Case Tracker"
+        description="Real-time progress tracking for all your matters"
+        actions={
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onRefresh}
+            disabled={loading}
+            className="rounded-none border border-[#00BAAD]/40 text-[#00BAAD] hover:bg-[#00BAAD]/10 hover:text-[#00BAAD]"
+          >
+            <RefreshCw className={cn('mr-2 h-4 w-4', loading && 'animate-spin')} />
+            Refresh
+          </Button>
+        }
+      />
+      <div className="p-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-sm text-slate-500">
+            <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+            Loading case tracker…
           </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+        ) : (
+          searchAndList
+        )}
+      </div>
+    </PortalCard>
   );
 };
