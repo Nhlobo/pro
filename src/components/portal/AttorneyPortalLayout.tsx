@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PortalSwitcher from './PortalSwitcher';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
 import {
   LayoutDashboard,
   Briefcase,
@@ -18,9 +19,9 @@ import {
   Bell,
   HeadsetIcon,
   LogOut,
-  User,
   ChevronLeft,
   Menu,
+  Scale,
 } from 'lucide-react';
 import TourLauncher from '@/components/tour/TourLauncher';
 import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
@@ -34,22 +35,51 @@ interface AttorneyPortalLayoutProps {
   children: React.ReactNode;
 }
 
-const navigationItems = [
-  { title: 'Dashboard', href: '/attorney-portal', icon: LayoutDashboard },
-  { title: 'My Cases', href: '/attorney-portal/cases', icon: Briefcase },
-  { title: 'View Case Status', href: '/attorney-portal/case-status', icon: Activity },
-  { title: 'Appointments', href: '/attorney-portal/appointments', icon: Calendar },
-  { title: 'Reports', href: '/attorney-portal/reports', icon: FileText },
-  { title: 'AOD & Payments', href: '/attorney-portal/payments', icon: CreditCard },
-  { title: 'Agreements', href: '/attorney-portal/agreements', icon: FileSignature },
-  { title: 'Notifications', href: '/attorney-portal/notifications', icon: Bell },
-  { title: 'Support', href: '/attorney-portal/support', icon: HeadsetIcon },
+interface NavItem {
+  title: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+}
+
+interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+/** Grouped, not a flat list — a system has sections; a menu has a pile of links. */
+const navigationSections: NavSection[] = [
+  {
+    label: 'Overview',
+    items: [{ title: 'Dashboard', href: '/attorney-portal', icon: LayoutDashboard }],
+  },
+  {
+    label: 'Caseload',
+    items: [
+      { title: 'My Cases', href: '/attorney-portal/cases', icon: Briefcase },
+      { title: 'Case Status', href: '/attorney-portal/case-status', icon: Activity },
+      { title: 'Appointments', href: '/attorney-portal/appointments', icon: Calendar },
+      { title: 'Reports', href: '/attorney-portal/reports', icon: FileText },
+    ],
+  },
+  {
+    label: 'Accounts',
+    items: [
+      { title: 'AOD & Payments', href: '/attorney-portal/payments', icon: CreditCard },
+      { title: 'Agreements', href: '/attorney-portal/agreements', icon: FileSignature },
+    ],
+  },
+  {
+    label: 'Support',
+    items: [
+      { title: 'Notifications', href: '/attorney-portal/notifications', icon: Bell },
+      { title: 'Support', href: '/attorney-portal/support', icon: HeadsetIcon },
+    ],
+  },
 ];
 
-const PAGE_TITLE_BY_PATH: Record<string, string> = navigationItems.reduce(
-  (acc, item) => ({ ...acc, [item.href]: item.title }),
-  {} as Record<string, string>,
-);
+const PAGE_TITLE_BY_PATH: Record<string, string> = navigationSections
+  .flatMap((s) => s.items)
+  .reduce((acc, item) => ({ ...acc, [item.href]: item.title }), {} as Record<string, string>);
 
 function resolvePageTitle(pathname: string): string {
   if (PAGE_TITLE_BY_PATH[pathname]) return PAGE_TITLE_BY_PATH[pathname];
@@ -59,21 +89,20 @@ function resolvePageTitle(pathname: string): string {
   return match ? PAGE_TITLE_BY_PATH[match] : 'Attorney Portal';
 }
 
+const SIDEBAR_BG = '#0A0F17';
+
 /**
- * Attorney Portal shell.
+ * Attorney Portal shell — enterprise console, not a marketing shell.
  *
- * Rebuilt to share the exact same responsive shell as AdminPortalLayout
- * (mobile drawer sidebar, sticky branded header, skip-link, lg: breakpoint
- * offsets) instead of its own one-off fixed-sidebar layout, which had no
- * mobile handling at all — on a narrow viewport the fixed 256px sidebar
- * and the main content's unconditional ml-64 fought each other, which is
- * what "not responsive / overlapping" was. Referring attorneys should feel
- * like they're in the same real platform staff use, not a separate,
- * lower-effort build.
+ * One flat, systematic language throughout: a solid dark workspace rail
+ * (sectioned, not a pile of pill links), a quiet bordered header instead of
+ * a decorative gradient banner, and zero rounding beyond what the design
+ * tokens already define (`--radius: 0`). Referring attorneys should feel
+ * like they're inside the same disciplined system staff use — a tool with
+ * structure, not a set of floating cards.
  */
 export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ children }) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { signOut, user } = useAuth();
   const { loading } = usePermissions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -87,41 +116,51 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
     return <BrandedPageLoader message="Loading…" />;
   }
 
+  const initial = (user?.email || 'A').charAt(0).toUpperCase();
+
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-[#F4F5F7]">
       <RouteFirstVisitTour routes={ATTORNEY_PAGE_TOURS} />
 
       {/* Mobile backdrop */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-30 bg-background/70 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-30 bg-black/50"
           onClick={() => setMobileOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — solid, sectioned workspace rail */}
       <aside
         data-tour="attorney-sidebar"
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden gradient-nav text-white shadow-xl transition-all duration-300",
-          sidebarCollapsed ? "w-16" : "w-64",
-          mobileOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:translate-x-0"
+          'fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden text-white transition-all duration-200',
+          sidebarCollapsed ? 'w-16' : 'w-64',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          'lg:translate-x-0'
         )}
+        style={{ background: SIDEBAR_BG }}
       >
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
-
-        <div className="relative flex h-full min-h-0 flex-col">
-          {/* Logo */}
-          <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-white/15 px-4">
+        <div className="flex h-full min-h-0 flex-col">
+          {/* Wordmark */}
+          <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3">
             {!sidebarCollapsed && (
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 p-1 ring-2 ring-white/30">
-                  <img src={logoSrc} alt="Kutlwano & Associate" className="h-full w-full object-contain" />
+              <div className="flex min-w-0 items-center gap-2.5">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center border border-white/15 bg-white/[0.04]">
+                  <img src={logoSrc} alt="" className="h-full w-full object-contain" />
                 </div>
-                <span className="truncate font-semibold text-sm">Attorney Portal</span>
+                <div className="min-w-0 leading-none">
+                  <div className="truncate text-[11px] font-bold uppercase tracking-[0.14em] text-white">
+                    Attorney Portal
+                  </div>
+                  <div className="truncate text-[10px] text-white/40">Medico-Legal Pro</div>
+                </div>
+              </div>
+            )}
+            {sidebarCollapsed && (
+              <div className="mx-auto flex h-7 w-7 shrink-0 items-center justify-center border border-white/15 bg-white/[0.04]">
+                <img src={logoSrc} alt="" className="h-full w-full object-contain" />
               </div>
             )}
             <Button
@@ -135,70 +174,87 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
                 }
               }}
               className={cn(
-                "h-8 w-8 shrink-0 text-white/90 hover:bg-white/15 hover:text-white",
-                sidebarCollapsed && "mx-auto"
+                'h-7 w-7 shrink-0 rounded-none text-white/60 hover:bg-white/10 hover:text-white',
+                sidebarCollapsed && 'hidden'
               )}
               aria-label="Toggle sidebar"
             >
-              {sidebarCollapsed ? <Menu className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+              <ChevronLeft className="h-4 w-4" />
             </Button>
           </div>
 
-          {/* Navigation */}
-          <ScrollArea className="min-h-0 flex-1 px-2 py-3">
-            <nav className="space-y-0.5">
-              {navigationItems.map((item) => {
-                const isActive = location.pathname === item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    to={item.href}
-                    onClick={() => setMobileOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
-                      isActive
-                        ? "bg-white text-[#0F7A9C] shadow-sm"
-                        : "text-white/80 hover:bg-white/15 hover:text-white",
-                      sidebarCollapsed && "justify-center px-2"
-                    )}
-                    title={sidebarCollapsed ? item.title : undefined}
-                  >
-                    <item.icon className="h-4 w-4 flex-shrink-0" />
-                    {!sidebarCollapsed && <span className="truncate">{item.title}</span>}
-                  </Link>
-                );
-              })}
+          {/* Sectioned navigation */}
+          <ScrollArea className="min-h-0 flex-1">
+            <nav className="px-2 py-3">
+              {navigationSections.map((section, sIdx) => (
+                <div key={section.label} className={cn(sIdx > 0 && 'mt-4')}>
+                  {!sidebarCollapsed && (
+                    <div className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/30">
+                      {section.label}
+                    </div>
+                  )}
+                  <div className="space-y-0.5">
+                    {section.items.map((item) => {
+                      const isActive = location.pathname === item.href;
+                      return (
+                        <Link
+                          key={item.href}
+                          to={item.href}
+                          onClick={() => setMobileOpen(false)}
+                          className={cn(
+                            'flex items-center gap-2.5 border-l-2 py-2 pl-2.5 pr-2 text-[13px] font-medium transition-colors',
+                            isActive
+                              ? 'border-[#00BAAD] bg-white/[0.06] text-white'
+                              : 'border-transparent text-white/55 hover:bg-white/[0.04] hover:text-white/90',
+                            sidebarCollapsed && 'justify-center px-0'
+                          )}
+                          title={sidebarCollapsed ? item.title : undefined}
+                        >
+                          <item.icon className="h-4 w-4 shrink-0" />
+                          {!sidebarCollapsed && <span className="truncate">{item.title}</span>}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </nav>
           </ScrollArea>
 
-          {/* User section */}
-          <div className="shrink-0 border-t border-white/15 p-3">
-            <div className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
-              sidebarCollapsed && "justify-center px-2"
-            )}>
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15">
-                <User className="h-4 w-4" />
+          {/* Identity / session */}
+          <div className="shrink-0 border-t border-white/10 p-2">
+            <div
+              className={cn(
+                'flex items-center gap-2.5 px-2 py-2',
+                sidebarCollapsed && 'justify-center px-0'
+              )}
+            >
+              <div
+                className="flex h-7 w-7 shrink-0 items-center justify-center text-[11px] font-bold text-[#0A0F17]"
+                style={{ backgroundColor: BRAND_TEAL }}
+                aria-hidden="true"
+              >
+                {initial}
               </div>
               {!sidebarCollapsed && (
-                <div className="min-w-0 flex-1 overflow-hidden">
-                  <p className="truncate text-xs font-medium">{user?.email}</p>
-                  <p className="truncate text-[10px] text-white/70">Referring Attorney</p>
+                <div className="min-w-0 flex-1 overflow-hidden leading-tight">
+                  <p className="truncate text-[12px] font-medium text-white">{user?.email}</p>
+                  <p className="truncate text-[10px] uppercase tracking-wide text-white/40">Referring Attorney</p>
                 </div>
               )}
             </div>
             <Button
               variant="ghost"
-              size={sidebarCollapsed ? "icon" : "default"}
+              size="sm"
               className={cn(
-                "mt-1 w-full text-white/80 hover:bg-white/15 hover:text-white",
-                sidebarCollapsed && "px-2"
+                'mt-1 w-full justify-start gap-2.5 rounded-none px-2 text-[13px] font-medium text-white/55 hover:bg-white/[0.06] hover:text-white',
+                sidebarCollapsed && 'justify-center px-0'
               )}
               onClick={() => signOut()}
-              title={sidebarCollapsed ? "Sign Out" : undefined}
+              title={sidebarCollapsed ? 'Sign Out' : undefined}
             >
-              <LogOut className="h-4 w-4" />
-              {!sidebarCollapsed && <span className="ml-2">Sign Out</span>}
+              <LogOut className="h-4 w-4 shrink-0" />
+              {!sidebarCollapsed && <span>Sign Out</span>}
             </Button>
           </div>
         </div>
@@ -208,53 +264,51 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
       <main
         id="main-content"
         className={cn(
-          "flex-1 min-w-0 transition-all duration-300",
-          "ml-0",
-          sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
+          'flex-1 min-w-0 transition-all duration-200',
+          'ml-0',
+          sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
         )}
       >
         <a href="#main-content" className="skip-link">Skip to main content</a>
 
-        {/* Top bar — same branded gradient header every portal shares */}
-        <header className="sticky top-0 z-30 gradient-nav text-white shadow-md">
-          <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 lg:px-6">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/85 sm:text-xs sm:tracking-[0.28em]">
-                  Medico-Legal Pro
-                </div>
-                <h1
-                  className="mt-0.5 break-words font-bold leading-tight text-white
-                             text-[clamp(1.15rem,5.5vw,2rem)] sm:text-[clamp(1.4rem,3.5vw,2.25rem)]"
-                  title={resolvePageTitle(location.pathname)}
-                >
-                  {resolvePageTitle(location.pathname)}
-                </h1>
-              </div>
-
-              <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                <div className="hidden sm:block">
-                  <TourLauncher steps={ATTORNEY_TOUR} storageKey={ATTORNEY_TOUR_KEY} compact />
-                </div>
-                <div className="hidden md:block"><PortalSwitcher /></div>
-                <NotificationCenter />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2">
+        {/* Header — a quiet system bar, not a banner */}
+        <header className="sticky top-0 z-30 border-b border-black/10 bg-white">
+          <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-3 py-2.5 sm:px-4 lg:px-6">
+            <div className="flex min-w-0 items-center gap-2">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 shrink-0 border border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white lg:hidden"
+                className="h-8 w-8 shrink-0 rounded-none border border-black/10 text-black hover:bg-black/5 lg:hidden"
                 onClick={() => setMobileOpen(true)}
                 aria-label="Open navigation menu"
                 aria-expanded={mobileOpen}
                 aria-controls="attorney-mobile-sidebar"
               >
-                <Menu className="h-5 w-5" />
+                <Menu className="h-4 w-4" />
               </Button>
-              <div className="hidden lg:block" />
-              <div className="h-0.5 flex-1 rounded-full bg-white/15" />
+              <Scale className="hidden h-4 w-4 shrink-0 text-slate-300 sm:block" aria-hidden="true" />
+              <div className="min-w-0">
+                <div className="hidden items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 sm:flex">
+                  <span>Medico-Legal Pro</span>
+                  <span aria-hidden="true">/</span>
+                  <span style={{ color: BRAND_TEAL }}>Attorney Portal</span>
+                </div>
+                <h1
+                  className="truncate text-[15px] font-bold leading-tight text-black sm:text-lg"
+                  title={resolvePageTitle(location.pathname)}
+                >
+                  {resolvePageTitle(location.pathname)}
+                </h1>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              <div className="hidden sm:block">
+                <TourLauncher steps={ATTORNEY_TOUR} storageKey={ATTORNEY_TOUR_KEY} compact />
+              </div>
+              <div className="hidden md:block"><PortalSwitcher /></div>
+              <div className="h-5 w-px bg-black/10" aria-hidden="true" />
+              <NotificationCenter />
             </div>
           </div>
         </header>
