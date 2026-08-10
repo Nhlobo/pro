@@ -7,18 +7,17 @@ import { Button } from '@/components/ui/button';
 import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
 
 /**
- * Shared building blocks for the redesigned Attorney Portal.
+ * Shared building blocks for the Attorney Portal.
  *
  * This is the Attorney Portal's version of `admin/ui/AdminUI.tsx` — same
  * design system, not a new one: flat black/white surfaces, hairline
- * `border-black/10`, sharp corners (no rounding), and a single teal accent
- * (`BRAND_TEAL`, imported from AdminUI so the two portals literally share
- * one color constant). Color beyond that is semantic only — success/
- * warning/destructive are used for real state (overdue, ready, at risk),
- * never as decoration or category coding. That mirrors exactly how
- * AdminStatCard / AdminOperationsDashboard already behave; this file just
- * gives the Attorney Portal the same primitives so its pages don't drift
- * from that system the way the first pass did.
+ * `border-black/10`, square corners throughout (no rounding), and a single
+ * teal accent (`BRAND_TEAL`, imported from AdminUI so the two portals
+ * literally share one color constant). Icon containers are square, not
+ * circular badges — a system reads as built from one grid, not decorated
+ * with rounded stickers. Color beyond the single accent is semantic only —
+ * success/warning/destructive mark real state (overdue, ready, at risk),
+ * never decoration.
  */
 
 /* -------------------------------------------------------------------- */
@@ -45,24 +44,24 @@ export const PortalHeader: React.FC<PortalHeaderProps> = ({
   icon: Icon,
   actions,
 }) => (
-  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <div className="flex flex-col gap-3 border-b border-black/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
     <div className="flex min-w-0 items-center gap-3">
       {Icon && (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/5">
-          <Icon className="h-5 w-5" style={{ color: BRAND_TEAL }} />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center border border-black/10 bg-black/[0.03]">
+          <Icon className="h-4 w-4" style={{ color: BRAND_TEAL }} />
         </div>
       )}
       <div className="min-w-0">
         {eyebrow && (
           <div
-            className="text-[11px] font-semibold uppercase tracking-[0.2em]"
+            className="text-[10px] font-semibold uppercase tracking-[0.2em]"
             style={{ color: BRAND_TEAL }}
           >
             {eyebrow}
           </div>
         )}
-        <h1 className="truncate text-xl font-bold text-black md:text-2xl">{title}</h1>
-        {description && <p className="text-xs text-slate-500 md:text-sm">{description}</p>}
+        <h1 className="truncate text-lg font-bold text-black md:text-xl">{title}</h1>
+        {description && <p className="text-xs text-slate-500 md:text-[13px]">{description}</p>}
       </div>
     </div>
     {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
@@ -80,8 +79,8 @@ interface SyncStatusProps {
 }
 
 export const SyncStatus: React.FC<SyncStatusProps> = ({ loading, onRefresh, label = 'Live data' }) => (
-  <div className="flex items-center gap-2 text-xs text-slate-500">
-    <span className="flex items-center gap-1.5">
+  <div className="flex items-center gap-2 border border-black/10 py-1 pl-2.5 pr-1 text-[11px] text-slate-500">
+    <span className="flex items-center gap-1.5 tabular-nums">
       <span
         className={cn('h-1.5 w-1.5 rounded-full', loading ? 'bg-amber-500 animate-pulse' : 'bg-success')}
         aria-hidden="true"
@@ -92,7 +91,7 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({ loading, onRefresh, labe
       <Button
         variant="ghost"
         size="icon"
-        className="h-7 w-7 rounded-none text-slate-500 hover:bg-black/5 hover:text-black"
+        className="h-6 w-6 rounded-none text-slate-500 hover:bg-black/5 hover:text-black"
         onClick={onRefresh}
         disabled={loading}
         aria-label="Refresh data"
@@ -126,16 +125,16 @@ export const PortalCardHeader: React.FC<{
 }> = ({ title, description, icon: Icon, actions, className }) => (
   <div
     className={cn(
-      'flex flex-col gap-2 border-b border-black/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
+      'flex flex-col gap-2 border-b border-black/10 bg-black/[0.015] px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between',
       className
     )}
   >
     <div className="min-w-0">
-      <div className="flex items-center gap-2 text-sm font-semibold text-black">
-        {Icon && <Icon className="h-4 w-4 shrink-0" style={{ color: BRAND_TEAL }} />}
+      <div className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-black">
+        {Icon && <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: BRAND_TEAL }} />}
         <span className="truncate">{title}</span>
       </div>
-      {description && <p className="mt-0.5 text-xs text-slate-500">{description}</p>}
+      {description && <p className="mt-0.5 text-xs normal-case tracking-normal text-slate-500">{description}</p>}
     </div>
     {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
   </div>
@@ -147,29 +146,83 @@ export const PortalCardBody: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
 }) => <div className={cn('p-4', className)} {...props} />;
 
 /* -------------------------------------------------------------------- */
-/* KPI stat card — single teal accent, no category color-coding         */
+/* KPI stat strip — one bordered ledger panel with internal dividers,   */
+/* not a scatter of separate floating cards.                            */
 /* -------------------------------------------------------------------- */
 
-interface PortalStatCardProps {
+export interface PortalStatTile {
   label: string;
   value: React.ReactNode;
   icon?: LucideIcon;
   hint?: React.ReactNode;
-  loading?: boolean;
   href?: string;
   /** Only for genuinely urgent/at-risk numbers (e.g. overdue balance). */
   urgent?: boolean;
 }
 
-export const PortalStatCard: React.FC<PortalStatCardProps> = ({
-  label,
-  value,
-  icon: Icon,
-  hint,
-  loading,
-  href,
-  urgent,
-}) => {
+interface PortalStatStripProps {
+  tiles: PortalStatTile[];
+  loading?: boolean;
+  className?: string;
+}
+
+export const PortalStatStrip: React.FC<PortalStatStripProps> = ({ tiles, loading, className }) => (
+  <div
+    className={cn(
+      'grid grid-cols-2 divide-x divide-y divide-black/10 border border-black/10 bg-white sm:grid-cols-4 sm:divide-y-0 lg:grid-cols-8',
+      className
+    )}
+  >
+    {tiles.map((tile) => {
+      const valueText = typeof tile.value === 'string' || typeof tile.value === 'number' ? String(tile.value) : '';
+      const valueLen = valueText.replace(/\s/g, '').length;
+      const valueSizeClass = valueLen > 10 ? 'text-base' : valueLen > 7 ? 'text-lg' : 'text-xl';
+
+      const inner = (
+        <div className="min-w-0 px-3 py-3">
+          <div className="mb-2 flex items-center gap-1.5">
+            {tile.icon && (
+              <tile.icon className={cn('h-3.5 w-3.5 shrink-0', tile.urgent ? 'text-destructive' : '')} style={tile.urgent ? undefined : { color: BRAND_TEAL }} />
+            )}
+            <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">{tile.label}</p>
+          </div>
+          <p
+            className={cn(
+              'font-bold tabular-nums leading-tight break-words [overflow-wrap:anywhere]',
+              tile.urgent ? 'text-destructive' : 'text-black',
+              valueSizeClass
+            )}
+            title={valueText || undefined}
+          >
+            {loading ? '–' : tile.value}
+          </p>
+          {tile.hint && <p className="mt-0.5 truncate text-[10px] text-slate-400">{tile.hint}</p>}
+        </div>
+      );
+
+      return tile.href ? (
+        <Link
+          key={tile.label}
+          to={tile.href}
+          className="block min-w-0 transition-colors hover:bg-black/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        >
+          {inner}
+        </Link>
+      ) : (
+        <div key={tile.label} className="min-w-0">
+          {inner}
+        </div>
+      );
+    })}
+  </div>
+);
+
+/* Deprecated standalone tile — kept for any page not yet migrated to
+ * PortalStatStrip. Prefer PortalStatStrip for any set of 2+ KPIs so they
+ * read as one panel instead of a loose grid of cards. */
+export const PortalStatCard: React.FC<
+  PortalStatTile & { loading?: boolean }
+> = ({ label, value, icon: Icon, hint, loading, href, urgent }) => {
   const valueText = typeof value === 'string' || typeof value === 'number' ? String(value) : '';
   const valueLen = valueText.replace(/\s/g, '').length;
   const valueSizeClass =
@@ -177,12 +230,8 @@ export const PortalStatCard: React.FC<PortalStatCardProps> = ({
 
   const inner = (
     <div className="min-w-0 px-3 pb-3 pt-3 md:px-4">
-      <div className="mb-2 flex items-center justify-between">
-        {Icon && (
-          <div className="rounded-full bg-black/5 p-1.5 md:p-2">
-            <Icon className={cn('h-4 w-4', urgent && 'text-destructive')} style={urgent ? undefined : { color: BRAND_TEAL }} />
-          </div>
-        )}
+      <div className="mb-2 flex items-center gap-1.5">
+        {Icon && <Icon className="h-4 w-4" style={urgent ? undefined : { color: BRAND_TEAL }} />}
       </div>
       <p
         className={cn(
@@ -200,12 +249,7 @@ export const PortalStatCard: React.FC<PortalStatCardProps> = ({
   );
 
   return (
-    <PortalCard
-      className={cn(
-        'min-w-0 overflow-hidden transition-colors hover:border-black/25',
-        href && 'cursor-pointer'
-      )}
-    >
+    <PortalCard className={cn('min-w-0 overflow-hidden transition-colors hover:border-black/25', href && 'cursor-pointer')}>
       {href ? (
         <Link to={href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           {inner}
@@ -262,9 +306,9 @@ interface QuickLinkRowProps {
 export const QuickLinkRow: React.FC<QuickLinkRowProps> = ({ icon: Icon, title, subtitle, href, badge }) => (
   <Link
     to={href}
-    className="flex items-center gap-3 border-b border-black/10 px-4 py-3 last:border-b-0 transition-colors hover:bg-black/5 sm:px-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+    className="flex items-center gap-3 border-b border-black/10 px-4 py-3 last:border-b-0 transition-colors hover:bg-black/[0.03] sm:px-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
   >
-    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/5">
+    <div className="flex h-8 w-8 shrink-0 items-center justify-center border border-black/10 bg-black/[0.03]">
       <Icon className="h-4 w-4" style={{ color: BRAND_TEAL }} />
     </div>
     <div className="min-w-0 flex-1">
@@ -292,12 +336,12 @@ interface AlertStripProps {
 export const AlertStrip: React.FC<AlertStripProps> = ({ icon: Icon, title, description, tone = 'warning', action }) => (
   <div
     className={cn(
-      'flex flex-col gap-3 rounded-none border bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
+      'flex flex-col gap-3 border bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between',
       tone === 'destructive' ? 'border-destructive/30' : 'border-warning/30'
     )}
   >
     <div className="flex items-start gap-3">
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black/5">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center border border-black/10 bg-black/[0.03]">
         <Icon className={cn('h-4 w-4', tone === 'destructive' ? 'text-destructive' : 'text-warning')} />
       </div>
       <div className="min-w-0">
@@ -321,8 +365,8 @@ export const PortalEmptyState: React.FC<{
 }> = ({ icon: Icon, title, description, action }) => (
   <div className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
     {Icon && (
-      <div className="mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-black/5">
-        <Icon className="h-6 w-6 text-slate-400" />
+      <div className="mb-1 flex h-10 w-10 items-center justify-center border border-black/10 bg-black/[0.03]">
+        <Icon className="h-5 w-5 text-slate-400" />
       </div>
     )}
     <p className="text-sm font-medium text-black">{title}</p>
