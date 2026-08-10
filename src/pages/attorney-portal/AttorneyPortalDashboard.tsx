@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
 import { useAttorneyDebts } from '@/hooks/useAttorneyDebts';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { LiveCaseTracker } from '@/components/LiveCaseTracker';
 import { Link } from 'react-router-dom';
+import { format, isToday, isTomorrow } from 'date-fns';
 import {
   PortalPage,
   PortalHeader,
@@ -12,10 +13,11 @@ import {
   PortalCard,
   PortalCardHeader,
   PortalCardBody,
-  QuickLinkRow,
+  PortalEmptyState,
   AlertStrip,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { Button } from '@/components/ui/button';
+import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
 import {
   LayoutDashboard,
   Briefcase,
@@ -28,32 +30,67 @@ import {
   Wallet,
   Scale,
   BookOpen,
+  CalendarCheck,
 } from 'lucide-react';
+
+/** "Today, 2:30 PM" / "Tomorrow, 9:00 AM" / "12 Aug, 9:00 AM" — same idea
+ *  AttorneyAppointments.tsx uses (isToday/isTomorrow), so a date here reads
+ *  the same way it will on the Appointments page itself. */
+function formatWhen(dateStr: string): string {
+  const d = new Date(dateStr);
+  const time = format(d, 'h:mm a');
+  if (isToday(d)) return `Today, ${time}`;
+  if (isTomorrow(d)) return `Tomorrow, ${time}`;
+  return `${format(d, 'd MMM')}, ${time}`;
+}
 
 const AttorneyPortalDashboard: React.FC = () => {
   const { stats, liveCases, loading, refetchStats } = useAttorneyDashboardStats();
-  const { debtSummary, loading: debtsLoading } = useAttorneyDebts();
+  const { debtSummary, debtCases, loading: debtsLoading } = useAttorneyDebts();
 
-  // Derive litigation-ready cases (all phases completed / report ready)
+  // ---- Derived case-stage counts (drive the KPI panel) -----------------
   const litigationReadyCases = liveCases.filter((c) =>
     c.phases.every((p) => p.status === 'completed')
   ).length;
 
-  // Cases in booking stage (pending or only referral received)
   const bookingStageCases = liveCases.filter((c) => {
     const completedCount = c.phases.filter((p) => p.status === 'completed').length;
-    return completedCount <= 2; // Referral Received + maybe Documents Verified
+    return completedCount <= 2;
   }).length;
 
-  // Reports outstanding
   const reportsOutstanding = liveCases.filter((c) => {
     const reportPhase = c.phases.find((p) => p.name === 'Report Ready');
     return reportPhase?.status !== 'completed';
   }).length;
 
-  const upcomingAppointments = liveCases.filter(
-    (c) => new Date(c.appointmentDate) >= new Date()
-  ).length;
+  // ---- Next appointments: real rows, not a link to the Appointments page
+  const nextAppointments = useMemo(() => {
+    const now = new Date();
+    return liveCases
+      .filter((c) => c.appointmentDate && new Date(c.appointmentDate) >= now)
+      .sort((a, b) => new Date(a.appointmentDate).getTime() - new Date(b.appointmentDate).getTime())
+      .slice(0, 4);
+  }, [liveCases]);
+
+  // ---- Reports that actually finished this cycle, not a count -----------
+  const recentlyReadyReports = useMemo(() => {
+    return liveCases
+      .filter((c) => c.phases.find((p) => p.name === 'Report Ready')?.status === 'completed')
+      .sort((a, b) => {
+        const ad = a.phases.find((p) => p.name === 'Report Ready')?.completedAt || '';
+        const bd = b.phases.find((p) => p.name === 'Report Ready')?.completedAt || '';
+        return new Date(bd).getTime() - new Date(ad).getTime();
+      })
+      .slice(0, 4);
+  }, [liveCases]);
+
+  // ---- Accounts actually at risk, ranked by what's overdue longest -----
+  const atRiskAccounts = useMemo(() => {
+    return [...debtCases]
+      .filter((d) => d.amount_due > 0)
+      .sort((a, b) => b.days_pending - a.days_pending)
+      .slice(0, 4);
+  }, [debtCases]);
 
   const isLoading = loading || debtsLoading;
   const hasOutstandingBalance = !!debtSummary && debtSummary.total_owed > 0;
@@ -63,57 +100,19 @@ const AttorneyPortalDashboard: React.FC = () => {
     value: React.ReactNode;
     icon: typeof Briefcase;
     hint?: string;
-    href?: string;
     urgent?: boolean;
   }[] = [
-    {
-      label: 'Total Active Cases',
-      value: liveCases.length,
-      icon: Briefcase,
-      hint: 'All referred cases',
-      href: '/attorney-portal/cases',
-    },
-    {
-      label: 'Booking Stage',
-      value: bookingStageCases,
-      icon: BookOpen,
-      hint: 'Awaiting scheduling',
-      href: '/attorney-portal/appointments',
-    },
-    {
-      label: 'Reports Outstanding',
-      value: reportsOutstanding,
-      icon: Clock,
-      hint: 'Not yet ready',
-      href: '/attorney-portal/case-status',
-    },
-    {
-      label: 'Litigation Ready',
-      value: litigationReadyCases,
-      icon: Scale,
-      hint: 'All reports submitted',
-      href: '/attorney-portal/cases',
-    },
-    {
-      label: 'Reports In Progress',
-      value: stats.reportsInProgress,
-      icon: FileText,
-      hint: 'Being prepared',
-      href: '/attorney-portal/reports',
-    },
-    {
-      label: 'Reports Completed',
-      value: stats.reportsReadyToDownload,
-      icon: CheckCircle2,
-      hint: 'Ready to download',
-      href: '/attorney-portal/reports',
-    },
+    { label: 'Total Active Cases', value: liveCases.length, icon: Briefcase, hint: 'All referred cases' },
+    { label: 'Booking Stage', value: bookingStageCases, icon: BookOpen, hint: 'Awaiting scheduling' },
+    { label: 'Reports Outstanding', value: reportsOutstanding, icon: Clock, hint: 'Not yet ready' },
+    { label: 'Litigation Ready', value: litigationReadyCases, icon: Scale, hint: 'All reports submitted' },
+    { label: 'Reports In Progress', value: stats.reportsInProgress, icon: FileText, hint: 'Being prepared' },
+    { label: 'Reports Completed', value: stats.reportsReadyToDownload, icon: CheckCircle2, hint: 'Ready to download' },
     {
       label: 'Outstanding Balance',
       value: debtSummary ? `R${debtSummary.total_owed.toLocaleString()}` : 'R0',
       icon: Wallet,
       hint: 'AOD balance due',
-      href: '/attorney-portal/payments',
       urgent: hasOutstandingBalance,
     },
     {
@@ -121,7 +120,6 @@ const AttorneyPortalDashboard: React.FC = () => {
       value: stats.actionsNeeded,
       icon: AlertCircle,
       hint: `${stats.missingDocuments} docs · ${stats.pendingConfirmations} confirmations`,
-      href: '/attorney-portal/notifications',
       urgent: stats.actionsNeeded > 0,
     },
   ];
@@ -132,7 +130,7 @@ const AttorneyPortalDashboard: React.FC = () => {
         <PortalHeader
           eyebrow="Attorney Portal"
           title="Dashboard"
-          description="Track your matters, monitor progress, and manage your cases."
+          description="Everything that changed since you last checked — not a menu, that's what the sidebar is for."
           icon={LayoutDashboard}
           actions={<SyncStatus loading={isLoading} onRefresh={refetchStats} label="Live data" />}
         />
@@ -151,7 +149,9 @@ const AttorneyPortalDashboard: React.FC = () => {
           />
         )}
 
-        {/* KPI panel */}
+        {/* KPI panel — informational only. These numbers are read here so
+            you don't have to open every page to know where things stand;
+            they are not buttons to the pages the sidebar already opens. */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {statTiles.map((tile) => (
             <PortalStatCard
@@ -161,13 +161,12 @@ const AttorneyPortalDashboard: React.FC = () => {
               value={tile.value}
               hint={tile.hint}
               loading={isLoading}
-              href={tile.href}
               urgent={tile.urgent}
             />
           ))}
         </div>
 
-        {/* Primary content: live case tracker + compact quick-access panel */}
+        {/* Primary content */}
         <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <PortalCard>
@@ -189,33 +188,112 @@ const AttorneyPortalDashboard: React.FC = () => {
             </PortalCard>
           </div>
 
-          <div className="lg:col-span-1">
+          {/* Right column: real, computed content — each panel shows the
+              actual rows behind its number. A "View all" only appears when
+              there are more rows than fit here; that's continuing the same
+              data, not re-pointing at a sidebar link. */}
+          <div className="space-y-4 md:space-y-6 lg:col-span-1">
             <PortalCard>
-              <PortalCardHeader title="Quick Access" description="Jump to a section" />
-              <QuickLinkRow
-                icon={Calendar}
-                title="Upcoming Appointments"
-                subtitle={`${upcomingAppointments} scheduled`}
-                href="/attorney-portal/appointments"
-              />
-              <QuickLinkRow
-                icon={FileText}
-                title="Reports Ready"
-                subtitle={`${stats.reportsReadyToDownload} available to download`}
-                href="/attorney-portal/reports"
-              />
-              <QuickLinkRow
-                icon={Wallet}
-                title="Payment Summary"
-                subtitle="AOD balances & payment schedule"
-                href="/attorney-portal/payments"
-              />
-              <QuickLinkRow
-                icon={Scale}
-                title="My Cases"
-                subtitle={`${liveCases.length} total cases`}
-                href="/attorney-portal/cases"
-              />
+              <PortalCardHeader icon={CalendarCheck} title="Next Appointments" />
+              <PortalCardBody className="p-0">
+                {loading ? (
+                  <div className="px-4 py-6 text-center text-xs text-slate-500">Loading…</div>
+                ) : nextAppointments.length === 0 ? (
+                  <PortalEmptyState icon={Calendar} title="Nothing scheduled" description="No upcoming appointments right now." />
+                ) : (
+                  <ul>
+                    {nextAppointments.map((c) => (
+                      <li key={c.id} className="flex items-center justify-between gap-3 border-b border-black/10 px-4 py-2.5 last:border-b-0">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-black">{c.claimantName}</p>
+                          <p className="truncate text-[11px] text-slate-500">{c.expertType}</p>
+                        </div>
+                        <span className="shrink-0 text-[11px] font-medium" style={{ color: BRAND_TEAL }}>
+                          {formatWhen(c.appointmentDate)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {liveCases.filter((c) => new Date(c.appointmentDate) >= new Date()).length > nextAppointments.length && (
+                  <Link
+                    to="/attorney-portal/appointments"
+                    className="block border-t border-black/10 px-4 py-2 text-center text-xs font-medium hover:bg-black/5"
+                    style={{ color: BRAND_TEAL }}
+                  >
+                    View all upcoming
+                  </Link>
+                )}
+              </PortalCardBody>
+            </PortalCard>
+
+            <PortalCard>
+              <PortalCardHeader icon={FileText} title="Recently Ready Reports" />
+              <PortalCardBody className="p-0">
+                {loading ? (
+                  <div className="px-4 py-6 text-center text-xs text-slate-500">Loading…</div>
+                ) : recentlyReadyReports.length === 0 ? (
+                  <PortalEmptyState icon={FileText} title="None ready yet" description="Reports will appear here as they're completed." />
+                ) : (
+                  <ul>
+                    {recentlyReadyReports.map((c) => {
+                      const completedAt = c.phases.find((p) => p.name === 'Report Ready')?.completedAt;
+                      return (
+                        <li key={c.id} className="flex items-center justify-between gap-3 border-b border-black/10 px-4 py-2.5 last:border-b-0">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-black">{c.claimantName}</p>
+                            <p className="truncate text-[11px] text-slate-500">{c.expertType}</p>
+                          </div>
+                          <CheckCircle2 className="h-4 w-4 shrink-0 text-success" aria-label={completedAt ? format(new Date(completedAt), 'd MMM') : 'Ready'} />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                {stats.reportsReadyToDownload > recentlyReadyReports.length && (
+                  <Link
+                    to="/attorney-portal/reports"
+                    className="block border-t border-black/10 px-4 py-2 text-center text-xs font-medium hover:bg-black/5"
+                    style={{ color: BRAND_TEAL }}
+                  >
+                    View all {stats.reportsReadyToDownload} reports
+                  </Link>
+                )}
+              </PortalCardBody>
+            </PortalCard>
+
+            <PortalCard>
+              <PortalCardHeader icon={Wallet} title="Accounts At Risk" description="Oldest outstanding balances first" />
+              <PortalCardBody className="p-0">
+                {debtsLoading ? (
+                  <div className="px-4 py-6 text-center text-xs text-slate-500">Loading…</div>
+                ) : atRiskAccounts.length === 0 ? (
+                  <PortalEmptyState icon={CheckCircle2} title="All accounts settled" description="No outstanding AOD balances." />
+                ) : (
+                  <ul>
+                    {atRiskAccounts.map((d) => (
+                      <li key={d.id} className="flex items-center justify-between gap-3 border-b border-black/10 px-4 py-2.5 last:border-b-0">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-black">{d.claimant_name}</p>
+                          <p className="truncate text-[11px] text-slate-500">{d.days_pending} days pending</p>
+                        </div>
+                        <span className="shrink-0 text-sm font-semibold tabular-nums text-destructive">
+                          R{d.amount_due.toLocaleString()}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {debtCases.filter((d) => d.amount_due > 0).length > atRiskAccounts.length && (
+                  <Link
+                    to="/attorney-portal/payments"
+                    className="block border-t border-black/10 px-4 py-2 text-center text-xs font-medium hover:bg-black/5"
+                    style={{ color: BRAND_TEAL }}
+                  >
+                    View all outstanding
+                  </Link>
+                )}
+              </PortalCardBody>
             </PortalCard>
           </div>
         </div>
