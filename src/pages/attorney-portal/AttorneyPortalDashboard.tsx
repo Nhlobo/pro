@@ -1,12 +1,19 @@
 import React from 'react';
 import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
 import { useAttorneyDebts } from '@/hooks/useAttorneyDebts';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { LiveCaseTracker } from '@/components/LiveCaseTracker';
 import { Link } from 'react-router-dom';
+import {
+  PortalPageHeader,
+  SyncStatus,
+  StatTile,
+  PortalSection,
+  QuickLinkRow,
+  AlertStrip,
+  PortalTone,
+} from '@/components/attorney-portal/ui/PortalPrimitives';
+import { Button } from '@/components/ui/button';
 import {
   Briefcase,
   Calendar,
@@ -15,222 +22,205 @@ import {
   CheckCircle2,
   AlertCircle,
   TrendingUp,
-  ArrowRight,
   Wallet,
   Scale,
-  BookOpen
-} from "lucide-react";
+  BookOpen,
+} from 'lucide-react';
 
 const AttorneyPortalDashboard: React.FC = () => {
   const { stats, liveCases, loading, refetchStats } = useAttorneyDashboardStats();
   const { debtSummary, loading: debtsLoading } = useAttorneyDebts();
 
   // Derive litigation-ready cases (all phases completed / report ready)
-  const litigationReadyCases = liveCases.filter(c =>
-    c.phases.every(p => p.status === 'completed')
+  const litigationReadyCases = liveCases.filter((c) =>
+    c.phases.every((p) => p.status === 'completed')
   ).length;
 
   // Cases in booking stage (pending or only referral received)
-  const bookingStageCases = liveCases.filter(c => {
-    const completedCount = c.phases.filter(p => p.status === 'completed').length;
+  const bookingStageCases = liveCases.filter((c) => {
+    const completedCount = c.phases.filter((p) => p.status === 'completed').length;
     return completedCount <= 2; // Referral Received + maybe Documents Verified
   }).length;
 
   // Reports outstanding
-  const reportsOutstanding = liveCases.filter(c => {
-    const reportPhase = c.phases.find(p => p.name === 'Report Ready');
+  const reportsOutstanding = liveCases.filter((c) => {
+    const reportPhase = c.phases.find((p) => p.name === 'Report Ready');
     return reportPhase?.status !== 'completed';
   }).length;
 
-  const statCards = [
+  const upcomingAppointments = liveCases.filter(
+    (c) => new Date(c.appointmentDate) >= new Date()
+  ).length;
+
+  const isLoading = loading || debtsLoading;
+
+  const statTiles: {
+    label: string;
+    value: React.ReactNode;
+    icon: typeof Briefcase;
+    tone: PortalTone;
+    description: string;
+    href?: string;
+  }[] = [
     {
-      title: 'Total Active Cases',
+      label: 'Total Active Cases',
       value: liveCases.length,
       icon: Briefcase,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10',
-      description: 'All your referred cases'
+      tone: 'primary',
+      description: 'All referred cases',
+      href: '/attorney-portal/cases',
     },
     {
-      title: 'Booking Stage',
+      label: 'Booking Stage',
       value: bookingStageCases,
       icon: BookOpen,
-      color: 'text-kutlwano-blue',
-      bgColor: 'bg-kutlwano-blue/10',
-      description: 'Awaiting scheduling'
+      tone: 'info',
+      description: 'Awaiting scheduling',
+      href: '/attorney-portal/appointments',
     },
     {
-      title: 'Reports Outstanding',
+      label: 'Reports Outstanding',
       value: reportsOutstanding,
       icon: Clock,
-      color: 'text-warning',
-      bgColor: 'bg-warning/10',
-      description: 'Reports not yet ready'
+      tone: 'warning',
+      description: 'Not yet ready',
+      href: '/attorney-portal/case-status',
     },
     {
-      title: 'Litigation Ready',
+      label: 'Litigation Ready',
       value: litigationReadyCases,
       icon: Scale,
-      color: 'text-success',
-      bgColor: 'bg-success/10',
-      description: 'All reports submitted'
+      tone: 'success',
+      description: 'All reports submitted',
+      href: '/attorney-portal/cases',
     },
     {
-      title: 'Reports In Progress',
+      label: 'Reports In Progress',
       value: stats.reportsInProgress,
       icon: FileText,
-      color: 'text-info',
-      bgColor: 'bg-info/10',
-      description: 'Being prepared'
+      tone: 'info',
+      description: 'Being prepared',
+      href: '/attorney-portal/reports',
     },
     {
-      title: 'Reports Completed',
+      label: 'Reports Completed',
       value: stats.reportsReadyToDownload,
       icon: CheckCircle2,
-      color: 'text-success',
-      bgColor: 'bg-success/10',
-      description: 'Ready to download'
+      tone: 'success',
+      description: 'Ready to download',
+      href: '/attorney-portal/reports',
     },
     {
-      title: 'Outstanding Balance',
+      label: 'Outstanding Balance',
       value: debtSummary ? `R${debtSummary.total_owed.toLocaleString()}` : 'R0',
       icon: Wallet,
-      color: 'text-destructive',
-      bgColor: 'bg-destructive/10',
+      tone: 'destructive',
       description: 'AOD balance due',
-      isAmount: true
+      href: '/attorney-portal/payments',
     },
     {
-      title: 'Actions Needed',
+      label: 'Actions Needed',
       value: stats.actionsNeeded,
       icon: AlertCircle,
-      color: 'text-destructive',
-      bgColor: 'bg-destructive/10',
-      description: `${stats.missingDocuments} docs, ${stats.pendingConfirmations} confirmations`
-    }
+      tone: 'destructive',
+      description: `${stats.missingDocuments} docs · ${stats.pendingConfirmations} confirmations`,
+      href: '/attorney-portal/notifications',
+    },
   ];
 
   return (
     <AttorneyPortalLayout>
-      <div className="space-y-8">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Welcome to Your Portal</h1>
-          <p className="text-muted-foreground mt-1">
-            Track your matters, monitor progress, and manage your cases
-          </p>
-        </div>
+      <div className="space-y-6">
+        <PortalPageHeader
+          eyebrow="Attorney Portal"
+          title="Dashboard"
+          description="Track your matters, monitor progress, and manage your cases."
+          actions={<SyncStatus loading={isLoading} onRefresh={refetchStats} label="Live data" />}
+        />
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {statCards.map((stat, index) => (
-            <Card key={index} className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <stat.icon className={`h-4 w-4 ${stat.color}`} />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${stat.color}`}>
-                  {loading || debtsLoading ? '...' : stat.value}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">{stat.description}</p>
-              </CardContent>
-            </Card>
+        {!isLoading && stats.actionsNeeded > 0 && (
+          <AlertStrip
+            icon={AlertCircle}
+            tone="warning"
+            title={`${stats.actionsNeeded} action${stats.actionsNeeded === 1 ? '' : 's'} need your attention`}
+            description={`${stats.missingDocuments} case${stats.missingDocuments === 1 ? '' : 's'} missing documents, ${stats.pendingConfirmations} confirmation${stats.pendingConfirmations === 1 ? '' : 's'} pending.`}
+            action={
+              <Button asChild size="sm" variant="outline">
+                <Link to="/attorney-portal/notifications">Review</Link>
+              </Button>
+            }
+          />
+        )}
+
+        {/* KPI instrument panel */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {statTiles.map((tile) => (
+            <StatTile
+              key={tile.label}
+              icon={tile.icon}
+              label={tile.label}
+              value={tile.value}
+              tone={tile.tone}
+              description={tile.description}
+              loading={isLoading}
+              href={tile.href}
+            />
           ))}
         </div>
 
-        {/* Quick Access Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="bg-gradient-card border-border/50 shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-kutlwano-blue" />
-                Upcoming Appointments
-              </CardTitle>
-              <CardDescription>
-                {liveCases.filter(c => new Date(c.appointmentDate) >= new Date()).length} appointments scheduled
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full">
-                <Link to="/attorney-portal/appointments">
-                  View All <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+        {/* Primary content: live case tracker + compact quick-access panel */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <PortalSection
+              icon={TrendingUp}
+              title="Live Case Progress"
+              description="Real-time tracking of your case progress through all stages"
+              tone="primary"
+            >
+              <LiveCaseTracker cases={liveCases.slice(0, 5)} loading={loading} onRefresh={refetchStats} />
+              {liveCases.length > 5 && (
+                <div className="mt-4 text-center">
+                  <Button asChild variant="outline">
+                    <Link to="/attorney-portal/cases">View All {liveCases.length} Cases</Link>
+                  </Button>
+                </div>
+              )}
+            </PortalSection>
+          </div>
 
-          <Card className="bg-gradient-card border-border/50 shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-kutlwano-teal" />
-                Reports Ready
-              </CardTitle>
-              <CardDescription>
-                {stats.reportsReadyToDownload} reports available for download
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline" className="w-full">
-                <Link to="/attorney-portal/reports">
-                  View Reports <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50 shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wallet className="h-5 w-5 text-warning" />
-                Payment Summary
-              </CardTitle>
-              <CardDescription>
-                View your AOD balances and payment schedule
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild variant="outline" className="w-full">
-                <Link to="/attorney-portal/payments">
-                  View Payments <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="lg:col-span-1">
+            <PortalSection title="Quick Access" description="Jump to a section" noPadding>
+              <QuickLinkRow
+                icon={Calendar}
+                tone="info"
+                title="Upcoming Appointments"
+                subtitle={`${upcomingAppointments} scheduled`}
+                href="/attorney-portal/appointments"
+              />
+              <QuickLinkRow
+                icon={FileText}
+                tone="teal"
+                title="Reports Ready"
+                subtitle={`${stats.reportsReadyToDownload} available to download`}
+                href="/attorney-portal/reports"
+              />
+              <QuickLinkRow
+                icon={Wallet}
+                tone="warning"
+                title="Payment Summary"
+                subtitle="AOD balances & payment schedule"
+                href="/attorney-portal/payments"
+              />
+              <QuickLinkRow
+                icon={Scale}
+                tone="purple"
+                title="My Cases"
+                subtitle={`${liveCases.length} total cases`}
+                href="/attorney-portal/cases"
+              />
+            </PortalSection>
+          </div>
         </div>
-
-        {/* Live Case Tracker */}
-        <Card className="bg-gradient-card border-border/50 shadow-soft">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-kutlwano-blue" />
-              Live Case Progress
-            </CardTitle>
-            <CardDescription>
-              Real-time tracking of your case progress through all stages
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <LiveCaseTracker 
-              cases={liveCases.slice(0, 5)} 
-              loading={loading} 
-              onRefresh={refetchStats} 
-            />
-            {liveCases.length > 5 && (
-              <div className="mt-4 text-center">
-                <Button asChild variant="outline">
-                  <Link to="/attorney-portal/cases">
-                    View All {liveCases.length} Cases
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </AttorneyPortalLayout>
   );
