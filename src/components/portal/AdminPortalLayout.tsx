@@ -7,10 +7,6 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PortalSwitcher from './PortalSwitcher';
 import { NotificationCenter } from '@/components/NotificationCenter';
-import TourLauncher from '@/components/tour/TourLauncher';
-import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
-import { ADMIN_TOUR, ADMIN_TOUR_KEY } from '@/config/tours';
-import { ADMIN_PAGE_TOURS } from '@/config/pageTours';
 import {
   LayoutDashboard,
   Users,
@@ -137,7 +133,6 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   return (
     <div className="flex min-h-screen bg-background">
       {isSalesConsultant() && <SalesConsultantDeleteGuard />}
-      <RouteFirstVisitTour routes={ADMIN_PAGE_TOURS} />
 
       {/* Mobile backdrop */}
       {mobileOpen && (
@@ -150,7 +145,6 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
 
       {/* Sidebar */}
       <aside
-        data-tour="admin-sidebar"
         className={cn(
           "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden gradient-nav text-white shadow-xl transition-all duration-300",
           // Width
@@ -320,11 +314,8 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
                     <span className="text-xs font-semibold uppercase tracking-wide sm:hidden">Back</span>
                   </Button>
                 )}
-                <div className="hidden sm:block">
-                  <TourLauncher steps={ADMIN_TOUR} storageKey={ADMIN_TOUR_KEY} compact />
-                </div>
-                <div data-tour="portal-switcher" className="hidden md:block"><PortalSwitcher /></div>
-                <div data-tour="notifications"><NotificationCenter /></div>
+                <div className="hidden md:block"><PortalSwitcher /></div>
+                <NotificationCenter />
               </div>
             </div>
 
