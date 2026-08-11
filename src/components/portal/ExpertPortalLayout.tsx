@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   Menu,
   HeadsetIcon,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -33,6 +34,7 @@ const navigationItems = [
   { title: 'Reports', href: '/expert-portal/reports', icon: FileText },
   { title: 'Performance', href: '/expert-portal/performance', icon: BarChart3 },
   { title: 'Profile', href: '/expert-portal/profile', icon: User },
+  { title: 'Security', href: '/expert-portal/security', icon: ShieldCheck },
   { title: 'Support', href: '/expert-portal/support', icon: HeadsetIcon },
 ];
 
