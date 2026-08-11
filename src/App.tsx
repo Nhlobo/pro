@@ -64,7 +64,7 @@ function resolvePageTitle(pathname: string): string {
   return match ? PAGE_TITLE_BY_PATH[match] : 'Admin';
 }
 
-import SalesConsultantDeleteGuard from './SalesConsultantDeleteGuard';
+import SalesConsultantDeleteGuard from './components/portal/SalesConsultantDeleteGuard';
 import InternalChatWidget from '@/components/internalChat/InternalChatWidget';
 import BrandedPageLoader from '@/components/BrandedPageLoader';
 
