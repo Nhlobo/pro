@@ -22,10 +22,6 @@ import {
   ChevronLeft,
   Menu,
 } from 'lucide-react';
-import TourLauncher from '@/components/tour/TourLauncher';
-import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
-import { ATTORNEY_TOUR, ATTORNEY_TOUR_KEY } from '@/config/tours';
-import { ATTORNEY_PAGE_TOURS } from '@/config/pageTours';
 import BrandedPageLoader from '@/components/BrandedPageLoader';
 
 const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
@@ -89,8 +85,6 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
 
   return (
     <div className="flex min-h-screen bg-background">
-      <RouteFirstVisitTour routes={ATTORNEY_PAGE_TOURS} />
-
       {/* Mobile backdrop */}
       {mobileOpen && (
         <div
@@ -102,7 +96,6 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
 
       {/* Sidebar */}
       <aside
-        data-tour="attorney-sidebar"
         className={cn(
           "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden gradient-nav text-white shadow-xl transition-all duration-300",
           sidebarCollapsed ? "w-16" : "w-64",
@@ -253,9 +246,6 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
                     <span className="text-xs font-semibold uppercase tracking-wide sm:hidden">Back</span>
                   </Button>
                 )}
-                <div className="hidden sm:block">
-                  <TourLauncher steps={ATTORNEY_TOUR} storageKey={ATTORNEY_TOUR_KEY} compact />
-                </div>
                 <div className="hidden md:block"><PortalSwitcher /></div>
                 <NotificationCenter />
               </div>
