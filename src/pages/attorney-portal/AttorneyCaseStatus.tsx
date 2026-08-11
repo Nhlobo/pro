@@ -4,15 +4,13 @@ import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 import {
   Users, CheckCircle2, Calendar, FileText, AlertTriangle,
   Search, Filter, ArrowLeft, User, Clock, Download, Bell,
@@ -20,6 +18,22 @@ import {
 } from 'lucide-react';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import { format, formatDistanceToNow, differenceInDays } from 'date-fns';
+import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
+import {
+  PortalPage,
+  PortalHeader,
+  SyncStatus,
+  PortalStatStrip,
+  PortalCard,
+  PortalCardHeader,
+  PortalCardBody,
+  PortalPill,
+  PortalEmptyState,
+  PortalLoadingState,
+  type PortalPillTone,
+} from '@/components/attorney-portal/ui/PortalPrimitives';
+
+const FIELD_CLASS = 'rounded-none border-black/15 focus-visible:ring-[#00BAAD]/30';
 
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
@@ -105,42 +119,6 @@ const computeStage = (assessments: AssessmentRow[]): { stage: Stage; pct: number
   if (anyAssessed) return { stage: 'Reports', pct: 60 };
   if (anyScheduled) return { stage: 'Assessment', pct: 40 };
   return { stage: 'Booking', pct: 25 };
-};
-
-// ─────────────────────────────────────────────────────────────────────
-// Stat Card
-// ─────────────────────────────────────────────────────────────────────
-const StatCard: React.FC<{
-  label: string;
-  value: number | string;
-  icon: React.ReactNode;
-  tone?: 'primary' | 'success' | 'warning' | 'destructive' | 'info';
-  onClick?: () => void;
-  active?: boolean;
-}> = ({ label, value, icon, tone = 'primary', onClick, active }) => {
-  const tones: Record<string, string> = {
-    primary: 'border-primary/30 hover:border-primary text-primary',
-    success: 'border-success/30 hover:border-success text-success',
-    warning: 'border-warning/30 hover:border-warning text-warning',
-    destructive: 'border-destructive/30 hover:border-destructive text-destructive',
-    info: 'border-info/30 hover:border-info text-info',
-  };
-  return (
-    <Card
-      onClick={onClick}
-      className={`cursor-pointer transition-all bg-card ${tones[tone]} ${active ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground truncate">{label}</p>
-            <p className="text-2xl font-bold mt-1 text-foreground">{value}</p>
-          </div>
-          <div className="shrink-0 opacity-80">{icon}</div>
-        </div>
-      </CardContent>
-    </Card>
-  );
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -441,39 +419,37 @@ const AttorneyCaseStatus: React.FC = () => {
     }
   }, [toast]);
 
-  // Status badges
-  const stageBadge = (stage: Stage) => {
-    const colors: Record<string, string> = {
-      Closed: 'bg-success/10 text-success border-success/30',
-      Litigation: 'bg-info/10 text-info border-info/30',
-      Reports: 'bg-primary/10 text-primary border-primary/30',
-      Assessment: 'bg-warning/10 text-warning border-warning/30',
-      Booking: 'bg-muted text-muted-foreground border-border',
-      Referral: 'bg-muted text-muted-foreground border-border',
-    };
-    return <Badge variant="outline" className={colors[stage]}>{stage}</Badge>;
+  // Status pills (tone-driven, same vocabulary as PortalPill everywhere else)
+  const STAGE_PILL_TONE: Record<Stage, PortalPillTone> = {
+    Closed: 'success',
+    Litigation: 'teal',
+    Reports: 'teal',
+    Assessment: 'warning',
+    Booking: 'neutral',
+    Referral: 'neutral',
   };
+  const stageBadge = (stage: Stage) => <PortalPill tone={STAGE_PILL_TONE[stage]}>{stage}</PortalPill>;
 
   const assessmentStatusBadge = (a: AssessmentRow) => {
     const s = (a.case_status || '').toLowerCase();
     if (['assessed', 'completed', 'done'].includes(s) || isReportReceived(a.report_status))
-      return <Badge className="bg-success/10 text-success border-success/30">Assessed</Badge>;
+      return <PortalPill tone="success">Assessed</PortalPill>;
     if (s === 'scheduled' || s === 'confirmed')
-      return <Badge className="bg-info/10 text-info border-info/30">Scheduled</Badge>;
-    if (s === 'rescheduled') return <Badge className="bg-warning/10 text-warning border-warning/30">Rescheduled</Badge>;
+      return <PortalPill tone="teal">Scheduled</PortalPill>;
+    if (s === 'rescheduled') return <PortalPill tone="warning">Rescheduled</PortalPill>;
     if (s === 'missed' || s === 'cancelled')
-      return <Badge variant="destructive">{s === 'missed' ? 'Missed' : 'Cancelled'}</Badge>;
-    return <Badge variant="outline">Pending</Badge>;
+      return <PortalPill tone="destructive">{s === 'missed' ? 'Missed' : 'Cancelled'}</PortalPill>;
+    return <PortalPill>Pending</PortalPill>;
   };
 
   const reportStatusBadge = (a: AssessmentRow) => {
     if (isReportReceived(a.report_status))
-      return <Badge className="bg-success/10 text-success border-success/30"><CheckCircle2 className="h-3 w-3 mr-1" />Received</Badge>;
+      return <PortalPill tone="success"><CheckCircle2 className="h-3 w-3" />Received</PortalPill>;
     if (isReportOverdue(a.report_due_date, a.report_status))
-      return <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" />Overdue</Badge>;
+      return <PortalPill tone="destructive"><AlertTriangle className="h-3 w-3" />Overdue</PortalPill>;
     if (a.report_status)
-      return <Badge className="bg-info/10 text-info border-info/30">{a.report_status}</Badge>;
-    return <Badge variant="outline">Outstanding</Badge>;
+      return <PortalPill tone="teal">{a.report_status}</PortalPill>;
+    return <PortalPill tone="warning">Outstanding</PortalPill>;
   };
 
   return (
@@ -483,123 +459,118 @@ const AttorneyCaseStatus: React.FC = () => {
         <meta name="description" content="Track claimant case status, assessments, reports and progress in real time." />
       </Helmet>
 
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-              <Activity className="h-7 w-7 text-primary" />
-              View Case Status
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Real-time view of your claimants, assessments, reports and litigation readiness.
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => loadData()} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Activity className="h-4 w-4 mr-2" />}
-            Refresh
-          </Button>
-        </div>
+      <PortalPage>
+        <PortalHeader
+          eyebrow="Attorney Portal"
+          title="View Case Status"
+          description="Real-time view of your claimants, assessments, reports and litigation readiness."
+          icon={Activity}
+          actions={<SyncStatus loading={loading} onRefresh={loadData} label="Live data" />}
+        />
 
         {view === 'dashboard' && (
           <>
-            {/* Stat Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-              <StatCard
-                label="Active Claimants"
-                value={summary.activeClaimants}
-                icon={<Users className="h-5 w-5" />}
-                tone="primary"
-                active={activeQuickFilter === 'active'}
-                onClick={() => setActiveQuickFilter(activeQuickFilter === 'active' ? null : 'active')}
-              />
-              <StatCard
-                label="Closed Claimants"
-                value={summary.closedClaimants}
-                icon={<CheckCircle2 className="h-5 w-5" />}
-                tone="success"
-                active={activeQuickFilter === 'closed'}
-                onClick={() => setActiveQuickFilter(activeQuickFilter === 'closed' ? null : 'closed')}
-              />
-              <StatCard
-                label="Assessments Booked"
-                value={summary.totalAssessments}
-                icon={<Calendar className="h-5 w-5" />}
-                tone="info"
-              />
-              <StatCard
-                label="Reports Received"
-                value={summary.totalReportsReceived}
-                icon={<FileCheck className="h-5 w-5" />}
-                tone="success"
-                active={activeQuickFilter === 'received'}
-                onClick={() => setActiveQuickFilter(activeQuickFilter === 'received' ? null : 'received')}
-              />
-              <StatCard
-                label="Outstanding Reports"
-                value={summary.totalOutstanding}
-                icon={<AlertTriangle className="h-5 w-5" />}
-                tone={summary.totalOutstanding > 0 ? 'warning' : 'primary'}
-                active={activeQuickFilter === 'outstanding'}
-                onClick={() => setActiveQuickFilter(activeQuickFilter === 'outstanding' ? null : 'outstanding')}
-              />
+            {/* KPI ledger — one bordered panel, matches Dashboard/My Cases/Appointments */}
+            <PortalStatStrip
+              loading={loading}
+              tiles={[
+                {
+                  label: 'Active Claimants', value: summary.activeClaimants, icon: Users,
+                  hint: activeQuickFilter === 'active' ? 'Filter on' : undefined,
+                },
+                {
+                  label: 'Closed Claimants', value: summary.closedClaimants, icon: CheckCircle2,
+                  hint: activeQuickFilter === 'closed' ? 'Filter on' : undefined,
+                },
+                { label: 'Assessments Booked', value: summary.totalAssessments, icon: Calendar },
+                {
+                  label: 'Reports Received', value: summary.totalReportsReceived, icon: FileCheck,
+                  hint: activeQuickFilter === 'received' ? 'Filter on' : undefined,
+                },
+                {
+                  label: 'Reports Outstanding', value: summary.totalOutstanding, icon: AlertTriangle,
+                  urgent: summary.totalOutstanding > 0,
+                  hint: activeQuickFilter === 'outstanding' ? 'Filter on' : undefined,
+                },
+              ]}
+            />
+            {/* Quick filter toggles — same numbers as the strip above, clickable */}
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: 'active', label: 'Active' },
+                { key: 'closed', label: 'Closed' },
+                { key: 'received', label: 'Reports Received' },
+                { key: 'outstanding', label: 'Reports Outstanding' },
+              ].map(f => (
+                <button
+                  key={f.key}
+                  onClick={() => setActiveQuickFilter(activeQuickFilter === f.key ? null : f.key)}
+                  className={cn(
+                    'border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide transition-colors',
+                    activeQuickFilter === f.key
+                      ? 'border-[#00BAAD]/50 bg-[#00BAAD]/10 text-[#00BAAD]'
+                      : 'border-black/10 text-slate-500 hover:border-black/25 hover:text-black'
+                  )}
+                >
+                  {f.label}
+                </button>
+              ))}
             </div>
 
             {/* Notifications */}
             {notifications.length > 0 && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-primary" />
-                    Recent Alerts
-                    <Badge variant="secondary" className="ml-1">{notifications.length}</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 max-h-64 overflow-y-auto">
+              <PortalCard>
+                <PortalCardHeader
+                  icon={Bell}
+                  title="Recent Alerts"
+                  actions={<PortalPill tone="teal">{notifications.length}</PortalPill>}
+                />
+                <PortalCardBody className="max-h-64 space-y-2 overflow-y-auto">
                   {notifications.map(n => (
                     <button
                       key={n.id}
                       onClick={() => openClaimant(n.claimantKey)}
-                      className={`w-full text-left flex items-start gap-3 p-3 rounded-lg border transition-colors hover:bg-muted/50 ${
-                        n.tone === 'destructive' ? 'border-destructive/30 bg-destructive/5'
-                        : n.tone === 'success' ? 'border-success/30 bg-success/5'
-                        : n.tone === 'warning' ? 'border-warning/30 bg-warning/5'
-                        : 'border-info/30 bg-info/5'
-                      }`}
+                      className={cn(
+                        'flex w-full items-start gap-3 border px-3 py-2.5 text-left transition-colors hover:bg-black/[0.02]',
+                        n.tone === 'destructive' ? 'border-destructive/30'
+                        : n.tone === 'success' ? 'border-success/30'
+                        : n.tone === 'warning' ? 'border-warning/30'
+                        : 'border-black/10'
+                      )}
                     >
-                      <div className="mt-0.5 shrink-0">
-                        {n.tone === 'destructive' && <AlertTriangle className="h-4 w-4 text-destructive" />}
-                        {n.tone === 'success' && <CheckCircle2 className="h-4 w-4 text-success" />}
-                        {n.tone === 'warning' && <Clock className="h-4 w-4 text-warning" />}
-                        {n.tone === 'info' && <FileText className="h-4 w-4 text-info" />}
+                      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center border border-black/10 bg-black/[0.03]">
+                        {n.tone === 'destructive' && <AlertTriangle className="h-3.5 w-3.5 text-destructive" />}
+                        {n.tone === 'success' && <CheckCircle2 className="h-3.5 w-3.5 text-success" />}
+                        {n.tone === 'warning' && <Clock className="h-3.5 w-3.5 text-warning" />}
+                        {n.tone === 'info' && <FileText className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} />}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-foreground">{n.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{n.message}</p>
+                        <p className="text-sm font-medium text-black">{n.title}</p>
+                        <p className="truncate text-xs text-slate-500">{n.message}</p>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+                      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-400" />
                     </button>
                   ))}
-                </CardContent>
-              </Card>
+                </PortalCardBody>
+              </PortalCard>
             )}
 
-            {/* Filters */}
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex flex-col md:flex-row gap-3">
+            {/* Search & Filters */}
+            <PortalCard>
+              <PortalCardBody>
+                <div className="flex flex-col gap-3 md:flex-row">
                   <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <Input
-                      placeholder="Search by claimant name or case reference..."
+                      placeholder="Search by claimant name or case reference…"
                       value={search}
                       onChange={e => setSearch(e.target.value)}
-                      className="pl-10"
+                      className={cn(FIELD_CLASS, 'pl-9')}
                     />
                   </div>
                   <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-                    <SelectTrigger className="w-full md:w-[200px]">
-                      <Filter className="h-4 w-4 mr-2" />
+                    <SelectTrigger className={cn(FIELD_CLASS, 'w-full md:w-[200px]')}>
+                      <Filter className="mr-2 h-4 w-4 text-slate-400" />
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -611,7 +582,7 @@ const AttorneyCaseStatus: React.FC = () => {
                     </SelectContent>
                   </Select>
                   <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-                    <SelectTrigger className="w-full md:w-[200px]">
+                    <SelectTrigger className={cn(FIELD_CLASS, 'w-full md:w-[200px]')}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -621,29 +592,25 @@ const AttorneyCaseStatus: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-              </CardContent>
-            </Card>
+              </PortalCardBody>
+            </PortalCard>
 
             {/* Claimant Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Claimants ({filtered.length})</CardTitle>
-                <CardDescription>Click a row to open the claimant file</CardDescription>
-              </CardHeader>
-              <CardContent>
+            <PortalCard>
+              <PortalCardHeader
+                icon={Users}
+                title={`Claimants (${filtered.length})`}
+                description="Click a row to open the claimant file"
+              />
+              <PortalCardBody className={loading || filtered.length === 0 ? 'p-0' : 'p-0'}>
                 {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
+                  <PortalLoadingState label="Loading claimants…" />
                 ) : filtered.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                    <p>No claimants match your filters.</p>
-                  </div>
+                  <PortalEmptyState icon={Users} title="No claimants match your filters" />
                 ) : (
                   <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
+                    <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
+                      <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
                         <TableRow>
                           <TableHead>Claimant Name</TableHead>
                           <TableHead>Case Reference</TableHead>
@@ -664,41 +631,39 @@ const AttorneyCaseStatus: React.FC = () => {
                           return (
                             <TableRow
                               key={c.claimantId}
-                              className="cursor-pointer hover:bg-muted/50"
+                              className="cursor-pointer hover:bg-black/[0.02]"
                               onClick={() => openClaimant(c.claimantId)}
                             >
                               <TableCell>
                                 <div className="flex items-center gap-2">
-                                  <User className="h-4 w-4 text-muted-foreground" />
-                                  <span className="font-medium">{c.claimantName}</span>
+                                  <User className="h-3.5 w-3.5 text-slate-400" />
+                                  <span className="font-medium text-black">{c.claimantName}</span>
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <span className="font-mono text-xs text-muted-foreground">
+                                <span className="font-mono text-[11px] text-slate-500">
                                   {c.claimantAutoId || '—'}
                                 </span>
                               </TableCell>
-                              <TableCell>
-                                <span className="text-sm">{normalizeClaimType(c.matterType)}</span>
-                              </TableCell>
+                              <TableCell className="text-slate-600">{normalizeClaimType(c.matterType)}</TableCell>
                               <TableCell>{stageBadge(c.stage)}</TableCell>
                               <TableCell className="text-center">
-                                <span className="font-medium">{completed}</span>
-                                <span className="text-muted-foreground"> / {c.assessments.length}</span>
+                                <span className="font-medium text-black">{completed}</span>
+                                <span className="text-slate-400"> / {c.assessments.length}</span>
                               </TableCell>
                               <TableCell className="text-center">
-                                <span className="text-success font-medium">{c.reportsReceived}</span>
-                                <span className="text-muted-foreground"> / </span>
-                                <span className={c.reportsOutstanding > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+                                <span className="font-medium text-success">{c.reportsReceived}</span>
+                                <span className="text-slate-400"> / </span>
+                                <span className={c.reportsOutstanding > 0 ? 'font-medium text-destructive' : 'text-slate-400'}>
                                   {c.reportsOutstanding}
                                 </span>
                               </TableCell>
-                              <TableCell className="text-xs text-muted-foreground">
+                              <TableCell className="text-[11px] text-slate-500">
                                 {c.lastUpdated ? format(new Date(c.lastUpdated), 'dd MMM yyyy') : '—'}
                               </TableCell>
                               <TableCell className="text-right">
-                                <Button size="sm" variant="ghost">
-                                  Open <ChevronRight className="h-4 w-4 ml-1" />
+                                <Button size="sm" variant="ghost" className="rounded-none">
+                                  Open <ChevronRight className="ml-1 h-3.5 w-3.5" />
                                 </Button>
                               </TableCell>
                             </TableRow>
@@ -708,8 +673,8 @@ const AttorneyCaseStatus: React.FC = () => {
                     </Table>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </PortalCardBody>
+            </PortalCard>
           </>
         )}
 
@@ -723,7 +688,7 @@ const AttorneyCaseStatus: React.FC = () => {
             reportStatusBadge={reportStatusBadge}
           />
         )}
-      </div>
+      </PortalPage>
     </AttorneyPortalLayout>
   );
 };
@@ -740,142 +705,138 @@ interface DetailProps {
   reportStatusBadge: (a: AssessmentRow) => React.ReactNode;
 }
 
-const stageColor = (stage: Stage, current: Stage) => {
+const stageDotClass = (stage: Stage, current: Stage) => {
   const currentIdx = STAGES.indexOf(current);
   const idx = STAGES.indexOf(stage);
-  if (idx < currentIdx) return 'bg-success text-success-foreground border-success';
-  if (idx === currentIdx) return 'bg-primary text-primary-foreground border-primary';
-  return 'bg-muted text-muted-foreground border-border';
+  if (idx < currentIdx) return 'border-success bg-success text-white';
+  if (idx === currentIdx) return 'border-[#00BAAD] bg-[#00BAAD] text-white';
+  return 'border-black/15 bg-white text-slate-400';
 };
+
+type DetailTab = 'overview' | 'assessments' | 'reports' | 'tracker';
 
 const ClaimantDetail: React.FC<DetailProps> = ({
   claimant, onBack, onDownload, stageBadge, assessmentStatusBadge, reportStatusBadge,
 }) => {
+  const [tab, setTab] = useState<DetailTab>('overview');
+
+  const TAB_ITEMS: { key: DetailTab; label: string; icon: typeof User }[] = [
+    { key: 'overview', label: 'Overview', icon: User },
+    { key: 'assessments', label: 'Assessments', icon: Stethoscope },
+    { key: 'reports', label: 'Reports', icon: FileText },
+    { key: 'tracker', label: 'Live Tracker', icon: Activity },
+  ];
+
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" onClick={onBack} className="gap-2">
+    <div className="space-y-4 md:space-y-6">
+      <Button variant="ghost" onClick={onBack} className="gap-2 rounded-none px-0 hover:bg-transparent hover:text-[#00BAAD]">
         <ArrowLeft className="h-4 w-4" /> Back to Claimants
       </Button>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div>
-              <CardTitle className="text-2xl flex items-center gap-2">
-                <User className="h-6 w-6 text-primary" />
-                {claimant.claimantName}
-              </CardTitle>
-              <CardDescription className="mt-1 space-x-3">
-                <span className="font-mono">{claimant.claimantAutoId || 'No reference'}</span>
-                <span>•</span>
-                <span>{normalizeClaimType(claimant.matterType)}</span>
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              {stageBadge(claimant.stage)}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
+      <PortalCard>
+        <PortalCardHeader
+          icon={User}
+          title={claimant.claimantName}
+          description={
+            <span className="space-x-2">
+              <span className="font-mono">{claimant.claimantAutoId || 'No reference'}</span>
+              <span>•</span>
+              <span>{normalizeClaimType(claimant.matterType)}</span>
+            </span>
+          }
+          actions={stageBadge(claimant.stage)}
+        />
+        <PortalCardBody>
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div className="flex items-center justify-between text-[11px] text-slate-500">
               <span>Workflow progress</span>
-              <span>{claimant.progressPct}%</span>
+              <span className="font-medium text-black">{claimant.progressPct}%</span>
             </div>
-            <Progress value={claimant.progressPct} className="h-2" />
+            <Progress value={claimant.progressPct} className="h-1.5 rounded-none" />
           </div>
-        </CardContent>
-      </Card>
+        </PortalCardBody>
+      </PortalCard>
 
-      <Tabs defaultValue="overview">
-        <TabsList className="grid w-full grid-cols-4 md:w-auto md:inline-flex">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="assessments">Assessments</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
-          <TabsTrigger value="tracker">Live Tracker</TabsTrigger>
-        </TabsList>
+      {/* Tabs — flat underline style, matches the rest of the portal */}
+      <div className="flex flex-wrap gap-1 border-b border-black/10">
+        {TAB_ITEMS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              'flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold uppercase tracking-wide transition-colors',
+              tab === t.key
+                ? 'border-[#00BAAD] text-[#00BAAD]'
+                : 'border-transparent text-slate-500 hover:text-black'
+            )}
+          >
+            <t.icon className="h-3.5 w-3.5" />
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        {/* Overview */}
-        <TabsContent value="overview" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Case Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Field label="Claimant" value={claimant.claimantName} />
-              <Field label="Case Reference" value={claimant.claimantAutoId || '—'} />
-              <Field label="Claim Type" value={normalizeClaimType(claimant.matterType)} />
-              <Field label="Current Stage" value={claimant.stage} />
-              <Field label="Assessments Booked" value={claimant.reportsRequired.toString()} />
-              <Field label="Reports Received" value={claimant.reportsReceived.toString()} />
-              <Field label="Reports Outstanding" value={claimant.reportsOutstanding.toString()} />
-              <Field label="Last Updated" value={claimant.lastUpdated ? format(new Date(claimant.lastUpdated), 'dd MMM yyyy') : '—'} />
-            </CardContent>
-          </Card>
-        </TabsContent>
+      {/* Overview */}
+      {tab === 'overview' && (
+        <PortalCard>
+          <PortalCardHeader title="Case Summary" />
+          <PortalCardBody className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <Field label="Claimant" value={claimant.claimantName} />
+            <Field label="Case Reference" value={claimant.claimantAutoId || '—'} />
+            <Field label="Claim Type" value={normalizeClaimType(claimant.matterType)} />
+            <Field label="Current Stage" value={claimant.stage} />
+            <Field label="Assessments Booked" value={claimant.reportsRequired.toString()} />
+            <Field label="Reports Received" value={claimant.reportsReceived.toString()} />
+            <Field label="Reports Outstanding" value={claimant.reportsOutstanding.toString()} />
+            <Field label="Last Updated" value={claimant.lastUpdated ? format(new Date(claimant.lastUpdated), 'dd MMM yyyy') : '—'} />
+          </PortalCardBody>
+        </PortalCard>
+      )}
 
-        {/* Assessments */}
-        <TabsContent value="assessments">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Stethoscope className="h-4 w-4 text-primary" />
-                Expert Assessments ({claimant.assessments.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Expert Type</TableHead>
-                    <TableHead>Appointment Date</TableHead>
-                    <TableHead>Status</TableHead>
+      {/* Assessments */}
+      {tab === 'assessments' && (
+        <PortalCard>
+          <PortalCardHeader icon={Stethoscope} title={`Expert Assessments (${claimant.assessments.length})`} />
+          <PortalCardBody className="p-0">
+            <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Expert Type</TableHead>
+                  <TableHead>Appointment Date</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {claimant.assessments.map(a => (
+                  <TableRow key={a.appointment_id}>
+                    <TableCell className="font-medium text-black">{formatExpertType(a.expert_type)}</TableCell>
+                    <TableCell className="text-slate-500">
+                      {a.appointment_date ? format(new Date(a.appointment_date), 'dd MMM yyyy') : '—'}
+                    </TableCell>
+                    <TableCell>{assessmentStatusBadge(a)}</TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {claimant.assessments.map(a => (
-                    <TableRow key={a.appointment_id}>
-                      <TableCell className="font-medium">{formatExpertType(a.expert_type)}</TableCell>
-                      <TableCell>
-                        {a.appointment_date ? format(new Date(a.appointment_date), 'dd MMM yyyy') : '—'}
-                      </TableCell>
-                      <TableCell>{assessmentStatusBadge(a)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                ))}
+              </TableBody>
+            </Table>
+          </PortalCardBody>
+        </PortalCard>
+      )}
 
-        {/* Reports */}
-        <TabsContent value="reports">
-          <div className="grid grid-cols-3 gap-3 mb-4">
-            <Card><CardContent className="p-4 text-center">
-              <p className="text-xs text-muted-foreground">Total Reports Required</p>
-              <p className="text-2xl font-bold">{claimant.reportsRequired}</p>
-            </CardContent></Card>
-            <Card><CardContent className="p-4 text-center">
-              <p className="text-xs text-muted-foreground">Reports Received</p>
-              <p className="text-2xl font-bold text-success">{claimant.reportsReceived}</p>
-            </CardContent></Card>
-            <Card><CardContent className="p-4 text-center">
-              <p className="text-xs text-muted-foreground">Reports Outstanding</p>
-              <p className={`text-2xl font-bold ${claimant.reportsOutstanding > 0 ? 'text-destructive' : 'text-foreground'}`}>
-                {claimant.reportsOutstanding}
-              </p>
-            </CardContent></Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" />
-                Reports
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
+      {/* Reports */}
+      {tab === 'reports' && (
+        <>
+          <PortalStatStrip
+            className="sm:grid-cols-3 lg:grid-cols-3"
+            tiles={[
+              { label: 'Total Reports Required', value: claimant.reportsRequired, icon: FileText },
+              { label: 'Reports Received', value: claimant.reportsReceived, icon: CheckCircle2 },
+              { label: 'Reports Outstanding', value: claimant.reportsOutstanding, icon: AlertTriangle, urgent: claimant.reportsOutstanding > 0 },
+            ]}
+          />
+          <PortalCard>
+            <PortalCardHeader icon={FileText} title="Reports" />
+            <PortalCardBody className="p-0">
+              <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Expert / Specialty</TableHead>
@@ -891,12 +852,12 @@ const ClaimantDetail: React.FC<DetailProps> = ({
                     const received = isReportReceived(a.report_status);
                     return (
                       <TableRow key={a.appointment_id} className={overdue ? 'bg-destructive/5' : ''}>
-                        <TableCell className="font-medium">{formatExpertType(a.expert_type)}</TableCell>
+                        <TableCell className="font-medium text-black">{formatExpertType(a.expert_type)}</TableCell>
                         <TableCell>{reportStatusBadge(a)}</TableCell>
-                        <TableCell className={overdue ? 'text-destructive font-medium' : ''}>
+                        <TableCell className={overdue ? 'font-medium text-destructive' : 'text-slate-500'}>
                           {a.report_due_date ? format(new Date(a.report_due_date), 'dd MMM yyyy') : '—'}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-slate-500">
                           {a.report_submitted_date ? format(new Date(a.report_submitted_date), 'dd MMM yyyy') : '—'}
                         </TableCell>
                         <TableCell className="text-right">
@@ -904,12 +865,13 @@ const ClaimantDetail: React.FC<DetailProps> = ({
                             <Button
                               size="sm"
                               variant="outline"
+                              className="rounded-none"
                               onClick={() => onDownload(a.report_file_path, `${claimant.claimantName}_${formatExpertType(a.expert_type)}.pdf`)}
                             >
-                              <Download className="h-3 w-3 mr-1" /> Download
+                              <Download className="mr-1 h-3 w-3" /> Download
                             </Button>
                           ) : (
-                            <span className="text-xs text-muted-foreground">{received ? 'No file' : 'Pending'}</span>
+                            <span className="text-[11px] text-slate-400">{received ? 'No file' : 'Pending'}</span>
                           )}
                         </TableCell>
                       </TableRow>
@@ -917,79 +879,76 @@ const ClaimantDetail: React.FC<DetailProps> = ({
                   })}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            </PortalCardBody>
+          </PortalCard>
+        </>
+      )}
 
-        {/* Live Tracker */}
-        <TabsContent value="tracker">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Activity className="h-4 w-4 text-primary" />
-                Live Status Tracker
-              </CardTitle>
-              <CardDescription>
-                Visual progression: Referral → Booking → Assessment → Reports → Litigation → Closed
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2">
-                {STAGES.map((s, i) => {
-                  const cls = stageColor(s, claimant.stage);
-                  const isCurrent = s === claimant.stage;
-                  const showRed = isCurrent && claimant.hasOverdue && (s === 'Reports' || s === 'Assessment');
-                  return (
-                    <React.Fragment key={s}>
-                      <div className="flex flex-col items-center gap-1 min-w-[90px]">
-                        <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold text-sm ${
-                          showRed ? 'bg-destructive text-destructive-foreground border-destructive' : cls
-                        }`}>
-                          {STAGES.indexOf(s) < STAGES.indexOf(claimant.stage) ? <CheckCircle2 className="h-5 w-5" /> :
-                            showRed ? <AlertTriangle className="h-5 w-5" /> : i + 1}
-                        </div>
-                        <span className={`text-xs text-center ${isCurrent ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>
-                          {s}
-                        </span>
+      {/* Live Tracker */}
+      {tab === 'tracker' && (
+        <PortalCard>
+          <PortalCardHeader
+            icon={Activity}
+            title="Live Status Tracker"
+            description="Visual progression: Referral → Booking → Assessment → Reports → Litigation → Closed"
+          />
+          <PortalCardBody>
+            <div className="flex items-center justify-between gap-2 overflow-x-auto pb-2">
+              {STAGES.map((s, i) => {
+                const isCurrent = s === claimant.stage;
+                const showRed = isCurrent && claimant.hasOverdue && (s === 'Reports' || s === 'Assessment');
+                return (
+                  <React.Fragment key={s}>
+                    <div className="flex min-w-[90px] flex-col items-center gap-1.5">
+                      <div className={cn(
+                        'flex h-9 w-9 items-center justify-center border-2 text-sm font-semibold',
+                        showRed ? 'border-destructive bg-destructive text-white' : stageDotClass(s, claimant.stage)
+                      )}>
+                        {STAGES.indexOf(s) < STAGES.indexOf(claimant.stage) ? <CheckCircle2 className="h-4 w-4" /> :
+                          showRed ? <AlertTriangle className="h-4 w-4" /> : i + 1}
                       </div>
-                      {i < STAGES.length - 1 && (
-                        <div className={`flex-1 h-0.5 min-w-[20px] ${
-                          STAGES.indexOf(s) < STAGES.indexOf(claimant.stage) ? 'bg-success' : 'bg-border'
-                        }`} />
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
+                      <span className={cn('text-center text-[11px]', isCurrent ? 'font-semibold text-black' : 'text-slate-500')}>
+                        {s}
+                      </span>
+                    </div>
+                    {i < STAGES.length - 1 && (
+                      <div className={cn(
+                        'h-0.5 min-w-[20px] flex-1',
+                        STAGES.indexOf(s) < STAGES.indexOf(claimant.stage) ? 'bg-success' : 'bg-black/10'
+                      )} />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
 
-              <Separator className="my-6" />
+            <Separator className="my-6 bg-black/10" />
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-success" />
-                  <span className="text-muted-foreground">Completed</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-primary" />
-                  <span className="text-muted-foreground">Current</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full bg-destructive" />
-                  <span className="text-muted-foreground">Delayed / Overdue</span>
-                </div>
+            <div className="grid grid-cols-1 gap-3 text-xs md:grid-cols-3">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 bg-success" />
+                <span className="text-slate-500">Completed</span>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5" style={{ backgroundColor: BRAND_TEAL }} />
+                <span className="text-slate-500">Current</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 bg-destructive" />
+                <span className="text-slate-500">Delayed / Overdue</span>
+              </div>
+            </div>
+          </PortalCardBody>
+        </PortalCard>
+      )}
     </div>
   );
 };
 
 const Field: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <div>
-    <p className="text-xs text-muted-foreground">{label}</p>
-    <p className="text-sm font-medium text-foreground">{value}</p>
+    <p className="text-[11px] text-slate-500">{label}</p>
+    <p className="text-sm font-medium text-black">{value}</p>
   </div>
 );
 
