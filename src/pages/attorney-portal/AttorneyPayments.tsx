@@ -2,13 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { useAttorneyDebts } from '@/hooks/useAttorneyDebts';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
 import {
   CreditCard,
   Wallet,
@@ -17,13 +14,24 @@ import {
   Download,
   TrendingUp,
   AlertCircle,
-  CheckCircle2,
-  Clock
 } from "lucide-react";
 import { format } from 'date-fns';
 import { PaymentPopUploader } from "@/components/finance/PaymentPopUploader";
-
 import { RandSign } from "@/components/icons/RandSign";
+import {
+  PortalPage,
+  PortalHeader,
+  SyncStatus,
+  PortalStatStrip,
+  PortalCard,
+  PortalCardHeader,
+  PortalCardBody,
+  PortalPill,
+  PortalEmptyState,
+  PortalLoadingState,
+  type PortalPillTone,
+} from '@/components/attorney-portal/ui/PortalPrimitives';
+
 interface AODDocument {
   id: string;
   file_name: string;
@@ -44,17 +52,26 @@ interface PaymentRecord {
   payment_notes: string | null;
 }
 
+type PaymentsTab = 'aod' | 'history';
+
+const PAYMENT_STATUS_TONE: Record<string, PortalPillTone> = {
+  paid: 'success',
+  overdue: 'destructive',
+};
+
 const AttorneyPayments: React.FC = () => {
   const { debtSummary, debtCases, loading: debtsLoading } = useAttorneyDebts();
   const [aodDocuments, setAodDocuments] = useState<AODDocument[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<PaymentsTab>('aod');
 
   useEffect(() => {
     fetchData();
   }, []);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
       // Fetch AOD documents
       const { data: aodData } = await supabase
@@ -92,261 +109,195 @@ const AttorneyPayments: React.FC = () => {
   const outstandingBalance = totalContractValue - totalPaid;
   const paymentProgress = totalContractValue > 0 ? (totalPaid / totalContractValue) * 100 : 0;
 
+  const TAB_ITEMS: { key: PaymentsTab; label: string }[] = [
+    { key: 'aod', label: 'AOD Agreements' },
+    { key: 'history', label: 'Payment History' },
+  ];
+
   return (
     <AttorneyPortalLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <CreditCard className="h-8 w-8 text-kutlwano-blue" />
-            AOD & Payments
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            View your agreements, balances, and payment history
-          </p>
-        </div>
+      <PortalPage>
+        <PortalHeader
+          eyebrow="Attorney Portal"
+          title="AOD & Payments"
+          description="View your agreements, balances, and payment history"
+          icon={CreditCard}
+          actions={<SyncStatus loading={loading} onRefresh={fetchData} label="Live data" />}
+        />
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Debt</p>
-                  <p className="text-2xl font-bold text-foreground">
-                    R{totalContractValue.toLocaleString()}
-                  </p>
-                </div>
-                <div className="p-3 bg-muted rounded-lg">
-                  <Wallet className="h-6 w-6 text-muted-foreground" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Deposits Paid</p>
-                  <p className="text-2xl font-bold text-success">
-                    R{totalDeposits.toLocaleString()}
-                  </p>
-                </div>
-                <div className="p-3 bg-success/10 rounded-lg">
-                  <RandSign className="h-6 w-6 text-success" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Paid</p>
-                  <p className="text-2xl font-bold text-kutlwano-teal">
-                    R{totalPaid.toLocaleString()}
-                  </p>
-                </div>
-                <div className="p-3 bg-kutlwano-teal/10 rounded-lg">
-                  <TrendingUp className="h-6 w-6 text-kutlwano-teal" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Outstanding</p>
-                  <p className="text-2xl font-bold text-destructive">
-                    R{outstandingBalance.toLocaleString()}
-                  </p>
-                </div>
-                <div className="p-3 bg-destructive/10 rounded-lg">
-                  <AlertCircle className="h-6 w-6 text-destructive" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* KPI ledger — one bordered panel, matches Dashboard/My Cases/Appointments/Case Status/Reports */}
+        <PortalStatStrip
+          loading={loading}
+          className="sm:grid-cols-4 lg:grid-cols-4"
+          tiles={[
+            { label: 'Total Debt', value: `R${totalContractValue.toLocaleString()}`, icon: Wallet },
+            { label: 'Deposits Paid', value: `R${totalDeposits.toLocaleString()}`, icon: RandSign },
+            { label: 'Total Paid', value: `R${totalPaid.toLocaleString()}`, icon: TrendingUp },
+            { label: 'Outstanding', value: `R${outstandingBalance.toLocaleString()}`, icon: AlertCircle, urgent: outstandingBalance > 0 },
+          ]}
+        />
 
         {/* Payment Progress */}
-        <Card className="bg-gradient-card border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-kutlwano-blue" />
-              Payment Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <PortalCard>
+          <PortalCardHeader icon={TrendingUp} title="Payment Progress" />
+          <PortalCardBody>
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="font-medium">{paymentProgress.toFixed(1)}%</span>
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Progress</span>
+                <span className="font-medium text-black">{paymentProgress.toFixed(1)}%</span>
               </div>
-              <Progress value={paymentProgress} className="h-3" />
-              <div className="flex justify-between text-xs text-muted-foreground">
+              <Progress value={paymentProgress} className="h-2 rounded-none" />
+              <div className="flex justify-between text-[11px] text-slate-500">
                 <span>R{totalPaid.toLocaleString()} paid</span>
                 <span>R{outstandingBalance.toLocaleString()} remaining</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </PortalCardBody>
+        </PortalCard>
 
-        {/* Tabs */}
-        <Tabs defaultValue="aod">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="aod">AOD Agreements</TabsTrigger>
-            <TabsTrigger value="history">Payment History</TabsTrigger>
-          </TabsList>
+        {/* Tabs — flat underline style, matches the rest of the portal */}
+        <div className="flex flex-wrap gap-1 border-b border-black/10">
+          {TAB_ITEMS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={cn(
+                'flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold uppercase tracking-wide transition-colors',
+                tab === t.key
+                  ? 'border-[#00BAAD] text-[#00BAAD]'
+                  : 'border-transparent text-slate-500 hover:text-black'
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
-          <TabsContent value="aod" className="mt-6">
-            <Card className="bg-gradient-card border-border/50">
-              <CardHeader>
-                <CardTitle>Your AOD Agreements</CardTitle>
-                <CardDescription>View and download your Acknowledgement of Debt documents</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
-                  </div>
-                ) : aodDocuments.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No AOD agreements found</p>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[400px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Document</TableHead>
-                          <TableHead>Contract Value</TableHead>
-                          <TableHead>Reports Agreed</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Next Payment</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {aodDocuments.map((doc) => (
-                          <TableRow key={doc.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-kutlwano-blue" />
-                                <span className="font-medium">{doc.file_name}</span>
+        {tab === 'aod' && (
+          <PortalCard>
+            <PortalCardHeader
+              icon={FileText}
+              title="Your AOD Agreements"
+              description="View and download your Acknowledgement of Debt documents"
+            />
+            <PortalCardBody className="p-0">
+              {loading ? (
+                <PortalLoadingState label="Loading agreements…" />
+              ) : aodDocuments.length === 0 ? (
+                <PortalEmptyState icon={FileText} title="No AOD agreements found" />
+              ) : (
+                <div className="max-h-[400px] overflow-y-auto">
+                  <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
+                    <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
+                      <TableRow>
+                        <TableHead>Document</TableHead>
+                        <TableHead>Contract Value</TableHead>
+                        <TableHead>Reports Agreed</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Next Payment</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {aodDocuments.map((doc) => (
+                        <TableRow key={doc.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-3.5 w-3.5 text-slate-400" />
+                              <span className="font-medium text-black">{doc.file_name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-slate-600">R{(doc.total_contract_value || 0).toLocaleString()}</TableCell>
+                          <TableCell className="text-slate-600">{doc.total_reports_agreed || 0}</TableCell>
+                          <TableCell>
+                            <PortalPill tone={PAYMENT_STATUS_TONE[doc.payment_status || ''] || 'warning'}>
+                              {doc.payment_status || 'Pending'}
+                            </PortalPill>
+                          </TableCell>
+                          <TableCell>
+                            {doc.next_payment_date ? (
+                              <div className="flex items-center gap-2 text-slate-500">
+                                <Calendar className="h-3.5 w-3.5" />
+                                {format(new Date(doc.next_payment_date), 'dd MMM yyyy')}
                               </div>
-                            </TableCell>
-                            <TableCell>R{(doc.total_contract_value || 0).toLocaleString()}</TableCell>
-                            <TableCell>{doc.total_reports_agreed || 0}</TableCell>
-                            <TableCell>
-                              <Badge
-                                className={
-                                  doc.payment_status === 'paid'
-                                    ? 'bg-success/10 text-success border-success/20'
-                                    : doc.payment_status === 'overdue'
-                                    ? 'bg-destructive/10 text-destructive border-destructive/20'
-                                    : 'bg-warning/10 text-warning border-warning/20'
-                                }
-                              >
-                                {doc.payment_status || 'Pending'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {doc.next_payment_date ? (
-                                <div className="flex items-center gap-2">
-                                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                                  {format(new Date(doc.next_payment_date), 'dd MMM yyyy')}
-                                </div>
-                              ) : (
-                                '-'
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="outline" size="sm">
-                                <Download className="h-4 w-4 mr-1" />
-                                Download
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="history" className="mt-6">
-            <Card className="bg-gradient-card border-border/50">
-              <CardHeader>
-                <CardTitle>Payment History</CardTitle>
-                <CardDescription>All payments made towards your AOD agreements</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
-                  </div>
-                ) : payments.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <RandSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No payment records found</p>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[400px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Notes</TableHead>
-                          <TableHead>Proof of Payment</TableHead>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button variant="outline" size="sm" className="rounded-none">
+                              <Download className="mr-1 h-3.5 w-3.5" />
+                              Download
+                            </Button>
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {payments.map((payment) => (
-                          <TableRow key={payment.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                                {format(new Date(payment.payment_date), 'dd MMM yyyy')}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{payment.payment_type}</Badge>
-                            </TableCell>
-                            <TableCell className="font-medium text-success">
-                              R{payment.payment_amount.toLocaleString()}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {payment.payment_notes || '-'}
-                            </TableCell>
-                            <TableCell>
-                              <PaymentPopUploader
-                                recordType="aod_payment"
-                                recordId={payment.id}
-                                paymentReference={`Payment ${format(new Date(payment.payment_date), 'dd MMM yyyy')}`}
-                                canUpload={false}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </PortalCardBody>
+          </PortalCard>
+        )}
+
+        {tab === 'history' && (
+          <PortalCard>
+            <PortalCardHeader
+              icon={RandSign}
+              title="Payment History"
+              description="All payments made towards your AOD agreements"
+            />
+            <PortalCardBody className="p-0">
+              {loading ? (
+                <PortalLoadingState label="Loading payment history…" />
+              ) : payments.length === 0 ? (
+                <PortalEmptyState icon={RandSign} title="No payment records found" />
+              ) : (
+                <div className="max-h-[400px] overflow-y-auto">
+                  <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
+                    <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Notes</TableHead>
+                        <TableHead>Proof of Payment</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2 text-slate-500">
+                              <Calendar className="h-3.5 w-3.5" />
+                              {format(new Date(payment.payment_date), 'dd MMM yyyy')}
+                            </div>
+                          </TableCell>
+                          <TableCell><PortalPill>{payment.payment_type}</PortalPill></TableCell>
+                          <TableCell className="font-medium text-success">
+                            R{payment.payment_amount.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-slate-500">
+                            {payment.payment_notes || '-'}
+                          </TableCell>
+                          <TableCell>
+                            <PaymentPopUploader
+                              recordType="aod_payment"
+                              recordId={payment.id}
+                              paymentReference={`Payment ${format(new Date(payment.payment_date), 'dd MMM yyyy')}`}
+                              canUpload={false}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </PortalCardBody>
+          </PortalCard>
+        )}
+      </PortalPage>
     </AttorneyPortalLayout>
   );
 };
