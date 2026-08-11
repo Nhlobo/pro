@@ -4,23 +4,21 @@ import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import {
-  Briefcase, Search, Filter, AlertTriangle, CheckCircle2, Clock, FileText,
-  Calendar, User, Eye, Plus, Upload, Download, ChevronDown, ChevronRight,
-  Send, FolderOpen, Receipt, TrendingUp, FileCheck, Loader2, Scale,
-  CreditCard, Stethoscope, MapPin
+  Briefcase, Filter, AlertTriangle, CheckCircle2, Clock, FileText,
+  User, Eye, Plus, Upload, Download, Send, FolderOpen, Receipt,
+  TrendingUp, FileCheck, Loader2, Scale, CreditCard, Stethoscope,
 } from 'lucide-react';
 import { LitigationTrialServices } from '@/components/attorney-portal/LitigationTrialServices';
 import { format, differenceInDays } from 'date-fns';
@@ -28,6 +26,20 @@ import { formatExpertType } from '@/utils/expertTypeMapping';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/utils/pdfBranding';
+import {
+  PortalPage,
+  PortalHeader,
+  SyncStatus,
+  PortalStatStrip,
+  PortalCard,
+  PortalCardHeader,
+  PortalCardBody,
+  PortalPill,
+  PortalEmptyState,
+  PortalLoadingState,
+  type PortalPillTone,
+} from '@/components/attorney-portal/ui/PortalPrimitives';
+import { AdminTabList, AdminTabTrigger, AdminSearchInput, BRAND_TEAL } from '@/components/admin/ui/AdminUI';
 
 interface CaseDocument {
   id: string;
@@ -50,6 +62,9 @@ const DOCUMENT_TYPES = [
   { value: 'summons', label: 'Summons' },
   { value: 'other', label: 'Other Supporting Document' },
 ];
+
+/** Shared flat input/select chrome, matching AdminSearchInput's border/radius. */
+const FIELD_CLASS = 'rounded-none border-black/15 focus-visible:ring-[#00BAAD]/30';
 
 const AttorneyMyCases: React.FC = () => {
   const { liveCases, loading, refetchStats } = useAttorneyDashboardStats();
@@ -205,7 +220,7 @@ const AttorneyMyCases: React.FC = () => {
         c.claimantAutoId.toLowerCase().includes(searchTerm.toLowerCase());
       const status = getOverallStatus(c.phases);
       const matchesStatus = statusFilter === 'all' || status.toLowerCase() === statusFilter.toLowerCase();
-      
+
       // Litigation filter
       const litStage = getLitigationStage(c.phases);
       let matchesLitigation = true;
@@ -221,28 +236,29 @@ const AttorneyMyCases: React.FC = () => {
     });
   }, [liveCases, searchTerm, statusFilter, litigationFilter]);
 
-  const statusBadge = (status: string) => {
-    switch (status) {
-      case 'Completed': return <Badge className="bg-success/10 text-success border-success/20">Completed</Badge>;
-      case 'In Progress': return <Badge className="bg-info/10 text-info border-info/20">In Progress</Badge>;
-      default: return <Badge className="bg-warning/10 text-warning border-warning/20">Pending</Badge>;
-    }
+  const STATUS_PILL_TONE: Record<string, PortalPillTone> = {
+    'Completed': 'success',
+    'In Progress': 'teal',
+    'Pending': 'warning',
   };
+  const statusBadge = (status: string) => (
+    <PortalPill tone={STATUS_PILL_TONE[status] || 'neutral'}>{status}</PortalPill>
+  );
 
-  const litigationBadge = (stage: string) => {
-    const colors: Record<string, string> = {
-      'Trial Ready': 'bg-success/10 text-success border-success/20',
-      'Report Complete': 'bg-kutlwano-teal/10 text-kutlwano-teal border-kutlwano-teal/20',
-      'Assessed': 'bg-info/10 text-info border-info/20',
-      'Scheduled': 'bg-primary/10 text-primary border-primary/20',
-      'Booking': 'bg-warning/10 text-warning border-warning/20',
-    };
-    return <Badge className={colors[stage] || 'bg-muted text-muted-foreground'}>{stage}</Badge>;
+  const LITIGATION_PILL_TONE: Record<string, PortalPillTone> = {
+    'Trial Ready': 'success',
+    'Report Complete': 'teal',
+    'Assessed': 'teal',
+    'Scheduled': 'neutral',
+    'Booking': 'warning',
   };
+  const litigationBadge = (stage: string) => (
+    <PortalPill tone={LITIGATION_PILL_TONE[stage] || 'neutral'}>{stage}</PortalPill>
+  );
 
   const prescriptionBadge = (risk: { status: string; daysLeft: number }) => {
-    if (risk.status === 'critical') return <Badge className="bg-destructive/10 text-destructive border-destructive/20"><AlertTriangle className="h-3 w-3 mr-1" />{risk.daysLeft}d</Badge>;
-    if (risk.status === 'warning') return <Badge className="bg-warning/10 text-warning border-warning/20"><Clock className="h-3 w-3 mr-1" />{risk.daysLeft}d</Badge>;
+    if (risk.status === 'critical') return <PortalPill tone="destructive"><AlertTriangle className="h-3 w-3" />{risk.daysLeft}d</PortalPill>;
+    if (risk.status === 'warning') return <PortalPill tone="warning"><Clock className="h-3 w-3" />{risk.daysLeft}d</PortalPill>;
     return null;
   };
 
@@ -409,82 +425,70 @@ const AttorneyMyCases: React.FC = () => {
     return Math.round((completed / phases.length) * 100);
   };
 
+  // ---- KPI strip (same numbers as before, ledger presentation) ----------
+  const inProgressCount = liveCases.filter(c => getOverallStatus(c.phases) === 'In Progress').length;
+  const trialReadyCount = liveCases.filter(c => getLitigationStage(c.phases) === 'Trial Ready').length;
+  const reportsOutstandingCount = liveCases.filter(c => c.phases.find(p => p.name === 'Report Ready')?.status !== 'completed').length;
+  const reportsReadyCount = liveCases.filter(c => c.phases.find(p => p.name === 'Report Ready')?.status === 'completed').length;
+
+  const totalInvoiceFees = invoiceData.reduce((s: number, i: any) => s + (i.service_fee || 0), 0);
+  const totalInvoiceDeposits = invoiceData.reduce((s: number, i: any) => s + (i.deposit_amount || 0), 0);
+
   return (
     <AttorneyPortalLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-              <Briefcase className="h-8 w-8 text-primary" />
-              Case Management
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Submit referrals, upload documents, track progress, and download reports
-            </p>
-          </div>
-          <Button onClick={() => setReferralDialogOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Submit New Referral
-          </Button>
-        </div>
+      <PortalPage>
+        <PortalHeader
+          eyebrow="Attorney Portal"
+          title="Case Management"
+          description="Submit referrals, upload documents, track progress, and download reports"
+          icon={Briefcase}
+          actions={
+            <>
+              <SyncStatus loading={loading} onRefresh={refetchStats} label="Live data" />
+              <Button onClick={() => setReferralDialogOpen(true)} className="rounded-none gap-2">
+                <Plus className="h-4 w-4" />
+                Submit New Referral
+              </Button>
+            </>
+          }
+        />
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Total Cases</p>
-              <p className="text-2xl font-bold">{liveCases.length}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">In Progress</p>
-              <p className="text-2xl font-bold text-info">{liveCases.filter(c => getOverallStatus(c.phases) === 'In Progress').length}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Trial Ready</p>
-              <p className="text-2xl font-bold text-success">{liveCases.filter(c => getLitigationStage(c.phases) === 'Trial Ready').length}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Reports Outstanding</p>
-              <p className="text-2xl font-bold text-warning">{liveCases.filter(c => c.phases.find(p => p.name === 'Report Ready')?.status !== 'completed').length}</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Reports Ready</p>
-              <p className="text-2xl font-bold text-primary">{liveCases.filter(c => c.phases.find(p => p.name === 'Report Ready')?.status === 'completed').length}</p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* KPI ledger — one bordered panel, matches the Dashboard's stat strip */}
+        <PortalStatStrip
+          loading={loading}
+          tiles={[
+            { label: 'Total Cases', value: liveCases.length, icon: Briefcase },
+            { label: 'In Progress', value: inProgressCount, icon: Clock },
+            { label: 'Trial Ready', value: trialReadyCount, icon: CheckCircle2 },
+            { label: 'Reports Outstanding', value: reportsOutstandingCount, icon: AlertTriangle, urgent: reportsOutstandingCount > 0 },
+            { label: 'Reports Ready', value: reportsReadyCount, icon: FileCheck },
+          ]}
+        />
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="cases" className="gap-2"><FolderOpen className="h-4 w-4" />My Cases</TabsTrigger>
-            <TabsTrigger value="documents" className="gap-2"><FileText className="h-4 w-4" />Documents</TabsTrigger>
-            <TabsTrigger value="litigation" className="gap-2"><Scale className="h-4 w-4" />Trial Prep</TabsTrigger>
-            <TabsTrigger value="invoices" className="gap-2"><Receipt className="h-4 w-4" />Invoices</TabsTrigger>
-          </TabsList>
+          <AdminTabList columns={4}>
+            <AdminTabTrigger value="cases" label="My Cases" icon={FolderOpen} center />
+            <AdminTabTrigger value="documents" label="Documents" icon={FileText} center />
+            <AdminTabTrigger value="litigation" label="Trial Prep" icon={Scale} center />
+            <AdminTabTrigger value="invoices" label="Invoices" icon={Receipt} center />
+          </AdminTabList>
 
           {/* Cases Tab */}
-          <TabsContent value="cases" className="space-y-4">
+          <TabsContent value="cases" className="mt-4 space-y-4">
             {/* Search & Filter */}
-            <Card className="bg-gradient-card border-border/50">
-              <CardContent className="pt-6">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search by claimant name, ID, or expert type..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="pl-10" />
-                  </div>
+            <PortalCard>
+              <PortalCardBody>
+                <div className="flex flex-col gap-3 md:flex-row">
+                  <AdminSearchInput
+                    value={searchTerm}
+                    onChange={setSearchTerm}
+                    placeholder="Search by claimant name, ID, or expert type…"
+                    className="flex-1"
+                  />
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full md:w-[180px]">
-                      <Filter className="h-4 w-4 mr-2" /><SelectValue placeholder="Status" />
+                    <SelectTrigger className={cn(FIELD_CLASS, 'w-full md:w-[180px]')}>
+                      <Filter className="mr-2 h-4 w-4 text-slate-400" /><SelectValue placeholder="Status" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Statuses</SelectItem>
@@ -494,8 +498,8 @@ const AttorneyMyCases: React.FC = () => {
                     </SelectContent>
                   </Select>
                   <Select value={litigationFilter} onValueChange={setLitigationFilter}>
-                    <SelectTrigger className="w-full md:w-[200px]">
-                      <Scale className="h-4 w-4 mr-2" /><SelectValue placeholder="Litigation" />
+                    <SelectTrigger className={cn(FIELD_CLASS, 'w-full md:w-[200px]')}>
+                      <Scale className="mr-2 h-4 w-4 text-slate-400" /><SelectValue placeholder="Litigation" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Stages</SelectItem>
@@ -506,32 +510,35 @@ const AttorneyMyCases: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-              </CardContent>
-            </Card>
+              </PortalCardBody>
+            </PortalCard>
 
             {/* Cases Table */}
-            <Card className="bg-gradient-card border-border/50">
-              <CardHeader>
-                <CardTitle>Case List ({filteredCases.length})</CardTitle>
-                <CardDescription>Click a case to view full details including expert assessments, reports, and financials</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : filteredCases.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Briefcase className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No cases found</p>
-                    <Button variant="outline" className="mt-4" onClick={() => setReferralDialogOpen(true)}>
-                      <Plus className="h-4 w-4 mr-2" />Submit a New Referral
+            <PortalCard>
+              <PortalCardHeader
+                icon={Briefcase}
+                title={`Case List (${filteredCases.length})`}
+                description="Click a case to view full details including expert assessments, reports, and financials"
+              />
+              {loading ? (
+                <PortalLoadingState label="Loading cases…" />
+              ) : filteredCases.length === 0 ? (
+                <PortalEmptyState
+                  icon={Briefcase}
+                  title="No cases found"
+                  description="Try a different search term or filter, or submit a new referral."
+                  action={
+                    <Button variant="outline" className="mt-2 rounded-none" onClick={() => setReferralDialogOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />Submit a New Referral
                     </Button>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[500px]">
-                    <Table>
-                      <TableHeader>
+                  }
+                />
+              ) : (
+                <>
+                  {/* Desktop table */}
+                  <ScrollArea className="hidden h-[500px] md:block">
+                    <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
+                      <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
                         <TableRow>
                           <TableHead>Reference</TableHead>
                           <TableHead>Claimant</TableHead>
@@ -550,19 +557,17 @@ const AttorneyMyCases: React.FC = () => {
                           const progressPercent = getProgressPercent(caseItem.phases);
 
                           return (
-                            <TableRow key={caseItem.id} className="cursor-pointer hover:bg-muted/50" onClick={() => openCaseDetail(caseItem)}>
+                            <TableRow key={caseItem.id} className="cursor-pointer hover:bg-black/[0.02]" onClick={() => openCaseDetail(caseItem)}>
                               <TableCell>
-                                <span className="font-mono text-xs text-muted-foreground">{caseItem.claimantAutoId || caseItem.id.slice(0, 8)}</span>
+                                <span className="font-mono text-[11px] text-slate-500">{caseItem.claimantAutoId || caseItem.id.slice(0, 8)}</span>
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">
-                                  <User className="h-4 w-4 text-muted-foreground" />
-                                  <span className="font-medium">{caseItem.claimantName}</span>
+                                  <User className="h-3.5 w-3.5 text-slate-400" />
+                                  <span className="font-medium text-black">{caseItem.claimantName}</span>
                                 </div>
                               </TableCell>
-                              <TableCell>
-                                <span className="text-sm">{formatExpertType(caseItem.expertType)}</span>
-                              </TableCell>
+                              <TableCell className="text-slate-500">{formatExpertType(caseItem.expertType)}</TableCell>
                               <TableCell>{statusBadge(overallStatus)}</TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-1">
@@ -572,21 +577,21 @@ const AttorneyMyCases: React.FC = () => {
                               </TableCell>
                               <TableCell>
                                 <div className="flex items-center gap-2">
-                                  <Progress value={progressPercent} className="h-2 w-16" />
-                                  <span className="text-xs text-muted-foreground">{progressPercent}%</span>
+                                  <Progress value={progressPercent} className="h-1.5 w-16 rounded-none" />
+                                  <span className="text-[11px] tabular-nums text-slate-500">{progressPercent}%</span>
                                 </div>
                               </TableCell>
                               <TableCell className="text-right">
                                 <div className="flex justify-end gap-1" onClick={e => e.stopPropagation()}>
-                                  <Button size="sm" variant="ghost" onClick={() => openCaseDetail(caseItem)} title="View Details">
-                                    <Eye className="h-4 w-4" />
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 rounded-none" onClick={() => openCaseDetail(caseItem)} title="View Details">
+                                    <Eye className="h-3.5 w-3.5" />
                                   </Button>
-                                  <Button size="sm" variant="ghost" onClick={() => {
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 rounded-none" onClick={() => {
                                     setSelectedCaseForUpload(caseItem.id);
                                     setSelectedClaimantForUpload(caseItem.claimantName);
                                     setUploadDialogOpen(true);
                                   }} title="Upload Document">
-                                    <Upload className="h-4 w-4" />
+                                    <Upload className="h-3.5 w-3.5" />
                                   </Button>
                                 </div>
                               </TableCell>
@@ -596,172 +601,240 @@ const AttorneyMyCases: React.FC = () => {
                       </TableBody>
                     </Table>
                   </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
+
+                  {/* Mobile cards — same rows, no sideways scroll */}
+                  <ScrollArea className="h-[560px] md:hidden">
+                    <div className="divide-y divide-black/10">
+                      {filteredCases.map((caseItem) => {
+                        const overallStatus = getOverallStatus(caseItem.phases);
+                        const litStage = getLitigationStage(caseItem.phases);
+                        const prescriptionRisk = calculatePrescriptionRisk(caseItem.appointmentDate);
+                        const progressPercent = getProgressPercent(caseItem.phases);
+
+                        return (
+                          <button
+                            key={caseItem.id}
+                            type="button"
+                            onClick={() => openCaseDetail(caseItem)}
+                            className="flex w-full flex-col gap-2 px-4 py-3 text-left transition-colors hover:bg-black/[0.02]"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-black">{caseItem.claimantName}</p>
+                                <p className="truncate font-mono text-[10px] text-slate-500">{caseItem.claimantAutoId || caseItem.id.slice(0, 8)}</p>
+                              </div>
+                              <div className="flex shrink-0 gap-1" onClick={e => e.stopPropagation()}>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-none" onClick={() => openCaseDetail(caseItem)} title="View Details">
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-none" onClick={() => {
+                                  setSelectedCaseForUpload(caseItem.id);
+                                  setSelectedClaimantForUpload(caseItem.claimantName);
+                                  setUploadDialogOpen(true);
+                                }} title="Upload Document">
+                                  <Upload className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                            <p className="text-xs text-slate-500">{formatExpertType(caseItem.expertType)}</p>
+                            <div className="flex flex-wrap items-center gap-1">
+                              {statusBadge(overallStatus)}
+                              {litigationBadge(litStage)}
+                              {prescriptionBadge(prescriptionRisk)}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Progress value={progressPercent} className="h-1.5 flex-1 rounded-none" />
+                              <span className="text-[11px] tabular-nums text-slate-500">{progressPercent}%</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </>
+              )}
+            </PortalCard>
           </TabsContent>
 
           {/* Documents Tab */}
-          <TabsContent value="documents">
-            <Card className="bg-gradient-card border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  All Case Documents
-                </CardTitle>
-                <CardDescription>View and upload documents across all your cases</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {liveCases.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-8">No cases available</p>
-                  ) : (
-                    liveCases.map(caseItem => {
+          <TabsContent value="documents" className="mt-4">
+            <PortalCard>
+              <PortalCardHeader
+                icon={FileText}
+                title="All Case Documents"
+                description="View and upload documents across all your cases"
+              />
+              <PortalCardBody>
+                {liveCases.length === 0 ? (
+                  <PortalEmptyState icon={FolderOpen} title="No cases available" />
+                ) : (
+                  <div className="space-y-3">
+                    {liveCases.map(caseItem => {
                       const docs = caseDocuments[caseItem.id] || [];
                       return (
-                        <div key={caseItem.id} className="border border-border/50 rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center gap-2">
-                              <User className="h-4 w-4 text-primary" />
-                              <span className="font-semibold text-sm">{caseItem.claimantName}</span>
-                              <Badge variant="outline" className="text-xs">{formatExpertType(caseItem.expertType)}</Badge>
+                        <div key={caseItem.id} className="border border-black/10 p-4">
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <User className="h-4 w-4 shrink-0" style={{ color: BRAND_TEAL }} />
+                              <span className="truncate text-sm font-semibold text-black">{caseItem.claimantName}</span>
+                              <PortalPill>{formatExpertType(caseItem.expertType)}</PortalPill>
                             </div>
-                            <Button size="sm" variant="outline" onClick={() => {
+                            <Button size="sm" variant="outline" className="rounded-none" onClick={() => {
                               setSelectedCaseForUpload(caseItem.id);
                               setSelectedClaimantForUpload(caseItem.claimantName);
                               setUploadDialogOpen(true);
                               if (!caseDocuments[caseItem.id]) fetchCaseDocuments(caseItem.id);
                             }}>
-                              <Upload className="h-3 w-3 mr-1" />Upload
+                              <Upload className="mr-1 h-3 w-3" />Upload
                             </Button>
                           </div>
                           {!caseDocuments[caseItem.id] ? (
-                            <Button variant="ghost" size="sm" onClick={() => fetchCaseDocuments(caseItem.id)}>
-                              <Eye className="h-3 w-3 mr-1" />Load Documents
+                            <Button variant="ghost" size="sm" className="rounded-none" onClick={() => fetchCaseDocuments(caseItem.id)}>
+                              <Eye className="mr-1 h-3 w-3" />Load Documents
                             </Button>
                           ) : docs.length === 0 ? (
-                            <p className="text-xs text-muted-foreground italic">No documents uploaded</p>
+                            <p className="text-xs italic text-slate-400">No documents uploaded</p>
                           ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                               {docs.map(d => (
-                                <div key={d.id} className="flex items-center gap-2 p-2 rounded bg-muted/30 text-xs">
-                                  <FileCheck className="h-3 w-3 text-success flex-shrink-0" />
-                                  <span className="truncate flex-1">{d.file_name}</span>
-                                  <Badge variant="outline" className="text-[10px]">
+                                <div key={d.id} className="flex items-center gap-2 border border-black/10 bg-black/[0.015] p-2 text-xs">
+                                  <FileCheck className="h-3 w-3 shrink-0 text-success" />
+                                  <span className="flex-1 truncate">{d.file_name}</span>
+                                  <PortalPill className="shrink-0 text-[9px]">
                                     {DOCUMENT_TYPES.find(t => t.value === d.document_type)?.label || d.document_type}
-                                  </Badge>
+                                  </PortalPill>
                                 </div>
                               ))}
                             </div>
                           )}
                         </div>
                       );
-                    })
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                    })}
+                  </div>
+                )}
+              </PortalCardBody>
+            </PortalCard>
           </TabsContent>
 
           {/* Litigation & Trial Prep Tab */}
-          <TabsContent value="litigation">
+          <TabsContent value="litigation" className="mt-4">
             <LitigationTrialServices liveCases={liveCases} />
           </TabsContent>
 
           {/* Invoices & Statements Tab */}
-          <TabsContent value="invoices">
-            <Card className="bg-gradient-card border-border/50">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Receipt className="h-5 w-5 text-primary" />
-                      Invoices & Statements
-                    </CardTitle>
-                    <CardDescription>View and download your financial statements</CardDescription>
-                  </div>
-                  <Button size="sm" onClick={downloadStatementPDF} disabled={invoiceData.length === 0}>
-                    <Download className="h-4 w-4 mr-2" />Download Statement
+          <TabsContent value="invoices" className="mt-4">
+            <PortalCard>
+              <PortalCardHeader
+                icon={Receipt}
+                title="Invoices & Statements"
+                description="View and download your financial statements"
+                actions={
+                  <Button size="sm" className="rounded-none" onClick={downloadStatementPDF} disabled={invoiceData.length === 0}>
+                    <Download className="mr-2 h-4 w-4" />Download Statement
                   </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {invoiceLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : invoiceData.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Receipt className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No invoice data available</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-3 gap-4 mb-6">
-                      <div className="p-3 rounded-lg bg-muted/30 text-center">
-                        <p className="text-xs text-muted-foreground">Total Fees</p>
-                        <p className="text-lg font-bold">R{invoiceData.reduce((s: number, i: any) => s + (i.service_fee || 0), 0).toLocaleString()}</p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-success/10 text-center">
-                        <p className="text-xs text-muted-foreground">Total Deposits</p>
-                        <p className="text-lg font-bold text-success">R{invoiceData.reduce((s: number, i: any) => s + (i.deposit_amount || 0), 0).toLocaleString()}</p>
-                      </div>
-                      <div className="p-3 rounded-lg bg-destructive/10 text-center">
-                        <p className="text-xs text-muted-foreground">Outstanding</p>
-                        <p className="text-lg font-bold text-destructive">
-                          R{(invoiceData.reduce((s: number, i: any) => s + (i.service_fee || 0), 0) - invoiceData.reduce((s: number, i: any) => s + (i.deposit_amount || 0), 0)).toLocaleString()}
-                        </p>
-                      </div>
+                }
+              />
+              {invoiceLoading ? (
+                <PortalLoadingState label="Loading invoices…" />
+              ) : invoiceData.length === 0 ? (
+                <PortalEmptyState icon={Receipt} title="No invoice data available" />
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 divide-x divide-black/10 border-b border-black/10">
+                    <div className="px-3 py-3 text-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total Fees</p>
+                      <p className="text-lg font-bold tabular-nums text-black">R{totalInvoiceFees.toLocaleString()}</p>
                     </div>
-                    <ScrollArea className="h-[400px]">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Claimant</TableHead>
-                            <TableHead>Expert Type</TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead className="text-right">Service Fee</TableHead>
-                            <TableHead className="text-right">Deposit</TableHead>
-                            <TableHead>Status</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {invoiceData.map((item: any) => {
-                            const claimant = Array.isArray(item.claimants) ? item.claimants[0] : item.claimants;
-                            const expert = Array.isArray(item.medical_experts) ? item.medical_experts[0] : item.medical_experts;
-                            const name = `${claimant?.first_name || ''} ${claimant?.last_name || ''}`.trim();
-                            return (
-                              <TableRow key={item.id}>
-                                <TableCell className="font-medium">{name || 'Unknown'}</TableCell>
-                                <TableCell className="text-sm">{formatExpertType(expert?.expert_type || '')}</TableCell>
-                                <TableCell className="text-sm">{format(new Date(item.appointment_date), 'dd MMM yyyy')}</TableCell>
-                                <TableCell className="text-right">R{(item.service_fee || 0).toLocaleString()}</TableCell>
-                                <TableCell className="text-right text-success">R{(item.deposit_amount || 0).toLocaleString()}</TableCell>
-                                <TableCell>
-                                  <Badge variant={item.payment_status === 'paid' ? 'default' : 'outline'} className={item.payment_status === 'paid' ? 'bg-success/10 text-success border-success/20' : ''}>
-                                    {item.payment_status || 'Pending'}
-                                  </Badge>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </ScrollArea>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+                    <div className="px-3 py-3 text-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Total Deposits</p>
+                      <p className="text-lg font-bold tabular-nums text-success">R{totalInvoiceDeposits.toLocaleString()}</p>
+                    </div>
+                    <div className="px-3 py-3 text-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Outstanding</p>
+                      <p className="text-lg font-bold tabular-nums text-destructive">R{(totalInvoiceFees - totalInvoiceDeposits).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  {/* Desktop table */}
+                  <ScrollArea className="hidden h-[400px] md:block">
+                    <Table className="text-xs [&_td]:px-3 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-3 [&_th]:text-[11px]">
+                      <TableHeader className="sticky top-0 z-10 bg-white shadow-[0_1px_0_0_theme(colors.black/10%)]">
+                        <TableRow>
+                          <TableHead>Claimant</TableHead>
+                          <TableHead>Expert Type</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead className="text-right">Service Fee</TableHead>
+                          <TableHead className="text-right">Deposit</TableHead>
+                          <TableHead>Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {invoiceData.map((item: any) => {
+                          const claimant = Array.isArray(item.claimants) ? item.claimants[0] : item.claimants;
+                          const expert = Array.isArray(item.medical_experts) ? item.medical_experts[0] : item.medical_experts;
+                          const name = `${claimant?.first_name || ''} ${claimant?.last_name || ''}`.trim();
+                          return (
+                            <TableRow key={item.id} className="hover:bg-black/[0.02]">
+                              <TableCell className="font-medium text-black">{name || 'Unknown'}</TableCell>
+                              <TableCell className="text-slate-500">{formatExpertType(expert?.expert_type || '')}</TableCell>
+                              <TableCell className="text-slate-500">{format(new Date(item.appointment_date), 'dd MMM yyyy')}</TableCell>
+                              <TableCell className="text-right tabular-nums">R{(item.service_fee || 0).toLocaleString()}</TableCell>
+                              <TableCell className="text-right tabular-nums text-success">R{(item.deposit_amount || 0).toLocaleString()}</TableCell>
+                              <TableCell>
+                                <PortalPill tone={item.payment_status === 'paid' ? 'success' : 'warning'}>
+                                  {item.payment_status || 'Pending'}
+                                </PortalPill>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+
+                  {/* Mobile cards */}
+                  <ScrollArea className="h-[460px] md:hidden">
+                    <div className="divide-y divide-black/10">
+                      {invoiceData.map((item: any) => {
+                        const claimant = Array.isArray(item.claimants) ? item.claimants[0] : item.claimants;
+                        const expert = Array.isArray(item.medical_experts) ? item.medical_experts[0] : item.medical_experts;
+                        const name = `${claimant?.first_name || ''} ${claimant?.last_name || ''}`.trim();
+                        return (
+                          <div key={item.id} className="px-4 py-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-black">{name || 'Unknown'}</p>
+                                <p className="truncate text-xs text-slate-500">{formatExpertType(expert?.expert_type || '')}</p>
+                              </div>
+                              <PortalPill tone={item.payment_status === 'paid' ? 'success' : 'warning'}>
+                                {item.payment_status || 'Pending'}
+                              </PortalPill>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
+                              <span>{format(new Date(item.appointment_date), 'dd MMM yyyy')}</span>
+                              <span className="tabular-nums text-black">
+                                R{(item.service_fee || 0).toLocaleString()}
+                                <span className="text-success"> / R{(item.deposit_amount || 0).toLocaleString()}</span>
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </ScrollArea>
+                </>
+              )}
+            </PortalCard>
           </TabsContent>
         </Tabs>
-      </div>
+      </PortalPage>
 
       {/* Case Detail Dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto rounded-none border-black/10 sm:rounded-none">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Briefcase className="h-5 w-5 text-primary" />
+            <DialogTitle className="flex items-center gap-2 text-black">
+              <Briefcase className="h-5 w-5" style={{ color: BRAND_TEAL }} />
               Case Detail — {selectedCase?.claimantName}
             </DialogTitle>
             <DialogDescription>
@@ -770,39 +843,37 @@ const AttorneyMyCases: React.FC = () => {
           </DialogHeader>
 
           {detailLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            <PortalLoadingState label="Loading case detail…" />
           ) : selectedCase && (
             <div className="space-y-6">
               {/* A. Case Overview */}
               <div>
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <User className="h-4 w-4 text-primary" /> Case Overview
+                <h3 className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-black">
+                  <User className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Case Overview
                 </h3>
-                <div className="grid grid-cols-2 gap-3 bg-muted/30 rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-3 border border-black/10 bg-black/[0.015] p-4">
                   <div>
-                    <p className="text-xs text-muted-foreground">Claimant</p>
-                    <p className="font-medium">{selectedCase.claimantName}</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Claimant</p>
+                    <p className="font-medium text-black">{selectedCase.claimantName}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Reference</p>
-                    <p className="font-medium font-mono">{selectedCase.claimantAutoId}</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Reference</p>
+                    <p className="font-mono font-medium text-black">{selectedCase.claimantAutoId}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Expert Assigned</p>
-                    <p className="font-medium">{formatExpertType(selectedCase.expertType)}</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Expert Assigned</p>
+                    <p className="font-medium text-black">{formatExpertType(selectedCase.expertType)}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Appointment Date</p>
-                    <p className="font-medium">{format(new Date(selectedCase.appointmentDate), 'dd MMMM yyyy')}</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Appointment Date</p>
+                    <p className="font-medium text-black">{format(new Date(selectedCase.appointmentDate), 'dd MMMM yyyy')}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Matter Type</p>
-                    <p className="font-medium capitalize">{caseFinancials?.matter_type?.replace(/_/g, ' ') || 'N/A'}</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Matter Type</p>
+                    <p className="font-medium capitalize text-black">{caseFinancials?.matter_type?.replace(/_/g, ' ') || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">Litigation Stage</p>
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Litigation Stage</p>
                     {litigationBadge(getLitigationStage(selectedCase.phases))}
                   </div>
                 </div>
@@ -812,10 +883,10 @@ const AttorneyMyCases: React.FC = () => {
 
               {/* B. Expert Assessment */}
               <div>
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <Stethoscope className="h-4 w-4 text-primary" /> Expert Assessment
+                <h3 className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-black">
+                  <Stethoscope className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Expert Assessment
                 </h3>
-                <Table>
+                <Table className="text-xs [&_td]:px-3 [&_td]:py-2 [&_th]:h-8 [&_th]:px-3 [&_th]:text-[11px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Expert Type</TableHead>
@@ -831,10 +902,10 @@ const AttorneyMyCases: React.FC = () => {
                       <TableCell>{format(new Date(selectedCase.appointmentDate), 'dd MMM yyyy')}</TableCell>
                       <TableCell>
                         {selectedCase.phases.find((p: any) => p.name === 'Claimant Assessed')?.status === 'completed'
-                          ? <Badge className="bg-success/10 text-success border-success/20">Yes</Badge>
+                          ? <PortalPill tone="success">Yes</PortalPill>
                           : selectedCase.phases.find((p: any) => p.name === 'Claimant Assessed')?.status === 'in_progress'
-                          ? <Badge className="bg-warning/10 text-warning border-warning/20">Scheduled</Badge>
-                          : <Badge variant="outline">No</Badge>
+                          ? <PortalPill tone="warning">Scheduled</PortalPill>
+                          : <PortalPill>No</PortalPill>
                         }
                       </TableCell>
                     </TableRow>
@@ -846,13 +917,13 @@ const AttorneyMyCases: React.FC = () => {
 
               {/* C. Reports Section */}
               <div>
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-primary" /> Reports
+                <h3 className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-black">
+                  <FileText className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Reports
                 </h3>
                 {caseExpertReports.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">No reports available yet.</p>
+                  <p className="text-sm italic text-slate-400">No reports available yet.</p>
                 ) : (
-                  <Table>
+                  <Table className="text-xs [&_td]:px-3 [&_td]:py-2 [&_th]:h-8 [&_th]:px-3 [&_th]:text-[11px]">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Expert Type</TableHead>
@@ -869,24 +940,24 @@ const AttorneyMyCases: React.FC = () => {
                           <TableRow key={report.id}>
                             <TableCell>{formatExpertType(expert?.expert_type || selectedCase.expertType)}</TableCell>
                             <TableCell>
-                              <Badge className={isCompleted ? 'bg-success/10 text-success border-success/20' : 'bg-warning/10 text-warning border-warning/20'}>
+                              <PortalPill tone={isCompleted ? 'success' : 'warning'}>
                                 {report.report_status?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                              </Badge>
+                              </PortalPill>
                             </TableCell>
                             <TableCell>
                               {report.report_submitted_date ? format(new Date(report.report_submitted_date), 'dd MMM yyyy') : '—'}
                             </TableCell>
                             <TableCell className="text-right">
                               {isCompleted && report.report_file_path ? (
-                                <Button size="sm" variant="outline" onClick={() => handleDownloadReport(report.report_file_path, `Report_${selectedCase.claimantName}.pdf`)}>
-                                  <Download className="h-4 w-4 mr-1" /> Download
+                                <Button size="sm" variant="outline" className="rounded-none" onClick={() => handleDownloadReport(report.report_file_path, `Report_${selectedCase.claimantName}.pdf`)}>
+                                  <Download className="mr-1 h-4 w-4" /> Download
                                 </Button>
                               ) : isCompleted ? (
-                                <Button size="sm" variant="outline" onClick={() => downloadReportPDF(selectedCase)}>
-                                  <Download className="h-4 w-4 mr-1" /> PDF
+                                <Button size="sm" variant="outline" className="rounded-none" onClick={() => downloadReportPDF(selectedCase)}>
+                                  <Download className="mr-1 h-4 w-4" /> PDF
                                 </Button>
                               ) : (
-                                <span className="text-xs text-muted-foreground">Not available</span>
+                                <span className="text-xs text-slate-400">Not available</span>
                               )}
                             </TableCell>
                           </TableRow>
@@ -901,29 +972,29 @@ const AttorneyMyCases: React.FC = () => {
 
               {/* D. Documents */}
               <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold flex items-center gap-2">
-                    <FolderOpen className="h-4 w-4 text-primary" /> Documents
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-black">
+                    <FolderOpen className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Documents
                   </h3>
-                  <Button size="sm" variant="outline" onClick={() => {
+                  <Button size="sm" variant="outline" className="rounded-none" onClick={() => {
                     setSelectedCaseForUpload(selectedCase.id);
                     setSelectedClaimantForUpload(selectedCase.claimantName);
                     setUploadDialogOpen(true);
                   }}>
-                    <Upload className="h-3 w-3 mr-1" /> Upload
+                    <Upload className="mr-1 h-3 w-3" /> Upload
                   </Button>
                 </div>
                 {(caseDocuments[selectedCase.id] || []).length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">No documents uploaded yet.</p>
+                  <p className="text-xs italic text-slate-400">No documents uploaded yet.</p>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {(caseDocuments[selectedCase.id] || []).map((d: CaseDocument) => (
-                      <div key={d.id} className="flex items-center gap-2 p-2 rounded bg-muted/30 text-xs">
-                        <FileCheck className="h-3 w-3 text-success flex-shrink-0" />
-                        <span className="truncate flex-1">{d.file_name}</span>
-                        <Badge variant="outline" className="text-[10px]">
+                      <div key={d.id} className="flex items-center gap-2 border border-black/10 bg-black/[0.015] p-2 text-xs">
+                        <FileCheck className="h-3 w-3 shrink-0 text-success" />
+                        <span className="flex-1 truncate">{d.file_name}</span>
+                        <PortalPill className="shrink-0 text-[9px]">
                           {DOCUMENT_TYPES.find(t => t.value === d.document_type)?.label || d.document_type}
-                        </Badge>
+                        </PortalPill>
                       </div>
                     ))}
                   </div>
@@ -934,48 +1005,49 @@ const AttorneyMyCases: React.FC = () => {
 
               {/* E. Financial Section */}
               <div>
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-primary" /> Financial Summary
+                <h3 className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-black">
+                  <CreditCard className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Financial Summary
                 </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="p-3 rounded-lg bg-muted/30 text-center">
-                    <p className="text-xs text-muted-foreground">Service Fee</p>
-                    <p className="text-lg font-bold">R{(caseFinancials?.service_fee || 0).toLocaleString()}</p>
+                <div className="grid grid-cols-2 divide-x divide-y divide-black/10 border border-black/10 sm:grid-cols-4 sm:divide-y-0">
+                  <div className="p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Service Fee</p>
+                    <p className="text-lg font-bold tabular-nums text-black">R{(caseFinancials?.service_fee || 0).toLocaleString()}</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-success/10 text-center">
-                    <p className="text-xs text-muted-foreground">Deposit</p>
-                    <p className="text-lg font-bold text-success">R{(caseFinancials?.deposit_amount || 0).toLocaleString()}</p>
+                  <div className="p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Deposit</p>
+                    <p className="text-lg font-bold tabular-nums text-success">R{(caseFinancials?.deposit_amount || 0).toLocaleString()}</p>
                   </div>
-                  <div className="p-3 rounded-lg bg-destructive/10 text-center">
-                    <p className="text-xs text-muted-foreground">Amount Due</p>
-                    <p className="text-lg font-bold text-destructive">
+                  <div className="p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Amount Due</p>
+                    <p className="text-lg font-bold tabular-nums text-destructive">
                       R{((caseFinancials?.service_fee || 0) - (caseFinancials?.deposit_amount || 0)).toLocaleString()}
                     </p>
                   </div>
-                  <div className="p-3 rounded-lg bg-muted/30 text-center">
-                    <p className="text-xs text-muted-foreground">Payment Status</p>
-                    <Badge className={caseFinancials?.payment_status === 'paid' ? 'bg-success/10 text-success border-success/20' : 'bg-warning/10 text-warning border-warning/20'}>
+                  <div className="p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">Payment Status</p>
+                    <PortalPill tone={caseFinancials?.payment_status === 'paid' ? 'success' : 'warning'}>
                       {caseFinancials?.payment_status || 'Pending'}
-                    </Badge>
+                    </PortalPill>
                   </div>
                 </div>
               </div>
 
               {/* Progress Timeline */}
               <div>
-                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-primary" /> Assessment Progress
+                <h3 className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-black">
+                  <TrendingUp className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Assessment Progress
                 </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
                   {selectedCase.phases.map((phase: any, idx: number) => (
-                    <div key={idx} className={`p-2 rounded-lg text-center text-xs border ${
-                      phase.status === 'completed' ? 'bg-success/10 border-success/20 text-success' :
-                      phase.status === 'in_progress' ? 'bg-primary/10 border-primary/20 text-primary' :
-                      'bg-muted/30 border-border/50 text-muted-foreground'
-                    }`}>
+                    <div key={idx} className={cn(
+                      'border p-2 text-center text-[11px]',
+                      phase.status === 'completed' ? 'border-success/40 bg-success/5 text-success' :
+                      phase.status === 'in_progress' ? 'border-[#00BAAD]/40 bg-[#00BAAD]/5' :
+                      'border-black/10 bg-black/[0.015] text-slate-500'
+                    )} style={phase.status === 'in_progress' ? { color: BRAND_TEAL } : undefined}>
                       <div className="font-medium">{phase.name}</div>
                       {phase.completedAt && (
-                        <div className="text-[10px] mt-1 opacity-70">
+                        <div className="mt-1 text-[10px] opacity-70">
                           {format(new Date(phase.completedAt), 'dd MMM')}
                         </div>
                       )}
@@ -987,23 +1059,23 @@ const AttorneyMyCases: React.FC = () => {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>Close</Button>
+            <Button variant="outline" className="rounded-none" onClick={() => setDetailDialogOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Upload Document Dialog */}
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-        <DialogContent>
+        <DialogContent className="rounded-none border-black/10 sm:rounded-none">
           <DialogHeader>
-            <DialogTitle>Upload Document</DialogTitle>
+            <DialogTitle className="text-black">Upload Document</DialogTitle>
             <DialogDescription>Upload documents for {selectedClaimantForUpload}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Document Type</label>
+              <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Document Type</label>
               <Select value={uploadDocType} onValueChange={setUploadDocType}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className={cn(FIELD_CLASS, 'mt-1')}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {DOCUMENT_TYPES.map(dt => (
                     <SelectItem key={dt.value} value={dt.value}>{dt.label}</SelectItem>
@@ -1012,11 +1084,12 @@ const AttorneyMyCases: React.FC = () => {
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium">Select File</label>
+              <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Select File</label>
               <Input
                 type="file"
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
                 disabled={uploading}
+                className={cn(FIELD_CLASS, 'mt-1')}
                 onChange={e => {
                   const file = e.target.files?.[0];
                   if (file) handleUploadDocument(file);
@@ -1024,7 +1097,7 @@ const AttorneyMyCases: React.FC = () => {
               />
             </div>
             {uploading && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 text-sm text-slate-500">
                 <Loader2 className="h-4 w-4 animate-spin" />Uploading...
               </div>
             )}
@@ -1034,27 +1107,27 @@ const AttorneyMyCases: React.FC = () => {
 
       {/* New Referral Dialog */}
       <Dialog open={referralDialogOpen} onOpenChange={setReferralDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg rounded-none border-black/10 sm:rounded-none">
           <DialogHeader>
-            <DialogTitle>Submit New Referral</DialogTitle>
+            <DialogTitle className="text-black">Submit New Referral</DialogTitle>
             <DialogDescription>Submit a new or existing case for medico-legal assessment</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">First Name *</label>
-                <Input value={newReferral.firstName} onChange={e => setNewReferral(p => ({ ...p, firstName: e.target.value }))} placeholder="Claimant first name" />
+                <label className="text-xs font-medium uppercase tracking-wide text-slate-500">First Name *</label>
+                <Input value={newReferral.firstName} onChange={e => setNewReferral(p => ({ ...p, firstName: e.target.value }))} placeholder="Claimant first name" className={cn(FIELD_CLASS, 'mt-1')} />
               </div>
               <div>
-                <label className="text-sm font-medium">Last Name *</label>
-                <Input value={newReferral.lastName} onChange={e => setNewReferral(p => ({ ...p, lastName: e.target.value }))} placeholder="Claimant last name" />
+                <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Last Name *</label>
+                <Input value={newReferral.lastName} onChange={e => setNewReferral(p => ({ ...p, lastName: e.target.value }))} placeholder="Claimant last name" className={cn(FIELD_CLASS, 'mt-1')} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Matter Type</label>
+                <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Matter Type</label>
                 <Select value={newReferral.matterType} onValueChange={v => setNewReferral(p => ({ ...p, matterType: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className={cn(FIELD_CLASS, 'mt-1')}><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="raf">RAF</SelectItem>
                     <SelectItem value="slip_and_fall">Slip & Fall</SelectItem>
@@ -1065,9 +1138,9 @@ const AttorneyMyCases: React.FC = () => {
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium">Expert Type</label>
+                <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Expert Type</label>
                 <Select value={newReferral.expertType} onValueChange={v => setNewReferral(p => ({ ...p, expertType: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className={cn(FIELD_CLASS, 'mt-1')}><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="orthopaedic_surgeon">Orthopaedic Surgeon</SelectItem>
                     <SelectItem value="neurosurgeon">Neurosurgeon</SelectItem>
@@ -1081,9 +1154,9 @@ const AttorneyMyCases: React.FC = () => {
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium">Province</label>
+              <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Province</label>
               <Select value={newReferral.province} onValueChange={v => setNewReferral(p => ({ ...p, province: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className={cn(FIELD_CLASS, 'mt-1')}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {['Gauteng', 'Western Cape', 'KwaZulu-Natal', 'Eastern Cape', 'Free State', 'Limpopo', 'Mpumalanga', 'North West', 'Northern Cape'].map(p => (
                     <SelectItem key={p} value={p}>{p}</SelectItem>
@@ -1092,14 +1165,14 @@ const AttorneyMyCases: React.FC = () => {
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium">Additional Notes</label>
-              <Textarea value={newReferral.notes} onChange={e => setNewReferral(p => ({ ...p, notes: e.target.value }))} placeholder="Any additional information about the case..." />
+              <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Additional Notes</label>
+              <Textarea value={newReferral.notes} onChange={e => setNewReferral(p => ({ ...p, notes: e.target.value }))} placeholder="Any additional information about the case..." className={cn(FIELD_CLASS, 'mt-1')} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setReferralDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmitReferral} disabled={submittingReferral || !newReferral.firstName || !newReferral.lastName}>
-              {submittingReferral ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+            <Button variant="outline" className="rounded-none" onClick={() => setReferralDialogOpen(false)}>Cancel</Button>
+            <Button className="rounded-none" onClick={handleSubmitReferral} disabled={submittingReferral || !newReferral.firstName || !newReferral.lastName}>
+              {submittingReferral ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Submit Referral
             </Button>
           </DialogFooter>
