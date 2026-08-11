@@ -2,16 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import {
   Bell, Calendar, FileText, CreditCard, AlertCircle,
   CheckCircle2, Clock, Mail, Eye, FileWarning
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
+import {
+  PortalPage,
+  PortalHeader,
+  SyncStatus,
+  PortalStatStrip,
+  PortalCard,
+  PortalCardHeader,
+  PortalCardBody,
+  PortalPill,
+  PortalEmptyState,
+  PortalLoadingState,
+} from '@/components/attorney-portal/ui/PortalPrimitives';
 
 interface Notification {
   id: string;
@@ -25,11 +35,13 @@ interface Notification {
   related_record_id: string | null;
 }
 
+type NotificationsTab = 'all' | 'unread' | 'reports' | 'invoices' | 'missing_docs';
+
 const AttorneyNotifications: React.FC = () => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState<NotificationsTab>('all');
 
   useEffect(() => {
     if (user) {
@@ -40,6 +52,7 @@ const AttorneyNotifications: React.FC = () => {
   }, [user]);
 
   const fetchNotifications = async () => {
+    setLoading(true);
     try {
       const { data } = await supabase
         .from('notifications')
@@ -88,14 +101,14 @@ const AttorneyNotifications: React.FC = () => {
   };
 
   const getNotificationIcon = (type: string, category: string | null) => {
-    if (category === 'report_ready' || type.includes('report_ready')) return <FileText className="h-5 w-5 text-success" />;
-    if (category === 'report' || type.includes('report')) return <FileText className="h-5 w-5 text-kutlwano-teal" />;
-    if (category === 'invoice' || type.includes('invoice')) return <CreditCard className="h-5 w-5 text-primary" />;
-    if (category === 'missing_document' || type.includes('missing')) return <FileWarning className="h-5 w-5 text-destructive" />;
-    if (category === 'appointment' || type.includes('appointment')) return <Calendar className="h-5 w-5 text-kutlwano-blue" />;
-    if (category === 'payment' || type.includes('payment')) return <CreditCard className="h-5 w-5 text-success" />;
-    if (type === 'alert' || type === 'warning') return <AlertCircle className="h-5 w-5 text-warning" />;
-    return <Bell className="h-5 w-5 text-muted-foreground" />;
+    if (category === 'report_ready' || type.includes('report_ready')) return <FileText className="h-4 w-4 text-success" />;
+    if (category === 'report' || type.includes('report')) return <FileText className="h-4 w-4" style={{ color: BRAND_TEAL }} />;
+    if (category === 'invoice' || type.includes('invoice')) return <CreditCard className="h-4 w-4" style={{ color: BRAND_TEAL }} />;
+    if (category === 'missing_document' || type.includes('missing')) return <FileWarning className="h-4 w-4 text-destructive" />;
+    if (category === 'appointment' || type.includes('appointment')) return <Calendar className="h-4 w-4" style={{ color: BRAND_TEAL }} />;
+    if (category === 'payment' || type.includes('payment')) return <CreditCard className="h-4 w-4 text-success" />;
+    if (type === 'alert' || type === 'warning') return <AlertCircle className="h-4 w-4 text-warning" />;
+    return <Bell className="h-4 w-4 text-slate-400" />;
   };
 
   const filteredNotifications = notifications.filter(n => {
@@ -112,163 +125,125 @@ const AttorneyNotifications: React.FC = () => {
   const invoiceCount = notifications.filter(n => n.category === 'invoice' || n.category === 'payment' || n.type.includes('invoice') || n.type.includes('payment')).length;
   const missingDocCount = notifications.filter(n => n.category === 'missing_document' || n.type.includes('missing')).length;
 
+  const TAB_ITEMS: { key: NotificationsTab; label: string; badge?: number }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'unread', label: 'Unread', badge: unreadCount },
+    { key: 'reports', label: 'Reports' },
+    { key: 'invoices', label: 'Invoices' },
+    { key: 'missing_docs', label: 'Missing Docs' },
+  ];
+
   return (
     <AttorneyPortalLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-              <Bell className="h-8 w-8 text-kutlwano-blue" />
-              Notifications
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Report readiness, invoices, and missing document alerts
-            </p>
-          </div>
-          {unreadCount > 0 && (
-            <Button variant="outline" onClick={markAllAsRead}>
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Mark All as Read
-            </Button>
-          )}
+      <PortalPage>
+        <PortalHeader
+          eyebrow="Attorney Portal"
+          title="Notifications"
+          description="Report readiness, invoices, and missing document alerts"
+          icon={Bell}
+          actions={
+            <>
+              <SyncStatus loading={loading} onRefresh={fetchNotifications} label="Live data" />
+              {unreadCount > 0 && (
+                <Button variant="outline" className="rounded-none gap-2" onClick={markAllAsRead}>
+                  <CheckCircle2 className="h-4 w-4" />
+                  Mark All as Read
+                </Button>
+              )}
+            </>
+          }
+        />
+
+        {/* KPI ledger — one bordered panel, matches Dashboard/My Cases/Appointments/Case Status/Reports/Payments/Agreements */}
+        <PortalStatStrip
+          loading={loading}
+          className="sm:grid-cols-5 lg:grid-cols-5"
+          tiles={[
+            { label: 'Total', value: notifications.length, icon: Bell },
+            { label: 'Unread', value: unreadCount, icon: Mail, urgent: unreadCount > 0 },
+            { label: 'Reports', value: reportCount, icon: FileText },
+            { label: 'Invoices', value: invoiceCount, icon: CreditCard },
+            { label: 'Missing Docs', value: missingDocCount, icon: FileWarning, urgent: missingDocCount > 0 },
+          ]}
+        />
+
+        {/* Tabs — flat underline style, matches the rest of the portal */}
+        <div className="flex flex-wrap gap-1 border-b border-black/10">
+          {TAB_ITEMS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={cn(
+                'flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold uppercase tracking-wide transition-colors',
+                activeTab === t.key
+                  ? 'border-[#00BAAD] text-[#00BAAD]'
+                  : 'border-transparent text-slate-500 hover:text-black'
+              )}
+            >
+              {t.label}
+              {!!t.badge && <PortalPill tone="destructive" className="px-1.5 py-0">{t.badge}</PortalPill>}
+            </button>
+          ))}
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="text-2xl font-bold">{notifications.length}</p>
-                </div>
-                <Bell className="h-6 w-6 text-muted-foreground" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Unread</p>
-                  <p className="text-2xl font-bold text-destructive">{unreadCount}</p>
-                </div>
-                <Mail className="h-6 w-6 text-destructive" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Reports</p>
-                  <p className="text-2xl font-bold text-kutlwano-teal">{reportCount}</p>
-                </div>
-                <FileText className="h-6 w-6 text-kutlwano-teal" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Invoices</p>
-                  <p className="text-2xl font-bold text-primary">{invoiceCount}</p>
-                </div>
-                <CreditCard className="h-6 w-6 text-primary" />
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-card border-border/50">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">Missing Docs</p>
-                  <p className="text-2xl font-bold text-warning">{missingDocCount}</p>
-                </div>
-                <FileWarning className="h-6 w-6 text-warning" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Notifications Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="unread">
-              Unread {unreadCount > 0 && <Badge className="ml-1 bg-destructive text-destructive-foreground">{unreadCount}</Badge>}
-            </TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
-            <TabsTrigger value="invoices">Invoices</TabsTrigger>
-            <TabsTrigger value="missing_docs">Missing Docs</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value={activeTab} className="mt-6">
-            <Card className="bg-gradient-card border-border/50">
-              <CardContent className="pt-6">
-                {loading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
-                  </div>
-                ) : filteredNotifications.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No notifications found</p>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[500px]">
-                    <div className="space-y-3">
-                      {filteredNotifications.map((notification) => (
-                        <div
-                          key={notification.id}
-                          className={`p-4 rounded-lg border transition-all ${
-                            notification.is_read
-                              ? 'bg-muted/30 border-border/50'
-                              : 'bg-primary/5 border-primary/20'
-                          }`}
-                        >
-                          <div className="flex items-start gap-4">
-                            <div className={`p-2 rounded-lg ${notification.is_read ? 'bg-muted' : 'bg-primary/10'}`}>
-                              {getNotificationIcon(notification.type, notification.category)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-4">
-                                <div>
-                                  <h4 className={`font-medium ${!notification.is_read && 'text-foreground'}`}>
-                                    {notification.title}
-                                  </h4>
-                                  <p className="text-sm text-muted-foreground mt-1">
-                                    {notification.message}
-                                  </p>
-                                </div>
-                                {!notification.is_read && (
-                                  <Button variant="ghost" size="sm" onClick={() => markAsRead(notification.id)}>
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 mt-2">
-                                <Clock className="h-3 w-3 text-muted-foreground" />
-                                <span className="text-xs text-muted-foreground">
-                                  {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                                </span>
-                                {!notification.is_read && (
-                                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs">New</Badge>
-                                )}
-                              </div>
-                            </div>
+        <PortalCard>
+          <PortalCardHeader icon={Bell} title="Notifications" description={`${filteredNotifications.length} notification(s) in view`} />
+          <PortalCardBody className={loading || filteredNotifications.length === 0 ? 'p-0' : undefined}>
+            {loading ? (
+              <PortalLoadingState label="Loading notifications…" />
+            ) : filteredNotifications.length === 0 ? (
+              <PortalEmptyState icon={Bell} title="No notifications found" />
+            ) : (
+              <div className="max-h-[500px] space-y-2 overflow-y-auto">
+                {filteredNotifications.map((notification) => (
+                  <div
+                    key={notification.id}
+                    className={cn(
+                      'border px-4 py-3 transition-colors',
+                      notification.is_read ? 'border-black/10 bg-black/[0.015]' : 'border-[#00BAAD]/30 bg-[#00BAAD]/5'
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center border border-black/10 bg-white">
+                        {getNotificationIcon(notification.type, notification.category)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-medium text-black">
+                              {notification.title}
+                            </h4>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                              {notification.message}
+                            </p>
                           </div>
+                          {!notification.is_read && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0 rounded-none"
+                              onClick={() => markAsRead(notification.id)}
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                         </div>
-                      ))}
+                        <div className="mt-2 flex items-center gap-2">
+                          <Clock className="h-3 w-3 text-slate-400" />
+                          <span className="text-[11px] text-slate-500">
+                            {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                          </span>
+                          {!notification.is_read && <PortalPill tone="teal">New</PortalPill>}
+                        </div>
+                      </div>
                     </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </PortalCardBody>
+        </PortalCard>
+      </PortalPage>
     </AttorneyPortalLayout>
   );
 };
