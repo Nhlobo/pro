@@ -16,13 +16,10 @@ import {
   LogOut,
   ChevronLeft,
   Menu,
+  HeadsetIcon,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
-import TourLauncher from '@/components/tour/TourLauncher';
-import RouteFirstVisitTour from '@/components/tour/RouteFirstVisitTour';
-import { EXPERT_TOUR, EXPERT_TOUR_KEY } from '@/config/tours';
-import { EXPERT_PAGE_TOURS } from '@/config/pageTours';
 import InternalChatWidget from '@/components/internalChat/InternalChatWidget';
 import { useIsExternalPortalUser } from '@/hooks/useIsExternalPortalUser';
 import BrandedPageLoader from '@/components/BrandedPageLoader';
@@ -36,6 +33,7 @@ const navigationItems = [
   { title: 'Reports', href: '/expert-portal/reports', icon: FileText },
   { title: 'Performance', href: '/expert-portal/performance', icon: BarChart3 },
   { title: 'Profile', href: '/expert-portal/profile', icon: User },
+  { title: 'Support', href: '/expert-portal/support', icon: HeadsetIcon },
 ];
 
 const PAGE_TITLE_BY_PATH: Record<string, string> = navigationItems.reduce(
@@ -63,6 +61,7 @@ function resolvePageTitle(pathname: string): string {
  */
 const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { signOut, user } = useAuth();
   const { loading } = usePermissions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -84,8 +83,6 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <div className="flex min-h-screen bg-background">
-      <RouteFirstVisitTour routes={EXPERT_PAGE_TOURS} />
-
       {/* Mobile backdrop */}
       {mobileOpen && (
         <div
@@ -97,7 +94,6 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
 
       {/* Sidebar */}
       <aside
-        data-tour="expert-sidebar"
         className={cn(
           "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden gradient-nav text-white shadow-xl transition-all duration-300",
           sidebarCollapsed ? "w-16" : "w-64",
@@ -228,9 +224,26 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
               </div>
 
               <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                <div className="hidden sm:block">
-                  <TourLauncher steps={EXPERT_TOUR} storageKey={EXPERT_TOUR_KEY} compact />
-                </div>
+                {/* Same sticky "back to dashboard" control as the Attorney
+                    Portal header — identical gradient-nav teal/blue
+                    background, border, and sizing, just pointed at the
+                    Expert Portal's own dashboard instead. Hidden on the
+                    dashboard itself, same as the attorney one. */}
+                {location.pathname !== '/expert-portal' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('/expert-portal')}
+                    className="shrink-0 gap-1 border border-white/30 bg-white/10 px-2 text-white hover:bg-white/20 hover:text-white sm:px-3"
+                    aria-label="Back to Dashboard"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="hidden text-xs font-semibold uppercase tracking-wide sm:inline">
+                      Dashboard
+                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-wide sm:hidden">Back</span>
+                  </Button>
+                )}
                 <div className="hidden md:block"><PortalSwitcher /></div>
                 <NotificationCenter />
               </div>
@@ -254,7 +267,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           </div>
         </header>
 
-        <div className="min-w-0 p-3 sm:p-4 lg:p-6">{children}</div>
+        <div className="min-w-0 mx-auto w-full max-w-7xl p-3 sm:p-4 lg:p-6">{children}</div>
       </main>
       {!isExternalUser && <InternalChatWidget />}
     </div>
