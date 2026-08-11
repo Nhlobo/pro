@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, HeadsetIcon, Megaphone, HelpCircle, Plus, Send, Clock, MessageSquare } from 'lucide-react';
@@ -109,42 +109,47 @@ const PortalSupportWidget: React.FC = () => {
         <TabsContent value="tickets">
           <div className="space-y-4">
             <div className="flex justify-end">
-              <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm"><Plus className="h-4 w-4 mr-1" /> New Ticket</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader><DialogTitle>Submit Support Ticket</DialogTitle></DialogHeader>
-                  <div className="space-y-3">
-                    <Input placeholder="Subject" value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} />
-                    <Textarea placeholder="Describe your query..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={4} />
-                    <div className="grid grid-cols-2 gap-3">
-                      <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="general">General</SelectItem>
-                          <SelectItem value="appointments">Appointments</SelectItem>
-                          <SelectItem value="reports">Reports</SelectItem>
-                          <SelectItem value="payments">Payments</SelectItem>
-                          <SelectItem value="documents">Documents</SelectItem>
-                          <SelectItem value="technical">Technical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select value={form.priority} onValueChange={v => setForm({ ...form, priority: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="urgent">Urgent</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Button className="w-full" onClick={handleCreate}>Submit Ticket</Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button size="sm" onClick={() => setCreateOpen(true)}><Plus className="h-4 w-4 mr-1" /> New Ticket</Button>
             </div>
+
+            {/* New ticket — slides in from the right, same panel pattern
+                used across every other portal surface (no center-screen
+                popups). */}
+            <Sheet open={createOpen} onOpenChange={setCreateOpen}>
+              <SheetContent side="right" className="flex w-full flex-col overflow-y-auto sm:max-w-md">
+                <SheetHeader className="text-left">
+                  <SheetTitle>Submit Support Ticket</SheetTitle>
+                  <SheetDescription>Describe your query and we'll get back to you as soon as possible.</SheetDescription>
+                </SheetHeader>
+                <div className="mt-4 flex-1 space-y-3">
+                  <Input placeholder="Subject" value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} />
+                  <Textarea placeholder="Describe your query..." value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={4} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select value={form.category} onValueChange={v => setForm({ ...form, category: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="general">General</SelectItem>
+                        <SelectItem value="appointments">Appointments</SelectItem>
+                        <SelectItem value="reports">Reports</SelectItem>
+                        <SelectItem value="payments">Payments</SelectItem>
+                        <SelectItem value="documents">Documents</SelectItem>
+                        <SelectItem value="technical">Technical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={form.priority} onValueChange={v => setForm({ ...form, priority: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button className="w-full" onClick={handleCreate} disabled={!form.subject || !form.description}>Submit Ticket</Button>
+                </div>
+              </SheetContent>
+            </Sheet>
 
             {ticketsLoading ? (
               <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin" /></div>
@@ -168,19 +173,21 @@ const PortalSupportWidget: React.FC = () => {
             )}
           </div>
 
-          {/* Ticket Detail */}
-          <Dialog open={!!selectedTicket} onOpenChange={() => setSelectedTicket(null)}>
-            <DialogContent className="max-w-lg max-h-[70vh]">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-sm">
+          {/* Ticket detail — same sliding side-sheet pattern as the New
+              Ticket panel above, instead of a center-screen popup. */}
+          <Sheet open={!!selectedTicket} onOpenChange={(open) => { if (!open) setSelectedTicket(null); }}>
+            <SheetContent side="right" className="flex w-full flex-col overflow-y-auto sm:max-w-lg">
+              <SheetHeader className="text-left">
+                <SheetTitle className="flex items-center gap-2 text-sm">
                   <span className="font-mono text-muted-foreground">{selectedTicket?.ticket_number}</span>
-                  {selectedTicket?.subject}
-                </DialogTitle>
-              </DialogHeader>
+                  <span className="truncate">{selectedTicket?.subject}</span>
+                </SheetTitle>
+                <SheetDescription>Track replies and add a message below.</SheetDescription>
+              </SheetHeader>
               {selectedTicket && (
-                <div className="space-y-3">
+                <div className="mt-4 flex flex-1 flex-col gap-3">
                   <p className="text-sm text-muted-foreground">{selectedTicket.description}</p>
-                  <ScrollArea className="h-40 border rounded-lg p-3">
+                  <ScrollArea className="h-56 border rounded-lg p-3">
                     {loadingMessages ? (
                       <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin" /></div>
                     ) : messages.length === 0 ? (
@@ -199,14 +206,14 @@ const PortalSupportWidget: React.FC = () => {
                       </div>
                     )}
                   </ScrollArea>
-                  <div className="flex gap-2">
+                  <div className="mt-auto flex gap-2">
                     <Input placeholder="Reply..." value={newMessage} onChange={e => setNewMessage(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleReply()} />
                     <Button size="icon" onClick={handleReply} disabled={!newMessage.trim()}><Send className="h-4 w-4" /></Button>
                   </div>
                 </div>
               )}
-            </DialogContent>
-          </Dialog>
+            </SheetContent>
+          </Sheet>
         </TabsContent>
 
         {/* FAQ */}
