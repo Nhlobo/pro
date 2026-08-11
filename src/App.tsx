@@ -5,7 +5,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import PortalSwitcher from './PortalSwitcher';
+import PortalSwitcher from './components/portal/PortalSwitcher';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import {
   LayoutDashboard,
