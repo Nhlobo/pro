@@ -13,6 +13,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { PortalPage, PortalHeader } from '@/components/attorney-portal/ui/PortalPrimitives';
 import {
   format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isToday, isSameDay
 } from 'date-fns';
@@ -282,27 +283,27 @@ const ExpertProfile: React.FC = () => {
   if (!expertId) return <div className="text-center py-12 text-muted-foreground">Expert profile not linked. Contact an administrator.</div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <User className="h-6 w-6 text-primary" /> My Profile
-          </h1>
-          <p className="text-sm text-muted-foreground">Manage your professional details and availability</p>
-        </div>
-        {!editing ? (
-          <Button onClick={() => setEditing(true)} variant="outline" size="sm">
-            <Edit className="h-4 w-4 mr-1" /> Edit Profile
-          </Button>
-        ) : (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
-            <Button size="sm" onClick={handleSaveProfile} disabled={saving}>
-              <Save className="h-4 w-4 mr-1" /> {saving ? 'Saving...' : 'Save'}
+    <PortalPage>
+      <PortalHeader
+        eyebrow="Expert Portal"
+        title="My Profile"
+        description="Manage your professional details and availability."
+        icon={User}
+        actions={
+          !editing ? (
+            <Button onClick={() => setEditing(true)} variant="outline" size="sm">
+              <Edit className="h-4 w-4 mr-1" /> Edit Profile
             </Button>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditing(false)}>Cancel</Button>
+              <Button size="sm" onClick={handleSaveProfile} disabled={saving}>
+                <Save className="h-4 w-4 mr-1" /> {saving ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          )
+        }
+      />
 
       {/* Profile Info */}
       <div className="grid md:grid-cols-2 gap-6">
@@ -706,7 +707,7 @@ const ExpertProfile: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PortalPage>
   );
 };
 
