@@ -175,11 +175,17 @@ const AdminPortalRoute = ({ children }: { children: React.ReactNode }) => (
 // external-portal accounts land here via the same route), so this is
 // the one shared choke point where two-factor is enforced for the role.
 // Referring Attorneys are not required to enrol at this time.
+//
+// TEMPORARILY DISABLED (at owner's request) — the <MFARequiredGuard>
+// wrapper below is commented out so Experts go straight from login to
+// the dashboard with no 2FA check. Nothing was deleted: to turn 2FA
+// back on, just remove the comment markers so the guard wraps
+// ExpertPortalLayout again, exactly as it did before.
 const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
-    <MFARequiredGuard roleLabel="Medical Expert">
+    {/* <MFARequiredGuard roleLabel="Medical Expert"> */}
       <ExpertPortalLayout>{children}</ExpertPortalLayout>
-    </MFARequiredGuard>
+    {/* </MFARequiredGuard> */}
   </ProtectedRoute>
 );
 
