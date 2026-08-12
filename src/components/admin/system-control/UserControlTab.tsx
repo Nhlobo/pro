@@ -51,6 +51,9 @@ const UserControlTab: React.FC = () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, email, role, user_type')
+        // External portal accounts (attorneys/experts) are not staff and
+        // must never be manageable from this staff permissions screen.
+        .neq('user_type', 'external_portal')
         .order('first_name', { ascending: true });
       if (error) throw error;
       return (data || []) as UserRow[];
