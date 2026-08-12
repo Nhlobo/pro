@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/portal/ExpertPortalCard';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, CardContent } from '@/components/portal/ExpertPortalCard';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { FileText, Clock, CheckCircle2, AlertTriangle, TrendingUp } from 'lucide-react';
+import { FileText, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { PortalPage, PortalHeader, SyncStatus } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { format, parseISO, differenceInDays } from 'date-fns';
 
 const ExpertReportTracking: React.FC = () => {
@@ -14,25 +15,25 @@ const ExpertReportTracking: React.FC = () => {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!user) return;
-      const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
-      if (!profile?.expert_id) { setLoading(false); return; }
+  const load = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
+    if (!profile?.expert_id) { setLoading(false); return; }
 
-      const [reportsRes, apptsRes] = await Promise.all([
-        supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id).order('created_at', { ascending: false }),
-        supabase.from('appointments')
-          .select(`id, appointment_date, matter_type, claimants(first_name, last_name, auto_id), referring_attorneys:referring_attorney_id(name)`)
-          .eq('expert_id', profile.expert_id)
-          .is('deleted_at', null),
-      ]);
-      setReports(reportsRes.data || []);
-      setAppointments(apptsRes.data || []);
-      setLoading(false);
-    };
-    load();
+    const [reportsRes, apptsRes] = await Promise.all([
+      supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id).order('created_at', { ascending: false }),
+      supabase.from('appointments')
+        .select(`id, appointment_date, matter_type, claimants(first_name, last_name, auto_id), referring_attorneys:referring_attorney_id(name)`)
+        .eq('expert_id', profile.expert_id)
+        .is('deleted_at', null),
+    ]);
+    setReports(reportsRes.data || []);
+    setAppointments(apptsRes.data || []);
+    setLoading(false);
   }, [user]);
+
+  useEffect(() => { load(); }, [load]);
 
   const getStatusBadge = (status: string | null) => {
     switch (status) {
@@ -54,16 +55,15 @@ const ExpertReportTracking: React.FC = () => {
     }).length,
   };
 
-  if (loading) return <div className="text-center py-12 text-muted-foreground">Loading reports...</div>;
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <FileText className="h-6 w-6 text-primary" /> Report Tracking
-        </h1>
-        <p className="text-sm text-muted-foreground">Track all report submissions and deadlines</p>
-      </div>
+    <PortalPage>
+      <PortalHeader
+        eyebrow="Expert Portal"
+        title="Report Tracking"
+        description="Track all report submissions and deadlines."
+        icon={FileText}
+        actions={<SyncStatus loading={loading} onRefresh={load} label="Live data" />}
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
@@ -100,7 +100,9 @@ const ExpertReportTracking: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reports.length === 0 ? (
+                {loading ? (
+                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">Loading reports…</TableCell></TableRow>
+                ) : reports.length === 0 ? (
                   <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-8">No reports found</TableCell></TableRow>
                 ) : (
                   reports.map(r => {
@@ -127,7 +129,7 @@ const ExpertReportTracking: React.FC = () => {
           </ScrollArea>
         </CardContent>
       </Card>
-    </div>
+    </PortalPage>
   );
 };
 
