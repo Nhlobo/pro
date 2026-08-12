@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/portal/ExpertPortalCard';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { BarChart3, TrendingUp, Clock, CheckCircle2, AlertTriangle, Award, Target, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { PortalPage, PortalHeader, SyncStatus, PortalEmptyState } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { differenceInDays, parseISO, format, subMonths } from 'date-fns';
 
 interface PerformanceMetrics {
@@ -27,9 +28,9 @@ const ExpertPerformance: React.FC = () => {
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
+  const load = useCallback(async () => {
       if (!user) return;
+      setLoading(true);
       const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
       if (!profile?.expert_id) { setLoading(false); return; }
 
@@ -98,9 +99,9 @@ const ExpertPerformance: React.FC = () => {
         overallRating,
       });
       setLoading(false);
-    };
-    load();
   }, [user]);
+
+  useEffect(() => { load(); }, [load]);
 
   const getScoreColor = (score: number) => {
     if (score >= 85) return 'text-success';
@@ -109,18 +110,29 @@ const ExpertPerformance: React.FC = () => {
     return 'text-destructive';
   };
 
-  if (loading) return <div className="text-center py-12 text-muted-foreground">Loading performance data...</div>;
-  if (!metrics) return <div className="text-center py-12 text-muted-foreground">No performance data available</div>;
+  if (!loading && !metrics) {
+    return (
+      <PortalPage>
+        <PortalHeader eyebrow="Expert Portal" title="Performance Intelligence" icon={BarChart3} />
+        <PortalEmptyState icon={BarChart3} title="No performance data available" />
+      </PortalPage>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <BarChart3 className="h-6 w-6 text-primary" /> Performance Intelligence
-        </h1>
-        <p className="text-sm text-muted-foreground">Your comprehensive performance scoring and analytics</p>
-      </div>
+    <PortalPage>
+      <PortalHeader
+        eyebrow="Expert Portal"
+        title="Performance Intelligence"
+        description="Your comprehensive performance scoring and analytics."
+        icon={BarChart3}
+        actions={<SyncStatus loading={loading} onRefresh={load} label="Live data" />}
+      />
 
+      {!metrics ? (
+        <div className="py-12 text-center text-sm text-slate-500">Loading performance data…</div>
+      ) : (
+      <>
       {/* Overall Score */}
       <Card className="border-black/10 bg-gradient-to-r from-primary/5 to-transparent">
         <CardContent className="pt-6 pb-5 flex flex-col md:flex-row items-center gap-6">
@@ -220,7 +232,9 @@ const ExpertPerformance: React.FC = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+      </>
+      )}
+    </PortalPage>
   );
 };
 
