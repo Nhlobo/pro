@@ -1,16 +1,23 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/portal/ExpertPortalCard';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Card, CardContent } from '@/components/portal/ExpertPortalCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  PortalPage,
+  PortalHeader,
+  SyncStatus,
+  PortalEmptyState,
+} from '@/components/attorney-portal/ui/PortalPrimitives';
 import {
   Briefcase, Search, Clock, MapPin, FileText, AlertTriangle, Calendar, User, Eye, Building2,
-  Upload, CheckCircle2, XCircle
+  Upload, CheckCircle2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
@@ -34,63 +41,77 @@ interface CaseAssignment {
 const ExpertCases: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { lastUpdate, isActiveTab, isPageLocked } = useAppointmentSync();
   const [cases, setCases] = useState<CaseAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('all');
 
-  useEffect(() => {
-    const loadCases = async () => {
-      if (!user) return;
-      const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
-      if (!profile?.expert_id) { setLoading(false); return; }
+  const loadCases = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
+    if (!profile?.expert_id) { setLoading(false); return; }
 
-      const [apptsRes, reportsRes, docsRes] = await Promise.all([
-        supabase
-          .from('appointments')
-          .select(`
-            id, appointment_date, matter_type, case_status, payment_status,
-            claimants(first_name, last_name, auto_id),
-            referring_attorneys:referring_attorney_id(name),
-            medical_experts:expert_id(practice_address)
-          `)
-          .eq('expert_id', profile.expert_id)
-          .is('deleted_at', null)
-          .order('appointment_date', { ascending: false }),
-        supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id),
-        supabase.from('documents').select('id, appointment_id').eq('expert_id', profile.expert_id),
-      ]);
+    const [apptsRes, reportsRes, docsRes] = await Promise.all([
+      supabase
+        .from('appointments')
+        .select(`
+          id, appointment_date, matter_type, case_status, payment_status,
+          claimants(first_name, last_name, auto_id),
+          referring_attorneys:referring_attorney_id(name),
+          medical_experts:expert_id(practice_address)
+        `)
+        .eq('expert_id', profile.expert_id)
+        .is('deleted_at', null)
+        .order('appointment_date', { ascending: false }),
+      supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id),
+      supabase.from('documents').select('id, appointment_id').eq('expert_id', profile.expert_id),
+    ]);
 
-      const appointments = apptsRes.data || [];
-      const reports = reportsRes.data || [];
-      const docs = docsRes.data || [];
+    const appointments = apptsRes.data || [];
+    const reports = reportsRes.data || [];
+    const docs = docsRes.data || [];
 
-      const mapped: CaseAssignment[] = appointments.map(a => {
-        const report = reports.find(r => r.appointment_id === a.id);
-        const docCount = docs.filter(d => d.appointment_id === a.id).length;
-        return {
-          id: a.id,
-          appointment_date: a.appointment_date,
-          matter_type: a.matter_type,
-          case_status: a.case_status,
-          claimant_name: a.claimants ? `${a.claimants.first_name} ${a.claimants.last_name}` : 'Unknown',
-          claimant_auto_id: a.claimants?.auto_id || '',
-          attorney_name: (a as any).referring_attorneys?.name || 'N/A',
-          report_status: report?.report_status || null,
-          report_due_date: report?.report_due_date || null,
-          report_submitted_date: report?.report_submitted_date || null,
-          days_to_complete: report?.days_to_complete || null,
-          document_count: docCount,
-          location: (a as any).medical_experts?.practice_address || null,
-          payment_status: a.payment_status,
-        };
-      });
-      setCases(mapped);
-      setLoading(false);
-    };
-    loadCases();
+    const mapped: CaseAssignment[] = appointments.map(a => {
+      const report = reports.find(r => r.appointment_id === a.id);
+      const docCount = docs.filter(d => d.appointment_id === a.id).length;
+      return {
+        id: a.id,
+        appointment_date: a.appointment_date,
+        matter_type: a.matter_type,
+        case_status: a.case_status,
+        claimant_name: a.claimants ? `${a.claimants.first_name} ${a.claimants.last_name}` : 'Unknown',
+        claimant_auto_id: a.claimants?.auto_id || '',
+        attorney_name: (a as any).referring_attorneys?.name || 'N/A',
+        report_status: report?.report_status || null,
+        report_due_date: report?.report_due_date || null,
+        report_submitted_date: report?.report_submitted_date || null,
+        days_to_complete: report?.days_to_complete || null,
+        document_count: docCount,
+        location: (a as any).medical_experts?.practice_address || null,
+        payment_status: a.payment_status,
+      };
+    });
+    setCases(mapped);
+    setLoading(false);
   }, [user]);
+
+  // Same page-lock-aware live sync as the rest of the platform (attorney
+  // dashboard, admin views): fetch once on mount, then re-fetch whenever
+  // AppointmentSyncContext reports a relevant change, as long as this tab
+  // is active and the expert isn't mid-interaction with something else.
+  const initialFetchDone = useRef(false);
+  useEffect(() => {
+    if (!user) return;
+    if (!initialFetchDone.current) {
+      loadCases();
+      initialFetchDone.current = true;
+    } else if (isActiveTab && !isPageLocked) {
+      loadCases();
+    }
+  }, [user, lastUpdate, loadCases, isActiveTab, isPageLocked]);
 
   const now = new Date();
 
@@ -159,16 +180,15 @@ const ExpertCases: React.FC = () => {
     completed: cases.filter(c => ['completed', 'taken_out'].includes(c.report_status || '')).length,
   }), [cases]);
 
-  if (loading) return <div className="text-center py-12 text-muted-foreground">Loading cases...</div>;
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Briefcase className="h-6 w-6 text-primary" /> My Case Assignments
-        </h1>
-        <p className="text-sm text-muted-foreground">View assigned cases, upload reports, and track deadlines</p>
-      </div>
+    <PortalPage>
+      <PortalHeader
+        eyebrow="Expert Portal"
+        title="My Case Assignments"
+        description="View assigned cases, upload reports, and track deadlines."
+        icon={Briefcase}
+        actions={<SyncStatus loading={loading} onRefresh={loadCases} label="Live data" />}
+      />
 
       {/* Tab Navigation */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -203,12 +223,13 @@ const ExpertCases: React.FC = () => {
       </div>
 
       {/* Case Cards */}
-      {filteredCases.length === 0 ? (
+      {loading ? (
         <Card className="border-black/10">
-          <CardContent className="text-center py-12">
-            <Briefcase className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <p className="text-muted-foreground">No cases match your filters</p>
-          </CardContent>
+          <CardContent className="py-12 text-center text-sm text-slate-500">Loading cases…</CardContent>
+        </Card>
+      ) : filteredCases.length === 0 ? (
+        <Card className="border-black/10">
+          <PortalEmptyState icon={Briefcase} title="No cases match your filters" />
         </Card>
       ) : (
         <div className="grid gap-3">
@@ -266,7 +287,7 @@ const ExpertCases: React.FC = () => {
           })}
         </div>
       )}
-    </div>
+    </PortalPage>
   );
 };
 
