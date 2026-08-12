@@ -109,7 +109,10 @@ const PitchlogSalesReport: React.FC<Props> = ({ entries, filterMonthStr, monthLa
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, role');
+        .select('id, first_name, last_name, role')
+        // External portal accounts (attorneys/experts) must never show up
+        // as candidate "deal owners" in sales attribution.
+        .neq('user_type', 'external_portal');
       if (error) throw error;
       return data || [];
     },
