@@ -329,6 +329,10 @@ const usePermissionsState = (): PermissionsContextValue => {
       const { data } = await supabase
         .from('profiles')
         .select('id, email, role, user_type, position, first_name, last_name, referring_attorney_id, is_active, deactivated_at, deactivation_reason, last_login_at')
+        // External portal accounts (attorneys/experts signing in via the
+        // external portal) are not staff and must never appear in the
+        // staff user management list.
+        .neq('user_type', 'external_portal')
         .order('created_at', { ascending: false });
 
       return data || [];
