@@ -1,14 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/portal/ExpertPortalCard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, Clock, User, FileText, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
+import { PortalPage, PortalHeader, SyncStatus } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, isToday } from 'date-fns';
 
 const ExpertSchedule: React.FC = () => {
   const { user } = useAuth();
+  const { lastUpdate, isActiveTab, isPageLocked } = useAppointmentSync();
   const [expertId, setExpertId] = useState<string | null>(null);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
@@ -16,29 +19,38 @@ const ExpertSchedule: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!user) return;
-      const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
-      if (!profile?.expert_id) { setLoading(false); return; }
-      setExpertId(profile.expert_id);
+  const load = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
+    if (!profile?.expert_id) { setLoading(false); return; }
+    setExpertId(profile.expert_id);
 
-      const [apptsRes, reportsRes] = await Promise.all([
-        supabase.from('appointments')
-          .select(`*, claimants(first_name, last_name, auto_id), referring_attorneys:referring_attorney_id(name)`)
-          .eq('expert_id', profile.expert_id)
-          .is('deleted_at', null)
-          .order('appointment_date', { ascending: true }),
-        supabase.from('expert_reports')
-          .select('*')
-          .eq('expert_id', profile.expert_id),
-      ]);
-      setAppointments(apptsRes.data || []);
-      setReports(reportsRes.data || []);
-      setLoading(false);
-    };
-    load();
+    const [apptsRes, reportsRes] = await Promise.all([
+      supabase.from('appointments')
+        .select(`*, claimants(first_name, last_name, auto_id), referring_attorneys:referring_attorney_id(name)`)
+        .eq('expert_id', profile.expert_id)
+        .is('deleted_at', null)
+        .order('appointment_date', { ascending: true }),
+      supabase.from('expert_reports')
+        .select('*')
+        .eq('expert_id', profile.expert_id),
+    ]);
+    setAppointments(apptsRes.data || []);
+    setReports(reportsRes.data || []);
+    setLoading(false);
   }, [user]);
+
+  const initialFetchDone = useRef(false);
+  useEffect(() => {
+    if (!user) return;
+    if (!initialFetchDone.current) {
+      load();
+      initialFetchDone.current = true;
+    } else if (isActiveTab && !isPageLocked) {
+      load();
+    }
+  }, [user, lastUpdate, load, isActiveTab, isPageLocked]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
@@ -56,16 +68,15 @@ const ExpertSchedule: React.FC = () => {
   const pendingReports = reports.filter(r => r.report_status !== 'completed' && r.report_status !== 'taken_out');
   const completedReports = reports.filter(r => r.report_status === 'completed' || r.report_status === 'taken_out');
 
-  if (loading) return <div className="text-center py-12 text-muted-foreground">Loading schedule...</div>;
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <Calendar className="h-6 w-6 text-primary" /> Schedule & Report Tracking
-        </h1>
-        <p className="text-sm text-muted-foreground">View your assessment schedule and track report submissions</p>
-      </div>
+    <PortalPage>
+      <PortalHeader
+        eyebrow="Expert Portal"
+        title="Schedule & Report Tracking"
+        description="View your assessment schedule and track report submissions."
+        icon={Calendar}
+        actions={<SyncStatus loading={loading} onRefresh={load} label="Live data" />}
+      />
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* Calendar */}
@@ -204,7 +215,7 @@ const ExpertSchedule: React.FC = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </PortalPage>
   );
 };
 
