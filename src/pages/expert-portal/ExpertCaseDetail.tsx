@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
+import { PortalPage } from '@/components/attorney-portal/ui/PortalPrimitives';
 import {
   ArrowLeft,
   User,
@@ -291,7 +292,7 @@ const ExpertCaseDetail: React.FC = () => {
   }, {});
 
   return (
-    <div className="space-y-6">
+    <PortalPage>
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate('/expert-portal/cases')}>
@@ -614,7 +615,7 @@ const ExpertCaseDetail: React.FC = () => {
           </Card>
         </div>
       </div>
-    </div>
+    </PortalPage>
   );
 };
 
