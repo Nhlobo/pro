@@ -12,8 +12,8 @@ const ExpertTerms = () => (
   <LegalPageLayout
     title="Terms of Use"
     description="Terms governing use of the Medico-Legal Pro Expert Portal."
-    backHref="/external-portal/sign-in"
-    backLabel="Back to sign in"
+    backHref="/expert-portal"
+    backLabel="Back to dashboard"
   >
     <p className="text-sm text-slate-500">Last updated: {new Date().toLocaleDateString('en-ZA')}</p>
 
