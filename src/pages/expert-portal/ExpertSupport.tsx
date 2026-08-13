@@ -6,7 +6,7 @@ import PortalSupportWidget from '@/components/support/PortalSupportWidget';
 // layout here too (that double-nesting previously rendered the
 // sidebar/header/chat widget twice on this page).
 const ExpertSupport: React.FC = () => {
-  return <PortalSupportWidget />;
+  return <PortalSupportWidget portalLabel="Expert Portal" />;
 };
 
 export default ExpertSupport;
