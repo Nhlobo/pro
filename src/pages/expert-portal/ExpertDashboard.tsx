@@ -12,10 +12,12 @@ import {
   PortalCardHeader,
   PortalCardBody,
   PortalEmptyState,
+  PortalLoadingState,
   AlertStrip,
   type PortalStatTile,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { useExpertDashboardStats } from '@/hooks/useExpertDashboardStats';
+import { useExpertLinkStatus } from '@/hooks/useExpertLinkStatus';
 import { ExpertNotLinkedState } from '@/components/portal/ExpertNotLinkedState';
 import { RandSign } from '@/components/icons/RandSign';
 import {
@@ -55,9 +57,9 @@ function getUrgencyBadge(dueDate: string | null) {
 
 const ExpertDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const linkStatus = useExpertLinkStatus();
   const {
     expertName,
-    notLinked,
     stats,
     upcomingCases,
     overdueReports,
@@ -82,9 +84,19 @@ const ExpertDashboard: React.FC = () => {
     },
   ];
 
-  if (notLinked) {
+  if (linkStatus === 'checking') {
     return (
       <PortalPage>
+        <PortalHeader eyebrow="Expert Portal" title="Dashboard" icon={LayoutDashboard} />
+        <PortalLoadingState label="Checking your account…" />
+      </PortalPage>
+    );
+  }
+
+  if (linkStatus === 'not_linked') {
+    return (
+      <PortalPage>
+        <PortalHeader eyebrow="Expert Portal" title="Dashboard" icon={LayoutDashboard} />
         <ExpertNotLinkedState description="Your account is not linked to a medical expert profile, so there's no dashboard to show yet. Contact an administrator or get help below." />
       </PortalPage>
     );
