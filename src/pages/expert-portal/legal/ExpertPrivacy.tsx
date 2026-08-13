@@ -18,8 +18,8 @@ const ExpertHelp = () => (
   <LegalPageLayout
     title="Help & Support"
     description="Get help accessing the Medico-Legal Pro Expert Portal."
-    backHref="/external-portal/sign-in"
-    backLabel="Back to sign in"
+    backHref="/expert-portal"
+    backLabel="Back to dashboard"
   >
     <p>
       Need a hand accessing your Expert Portal? Our support team is available Monday to Friday,
