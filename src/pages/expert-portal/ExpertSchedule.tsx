@@ -1,18 +1,37 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/portal/ExpertPortalCard';
-import { Badge } from '@/components/ui/badge';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, User, FileText, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, User, FileText, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, Circle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
-import { PortalPage, PortalHeader, SyncStatus } from '@/components/attorney-portal/ui/PortalPrimitives';
-import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, addMonths, subMonths, isToday } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
+import {
+  PortalPage,
+  PortalHeader,
+  SyncStatus,
+  PortalCard,
+  PortalCardHeader,
+  PortalCardBody,
+  PortalPill,
+} from '@/components/attorney-portal/ui/PortalPrimitives';
+import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
 
+/**
+ * Expert Portal — Schedule.
+ *
+ * Calendar cells are now aspect-square (not a fixed h-12 px height), so
+ * they scale down cleanly on narrow phones instead of overflowing the
+ * 7-column grid or leaving cramped, unreadable numbers. Square corners
+ * and hairline borders throughout to match PortalCard/AdminUI, and
+ * status is read from the icon + label (Clock = pending, CheckCircle2 =
+ * completed) rather than from an arbitrary badge color — the only color
+ * used is the single teal accent and the semantic destructive tone for
+ * genuinely overdue items, same as the rest of the system.
+ */
 const ExpertSchedule: React.FC = () => {
   const { user } = useAuth();
   const { lastUpdate, isActiveTab, isPageLocked } = useAppointmentSync();
-  const [expertId, setExpertId] = useState<string | null>(null);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -24,7 +43,6 @@ const ExpertSchedule: React.FC = () => {
     setLoading(true);
     const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
     if (!profile?.expert_id) { setLoading(false); return; }
-    setExpertId(profile.expert_id);
 
     const [apptsRes, reportsRes] = await Promise.all([
       supabase.from('appointments')
@@ -55,7 +73,6 @@ const ExpertSchedule: React.FC = () => {
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  // Pad to start on Monday
   const startDay = monthStart.getDay();
   const paddingDays = (startDay === 0 ? 6 : startDay - 1);
 
@@ -64,7 +81,6 @@ const ExpertSchedule: React.FC = () => {
 
   const selectedDayAppts = selectedDate ? getAppointmentsForDate(selectedDate) : [];
 
-  // Report submission tracking
   const pendingReports = reports.filter(r => r.report_status !== 'completed' && r.report_status !== 'taken_out');
   const completedReports = reports.filter(r => r.report_status === 'completed' || r.report_status === 'taken_out');
 
@@ -78,29 +94,31 @@ const ExpertSchedule: React.FC = () => {
         actions={<SyncStatus loading={loading} onRefresh={load} label="Live data" />}
       />
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:gap-6">
         {/* Calendar */}
-        <Card className="md:col-span-2 border-black/10">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <CardTitle className="text-base">{format(currentMonth, 'MMMM yyyy')}</CardTitle>
-              <Button variant="ghost" size="icon" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-1 text-center mb-2">
+        <PortalCard className="md:col-span-2">
+          <PortalCardHeader
+            title={format(currentMonth, 'MMMM yyyy')}
+            actions={
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            }
+          />
+          <PortalCardBody>
+            <div className="grid grid-cols-7 gap-1 text-center mb-1.5">
               {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
-                <div key={d} className="text-[10px] font-medium text-muted-foreground py-1">{d}</div>
+                <div key={d} className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 py-1 sm:text-[10px]">{d}</div>
               ))}
             </div>
             <div className="grid grid-cols-7 gap-1">
               {Array.from({ length: paddingDays }).map((_, i) => (
-                <div key={`pad-${i}`} className="h-12" />
+                <div key={`pad-${i}`} className="aspect-square" />
               ))}
               {daysInMonth.map(day => {
                 const dayAppts = getAppointmentsForDate(day);
@@ -110,110 +128,112 @@ const ExpertSchedule: React.FC = () => {
                   <button
                     key={day.toISOString()}
                     onClick={() => setSelectedDate(day)}
-                    className={`h-12 rounded-lg text-sm relative transition-all
-                      ${isSelected ? 'bg-primary text-primary-foreground' : today ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-muted text-foreground'}
-                      ${dayAppts.length > 0 ? 'font-semibold' : ''}
-                    `}
+                    className={cn(
+                      'relative flex aspect-square flex-col items-center justify-center border text-[11px] font-medium transition-colors sm:text-sm',
+                      isSelected
+                        ? 'border-black bg-black text-white'
+                        : today
+                          ? 'border-black/10 font-bold'
+                          : 'border-black/5 text-black hover:border-black/20 hover:bg-black/[0.03]'
+                    )}
+                    style={today && !isSelected ? { color: BRAND_TEAL } : undefined}
                   >
                     {format(day, 'd')}
                     {dayAppts.length > 0 && (
-                      <span className={`absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-primary-foreground' : 'bg-primary'}`} />
+                      <span
+                        className="absolute bottom-1 h-1 w-1 rounded-full sm:bottom-1.5 sm:h-1.5 sm:w-1.5"
+                        style={{ backgroundColor: isSelected ? '#fff' : BRAND_TEAL }}
+                      />
                     )}
                   </button>
                 );
               })}
             </div>
-          </CardContent>
-        </Card>
+          </PortalCardBody>
+        </PortalCard>
 
         {/* Selected Day Detail */}
-        <Card className="border-black/10">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              {selectedDate ? format(selectedDate, 'dd MMMM yyyy') : 'Select a date'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <PortalCard>
+          <PortalCardHeader title={selectedDate ? format(selectedDate, 'dd MMMM yyyy') : 'Select a date'} />
+          <PortalCardBody className="p-0">
             {!selectedDate ? (
-              <p className="text-sm text-muted-foreground">Click a date to see appointments</p>
+              <p className="px-4 py-6 text-center text-xs text-slate-500">Click a date to see appointments</p>
             ) : selectedDayAppts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No appointments on this date</p>
+              <p className="px-4 py-6 text-center text-xs text-slate-500">No appointments on this date</p>
             ) : (
-              <div className="space-y-3">
+              <ul>
                 {selectedDayAppts.map(a => (
-                  <div key={a.id} className="p-3 rounded-none border border-black/10 bg-black/5 space-y-2">
-                    <p className="font-medium text-sm text-foreground">{a.claimants?.first_name} {a.claimants?.last_name}</p>
-                    <div className="space-y-1 text-xs text-muted-foreground">
-                      <p className="flex items-center gap-1"><Clock className="h-3 w-3" />{format(parseISO(a.appointment_date), 'HH:mm')}</p>
-                      <p className="flex items-center gap-1"><User className="h-3 w-3" />{(a as any).referring_attorneys?.name || 'N/A'}</p>
-                      <p className="flex items-center gap-1"><FileText className="h-3 w-3" />{a.matter_type || 'General'}</p>
+                  <li key={a.id} className="border-b border-black/10 px-4 py-3 last:border-b-0">
+                    <p className="text-sm font-medium text-black">{a.claimants?.first_name} {a.claimants?.last_name}</p>
+                    <div className="mt-1 space-y-1 text-[11px] text-slate-500">
+                      <p className="flex items-center gap-1.5"><Clock className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} />{format(parseISO(a.appointment_date), 'HH:mm')}</p>
+                      <p className="flex items-center gap-1.5"><User className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} />{(a as any).referring_attorneys?.name || 'N/A'}</p>
+                      <p className="flex items-center gap-1.5"><FileText className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} />{a.matter_type || 'General'}</p>
                     </div>
-                    <Badge variant="secondary" className="text-[10px]">{a.case_status || 'Scheduled'}</Badge>
-                  </div>
+                    <PortalPill tone="neutral" className="mt-2">{a.case_status || 'Scheduled'}</PortalPill>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
-          </CardContent>
-        </Card>
+          </PortalCardBody>
+        </PortalCard>
       </div>
 
       {/* Report Submission Tracking */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="border-black/10">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-warning" /> Pending Reports ({pendingReports.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+        <PortalCard>
+          <PortalCardHeader icon={AlertTriangle} title={`Pending Reports (${pendingReports.length})`} />
+          <PortalCardBody className="max-h-[320px] overflow-y-auto p-0">
             {pendingReports.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">All reports submitted!</p>
+              <p className="px-4 py-8 text-center text-xs text-slate-500">All reports submitted!</p>
             ) : (
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              <ul>
                 {pendingReports.map(r => {
                   const appt = appointments.find(a => a.id === r.appointment_id);
                   return (
-                    <div key={r.id} className="flex items-center justify-between p-2 rounded border border-black/10 text-sm">
-                      <span className="text-foreground">{appt?.claimants?.first_name} {appt?.claimants?.last_name}</span>
-                      <div className="flex items-center gap-2">
-                        {r.report_due_date && <span className="text-xs text-muted-foreground">Due: {format(parseISO(r.report_due_date), 'dd MMM')}</span>}
-                        <Badge variant="outline" className="text-[10px]">{r.report_status || 'Pending'}</Badge>
+                    <li key={r.id} className="flex items-center justify-between gap-3 border-b border-black/10 px-4 py-2.5 last:border-b-0">
+                      <span className="flex min-w-0 items-center gap-1.5 truncate text-sm text-black">
+                        <Circle className="h-3 w-3 shrink-0 text-warning" fill="currentColor" />
+                        <span className="truncate">{appt?.claimants?.first_name} {appt?.claimants?.last_name}</span>
+                      </span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {r.report_due_date && <span className="text-[11px] text-slate-400">Due {format(parseISO(r.report_due_date), 'dd MMM')}</span>}
+                        <PortalPill tone="warning">{(r.report_status || 'pending').replace(/_/g, ' ')}</PortalPill>
                       </div>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
-          </CardContent>
-        </Card>
+          </PortalCardBody>
+        </PortalCard>
 
-        <Card className="border-black/10">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-success" /> Completed Reports ({completedReports.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <PortalCard>
+          <PortalCardHeader icon={CheckCircle2} title={`Completed Reports (${completedReports.length})`} />
+          <PortalCardBody className="max-h-[320px] overflow-y-auto p-0">
             {completedReports.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No completed reports yet</p>
+              <p className="px-4 py-8 text-center text-xs text-slate-500">No completed reports yet</p>
             ) : (
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              <ul>
                 {completedReports.slice(0, 10).map(r => {
                   const appt = appointments.find(a => a.id === r.appointment_id);
                   return (
-                    <div key={r.id} className="flex items-center justify-between p-2 rounded border border-black/10 text-sm">
-                      <span className="text-foreground">{appt?.claimants?.first_name} {appt?.claimants?.last_name}</span>
-                      <div className="flex items-center gap-2">
-                        {r.report_submitted_date && <span className="text-xs text-muted-foreground">{format(parseISO(r.report_submitted_date), 'dd MMM yyyy')}</span>}
-                        {r.days_to_complete && <Badge variant="secondary" className="text-[10px]">{r.days_to_complete}d</Badge>}
+                    <li key={r.id} className="flex items-center justify-between gap-3 border-b border-black/10 px-4 py-2.5 last:border-b-0">
+                      <span className="flex min-w-0 items-center gap-1.5 truncate text-sm text-black">
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
+                        <span className="truncate">{appt?.claimants?.first_name} {appt?.claimants?.last_name}</span>
+                      </span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {r.report_submitted_date && <span className="text-[11px] text-slate-400">{format(parseISO(r.report_submitted_date), 'dd MMM yyyy')}</span>}
+                        {r.days_to_complete && <PortalPill tone="success">{r.days_to_complete}d</PortalPill>}
                       </div>
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
-          </CardContent>
-        </Card>
+          </PortalCardBody>
+        </PortalCard>
       </div>
     </PortalPage>
   );
