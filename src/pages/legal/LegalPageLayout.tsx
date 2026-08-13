@@ -7,9 +7,20 @@ interface LegalPageLayoutProps {
   title: string;
   description: string;
   children: ReactNode;
+  /** Defaults to the internal sign-in page. External portal variants
+   *  (expert/attorney) pass '/external-portal/sign-in' instead, since
+   *  those users never have a staff /auth login. */
+  backHref?: string;
+  backLabel?: string;
 }
 
-const LegalPageLayout = ({ title, description, children }: LegalPageLayoutProps) => {
+const LegalPageLayout = ({
+  title,
+  description,
+  children,
+  backHref = '/auth',
+  backLabel = 'Back to sign in',
+}: LegalPageLayoutProps) => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -30,10 +41,10 @@ const LegalPageLayout = ({ title, description, children }: LegalPageLayoutProps)
           <h1 className="mt-1 break-words text-2xl font-bold sm:text-3xl">{title}</h1>
         </div>
         <Link
-          to="/auth"
+          to={backHref}
           className="inline-flex shrink-0 items-center gap-2 border border-white/30 bg-white/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-white backdrop-blur transition hover:bg-white/20 sm:text-sm"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to sign in
+          <ArrowLeft className="h-4 w-4" /> {backLabel}
         </Link>
       </div>
     </header>
@@ -45,10 +56,10 @@ const LegalPageLayout = ({ title, description, children }: LegalPageLayoutProps)
 
       <div className="mt-6 text-center">
         <Link
-          to="/auth"
+          to={backHref}
           className="text-sm font-semibold text-black hover:text-[#00BAAD] hover:underline"
         >
-          ← Return to sign in
+          ← {backLabel}
         </Link>
       </div>
     </main>
