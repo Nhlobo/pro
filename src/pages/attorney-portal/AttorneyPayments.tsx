@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { useAttorneyDebts } from '@/hooks/useAttorneyDebts';
+import { useAttorneyLinkStatus } from '@/hooks/useAttorneyLinkStatus';
+import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedState';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -61,6 +63,7 @@ const PAYMENT_STATUS_TONE: Record<string, PortalPillTone> = {
 
 const AttorneyPayments: React.FC = () => {
   const { debtSummary, debtCases, loading: debtsLoading } = useAttorneyDebts();
+  const linkStatus = useAttorneyLinkStatus();
   const [aodDocuments, setAodDocuments] = useState<AODDocument[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,6 +116,28 @@ const AttorneyPayments: React.FC = () => {
     { key: 'aod', label: 'AOD Agreements' },
     { key: 'history', label: 'Payment History' },
   ];
+
+  if (linkStatus === 'checking') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="AOD & Payments" icon={CreditCard} />
+          <PortalLoadingState label="Checking your account…" />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
+
+  if (linkStatus === 'not_linked') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="AOD & Payments" icon={CreditCard} />
+          <AttorneyNotLinkedState description="Your account isn't linked to a firm's referrals yet, so there's nothing to show here. Contact an administrator or get help below." />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
 
   return (
     <AttorneyPortalLayout>
