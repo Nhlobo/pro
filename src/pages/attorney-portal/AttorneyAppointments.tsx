@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
+import { useAttorneyLinkStatus } from '@/hooks/useAttorneyLinkStatus';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -38,6 +40,13 @@ const AttorneyAppointments: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [filterPeriod, setFilterPeriod] = useState<string>('all');
+
+  // Case-link check. Resolved before the real page ever paints, so a
+  // not-linked account goes straight to the "not linked" state on first
+  // render instead of flashing the appointments UI and then swapping to
+  // it — mirrors the pattern already used by the Expert Portal's Schedule
+  // page (see ExpertNotLinkedState / ExpertSchedule).
+  const linkStatus = useAttorneyLinkStatus();
 
   // System request dialog
   const [systemRequestOpen, setSystemRequestOpen] = useState(false);
@@ -288,6 +297,28 @@ const AttorneyAppointments: React.FC = () => {
       </div>
     </div>
   );
+
+  if (linkStatus === 'checking') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="Appointments" icon={Calendar} />
+          <PortalLoadingState label="Checking your account…" />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
+
+  if (linkStatus === 'not_linked') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="Appointments" icon={Calendar} />
+          <AttorneyNotLinkedState description="Your account isn't linked to a firm's referrals yet, so there's nothing to show here. Contact an administrator or get help below." />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
 
   return (
     <AttorneyPortalLayout>
