@@ -21,8 +21,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
-import InternalChatWidget from '@/components/internalChat/InternalChatWidget';
-import { useIsExternalPortalUser } from '@/hooks/useIsExternalPortalUser';
 import BrandedPageLoader from '@/components/BrandedPageLoader';
 
 const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
@@ -60,6 +58,11 @@ function resolvePageTitle(pathname: string): string {
  * design — previously all three portals looked and behaved differently
  * from one another. Medical experts should feel like they're in the same
  * real platform staff use, not a separate, lower-effort build.
+ *
+ * No floating chat bubble here (unlike the internal Admin/Employee
+ * shells). Internal chat is staff-to-staff communication; the Expert
+ * Portal is an external, link+OTP surface — same as the Attorney
+ * Portal, which never had that widget either.
  */
 const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
@@ -68,12 +71,6 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   const { loading } = usePermissions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  // Internal chat is staff-to-staff communication — a real medical
-  // expert logging in via link+OTP has no business seeing that bubble,
-  // even though the server already prevents them from using it
-  // (get_internal_chat_users only lists admin/employee/etc roles).
-  const isExternalUser = useIsExternalPortalUser();
 
   React.useEffect(() => {
     setMobileOpen(false);
@@ -271,7 +268,6 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
 
         <div className="min-w-0 mx-auto w-full max-w-7xl p-3 sm:p-4 lg:p-6">{children}</div>
       </main>
-      {!isExternalUser && <InternalChatWidget />}
     </div>
   );
 };
