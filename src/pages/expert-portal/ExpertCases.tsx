@@ -12,6 +12,7 @@ import {
   PortalEmptyState,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { AdminTabList, AdminTabTrigger } from '@/components/admin/ui/AdminUI';
+import { ExpertNotLinkedState } from '@/components/portal/ExpertNotLinkedState';
 import {
   Briefcase, Search, Clock, MapPin, FileText, AlertTriangle, Calendar, User, Eye, Building2,
   Upload, CheckCircle2
@@ -45,6 +46,7 @@ const ExpertCases: React.FC = () => {
   const { lastUpdate, isActiveTab, isPageLocked } = useAppointmentSync();
   const [cases, setCases] = useState<CaseAssignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notLinked, setNotLinked] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('all');
@@ -53,7 +55,7 @@ const ExpertCases: React.FC = () => {
     if (!user) return;
     setLoading(true);
     const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
-    if (!profile?.expert_id) { setLoading(false); return; }
+    if (!profile?.expert_id) { setNotLinked(true); setLoading(false); return; }
 
     const [apptsRes, reportsRes, docsRes] = await Promise.all([
       supabase
@@ -180,6 +182,15 @@ const ExpertCases: React.FC = () => {
     }).length,
     completed: cases.filter(c => ['completed', 'taken_out'].includes(c.report_status || '')).length,
   }), [cases]);
+
+  if (notLinked) {
+    return (
+      <PortalPage>
+        <PortalHeader eyebrow="Expert Portal" title="My Case Assignments" icon={Briefcase} />
+        <ExpertNotLinkedState description="Your account is not linked to a medical expert profile, so no cases can be shown yet. Contact an administrator or get help below." />
+      </PortalPage>
+    );
+  }
 
   return (
     <PortalPage>
