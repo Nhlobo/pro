@@ -110,6 +110,7 @@ const ExpertReportTracking = lazy(() => import("./pages/expert-portal/ExpertRepo
 const ExpertPerformance = lazy(() => import("./pages/expert-portal/ExpertPerformance"));
 const ExpertProfile = lazy(() => import("./pages/expert-portal/ExpertProfile"));
 const ExpertSecurity = lazy(() => import("./pages/expert-portal/ExpertSecurity"));
+const ExpertSupport = lazy(() => import("./pages/expert-portal/ExpertSupport"));
 
 // Admin Portal Pages
 const AdminOperationsDashboard = lazy(() => import("./pages/admin/AdminOperationsDashboard"));
@@ -364,6 +365,7 @@ const App = () => (
                 <Route path="/expert-portal/performance" element={<ExpertPortalRoute><ExpertPerformance /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/profile" element={<ExpertPortalRoute><ExpertProfile /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/security" element={<ExpertPortalRoute><ExpertSecurity /></ExpertPortalRoute>} />
+                <Route path="/expert-portal/support" element={<ExpertPortalRoute><ExpertSupport /></ExpertPortalRoute>} />
 
                 <Route path="/health" element={<Health />} />
                 <Route path="/api-docs" element={<ApiDocs />} />
