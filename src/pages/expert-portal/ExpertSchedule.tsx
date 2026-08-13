@@ -15,6 +15,7 @@ import {
   PortalCardBody,
   PortalPill,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
+import { ExpertNotLinkedState } from '@/components/portal/ExpertNotLinkedState';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
 
 /**
@@ -37,12 +38,13 @@ const ExpertSchedule: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notLinked, setNotLinked] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
-    if (!profile?.expert_id) { setLoading(false); return; }
+    if (!profile?.expert_id) { setNotLinked(true); setLoading(false); return; }
 
     const [apptsRes, reportsRes] = await Promise.all([
       supabase.from('appointments')
@@ -83,6 +85,15 @@ const ExpertSchedule: React.FC = () => {
 
   const pendingReports = reports.filter(r => r.report_status !== 'completed' && r.report_status !== 'taken_out');
   const completedReports = reports.filter(r => r.report_status === 'completed' || r.report_status === 'taken_out');
+
+  if (notLinked) {
+    return (
+      <PortalPage>
+        <PortalHeader eyebrow="Expert Portal" title="Schedule & Report Tracking" icon={Calendar} />
+        <ExpertNotLinkedState description="Your account is not linked to a medical expert profile, so there's no schedule to show yet. Contact an administrator or get help below." />
+      </PortalPage>
+    );
+  }
 
   return (
     <PortalPage>
