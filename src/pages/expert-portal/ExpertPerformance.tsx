@@ -14,6 +14,7 @@ import {
   PortalCardBody,
   type PortalStatTile,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
+import { ExpertNotLinkedState } from '@/components/portal/ExpertNotLinkedState';
 import { differenceInDays, parseISO, format, subMonths } from 'date-fns';
 
 /**
@@ -47,12 +48,13 @@ const ExpertPerformance: React.FC = () => {
   const { user } = useAuth();
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notLinked, setNotLinked] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
-    if (!profile?.expert_id) { setLoading(false); return; }
+    if (!profile?.expert_id) { setNotLinked(true); setLoading(false); return; }
 
     const [reportsRes, apptsRes] = await Promise.all([
       supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id),
@@ -130,7 +132,11 @@ const ExpertPerformance: React.FC = () => {
     return (
       <PortalPage>
         <PortalHeader eyebrow="Expert Portal" title="Performance Intelligence" icon={BarChart3} />
-        <PortalEmptyState icon={BarChart3} title="No performance data available" />
+        {notLinked ? (
+          <ExpertNotLinkedState description="Your account is not linked to a medical expert profile, so there's no performance data to show yet. Contact an administrator or get help below." />
+        ) : (
+          <PortalEmptyState icon={BarChart3} title="No performance data available" />
+        )}
       </PortalPage>
     );
   }
