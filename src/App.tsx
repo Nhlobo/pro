@@ -30,6 +30,12 @@ import ResetPassword from "./pages/ResetPassword";
 import Privacy from "./pages/legal/Privacy";
 import Terms from "./pages/legal/Terms";
 import Help from "./pages/legal/Help";
+import ExpertPrivacy from "./pages/expert-portal/legal/ExpertPrivacy";
+import ExpertTerms from "./pages/expert-portal/legal/ExpertTerms";
+import ExpertHelp from "./pages/expert-portal/legal/ExpertHelp";
+import AttorneyPrivacy from "./pages/attorney-portal/legal/AttorneyPrivacy";
+import AttorneyTerms from "./pages/attorney-portal/legal/AttorneyTerms";
+import AttorneyHelp from "./pages/attorney-portal/legal/AttorneyHelp";
 import AdminPortalLayout from "./components/portal/AdminPortalLayout";
 import ExpertPortalLayout from "./components/portal/ExpertPortalLayout";
 
@@ -229,6 +235,12 @@ const App = () => (
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/help" element={<Help />} />
+                <Route path="/expert-portal/legal/privacy" element={<ExpertPrivacy />} />
+                <Route path="/expert-portal/legal/terms" element={<ExpertTerms />} />
+                <Route path="/expert-portal/legal/help" element={<ExpertHelp />} />
+                <Route path="/attorney-portal/legal/privacy" element={<AttorneyPrivacy />} />
+                <Route path="/attorney-portal/legal/terms" element={<AttorneyTerms />} />
+                <Route path="/attorney-portal/legal/help" element={<AttorneyHelp />} />
                 <Route path="/offline" element={<Offline />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/email-confirmation" element={<EmailConfirmation />} />
