@@ -18,6 +18,7 @@ import {
   Menu,
   HeadsetIcon,
   ShieldCheck,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -33,6 +34,7 @@ const navigationItems = [
   { title: 'Performance', href: '/expert-portal/performance', icon: BarChart3 },
   { title: 'Profile', href: '/expert-portal/profile', icon: User },
   { title: 'Security', href: '/expert-portal/security', icon: ShieldCheck },
+  { title: 'Notifications', href: '/expert-portal/notifications', icon: Bell },
   { title: 'Support', href: '/expert-portal/support', icon: HeadsetIcon },
 ];
 
