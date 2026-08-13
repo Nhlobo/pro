@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
+import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedState';
+import { useAttorneyLinkStatus } from '@/hooks/useAttorneyLinkStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -39,6 +41,7 @@ type NotificationsTab = 'all' | 'unread' | 'reports' | 'invoices' | 'missing_doc
 
 const AttorneyNotifications: React.FC = () => {
   const { user } = useAuth();
+  const linkStatus = useAttorneyLinkStatus();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<NotificationsTab>('all');
@@ -132,6 +135,28 @@ const AttorneyNotifications: React.FC = () => {
     { key: 'invoices', label: 'Invoices' },
     { key: 'missing_docs', label: 'Missing Docs' },
   ];
+
+  if (linkStatus === 'checking') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="Notifications" icon={Bell} />
+          <PortalLoadingState label="Checking your account…" />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
+
+  if (linkStatus === 'not_linked') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="Notifications" icon={Bell} />
+          <AttorneyNotLinkedState description="Your account isn't linked to a firm's referrals yet, so there's nothing to show here. Contact an administrator or get help below." />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
 
   return (
     <AttorneyPortalLayout>
