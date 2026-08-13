@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
+import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedState';
 import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
+import { useAttorneyLinkStatus } from '@/hooks/useAttorneyLinkStatus';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -68,6 +70,7 @@ const FIELD_CLASS = 'rounded-none border-black/15 focus-visible:ring-[#00BAAD]/3
 
 const AttorneyMyCases: React.FC = () => {
   const { liveCases, loading, refetchStats } = useAttorneyDashboardStats();
+  const linkStatus = useAttorneyLinkStatus();
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
@@ -433,6 +436,28 @@ const AttorneyMyCases: React.FC = () => {
 
   const totalInvoiceFees = invoiceData.reduce((s: number, i: any) => s + (i.service_fee || 0), 0);
   const totalInvoiceDeposits = invoiceData.reduce((s: number, i: any) => s + (i.deposit_amount || 0), 0);
+
+  if (linkStatus === 'checking') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="Case Management" icon={Briefcase} />
+          <PortalLoadingState label="Checking your account…" />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
+
+  if (linkStatus === 'not_linked') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="Case Management" icon={Briefcase} />
+          <AttorneyNotLinkedState description="Your account isn't linked to a firm's referrals yet, so there's nothing to show here. Contact an administrator or get help below." />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
 
   return (
     <AttorneyPortalLayout>
