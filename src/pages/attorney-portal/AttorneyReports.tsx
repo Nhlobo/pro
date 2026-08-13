@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
+import { useAttorneyLinkStatus } from '@/hooks/useAttorneyLinkStatus';
+import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -46,6 +48,7 @@ interface ReportItem {
 
 const AttorneyReports: React.FC = () => {
   const { liveCases, loading, refetchStats } = useAttorneyDashboardStats();
+  const linkStatus = useAttorneyLinkStatus();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<string>('all');
   const [caseStatusDialogOpen, setCaseStatusDialogOpen] = useState(false);
@@ -163,6 +166,28 @@ const AttorneyReports: React.FC = () => {
     { key: 'taken_out', label: 'Taken Out', count: statusCounts.taken_out },
     { key: 'completed', label: 'Completed', count: statusCounts.completed },
   ];
+
+  if (linkStatus === 'checking') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="Reports" icon={FileText} />
+          <PortalLoadingState label="Checking your account…" />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
+
+  if (linkStatus === 'not_linked') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="Reports" icon={FileText} />
+          <AttorneyNotLinkedState description="Your account isn't linked to a firm's referrals yet, so there's nothing to show here. Contact an administrator or get help below." />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
 
   return (
     <AttorneyPortalLayout>
