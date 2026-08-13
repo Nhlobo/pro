@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
+import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedState';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -138,6 +139,7 @@ const AttorneyCaseStatus: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [claimants, setClaimants] = useState<ClaimantCase[]>([]);
   const [attorneyIds, setAttorneyIds] = useState<string[]>([]);
+  const [attorneyIdsResolved, setAttorneyIdsResolved] = useState(false);
 
   // 1. Resolve which referring attorneys this user is linked to
   useEffect(() => {
@@ -148,15 +150,22 @@ const AttorneyCaseStatus: React.FC = () => {
         .select('referring_attorney_id')
         .eq('user_id', user.id);
       setAttorneyIds((data || []).map(r => r.referring_attorney_id));
+      setAttorneyIdsResolved(true);
     })();
   }, [user]);
 
   // 2. Load all attorney-scoped claimants + appointments + reports + report docs
   const loadData = useCallback(async () => {
     if (!user) return;
+    // Wait for the link lookup above to actually resolve before deciding
+    // anything — attorneyIds starts as [] on mount, same shape as a
+    // genuinely-unlinked account, so running this before it resolves
+    // was showing an empty/not-linked state for a beat and then
+    // swapping to the real data once the real links came in.
+    if (!attorneyIdsResolved) return;
     setLoading(true);
     try {
-      // If user has no attorney links yet, show empty (security: never fall back to all data)
+      // If user has no attorney links, show the not-linked state (security: never fall back to all data)
       if (attorneyIds.length === 0) {
         setClaimants([]);
         setLoading(false);
@@ -271,7 +280,7 @@ const AttorneyCaseStatus: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, attorneyIds, toast]);
+  }, [user, attorneyIds, attorneyIdsResolved, toast]);
 
   useEffect(() => {
     loadData();
@@ -451,6 +460,28 @@ const AttorneyCaseStatus: React.FC = () => {
       return <PortalPill tone="teal">{a.report_status}</PortalPill>;
     return <PortalPill tone="warning">Outstanding</PortalPill>;
   };
+
+  if (!attorneyIdsResolved) {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="View Case Status" icon={Activity} />
+          <PortalLoadingState label="Checking your account…" />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
+
+  if (attorneyIds.length === 0) {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="View Case Status" icon={Activity} />
+          <AttorneyNotLinkedState description="Your account isn't linked to a firm's referrals yet, so there's nothing to show here. Contact an administrator or get help below." />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
 
   return (
     <AttorneyPortalLayout>
