@@ -117,6 +117,7 @@ const ExpertPerformance = lazy(() => import("./pages/expert-portal/ExpertPerform
 const ExpertProfile = lazy(() => import("./pages/expert-portal/ExpertProfile"));
 const ExpertSecurity = lazy(() => import("./pages/expert-portal/ExpertSecurity"));
 const ExpertSupport = lazy(() => import("./pages/expert-portal/ExpertSupport"));
+const ExpertNotifications = lazy(() => import("./pages/expert-portal/ExpertNotifications"));
 
 // Admin Portal Pages
 const AdminOperationsDashboard = lazy(() => import("./pages/admin/AdminOperationsDashboard"));
@@ -235,8 +236,8 @@ const App = () => (
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/help" element={<Help />} />
-                <Route path="/expert-portal/legal/privacy" element={<ExpertPrivacy />} />
-                <Route path="/expert-portal/legal/terms" element={<ExpertTerms />} />
+                <Route path="/expert-portal/legal/privacy" element={<ProtectedRoute><ExpertPrivacy /></ProtectedRoute>} />
+                <Route path="/expert-portal/legal/terms" element={<ProtectedRoute><ExpertTerms /></ProtectedRoute>} />
                 <Route path="/expert-portal/legal/help" element={<ExpertHelp />} />
                 <Route path="/attorney-portal/legal/privacy" element={<AttorneyPrivacy />} />
                 <Route path="/attorney-portal/legal/terms" element={<AttorneyTerms />} />
@@ -378,6 +379,7 @@ const App = () => (
                 <Route path="/expert-portal/profile" element={<ExpertPortalRoute><ExpertProfile /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/security" element={<ExpertPortalRoute><ExpertSecurity /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/support" element={<ExpertPortalRoute><ExpertSupport /></ExpertPortalRoute>} />
+                <Route path="/expert-portal/notifications" element={<ExpertPortalRoute><ExpertNotifications /></ExpertPortalRoute>} />
 
                 <Route path="/health" element={<Health />} />
                 <Route path="/api-docs" element={<ApiDocs />} />
