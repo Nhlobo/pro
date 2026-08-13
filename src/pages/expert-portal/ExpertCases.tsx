@@ -10,9 +10,11 @@ import {
   PortalHeader,
   SyncStatus,
   PortalEmptyState,
+  PortalLoadingState,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { AdminTabList, AdminTabTrigger } from '@/components/admin/ui/AdminUI';
 import { ExpertNotLinkedState } from '@/components/portal/ExpertNotLinkedState';
+import { useExpertLinkStatus } from '@/hooks/useExpertLinkStatus';
 import {
   Briefcase, Search, Clock, MapPin, FileText, AlertTriangle, Calendar, User, Eye, Building2,
   Upload, CheckCircle2
@@ -43,6 +45,7 @@ interface CaseAssignment {
 const ExpertCases: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const linkStatus = useExpertLinkStatus();
   const { lastUpdate, isActiveTab, isPageLocked } = useAppointmentSync();
   const [cases, setCases] = useState<CaseAssignment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,7 +186,16 @@ const ExpertCases: React.FC = () => {
     completed: cases.filter(c => ['completed', 'taken_out'].includes(c.report_status || '')).length,
   }), [cases]);
 
-  if (notLinked) {
+  if (linkStatus === 'checking') {
+    return (
+      <PortalPage>
+        <PortalHeader eyebrow="Expert Portal" title="My Case Assignments" icon={Briefcase} />
+        <PortalLoadingState label="Checking your account…" />
+      </PortalPage>
+    );
+  }
+
+  if (linkStatus === 'not_linked' || notLinked) {
     return (
       <PortalPage>
         <PortalHeader eyebrow="Expert Portal" title="My Case Assignments" icon={Briefcase} />
