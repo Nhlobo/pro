@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/portal/ExpertPortalCard';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,12 +7,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import {
-  User, Save, Calendar, ChevronLeft, ChevronRight, Plus, Trash2, Clock, CheckCircle2, Edit
+  User, Save, Calendar, ChevronLeft, ChevronRight, Trash2, Clock, CheckCircle2, Edit, XCircle
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { PortalPage, PortalHeader } from '@/components/attorney-portal/ui/PortalPrimitives';
+import { cn } from '@/lib/utils';
+import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
+import { PortalPage, PortalHeader, PortalPill, type PortalPillTone } from '@/components/attorney-portal/ui/PortalPrimitives';
 import {
   format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isToday, isSameDay
 } from 'date-fns';
@@ -518,7 +519,8 @@ const ExpertProfile: React.FC = () => {
                         court_fees: 'Court Fee',
                       };
                       const fmt = (v: any) => v == null ? '—' : `R${Number(v).toLocaleString('en-ZA')}`;
-                      const variant = r.status === 'approved' ? 'default' : r.status === 'rejected' ? 'destructive' : 'secondary';
+                      const tone: PortalPillTone = r.status === 'approved' ? 'success' : r.status === 'rejected' ? 'destructive' : 'warning';
+                      const StatusIcon = r.status === 'approved' ? CheckCircle2 : r.status === 'rejected' ? XCircle : Clock;
                       return (
                         <tr key={r.id} className="border-b border-black/10 align-top">
                           <td className="py-2 pr-3 text-xs text-muted-foreground">{format(parseISO(r.created_at), 'dd MMM yyyy')}</td>
@@ -526,7 +528,7 @@ const ExpertProfile: React.FC = () => {
                           <td className="py-2 pr-3">{fmt(r.current_value)} → <span className="font-medium">{fmt(r.proposed_value)}</span></td>
                           <td className="py-2 pr-3 text-xs">{format(parseISO(r.effective_date), 'dd MMM yyyy')}</td>
                           <td className="py-2 pr-3 text-xs max-w-xs truncate" title={r.reason}>{r.reason}</td>
-                          <td className="py-2 pr-3"><Badge variant={variant as any} className="capitalize">{r.status}</Badge></td>
+                          <td className="py-2 pr-3"><PortalPill tone={tone}><StatusIcon className="h-3 w-3" />{r.status}</PortalPill></td>
                           <td className="py-2 text-right">
                             {r.status === 'pending' && (
                               <Button size="sm" variant="ghost" onClick={() => cancelReviewRequest(r.id)}>
@@ -623,11 +625,11 @@ const ExpertProfile: React.FC = () => {
               </div>
               <div className="grid grid-cols-7 gap-1 text-center mb-2">
                 {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
-                  <div key={d} className="text-[10px] font-medium text-muted-foreground py-1">{d}</div>
+                  <div key={d} className="text-[9px] font-semibold uppercase tracking-wide text-slate-400 py-1 sm:text-[10px]">{d}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
-                {Array.from({ length: paddingDays }).map((_, i) => <div key={`p-${i}`} className="h-10" />)}
+                {Array.from({ length: paddingDays }).map((_, i) => <div key={`p-${i}`} className="aspect-square" />)}
                 {daysInMonth.map(day => {
                   const avail = getAvailForDate(day);
                   const isSelected = selectedDate && isSameDay(day, selectedDate);
@@ -649,19 +651,32 @@ const ExpertProfile: React.FC = () => {
                           setAvailNotes('');
                         }
                       }}
-                      className={`h-10 rounded-lg text-xs relative transition-all
-                        ${isSelected ? 'ring-2 ring-primary' : ''}
-                        ${avail ? (avail.is_available ? 'bg-success/20 text-success' : 'bg-destructive/20 text-destructive') : today ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground'}
-                      `}
+                      className={cn(
+                        'relative flex aspect-square items-center justify-center border text-[11px] font-medium transition-colors sm:text-sm',
+                        isSelected ? 'border-black ring-1 ring-black' : 'border-black/5 hover:border-black/20 hover:bg-black/[0.03]',
+                        avail
+                          ? avail.is_available
+                            ? 'text-success'
+                            : 'text-destructive'
+                          : today
+                            ? 'font-bold'
+                            : 'text-black'
+                      )}
+                      style={avail ? undefined : today && !isSelected ? { color: BRAND_TEAL } : undefined}
                     >
                       {format(day, 'd')}
+                      {avail && (
+                        <span
+                          className={cn('absolute bottom-1 h-1 w-1 sm:bottom-1.5 sm:h-1.5 sm:w-1.5', avail.is_available ? 'bg-success' : 'bg-destructive')}
+                        />
+                      )}
                     </button>
                   );
                 })}
               </div>
-              <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-success/30" /> Available</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-destructive/30" /> Unavailable</span>
+              <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
+                <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Available</span>
+                <span className="flex items-center gap-1.5"><XCircle className="h-3.5 w-3.5 text-destructive" /> Unavailable</span>
               </div>
             </div>
 
