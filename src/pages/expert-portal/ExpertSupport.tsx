@@ -1,44 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import PortalSupportWidget from '@/components/support/PortalSupportWidget';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
 import { HeadsetIcon } from 'lucide-react';
 import { PortalPage, PortalHeader, PortalLoadingState } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { ExpertNotLinkedState } from '@/components/portal/ExpertNotLinkedState';
+import { useExpertLinkStatus } from '@/hooks/useExpertLinkStatus';
 
 // Renders inside ExpertPortalRoute, which already wraps every
 // /expert-portal/* route in ExpertPortalLayout — do not wrap in the
 // layout here too (that double-nesting previously rendered the
 // sidebar/header/chat widget twice on this page).
 //
-// Gated on the same expert-link check as every other Expert Portal
-// page (see ExpertCases / ExpertSchedule / ExpertReportTracking). The
-// check resolves before anything else renders — a brief "Checking
-// your account…" state, never the real Support content followed by a
-// bounce back to the not-linked state — same order Attorney Portal's
-// Support page follows (see AttorneySupport / useAttorneyLinkStatus).
+// Gated on the same shared expert-link check as every other Expert
+// Portal page (useExpertLinkStatus). The check resolves before anything
+// else renders — a brief "Checking your account…" state, never the real
+// Support content followed by a bounce back to the not-linked state —
+// same order Attorney Portal's Support page follows (AttorneySupport /
+// useAttorneyLinkStatus).
 const ExpertSupport: React.FC = () => {
-  const { user } = useAuth();
-  const [checking, setChecking] = useState(true);
-  const [notLinked, setNotLinked] = useState(false);
+  const linkStatus = useExpertLinkStatus();
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!user) return;
-    (async () => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('expert_id')
-        .eq('id', user.id)
-        .single();
-      if (cancelled) return;
-      setNotLinked(!profile?.expert_id);
-      setChecking(false);
-    })();
-    return () => { cancelled = true; };
-  }, [user]);
-
-  if (checking) {
+  if (linkStatus === 'checking') {
     return (
       <PortalPage>
         <PortalHeader eyebrow="Expert Portal" title="Support & Communications" icon={HeadsetIcon} />
@@ -47,7 +28,7 @@ const ExpertSupport: React.FC = () => {
     );
   }
 
-  if (notLinked) {
+  if (linkStatus === 'not_linked') {
     return (
       <PortalPage>
         <PortalHeader eyebrow="Expert Portal" title="Support & Communications" icon={HeadsetIcon} />
