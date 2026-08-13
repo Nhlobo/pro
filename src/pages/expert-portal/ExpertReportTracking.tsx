@@ -20,6 +20,7 @@ import {
   type PortalPillTone,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { ExpertNotLinkedState } from '@/components/portal/ExpertNotLinkedState';
+import { useExpertLinkStatus } from '@/hooks/useExpertLinkStatus';
 import { format, parseISO, differenceInDays } from 'date-fns';
 
 /**
@@ -71,6 +72,7 @@ function StatusPill({ status }: { status: string | null }) {
 const ExpertReportTracking: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const linkStatus = useExpertLinkStatus();
   const [reports, setReports] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,7 +115,16 @@ const ExpertReportTracking: React.FC = () => {
     { label: 'Overdue', value: stats.overdue, icon: AlertTriangle, urgent: stats.overdue > 0 },
   ];
 
-  if (notLinked) {
+  if (linkStatus === 'checking') {
+    return (
+      <PortalPage>
+        <PortalHeader eyebrow="Expert Portal" title="Report Tracking" icon={FileText} />
+        <PortalLoadingState label="Checking your account…" />
+      </PortalPage>
+    );
+  }
+
+  if (linkStatus === 'not_linked' || notLinked) {
     return (
       <PortalPage>
         <PortalHeader eyebrow="Expert Portal" title="Report Tracking" icon={FileText} />
