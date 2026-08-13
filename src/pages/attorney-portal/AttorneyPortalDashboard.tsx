@@ -1,7 +1,9 @@
 import React, { useMemo } from 'react';
 import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
 import { useAttorneyDebts } from '@/hooks/useAttorneyDebts';
+import { useAttorneyLinkStatus } from '@/hooks/useAttorneyLinkStatus';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
+import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedState';
 import { LiveCaseTracker } from '@/components/LiveCaseTracker';
 import { Link } from 'react-router-dom';
 import { format, isToday, isTomorrow } from 'date-fns';
@@ -14,6 +16,7 @@ import {
   PortalCardHeader,
   PortalCardBody,
   PortalEmptyState,
+  PortalLoadingState,
   AlertStrip,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { Button } from '@/components/ui/button';
@@ -47,6 +50,7 @@ function formatWhen(dateStr: string): string {
 const AttorneyPortalDashboard: React.FC = () => {
   const { stats, liveCases, loading, refetchStats } = useAttorneyDashboardStats();
   const { debtSummary, debtCases, loading: debtsLoading } = useAttorneyDebts();
+  const linkStatus = useAttorneyLinkStatus();
 
   // ---- Derived case-stage counts (drive the KPI panel) -----------------
   const litigationReadyCases = liveCases.filter((c) =>
@@ -123,6 +127,28 @@ const AttorneyPortalDashboard: React.FC = () => {
       urgent: stats.actionsNeeded > 0,
     },
   ];
+
+  if (linkStatus === 'checking') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="Dashboard" icon={LayoutDashboard} />
+          <PortalLoadingState label="Checking your account…" />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
+
+  if (linkStatus === 'not_linked') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="Dashboard" icon={LayoutDashboard} />
+          <AttorneyNotLinkedState description="Your account isn't linked to a firm's referrals yet, so there's nothing to show here. Contact an administrator or get help below." />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
 
   return (
     <AttorneyPortalLayout>
