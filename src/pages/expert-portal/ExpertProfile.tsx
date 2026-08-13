@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
 import { PortalPage, PortalHeader, PortalPill, type PortalPillTone } from '@/components/attorney-portal/ui/PortalPrimitives';
+import { ExpertNotLinkedState } from '@/components/portal/ExpertNotLinkedState';
 import {
   format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isToday, isSameDay
 } from 'date-fns';
@@ -281,7 +282,14 @@ const ExpertProfile: React.FC = () => {
   const getAvailForDate = (date: Date) => availability.find(a => isSameDay(parseISO(a.date), date));
 
   if (loading) return <div className="text-center py-12 text-muted-foreground">Loading profile...</div>;
-  if (!expertId) return <div className="text-center py-12 text-muted-foreground">Expert profile not linked. Contact an administrator.</div>;
+  if (!expertId) {
+    return (
+      <PortalPage>
+        <PortalHeader eyebrow="Expert Portal" title="My Profile" icon={User} />
+        <ExpertNotLinkedState description="Your account is not linked to a medical expert profile, so there's no profile to show yet. Contact an administrator or get help below." />
+      </PortalPage>
+    );
+  }
 
   return (
     <PortalPage>
