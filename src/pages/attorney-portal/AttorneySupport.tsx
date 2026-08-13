@@ -5,7 +5,7 @@ import PortalSupportWidget from '@/components/support/PortalSupportWidget';
 const AttorneySupport: React.FC = () => {
   return (
     <AttorneyPortalLayout>
-      <PortalSupportWidget />
+      <PortalSupportWidget portalLabel="Attorney Portal" />
     </AttorneyPortalLayout>
   );
 };
