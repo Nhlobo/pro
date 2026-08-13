@@ -14,8 +14,10 @@ import {
   PortalCardHeader,
   PortalCardBody,
   PortalPill,
+  PortalLoadingState,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { ExpertNotLinkedState } from '@/components/portal/ExpertNotLinkedState';
+import { useExpertLinkStatus } from '@/hooks/useExpertLinkStatus';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
 
 /**
@@ -32,6 +34,7 @@ import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDa
  */
 const ExpertSchedule: React.FC = () => {
   const { user } = useAuth();
+  const linkStatus = useExpertLinkStatus();
   const { lastUpdate, isActiveTab, isPageLocked } = useAppointmentSync();
   const [appointments, setAppointments] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
@@ -86,7 +89,16 @@ const ExpertSchedule: React.FC = () => {
   const pendingReports = reports.filter(r => r.report_status !== 'completed' && r.report_status !== 'taken_out');
   const completedReports = reports.filter(r => r.report_status === 'completed' || r.report_status === 'taken_out');
 
-  if (notLinked) {
+  if (linkStatus === 'checking') {
+    return (
+      <PortalPage>
+        <PortalHeader eyebrow="Expert Portal" title="Schedule & Report Tracking" icon={Calendar} />
+        <PortalLoadingState label="Checking your account…" />
+      </PortalPage>
+    );
+  }
+
+  if (linkStatus === 'not_linked' || notLinked) {
     return (
       <PortalPage>
         <PortalHeader eyebrow="Expert Portal" title="Schedule & Report Tracking" icon={Calendar} />
