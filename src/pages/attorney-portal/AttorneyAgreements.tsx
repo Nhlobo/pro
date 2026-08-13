@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { supabase } from '@/integrations/supabase/client';
+import { useAttorneyLinkStatus } from '@/hooks/useAttorneyLinkStatus';
+import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedState';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
@@ -51,6 +53,7 @@ const PAYMENT_STATUS_TONE: Record<string, PortalPillTone> = {
 };
 
 const AttorneyAgreements: React.FC = () => {
+  const linkStatus = useAttorneyLinkStatus();
   const [agreements, setAgreements] = useState<Agreement[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<AgreementsTab>('all');
@@ -196,6 +199,28 @@ const AttorneyAgreements: React.FC = () => {
     : tab === 'short-term'
     ? 'No short-term agreements found'
     : 'No long-term AOD agreements found';
+
+  if (linkStatus === 'checking') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="Agreements" icon={FileSignature} />
+          <PortalLoadingState label="Checking your account…" />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
+
+  if (linkStatus === 'not_linked') {
+    return (
+      <AttorneyPortalLayout>
+        <PortalPage>
+          <PortalHeader eyebrow="Attorney Portal" title="Agreements" icon={FileSignature} />
+          <AttorneyNotLinkedState description="Your account isn't linked to a firm's referrals yet, so there's nothing to show here. Contact an administrator or get help below." />
+        </PortalPage>
+      </AttorneyPortalLayout>
+    );
+  }
 
   return (
     <AttorneyPortalLayout>
