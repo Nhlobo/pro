@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Bell, Check, CheckCheck, AlertCircle, Info, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,50 +14,81 @@ import { useNotifications, Notification } from '@/hooks/useNotifications';
 import { GlassBackdrop } from '@/components/ui/glass-backdrop';
 import { formatDistanceToNow } from 'date-fns';
 
-// Map a notification to the page that should open when the user clicks it.
-// Prefers related_table when available, falls back to category.
-const getNotificationRoute = (n: Notification): string | null => {
+type Portal = 'admin' | 'attorney' | 'expert';
+
+// Which portal the bell is currently open in — the NotificationCenter is
+// shared across all three layouts, so the same notification has to land
+// on a different page depending on where it was clicked. Previously this
+// always resolved to the internal /admin/* routes, so an attorney or
+// expert clicking a notification got sent to a page their own account
+// isn't linked/permissioned for, which is what produced the "opens the
+// real page, then bounces back" glitch.
+const getPortalFromPath = (pathname: string): Portal => {
+  if (pathname.startsWith('/attorney-portal')) return 'attorney';
+  if (pathname.startsWith('/expert-portal')) return 'expert';
+  return 'admin';
+};
+
+// Map a notification to the page that should open when the user clicks
+// it, resolved per-portal. Prefers related_table when available, falls
+// back to category. Returns null when there's no sensible destination
+// in the current portal (e.g. an admin-only page) — the bell still marks
+// the notification read, it just doesn't navigate anywhere.
+const getNotificationRoute = (n: Notification, portal: Portal): string | null => {
   const id = n.related_record_id;
-  switch (n.related_table) {
+  const key = n.related_table || n.category;
+
+  switch (key) {
     case 'appointments':
-      return '/admin/appointments';
+    case 'appointment':
+      if (portal === 'admin') return '/admin/appointments';
+      if (portal === 'attorney') return '/attorney-portal/appointments';
+      if (portal === 'expert') return '/expert-portal/schedule';
+      return null;
     case 'appointment_requests':
-      return '/appointment-request-dashboard';
+    case 'appointment_request':
+      if (portal === 'admin') return '/appointment-request-dashboard';
+      if (portal === 'attorney') return '/attorney-portal/appointments';
+      if (portal === 'expert') return '/expert-portal/schedule';
+      return null;
     case 'referring_attorneys':
-      return id ? `/referring-attorney/${id}` : '/admin/attorney-crm';
+    case 'attorney':
+      if (portal === 'admin') return id ? `/referring-attorney/${id}` : '/admin/attorney-crm';
+      if (portal === 'attorney') return '/attorney-portal';
+      return null;
     case 'claimants':
-      return '/claimant-list';
+      if (portal === 'admin') return '/claimant-list';
+      if (portal === 'attorney') return '/attorney-portal/cases';
+      if (portal === 'expert') return '/expert-portal/cases';
+      return null;
     case 'expert_reports':
     case 'reports':
-      return '/admin/reports';
+    case 'report':
+      if (portal === 'admin') return '/admin/reports';
+      if (portal === 'attorney') return '/attorney-portal/reports';
+      if (portal === 'expert') return '/expert-portal/reports';
+      return null;
     case 'documents':
     case 'aod_documents':
-      return '/admin/documents';
+    case 'document':
+      if (portal === 'admin') return '/admin/documents';
+      if (portal === 'attorney') return '/attorney-portal/agreements';
+      return null;
     case 'payments':
     case 'aod_payments':
-      return '/admin/finance';
-    case 'support_tickets':
-      return '/admin/support';
-    case 'email_queue':
-      return '/email-queue';
-  }
-  switch (n.category) {
-    case 'appointment':
-      return '/admin/appointments';
-    case 'appointment_request':
-      return '/appointment-request-dashboard';
-    case 'attorney':
-      return '/admin/attorney-crm';
-    case 'report':
-      return '/admin/reports';
-    case 'document':
-      return '/admin/documents';
     case 'payment':
-      return '/admin/finance';
+      if (portal === 'admin') return '/admin/finance';
+      if (portal === 'attorney') return '/attorney-portal/payments';
+      return null;
+    case 'support_tickets':
+      if (portal === 'admin') return '/admin/support';
+      if (portal === 'attorney') return '/attorney-portal/support';
+      if (portal === 'expert') return '/expert-portal/support';
+      return null;
     case 'pitchlog_followup':
-      return '/attorney-pitchlog';
+      return portal === 'admin' ? '/attorney-pitchlog' : null;
     case 'email_queue':
-      return '/email-queue';
+      return portal === 'admin' ? '/email-queue' : null;
     default:
       return null;
   }
@@ -101,11 +132,13 @@ const getCategoryBadge = (category?: string) => {
 export const NotificationCenter: React.FC = () => {
   const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications();
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
 
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.is_read) markAsRead(notification.id);
-    const route = getNotificationRoute(notification);
+    const portal = getPortalFromPath(location.pathname);
+    const route = getNotificationRoute(notification, portal);
     if (route) {
       setOpen(false);
       navigate(route);
