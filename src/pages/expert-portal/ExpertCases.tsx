@@ -4,13 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs } from '@/components/ui/tabs';
 import {
   PortalPage,
   PortalHeader,
   SyncStatus,
   PortalEmptyState,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
+import { AdminTabList, AdminTabTrigger } from '@/components/admin/ui/AdminUI';
 import {
   Briefcase, Search, Clock, MapPin, FileText, AlertTriangle, Calendar, User, Eye, Building2,
   Upload, CheckCircle2
@@ -190,17 +191,17 @@ const ExpertCases: React.FC = () => {
         actions={<SyncStatus loading={loading} onRefresh={loadCases} label="Live data" />}
       />
 
-      {/* Tab Navigation */}
+      {/* Tab Navigation — same black/scrollable system tab bar as the
+          rest of the platform (AdminTabList/AdminTabTrigger), instead of
+          the default shadcn Tabs styling this page used before. */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-5 w-full">
-          <TabsTrigger value="all">All ({tabCounts.all})</TabsTrigger>
-          <TabsTrigger value="upcoming">Upcoming ({tabCounts.upcoming})</TabsTrigger>
-          <TabsTrigger value="pending">Pending ({tabCounts.pending})</TabsTrigger>
-          <TabsTrigger value="overdue" className={tabCounts.overdue > 0 ? 'text-destructive' : ''}>
-            Overdue ({tabCounts.overdue})
-          </TabsTrigger>
-          <TabsTrigger value="completed">Done ({tabCounts.completed})</TabsTrigger>
-        </TabsList>
+        <AdminTabList>
+          <AdminTabTrigger value="all" label="All" badge={tabCounts.all} />
+          <AdminTabTrigger value="upcoming" label="Upcoming" badge={tabCounts.upcoming} />
+          <AdminTabTrigger value="pending" label="Pending" badge={tabCounts.pending} />
+          <AdminTabTrigger value="overdue" label="Overdue" badge={tabCounts.overdue} />
+          <AdminTabTrigger value="completed" label="Done" badge={tabCounts.completed} />
+        </AdminTabList>
       </Tabs>
 
       {/* Filters */}
