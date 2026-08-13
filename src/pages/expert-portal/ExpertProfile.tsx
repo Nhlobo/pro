@@ -14,7 +14,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
-import { PortalPage, PortalHeader, PortalPill, type PortalPillTone } from '@/components/attorney-portal/ui/PortalPrimitives';
+import { PortalPage, PortalHeader, PortalLoadingState, PortalPill, type PortalPillTone } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { ExpertNotLinkedState } from '@/components/portal/ExpertNotLinkedState';
 import {
   format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isToday, isSameDay
@@ -281,7 +281,14 @@ const ExpertProfile: React.FC = () => {
 
   const getAvailForDate = (date: Date) => availability.find(a => isSameDay(parseISO(a.date), date));
 
-  if (loading) return <div className="text-center py-12 text-muted-foreground">Loading profile...</div>;
+  if (loading) {
+    return (
+      <PortalPage>
+        <PortalHeader eyebrow="Expert Portal" title="My Profile" icon={User} />
+        <PortalLoadingState label="Checking your account…" />
+      </PortalPage>
+    );
+  }
   if (!expertId) {
     return (
       <PortalPage>
