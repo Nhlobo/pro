@@ -12,9 +12,11 @@ import {
   PortalCard,
   PortalCardHeader,
   PortalCardBody,
+  PortalLoadingState,
   type PortalStatTile,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
 import { ExpertNotLinkedState } from '@/components/portal/ExpertNotLinkedState';
+import { useExpertLinkStatus } from '@/hooks/useExpertLinkStatus';
 import { differenceInDays, parseISO, format, subMonths } from 'date-fns';
 
 /**
@@ -46,6 +48,7 @@ interface PerformanceMetrics {
 
 const ExpertPerformance: React.FC = () => {
   const { user } = useAuth();
+  const linkStatus = useExpertLinkStatus();
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [notLinked, setNotLinked] = useState(false);
@@ -128,15 +131,29 @@ const ExpertPerformance: React.FC = () => {
     return 'text-destructive';
   };
 
+  if (linkStatus === 'checking') {
+    return (
+      <PortalPage>
+        <PortalHeader eyebrow="Expert Portal" title="Performance Intelligence" icon={BarChart3} />
+        <PortalLoadingState label="Checking your account…" />
+      </PortalPage>
+    );
+  }
+
+  if (linkStatus === 'not_linked' || notLinked) {
+    return (
+      <PortalPage>
+        <PortalHeader eyebrow="Expert Portal" title="Performance Intelligence" icon={BarChart3} />
+        <ExpertNotLinkedState description="Your account is not linked to a medical expert profile, so there's no performance data to show yet. Contact an administrator or get help below." />
+      </PortalPage>
+    );
+  }
+
   if (!loading && !metrics) {
     return (
       <PortalPage>
         <PortalHeader eyebrow="Expert Portal" title="Performance Intelligence" icon={BarChart3} />
-        {notLinked ? (
-          <ExpertNotLinkedState description="Your account is not linked to a medical expert profile, so there's no performance data to show yet. Contact an administrator or get help below." />
-        ) : (
-          <PortalEmptyState icon={BarChart3} title="No performance data available" />
-        )}
+        <PortalEmptyState icon={BarChart3} title="No performance data available" />
       </PortalPage>
     );
   }
