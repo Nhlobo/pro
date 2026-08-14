@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -562,7 +563,7 @@ const ReportManagement: React.FC = () => {
       }
 
       // Record delivery for attorney
-      if (sendToAttorney && selectedReport.attorney_email) {
+      if (sendToAttorney && editableAttorneyEmail.trim()) {
         const { error: deliveryError } = await supabase.from("report_deliveries").insert({
           expert_report_id: selectedReport.id,
           delivered_to_attorney_id: selectedReport.referring_attorney_id || null,
@@ -774,235 +775,120 @@ const ReportManagement: React.FC = () => {
                       <p className="text-muted-foreground">No reports found</p>
                     </div>
                   ) : (
-                    <>
-                      {/* Mobile / small-screen view: stacked cards (below md breakpoint) */}
-                      <div className="md:hidden space-y-3">
-                        {filteredReports.map((report) => (
-                          <div
-                            key={report.id}
-                            className="rounded-lg border border-border/50 bg-background/50 p-4 space-y-3"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <p className="font-medium leading-tight">{report.claimant_name}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">{report.expert_name}</p>
-                                <p className="text-xs text-muted-foreground">{formatExpertType(report.expert_type)}</p>
-                              </div>
-                              {getStatusBadge(report.report_status)}
-                            </div>
-
-                            <div className="text-xs text-muted-foreground">
-                              <span className="font-medium text-foreground">Attorney: </span>
-                              {report.referring_attorney}
-                            </div>
-
-                            <div className="flex items-center gap-4 text-xs">
-                              <div className="flex items-center gap-1">
-                                <span className="text-muted-foreground">Report:</span>
+                    <ScrollArea className="w-full">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Claimant</TableHead>
+                            <TableHead>Expert</TableHead>
+                            <TableHead>Attorney</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-center">Report</TableHead>
+                            <TableHead className="text-center">Delivered</TableHead>
+                            <TableHead className="text-center">Reviewed</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredReports.map((report) => (
+                            <TableRow key={report.id}>
+                              <TableCell className="font-medium">{report.claimant_name}</TableCell>
+                              <TableCell>
+                                <div>
+                                  <p className="text-sm">{report.expert_name}</p>
+                                  <p className="text-xs text-muted-foreground">{formatExpertType(report.expert_type)}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm">{report.referring_attorney}</TableCell>
+                              <TableCell>{getStatusBadge(report.report_status)}</TableCell>
+                              <TableCell className="text-center">
                                 {report.expert_report_doc ? (
-                                  <FileDown className="h-4 w-4 text-success" />
+                                  <FileDown className="h-5 w-5 text-success mx-auto" />
                                 ) : (
-                                  <span className="text-muted-foreground">—</span>
+                                  <span className="text-xs text-muted-foreground">—</span>
                                 )}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <span className="text-muted-foreground">Delivered:</span>
+                              </TableCell>
+                              <TableCell className="text-center">
                                 {report.deliveries.length > 0 ? (
-                                  <CheckCircle2 className="h-4 w-4 text-success" />
+                                  <CheckCircle2 className="h-5 w-5 text-success mx-auto" />
                                 ) : (
-                                  <span className="text-muted-foreground">—</span>
+                                  <span className="text-xs text-muted-foreground">—</span>
                                 )}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <span className="text-muted-foreground">Reviewed:</span>
+                              </TableCell>
+                              <TableCell className="text-center">
                                 {report.reviews.some((rv: any) => rv.review_status === "approved") ? (
-                                  <Star className="h-4 w-4 text-warning fill-warning" />
+                                  <Star className="h-5 w-5 text-warning mx-auto fill-warning" />
                                 ) : report.reviews.length > 0 ? (
-                                  <Eye className="h-4 w-4 text-muted-foreground" />
+                                  <Eye className="h-5 w-5 text-muted-foreground mx-auto" />
                                 ) : (
-                                  <span className="text-muted-foreground">—</span>
+                                  <span className="text-xs text-muted-foreground">—</span>
                                 )}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center justify-end gap-1 pt-2 border-t border-border/50">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9"
-                                onClick={() => handleOpenExpertReport(report)}
-                                title={report.expert_report_doc ? `Open expert report: ${report.expert_report_doc.file_name}` : "No expert report uploaded yet"}
-                                disabled={!report.expert_report_doc}
-                              >
-                                <FileDown className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9"
-                                onClick={() => { setSelectedReport(report); setDeliveryDialogOpen(true); }}
-                                title="Record delivery"
-                              >
-                                <Send className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9"
-                                onClick={() => { setSelectedReport(report); setReviewDialogOpen(true); }}
-                                title="Submit review"
-                              >
-                                <Star className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 text-primary"
-                                onClick={() => {
-                                  setSelectedReport(report);
-                                  setEmailSubject(`Medico-Legal Report: ${report.claimant_name} — ${formatExpertType(report.expert_type)}`);
-                                  setEditableAttorneyEmail(report.attorney_email || "");
-                                  setEditableExpertEmail(report.expert_email || "");
-                                  setEmailDialogOpen(true);
-                                }}
-                                title="Send report via email"
-                              >
-                                <Mail className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-9 w-9 text-warning"
-                                onClick={() => {
-                                  setSelectedReport(report);
-                                  setNewCaseStatus(report.case_status || "");
-                                  setCaseStatusDialogOpen(true);
-                                }}
-                                title="View / Update case status"
-                              >
-                                <Activity className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Desktop / tablet view: full table with horizontal scroll (md and up) */}
-                      <div className="hidden md:block w-full overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Claimant</TableHead>
-                              <TableHead>Expert</TableHead>
-                              <TableHead>Attorney</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead className="text-center">Report</TableHead>
-                              <TableHead className="text-center">Delivered</TableHead>
-                              <TableHead className="text-center">Reviewed</TableHead>
-                              <TableHead>Actions</TableHead>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => handleOpenExpertReport(report)}
+                                    title={report.expert_report_doc ? `Open expert report: ${report.expert_report_doc.file_name}` : "No expert report uploaded yet"}
+                                    disabled={!report.expert_report_doc}
+                                  >
+                                    <FileDown className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => { setSelectedReport(report); setDeliveryDialogOpen(true); }}
+                                    title="Record delivery"
+                                  >
+                                    <Send className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => { setSelectedReport(report); setReviewDialogOpen(true); }}
+                                    title="Submit review"
+                                  >
+                                    <Star className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-primary"
+                                    onClick={() => {
+                                      setSelectedReport(report);
+                                      setEmailSubject(`Medico-Legal Report: ${report.claimant_name} — ${formatExpertType(report.expert_type)}`);
+                                      setEditableAttorneyEmail(report.attorney_email || "");
+                                      setEditableExpertEmail(report.expert_email || "");
+                                      setEmailDialogOpen(true);
+                                    }}
+                                    title="Send report via email"
+                                  >
+                                    <Mail className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-warning"
+                                    onClick={() => {
+                                      setSelectedReport(report);
+                                      setNewCaseStatus(report.case_status || "");
+                                      setCaseStatusDialogOpen(true);
+                                    }}
+                                    title="View / Update case status"
+                                  >
+                                    <Activity className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
                             </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredReports.map((report) => (
-                              <TableRow key={report.id}>
-                                <TableCell className="font-medium">{report.claimant_name}</TableCell>
-                                <TableCell>
-                                  <div>
-                                    <p className="text-sm">{report.expert_name}</p>
-                                    <p className="text-xs text-muted-foreground">{formatExpertType(report.expert_type)}</p>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-sm">{report.referring_attorney}</TableCell>
-                                <TableCell>{getStatusBadge(report.report_status)}</TableCell>
-                                <TableCell className="text-center">
-                                  {report.expert_report_doc ? (
-                                    <FileDown className="h-5 w-5 text-success mx-auto" />
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">—</span>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  {report.deliveries.length > 0 ? (
-                                    <CheckCircle2 className="h-5 w-5 text-success mx-auto" />
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">—</span>
-                                  )}
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  {report.reviews.some((rv: any) => rv.review_status === "approved") ? (
-                                    <Star className="h-5 w-5 text-warning mx-auto fill-warning" />
-                                  ) : report.reviews.length > 0 ? (
-                                    <Eye className="h-5 w-5 text-muted-foreground mx-auto" />
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">—</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex gap-1">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleOpenExpertReport(report)}
-                                      title={report.expert_report_doc ? `Open expert report: ${report.expert_report_doc.file_name}` : "No expert report uploaded yet"}
-                                      disabled={!report.expert_report_doc}
-                                    >
-                                      <FileDown className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => { setSelectedReport(report); setDeliveryDialogOpen(true); }}
-                                      title="Record delivery"
-                                    >
-                                      <Send className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => { setSelectedReport(report); setReviewDialogOpen(true); }}
-                                      title="Submit review"
-                                    >
-                                      <Star className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-primary"
-                                      onClick={() => {
-                                        setSelectedReport(report);
-                                        setEmailSubject(`Medico-Legal Report: ${report.claimant_name} — ${formatExpertType(report.expert_type)}`);
-                                        setEditableAttorneyEmail(report.attorney_email || "");
-                                        setEditableExpertEmail(report.expert_email || "");
-                                        setEmailDialogOpen(true);
-                                      }}
-                                      title="Send report via email"
-                                    >
-                                      <Mail className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-warning"
-                                      onClick={() => {
-                                        setSelectedReport(report);
-                                        setNewCaseStatus(report.case_status || "");
-                                        setCaseStatusDialogOpen(true);
-                                      }}
-                                      title="View / Update case status"
-                                    >
-                                      <Activity className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
                   )}
                 </CardContent>
               </Card>
