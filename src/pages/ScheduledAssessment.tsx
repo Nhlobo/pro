@@ -1647,13 +1647,25 @@ const ScheduledAssessment = () => {
         .maybeSingle();
 
       if (expertReport) {
-        await supabase.from('report_deliveries').insert({
+        const { error: deliveryError } = await supabase.from('report_deliveries').insert({
           expert_report_id: expertReport.id,
           delivered_to_attorney_id: selectedAppointment.referring_attorney_id || null,
           delivery_method: 'email',
           delivered_by: user.id,
           notes: `Sent from Scheduled Assessment: ${emailSubject}`,
         });
+        if (deliveryError) {
+          // The email already sent successfully — this failure is only
+          // the delivery-tracking record, which is also what starts the
+          // automatic invoice workflow. Surface it loudly instead of
+          // letting it fail silently.
+          console.error('Failed to record report_deliveries after sending email:', deliveryError);
+          toast({
+            title: 'Email sent, but delivery not recorded',
+            description: 'The report email was sent, but the delivery record failed to save, so automatic invoicing will not start for this report. Please record the delivery manually via Report Management.',
+            variant: 'destructive',
+          });
+        }
 
         // Update report status to delivered
         await supabase.from('expert_reports').update({
