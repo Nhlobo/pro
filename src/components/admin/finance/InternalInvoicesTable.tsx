@@ -1,0 +1,435 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
+import { FileText, Mail, Receipt } from 'lucide-react';
+import {
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+  AdminPagination,
+  AdminPill,
+  AdminSearchInput,
+} from '@/components/admin/ui/AdminUI';
+import InternalInvoiceDetailSheet from './InternalInvoiceDetailSheet';
+
+// Row shapes read directly from internal_invoices,
+// internal_invoice_delivery_queue, and internal_invoice_email_log.
+// Field names match exactly what internal-invoice-delivery-processor's
+// loadAndValidateInvoice already selects from internal_invoices — this
+// component never recalculates or writes any of these values.
+export interface InternalInvoiceRow {
+  id: string;
+  invoice_number: string;
+  status: string;
+  amount: number;
+  vat_amount: number;
+  total_amount: number;
+  invoice_date: string;
+  due_date: string | null;
+  appointment_id: string;
+  claimant_id: string | null;
+  expert_id: string | null;
+  referring_attorney_id: string | null;
+}
+
+export interface DeliveryQueueRow {
+  id: string;
+  internal_invoice_id: string;
+  status: 'pending' | 'processing' | 'success' | 'failed';
+  attempts: number;
+  last_error: string | null;
+  claimed_at: string | null;
+  processed_at: string | null;
+  created_at: string;
+}
+
+export interface EmailLogRow {
+  id: string;
+  internal_invoice_id: string;
+  sent_at: string;
+  resend_message_id: string | null;
+  recipient_email: string;
+}
+
+export interface InvoiceListItem {
+  invoice: InternalInvoiceRow;
+  attorneyName: string | null;
+  claimantName: string | null;
+  appointmentLabel: string | null;
+  deliveryStatus: DeliveryQueueRow['status'] | 'not_queued';
+  deliveryRow: DeliveryQueueRow | null;
+  emailLog: EmailLogRow | null;
+}
+
+const PAGE_SIZE = 20;
+// Safety cap on how many internal_invoices rows are pulled per fetch.
+// This project's live internal_invoices table was confirmed at 458 rows
+// total (see the earlier investigation), so a single bounded fetch is
+// sufficient without server-side cross-table filtering.
+const FETCH_CAP = 1000;
+
+function formatRand(amount: number | null | undefined): string {
+  if (amount == null) return '—';
+  return `R ${amount.toFixed(2)}`;
+}
+
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString('en-ZA', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+function invoiceStatusTone(status: string): 'success' | 'warning' | 'destructive' | 'neutral' {
+  if (status === 'active') return 'success';
+  if (status === 'void' || status === 'cancelled') return 'destructive';
+  if (status === 'flagged' || status === 'review') return 'warning';
+  return 'neutral';
+}
+
+function deliveryStatusTone(status: InvoiceListItem['deliveryStatus']): 'success' | 'warning' | 'destructive' | 'neutral' {
+  switch (status) {
+    case 'success':
+      return 'success';
+    case 'failed':
+      return 'destructive';
+    case 'pending':
+    case 'processing':
+      return 'warning';
+    default:
+      return 'neutral';
+  }
+}
+
+function deliveryStatusLabel(status: InvoiceListItem['deliveryStatus']): string {
+  switch (status) {
+    case 'success':
+      return 'Emailed';
+    case 'failed':
+      return 'Failed';
+    case 'pending':
+      return 'Pending';
+    case 'processing':
+      return 'Processing';
+    default:
+      return 'Not queued';
+  }
+}
+
+export default function InternalInvoicesTable() {
+  const [items, setItems] = useState<InvoiceListItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [searchDraft, setSearchDraft] = useState('');
+  const [search, setSearch] = useState('');
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<string>('all');
+  const [deliveryStatusFilter, setDeliveryStatusFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
+
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+
+  const refetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchInvoices = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      let query = supabase
+        .from('internal_invoices')
+        .select(
+          'id, invoice_number, status, amount, vat_amount, total_amount, invoice_date, due_date, appointment_id, claimant_id, expert_id, referring_attorney_id',
+        )
+        .order('invoice_date', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(FETCH_CAP);
+
+      if (search.trim()) {
+        query = query.ilike('invoice_number', `%${search.trim()}%`);
+      }
+      if (invoiceStatusFilter !== 'all') {
+        query = query.eq('status', invoiceStatusFilter);
+      }
+
+      const { data: invoiceRows, error: invoiceError } = await query;
+      if (invoiceError) throw invoiceError;
+
+      const invoices = (invoiceRows ?? []) as InternalInvoiceRow[];
+
+      const attorneyIds = [...new Set(invoices.map((i) => i.referring_attorney_id).filter(Boolean))] as string[];
+      const claimantIds = [...new Set(invoices.map((i) => i.claimant_id).filter(Boolean))] as string[];
+      const appointmentIds = [...new Set(invoices.map((i) => i.appointment_id).filter(Boolean))] as string[];
+      const invoiceIds = invoices.map((i) => i.id);
+
+      // `.in('col', [])` is a safe no-op against PostgREST (returns zero
+      // rows, never errors), so these always run unconditionally rather
+      // than branching on a Promise.resolve(...) fallback — that branch
+      // previously caused these to lose their real Supabase response
+      // typing (data ended up typed as `never[]`).
+      const NIL = ['00000000-0000-0000-0000-000000000000'];
+      const [attorneysRes, claimantsRes, appointmentsRes, queueRes, emailLogRes] = await Promise.all([
+        supabase.from('referring_attorneys').select('id, name').in('id', attorneyIds.length ? attorneyIds : NIL),
+        supabase.from('claimants').select('id, first_name, last_name').in('id', claimantIds.length ? claimantIds : NIL),
+        supabase.from('appointments').select('id, appointment_date, assessment_code').in('id', appointmentIds.length ? appointmentIds : NIL),
+        supabase.from('internal_invoice_delivery_queue').select('*').in('internal_invoice_id', invoiceIds.length ? invoiceIds : NIL),
+        supabase.from('internal_invoice_email_log').select('*').in('internal_invoice_id', invoiceIds.length ? invoiceIds : NIL),
+      ]);
+
+      if (attorneysRes.error) throw attorneysRes.error;
+      if (claimantsRes.error) throw claimantsRes.error;
+      if (appointmentsRes.error) throw appointmentsRes.error;
+      if (queueRes.error) throw queueRes.error;
+      if (emailLogRes.error) throw emailLogRes.error;
+
+      const attorneyById = new Map<string, string>(
+        (attorneysRes.data ?? []).map((a: any): [string, string] => [a.id, a.name]),
+      );
+      const claimantById = new Map<string, string>(
+        (claimantsRes.data ?? []).map((c: any): [string, string] => [c.id, `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim()]),
+      );
+      const appointmentById = new Map<string, { appointment_date: string; assessment_code: string | null }>(
+        (appointmentsRes.data ?? []).map((a: any): [string, any] => [a.id, a]),
+      );
+
+      // An invoice can have more than one delivery-queue row over its
+      // lifetime (e.g. a failed attempt followed by a later retry) —
+      // the active-row unique index only guards one "in-flight" row at
+      // a time, not the full history. Keep the most recent per invoice.
+      const queueByInvoice = new Map<string, DeliveryQueueRow>();
+      for (const row of (queueRes.data ?? []) as DeliveryQueueRow[]) {
+        const existing = queueByInvoice.get(row.internal_invoice_id);
+        if (!existing || new Date(row.created_at) > new Date(existing.created_at)) {
+          queueByInvoice.set(row.internal_invoice_id, row);
+        }
+      }
+      const emailLogByInvoice = new Map<string, EmailLogRow>(
+        ((emailLogRes.data ?? []) as EmailLogRow[]).map((row): [string, EmailLogRow] => [row.internal_invoice_id, row]),
+      );
+
+      const merged: InvoiceListItem[] = invoices.map((invoice) => {
+        const appt = invoice.appointment_id ? appointmentById.get(invoice.appointment_id) : null;
+        const appointmentLabel = appt
+          ? appt.assessment_code || formatDate(appt.appointment_date)
+          : null;
+        const deliveryRow = queueByInvoice.get(invoice.id) ?? null;
+        return {
+          invoice,
+          attorneyName: invoice.referring_attorney_id ? attorneyById.get(invoice.referring_attorney_id) ?? null : null,
+          claimantName: invoice.claimant_id ? claimantById.get(invoice.claimant_id) ?? null : null,
+          appointmentLabel,
+          deliveryStatus: deliveryRow?.status ?? 'not_queued',
+          deliveryRow,
+          emailLog: emailLogByInvoice.get(invoice.id) ?? null,
+        };
+      });
+
+      setItems(merged);
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load internal invoices.');
+    } finally {
+      setLoading(false);
+    }
+  }, [search, invoiceStatusFilter]);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, [fetchInvoices]);
+
+  // Realtime: same technique already used elsewhere in AdminFinance.tsx
+  // (postgres_changes on aod_documents / short_term_agreements /
+  // appointments) — any change on the three tables this tab reads
+  // triggers a debounced refetch rather than fine-grained patching, to
+  // keep the merge logic in one place.
+  useEffect(() => {
+    const scheduleRefetch = () => {
+      if (refetchTimer.current) clearTimeout(refetchTimer.current);
+      refetchTimer.current = setTimeout(() => {
+        fetchInvoices();
+      }, 600);
+    };
+
+    const channel = supabase
+      .channel('internal-invoices-tab')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_invoices' }, scheduleRefetch)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'internal_invoice_delivery_queue' },
+        scheduleRefetch,
+      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_invoice_email_log' }, scheduleRefetch)
+      .subscribe();
+
+    return () => {
+      if (refetchTimer.current) clearTimeout(refetchTimer.current);
+      supabase.removeChannel(channel);
+    };
+  }, [fetchInvoices]);
+
+  const applySearch = () => {
+    setSearch(searchDraft);
+    setPage(1);
+  };
+
+  const filteredItems = useMemo(() => {
+    if (deliveryStatusFilter === 'all') return items;
+    return items.filter((item) => item.deliveryStatus === deliveryStatusFilter);
+  }, [items, deliveryStatusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / PAGE_SIZE));
+  const startIndex = (page - 1) * PAGE_SIZE;
+  const endIndex = startIndex + PAGE_SIZE;
+  const pageItems = filteredItems.slice(startIndex, endIndex);
+
+  return (
+    <AdminCard>
+      <AdminCardHeader
+        icon={Receipt}
+        title="Internal Invoices"
+        description={`${filteredItems.length} invoice${filteredItems.length === 1 ? '' : 's'}`}
+      />
+
+      <AdminCardBody className="flex flex-col gap-3 border-b border-black/10 sm:flex-row sm:items-center">
+        <AdminSearchInput
+          value={searchDraft}
+          onChange={setSearchDraft}
+          placeholder="Search invoice number…"
+          className="flex-1"
+          inputClassName="h-9"
+        />
+        <div className="flex gap-2">
+          <Select
+            value={invoiceStatusFilter}
+            onValueChange={(v: string) => {
+              setInvoiceStatusFilter(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="h-9 w-[150px] rounded-none border-black/15">
+              <SelectValue placeholder="Invoice status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="void">Void</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={deliveryStatusFilter}
+            onValueChange={(v: string) => {
+              setDeliveryStatusFilter(v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="h-9 w-[160px] rounded-none border-black/15">
+              <SelectValue placeholder="Delivery status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All delivery states</SelectItem>
+              <SelectItem value="not_queued">Not queued</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="processing">Processing</SelectItem>
+              <SelectItem value="success">Emailed</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+            </SelectContent>
+          </Select>
+          <button
+            type="button"
+            onClick={applySearch}
+            className="gradient-teal rounded-none border px-3 text-xs font-medium text-white"
+          >
+            Search
+          </button>
+        </div>
+      </AdminCardBody>
+
+      {loading ? (
+        <AdminLoadingState label="Loading invoices…" />
+      ) : error ? (
+        <AdminErrorState message={error} onRetry={fetchInvoices} />
+      ) : filteredItems.length === 0 ? (
+        <AdminEmptyState
+          icon={FileText}
+          title="No invoices found"
+          description="Invoices appear here automatically once a report is delivered and reconciled."
+        />
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Appointment / Claimant</TableHead>
+                  <TableHead>Referring Attorney</TableHead>
+                  <TableHead className="text-right">Amount</TableHead>
+                  <TableHead className="text-right">VAT</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Invoice Date</TableHead>
+                  <TableHead>Due Date</TableHead>
+                  <TableHead>Delivery</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pageItems.map((item) => (
+                  <TableRow
+                    key={item.invoice.id}
+                    className="cursor-pointer hover:bg-black/5"
+                    onClick={() => setSelectedInvoiceId(item.invoice.id)}
+                  >
+                    <TableCell className="font-medium">{item.invoice.invoice_number}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span>{item.claimantName || '—'}</span>
+                        {item.appointmentLabel && (
+                          <span className="text-xs text-slate-500">{item.appointmentLabel}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>{item.attorneyName || '—'}</TableCell>
+                    <TableCell className="text-right">{formatRand(item.invoice.amount)}</TableCell>
+                    <TableCell className="text-right">{formatRand(item.invoice.vat_amount)}</TableCell>
+                    <TableCell className="text-right font-medium">{formatRand(item.invoice.total_amount)}</TableCell>
+                    <TableCell>
+                      <AdminPill tone={invoiceStatusTone(item.invoice.status)}>{item.invoice.status}</AdminPill>
+                    </TableCell>
+                    <TableCell>{formatDate(item.invoice.invoice_date)}</TableCell>
+                    <TableCell>{formatDate(item.invoice.due_date)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1.5">
+                        <AdminPill tone={deliveryStatusTone(item.deliveryStatus)}>
+                          {deliveryStatusLabel(item.deliveryStatus)}
+                        </AdminPill>
+                        {item.emailLog && <Mail className="h-3.5 w-3.5 text-slate-400" aria-label="Email sent" />}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <AdminPagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            totalItems={filteredItems.length}
+            startIndex={startIndex}
+            endIndex={endIndex}
+          />
+        </>
+      )}
+
+      <InternalInvoiceDetailSheet
+        invoiceId={selectedInvoiceId}
+        open={selectedInvoiceId != null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedInvoiceId(null);
+        }}
+      />
+    </AdminCard>
+  );
+}
