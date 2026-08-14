@@ -144,8 +144,8 @@ export const ADMIN_MODULES: AdminModule[] = [
     href: '/admin/finance',
     group: 'Workflow',
     icon: RandSign,
-    description: 'AOD, debtors, payments, agreements',
-    roles: ['admin', 'employee', 'sales_consultant'],
+    description: 'AOD, debtors, payments, agreements, internal invoices',
+    roles: ['admin', 'employee', 'sales_consultant', 'finance', 'director'],
     permissions: [{ category: 'Case Management', functionName: 'AOD Management' }],
   },
   {
