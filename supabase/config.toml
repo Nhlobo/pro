@@ -140,3 +140,13 @@ verify_jwt = false  # Public endpoint — external users have no Supabase auth.u
 
 [functions.external-portal-admin-links]
 verify_jwt = true  # Staff-only; admin role re-checked in code via has_role()
+
+# Invoice delivery pipeline — generates the invoice PDF and sends the
+# invoice email for rows in internal_invoice_delivery_queue. Invoked by
+# pg_cron (see the internal_invoice_delivery cron migration), the same
+# verify_jwt=false + apikey-header pattern already used for
+# cleanup-proofreading-history and remind-pending-payment-approvals
+# above. Never touches Sage; internal_sage_queue is populated and
+# drained separately, unmodified, by internal-sage-processor.
+[functions.internal-invoice-delivery-processor]
+verify_jwt = false  # Called by pg_cron
