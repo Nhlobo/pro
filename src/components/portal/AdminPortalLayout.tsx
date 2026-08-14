@@ -89,6 +89,13 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   const SC_ALLOWED = ['/admin/appointments', '/admin/finance', '/admin/attorney-crm', '/admin/heatmap', '/admin/my-profile'];
   const isAllowedForSC = SC_ALLOWED.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
 
+  // Routes the finance/director roles are allowed to view inside the
+  // admin portal — scoped to /admin/finance only (the Internal Invoices
+  // tab lives there), least-privilege, mirroring the SC_ALLOWED pattern
+  // above rather than granting broader admin-portal access.
+  const FINANCE_ROLE_ALLOWED = ['/admin/finance'];
+  const isAllowedForFinanceRole = FINANCE_ROLE_ALLOWED.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
+
   // Routes restricted to administrators only — company employees cannot access
   const ADMIN_ONLY_ROUTES = ['/admin/analytics', '/admin/iam', '/admin/system-control', '/admin/external-portal'];
   const isAdminOnlyRoute = ADMIN_ONLY_ROUTES.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
@@ -108,8 +115,14 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
       }
       return;
     }
+    if (userRole === 'finance' || userRole === 'director') {
+      if (!isAllowedForFinanceRole) {
+        navigate('/admin/finance', { replace: true });
+      }
+      return;
+    }
     navigate('/dashboard');
-  }, [loading, userRole, isSalesConsultant, isAllowedForSC, isAdminOnlyRoute, navigate]);
+  }, [loading, userRole, isSalesConsultant, isAllowedForSC, isAllowedForFinanceRole, isAdminOnlyRoute, navigate]);
 
   if (loading) {
     return <BrandedPageLoader message="Loading…" />;
