@@ -740,13 +740,26 @@ const ReportManagement: React.FC = () => {
 
       // Record delivery for attorney
       if (sendToAttorney && selectedReport.attorney_email) {
-        await supabase.from("report_deliveries").insert({
+        const { error: deliveryError } = await supabase.from("report_deliveries").insert({
           expert_report_id: selectedReport.id,
           delivered_to_attorney_id: selectedReport.referring_attorney_id || null,
           delivery_method: "email",
           delivered_by: user.id,
           notes: `Email sent: ${emailSubject}${ccEmails.length > 0 ? ` (CC: ${ccEmails.join(', ')})` : ''}${attachmentDetails.length > 0 ? ` [${attachmentDetails.length} attachment(s)]` : ''}`,
         });
+        if (deliveryError) {
+          // Same reasoning as ReportManagement.tsx's handleSendEmail: the
+          // email already sent successfully — this failure is only the
+          // delivery-tracking record, which is also what starts the
+          // automatic invoice workflow. Surface it loudly instead of
+          // letting it fail silently.
+          console.error("Failed to record report_deliveries after sending email:", deliveryError);
+          toast({
+            title: "Email sent, but delivery not recorded",
+            description: "The report email was sent, but the delivery record failed to save, so automatic invoicing will not start for this report. Please use \"Record Delivery\" to record it manually.",
+            variant: "destructive",
+          });
+        }
       }
 
       // Audit log
