@@ -5,11 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X, Landmark, FileStack, History } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X, Landmark, FileStack, History, Receipt } from "lucide-react";
 import { toast } from 'sonner';
 import { recalculateAODFromAppointments, recalculateShortTermFromAppointments } from '@/hooks/usePaymentSync';
 import { RegularPaymentDialog } from '@/components/RegularPaymentDialog';
 import FinanceAuditTrail from '@/components/FinanceAuditTrail';
+import InternalInvoicesTable from '@/components/admin/finance/InternalInvoicesTable';
 import {
   AdminPage,
   AdminHeader,
@@ -323,7 +324,7 @@ const AdminFinance: React.FC = () => {
   // one long page. Splitting them into tabs — the same module-switcher pattern as
   // Appointment Engine / System Control / Sales Performance — means staff land on
   // one focused table instead of scrolling past everything to find it.
-  const [activeTab, setActiveTab] = useState<'aod' | 'short_term' | 'audit'>('aod');
+  const [activeTab, setActiveTab] = useState<'aod' | 'short_term' | 'audit' | 'internal_invoices'>('aod');
   const dateLabel = new Date().toLocaleDateString('en-ZA', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
@@ -390,7 +391,7 @@ const AdminFinance: React.FC = () => {
 
       {/* -------- Module switcher: AOD / Short-term / Audit Trail -------- */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <AdminTabList sticky columns={3}>
+        <AdminTabList sticky columns={4}>
           <AdminTabTrigger
             value="aod"
             label="Long-Term AOD"
@@ -406,6 +407,7 @@ const AdminFinance: React.FC = () => {
             center
           />
           <AdminTabTrigger value="audit" label="Audit Trail" icon={History} center />
+          <AdminTabTrigger value="internal_invoices" label="Internal Invoices" icon={Receipt} center />
         </AdminTabList>
 
         <div className="mt-4">
@@ -617,6 +619,11 @@ const AdminFinance: React.FC = () => {
           {/* ================= AUDIT TRAIL ================= */}
           <TabsContent value="audit" className="mt-0 focus-visible:outline-none">
             <FinanceAuditTrail />
+          </TabsContent>
+
+          {/* ================= INTERNAL INVOICES ================= */}
+          <TabsContent value="internal_invoices" className="mt-0 focus-visible:outline-none">
+            <InternalInvoicesTable />
           </TabsContent>
         </div>
       </Tabs>
