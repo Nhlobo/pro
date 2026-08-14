@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
@@ -101,238 +102,6 @@ type ReportEntry = {
   deliveries: any[];
   reviews: any[];
 };
-
-// Pure helpers — hoisted to module scope (no component state involved) so
-// they keep one stable identity for the lifetime of the app instead of being
-// recreated on every render of ReportManagement. This also lets the memoized
-// row/card components below call them directly without extra props.
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "completed":
-    case "taken_out":
-      return <AdminPill tone="success">Completed</AdminPill>;
-    case "uploaded":
-      return <AdminPill tone="teal">Uploaded - Ready for Review</AdminPill>;
-    case "in_progress":
-      return <AdminPill tone="teal">In Progress</AdminPill>;
-    case "under_review":
-      return <AdminPill tone="warning">Under Review</AdminPill>;
-    default:
-      return <AdminPill tone="neutral">Pending</AdminPill>;
-  }
-};
-
-const formatExpertType = (type: string) => {
-  if (!type || type === "N/A") return "N/A";
-  return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-};
-
-// Stable callback props shared by the row/card components below. Handlers are
-// created once in ReportManagement via useCallback and passed down unchanged
-// across renders, which — combined with React.memo — means opening a dialog,
-// typing in a dialog field, or a background realtime refresh no longer forces
-// every report row in the table to re-render. Only the row(s) whose own
-// `report` object actually changed will re-render.
-type ReportRowHandlers = {
-  onOpenExpertReport: (report: ReportEntry) => void;
-  onOpenDelivery: (report: ReportEntry) => void;
-  onOpenReview: (report: ReportEntry) => void;
-  onOpenEmail: (report: ReportEntry) => void;
-  onOpenCaseStatus: (report: ReportEntry) => void;
-};
-
-// Mobile / small-screen stacked card for a single report (below md breakpoint).
-const ReportMobileCard = React.memo(function ReportMobileCard({
-  report, onOpenExpertReport, onOpenDelivery, onOpenReview, onOpenEmail, onOpenCaseStatus,
-}: { report: ReportEntry } & ReportRowHandlers) {
-  return (
-    <div className="rounded-none border border-black/10 bg-white p-4 space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="font-medium leading-tight">{report.claimant_name}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{report.expert_name}</p>
-          <p className="text-xs text-muted-foreground">{formatExpertType(report.expert_type)}</p>
-        </div>
-        {getStatusBadge(report.report_status)}
-      </div>
-
-      <div className="text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">Attorney: </span>
-        {report.referring_attorney}
-      </div>
-
-      <div className="flex items-center gap-4 text-xs">
-        <div className="flex items-center gap-1">
-          <span className="text-muted-foreground">Report:</span>
-          {report.expert_report_doc ? (
-            <FileDown className="h-4 w-4 text-success" />
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-muted-foreground">Delivered:</span>
-          {report.deliveries.length > 0 ? (
-            <CheckCircle2 className="h-4 w-4 text-success" />
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-muted-foreground">Reviewed:</span>
-          {report.reviews.some((rv: any) => rv.review_status === "approved") ? (
-            <Star className="h-4 w-4 text-warning fill-warning" />
-          ) : report.reviews.length > 0 ? (
-            <Eye className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </div>
-      </div>
-
-      <div className="flex items-center justify-end gap-1 pt-2 border-t border-black/10">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          onClick={() => onOpenExpertReport(report)}
-          title={report.expert_report_doc ? `Open expert report: ${report.expert_report_doc.file_name}` : "No expert report uploaded yet"}
-          disabled={!report.expert_report_doc}
-        >
-          <FileDown className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          onClick={() => onOpenDelivery(report)}
-          title="Record delivery"
-        >
-          <Send className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          onClick={() => onOpenReview(report)}
-          title="Submit review"
-        >
-          <Star className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 text-primary"
-          onClick={() => onOpenEmail(report)}
-          title="Send report via email"
-        >
-          <Mail className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9 text-warning"
-          onClick={() => onOpenCaseStatus(report)}
-          title="View / Update case status"
-        >
-          <Activity className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  );
-});
-
-// Desktop / tablet table row for a single report (md and up).
-const ReportTableRow = React.memo(function ReportTableRow({
-  report, onOpenExpertReport, onOpenDelivery, onOpenReview, onOpenEmail, onOpenCaseStatus,
-}: { report: ReportEntry } & ReportRowHandlers) {
-  return (
-    <TableRow className="border-black/10 hover:bg-black/[0.02]">
-      <TableCell className="font-medium">{report.claimant_name}</TableCell>
-      <TableCell>
-        <div>
-          <p className="text-sm">{report.expert_name}</p>
-          <p className="text-xs text-muted-foreground">{formatExpertType(report.expert_type)}</p>
-        </div>
-      </TableCell>
-      <TableCell className="text-sm">{report.referring_attorney}</TableCell>
-      <TableCell>{getStatusBadge(report.report_status)}</TableCell>
-      <TableCell className="text-center">
-        {report.expert_report_doc ? (
-          <FileDown className="h-5 w-5 text-success mx-auto" />
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell className="text-center">
-        {report.deliveries.length > 0 ? (
-          <CheckCircle2 className="h-5 w-5 text-success mx-auto" />
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell className="text-center">
-        {report.reviews.some((rv: any) => rv.review_status === "approved") ? (
-          <Star className="h-5 w-5 text-warning mx-auto fill-warning" />
-        ) : report.reviews.length > 0 ? (
-          <Eye className="h-5 w-5 text-muted-foreground mx-auto" />
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell>
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onOpenExpertReport(report)}
-            title={report.expert_report_doc ? `Open expert report: ${report.expert_report_doc.file_name}` : "No expert report uploaded yet"}
-            disabled={!report.expert_report_doc}
-          >
-            <FileDown className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onOpenDelivery(report)}
-            title="Record delivery"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onOpenReview(report)}
-            title="Submit review"
-          >
-            <Star className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-primary"
-            onClick={() => onOpenEmail(report)}
-            title="Send report via email"
-          >
-            <Mail className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-warning"
-            onClick={() => onOpenCaseStatus(report)}
-            title="View / Update case status"
-          >
-            <Activity className="h-4 w-4" />
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-});
 
 const ReportManagement: React.FC = () => {
   const [reports, setReports] = useState<ReportEntry[]>([]);
@@ -722,30 +491,17 @@ const ReportManagement: React.FC = () => {
   const caseEndIndex = caseStartIndex + CASE_PAGE_SIZE;
   const casePaginated = useMemo(() => caseFiltered.slice(caseStartIndex, caseEndIndex), [caseFiltered, caseStartIndex, caseEndIndex]);
 
-  // Memoized: these used to be plain `const` computations that re-ran a full
-  // filter/scan of `reports` on EVERY render of this component — including
-  // every keystroke in any of the dialogs below and every time a dialog's
-  // open/closed state changed (e.g. tapping "Record Delivery", "Send Email",
-  // or "Update Case Status"). With hundreds of reports, and BOTH the mobile
-  // card list and the desktop table mounted at once (see the responsive
-  // markup below), that recompute + re-render pass ran synchronously before
-  // React could paint the dialog, which is what made those buttons feel slow
-  // to respond. Now this only recomputes when the data or filters actually
-  // change.
-  const filteredReports = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    return reports.filter((r) => {
-      const matchesSearch =
-        !q ||
-        r.claimant_name.toLowerCase().includes(q) ||
-        r.expert_name.toLowerCase().includes(q) ||
-        r.referring_attorney.toLowerCase().includes(q);
-      const matchesStatus = statusFilter === "all" || r.report_status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [reports, searchTerm, statusFilter]);
+  const filteredReports = reports.filter((r) => {
+    const matchesSearch =
+      !searchTerm ||
+      r.claimant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.expert_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.referring_attorney.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === "all" || r.report_status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
-  const stats = useMemo(() => ({
+  const stats = {
     total: reports.length,
     pending: reports.filter((r) => r.report_status === "pending" || r.report_status === "not_received").length,
     uploaded: reports.filter((r) => r.report_status === "uploaded").length,
@@ -753,10 +509,31 @@ const ReportManagement: React.FC = () => {
     completed: reports.filter((r) => r.report_status === "completed" || r.report_status === "taken_out").length,
     delivered: reports.filter((r) => r.deliveries.length > 0).length,
     reviewed: reports.filter((r) => r.reviews.some((rv: any) => rv.review_status === "approved")).length,
-  }), [reports]);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "completed":
+      case "taken_out":
+        return <AdminPill tone="success">Completed</AdminPill>;
+      case "uploaded":
+        return <AdminPill tone="teal">Uploaded - Ready for Review</AdminPill>;
+      case "in_progress":
+        return <AdminPill tone="teal">In Progress</AdminPill>;
+      case "under_review":
+        return <AdminPill tone="warning">Under Review</AdminPill>;
+      default:
+        return <AdminPill tone="neutral">Pending</AdminPill>;
+    }
+  };
+
+  const formatExpertType = (type: string) => {
+    if (!type || type === "N/A") return "N/A";
+    return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  };
 
   // Open the loaded expert report in a new tab (signed URL from attorney-documents bucket)
-  const handleOpenExpertReport = useCallback(async (report: ReportEntry) => {
+  const handleOpenExpertReport = async (report: ReportEntry) => {
     if (!report.expert_report_doc) {
       toast({ title: "No Report Found", description: "No expert report has been uploaded for this appointment yet.", variant: "destructive" });
       return;
@@ -772,34 +549,7 @@ const ReportManagement: React.FC = () => {
       console.error('Open expert report error:', err);
       toast({ title: "Error", description: "Could not open the expert report.", variant: "destructive" });
     }
-  }, [toast]);
-
-  // Stable "open dialog" handlers for the All Reports table/cards. Defined
-  // once with useCallback so the memoized row/card components below don't
-  // re-render just because some unrelated dialog field changed.
-  const openDeliveryDialog = useCallback((report: ReportEntry) => {
-    setSelectedReport(report);
-    setDeliveryDialogOpen(true);
-  }, []);
-
-  const openReviewDialog = useCallback((report: ReportEntry) => {
-    setSelectedReport(report);
-    setReviewDialogOpen(true);
-  }, []);
-
-  const openEmailDialog = useCallback((report: ReportEntry) => {
-    setSelectedReport(report);
-    setEmailSubject(`Medico-Legal Report: ${report.claimant_name} — ${formatExpertType(report.expert_type)}`);
-    setEditableAttorneyEmail(report.attorney_email || "");
-    setEditableExpertEmail(report.expert_email || "");
-    setEmailDialogOpen(true);
-  }, []);
-
-  const openCaseStatusDialog = useCallback((report: ReportEntry) => {
-    setSelectedReport(report);
-    setNewCaseStatus(report.case_status || "");
-    setCaseStatusDialogOpen(true);
-  }, []);
+  };
 
   const handleRecordDelivery = async () => {
     if (!selectedReport || !user) return;
@@ -989,7 +739,7 @@ const ReportManagement: React.FC = () => {
       }
 
       // Record delivery for attorney
-      if (sendToAttorney && selectedReport.attorney_email) {
+      if (sendToAttorney && editableAttorneyEmail.trim()) {
         const { error: deliveryError } = await supabase.from("report_deliveries").insert({
           expert_report_id: selectedReport.id,
           delivered_to_attorney_id: selectedReport.referring_attorney_id || null,
@@ -1195,27 +945,7 @@ const ReportManagement: React.FC = () => {
                     }
                   />
                 ) : (
-                  <>
-                    {/* Mobile / small-screen view: stacked cards (below md breakpoint).
-                        Note: this list and the desktop table below are BOTH mounted at
-                        once (only CSS-hidden per breakpoint via md:hidden / hidden md:block),
-                        so each row is a memoized component to avoid doubling render cost. */}
-                    <div className="md:hidden space-y-3 p-3">
-                      {filteredReports.map((report) => (
-                        <ReportMobileCard
-                          key={report.id}
-                          report={report}
-                          onOpenExpertReport={handleOpenExpertReport}
-                          onOpenDelivery={openDeliveryDialog}
-                          onOpenReview={openReviewDialog}
-                          onOpenEmail={openEmailDialog}
-                          onOpenCaseStatus={openCaseStatusDialog}
-                        />
-                      ))}
-                    </div>
-
-                    {/* Desktop / tablet view: full table with horizontal scroll (md and up) */}
-                    <div className="hidden md:block w-full overflow-x-auto">
+                    <ScrollArea className="w-full">
                       <Table className="[&_th]:text-[11px] [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-slate-500">
                         <TableHeader className="bg-black/[0.02]">
                           <TableRow>
@@ -1231,21 +961,105 @@ const ReportManagement: React.FC = () => {
                         </TableHeader>
                         <TableBody>
                           {filteredReports.map((report) => (
-                            <ReportTableRow
-                              key={report.id}
-                              report={report}
-                              onOpenExpertReport={handleOpenExpertReport}
-                              onOpenDelivery={openDeliveryDialog}
-                              onOpenReview={openReviewDialog}
-                              onOpenEmail={openEmailDialog}
-                              onOpenCaseStatus={openCaseStatusDialog}
-                            />
+                            <TableRow key={report.id} className="border-black/10 hover:bg-black/[0.02]">
+                              <TableCell className="font-medium">{report.claimant_name}</TableCell>
+                              <TableCell>
+                                <div>
+                                  <p className="text-sm">{report.expert_name}</p>
+                                  <p className="text-xs text-muted-foreground">{formatExpertType(report.expert_type)}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm">{report.referring_attorney}</TableCell>
+                              <TableCell>{getStatusBadge(report.report_status)}</TableCell>
+                              <TableCell className="text-center">
+                                {report.expert_report_doc ? (
+                                  <FileDown className="h-5 w-5 text-success mx-auto" />
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {report.deliveries.length > 0 ? (
+                                  <CheckCircle2 className="h-5 w-5 text-success mx-auto" />
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {report.reviews.some((rv: any) => rv.review_status === "approved") ? (
+                                  <Star className="h-5 w-5 text-warning mx-auto fill-warning" />
+                                ) : report.reviews.length > 0 ? (
+                                  <Eye className="h-5 w-5 text-muted-foreground mx-auto" />
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => handleOpenExpertReport(report)}
+                                    title={report.expert_report_doc ? `Open expert report: ${report.expert_report_doc.file_name}` : "No expert report uploaded yet"}
+                                    disabled={!report.expert_report_doc}
+                                  >
+                                    <FileDown className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => { setSelectedReport(report); setDeliveryDialogOpen(true); }}
+                                    title="Record delivery"
+                                  >
+                                    <Send className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => { setSelectedReport(report); setReviewDialogOpen(true); }}
+                                    title="Submit review"
+                                  >
+                                    <Star className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-primary"
+                                    onClick={() => {
+                                      setSelectedReport(report);
+                                      setEmailSubject(`Medico-Legal Report: ${report.claimant_name} — ${formatExpertType(report.expert_type)}`);
+                                      setEditableAttorneyEmail(report.attorney_email || "");
+                                      setEditableExpertEmail(report.expert_email || "");
+                                      setEmailDialogOpen(true);
+                                    }}
+                                    title="Send report via email"
+                                  >
+                                    <Mail className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-warning"
+                                    onClick={() => {
+                                      setSelectedReport(report);
+                                      setNewCaseStatus(report.case_status || "");
+                                      setCaseStatusDialogOpen(true);
+                                    }}
+                                    title="View / Update case status"
+                                  >
+                                    <Activity className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
                           ))}
                         </TableBody>
                       </Table>
-                    </div>
-                  </>
-                )}
+                    </ScrollArea>
+                  )}
               </AdminCard>
             </TabsContent>
 
