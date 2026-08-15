@@ -34,6 +34,8 @@ export interface InternalInvoiceRow {
   claimant_id: string | null;
   expert_id: string | null;
   referring_attorney_id: string | null;
+  needs_review_reason: string | null;
+  needs_review_flagged_at: string | null;
 }
 
 export interface DeliveryQueueRow {
@@ -59,6 +61,7 @@ export interface InvoiceListItem {
   invoice: InternalInvoiceRow;
   attorneyName: string | null;
   claimantName: string | null;
+  expertName: string | null;
   appointmentLabel: string | null;
   deliveryStatus: DeliveryQueueRow['status'] | 'not_queued';
   deliveryRow: DeliveryQueueRow | null;
@@ -87,8 +90,28 @@ function formatDate(value: string | null | undefined): string {
 function invoiceStatusTone(status: string): 'success' | 'warning' | 'destructive' | 'neutral' {
   if (status === 'active') return 'success';
   if (status === 'void' || status === 'cancelled') return 'destructive';
-  if (status === 'flagged' || status === 'review') return 'warning';
+  // 'needs_review' is the actual live status written by
+  // reconcile_internal_invoices() when a re-assessed appointment's fee no
+  // longer matches its original (voided) invoice total. 'flagged'/'review'
+  // are kept as defensive fallbacks only — they are not values the live
+  // pipeline currently writes.
+  if (status === 'needs_review' || status === 'flagged' || status === 'review') return 'warning';
   return 'neutral';
+}
+
+// Human-readable label for invoice_number status — keeps the raw db value
+// (e.g. 'needs_review') out of the UI without changing what's stored.
+function invoiceStatusLabel(status: string): string {
+  switch (status) {
+    case 'needs_review':
+      return 'Needs Review';
+    case 'active':
+      return 'Active';
+    case 'void':
+      return 'Void';
+    default:
+      return status;
+  }
 }
 
 function deliveryStatusTone(status: InvoiceListItem['deliveryStatus']): 'success' | 'warning' | 'destructive' | 'neutral' {
@@ -142,7 +165,7 @@ export default function InternalInvoicesTable() {
       let query = supabase
         .from('internal_invoices')
         .select(
-          'id, invoice_number, status, amount, vat_amount, total_amount, invoice_date, due_date, appointment_id, claimant_id, expert_id, referring_attorney_id',
+          'id, invoice_number, status, amount, vat_amount, total_amount, invoice_date, due_date, appointment_id, claimant_id, expert_id, referring_attorney_id, needs_review_reason, needs_review_flagged_at',
         )
         .order('invoice_date', { ascending: false })
         .order('id', { ascending: false })
@@ -162,6 +185,7 @@ export default function InternalInvoicesTable() {
 
       const attorneyIds = [...new Set(invoices.map((i) => i.referring_attorney_id).filter(Boolean))] as string[];
       const claimantIds = [...new Set(invoices.map((i) => i.claimant_id).filter(Boolean))] as string[];
+      const expertIds = [...new Set(invoices.map((i) => i.expert_id).filter(Boolean))] as string[];
       const appointmentIds = [...new Set(invoices.map((i) => i.appointment_id).filter(Boolean))] as string[];
       const invoiceIds = invoices.map((i) => i.id);
 
@@ -171,9 +195,10 @@ export default function InternalInvoicesTable() {
       // previously caused these to lose their real Supabase response
       // typing (data ended up typed as `never[]`).
       const NIL = ['00000000-0000-0000-0000-000000000000'];
-      const [attorneysRes, claimantsRes, appointmentsRes, queueRes, emailLogRes] = await Promise.all([
+      const [attorneysRes, claimantsRes, expertsRes, appointmentsRes, queueRes, emailLogRes] = await Promise.all([
         supabase.from('referring_attorneys').select('id, name').in('id', attorneyIds.length ? attorneyIds : NIL),
         supabase.from('claimants').select('id, first_name, last_name').in('id', claimantIds.length ? claimantIds : NIL),
+        supabase.from('medical_experts').select('id, first_name, last_name').in('id', expertIds.length ? expertIds : NIL),
         supabase.from('appointments').select('id, appointment_date, assessment_code').in('id', appointmentIds.length ? appointmentIds : NIL),
         supabase.from('internal_invoice_delivery_queue').select('*').in('internal_invoice_id', invoiceIds.length ? invoiceIds : NIL),
         supabase.from('internal_invoice_email_log').select('*').in('internal_invoice_id', invoiceIds.length ? invoiceIds : NIL),
@@ -181,6 +206,7 @@ export default function InternalInvoicesTable() {
 
       if (attorneysRes.error) throw attorneysRes.error;
       if (claimantsRes.error) throw claimantsRes.error;
+      if (expertsRes.error) throw expertsRes.error;
       if (appointmentsRes.error) throw appointmentsRes.error;
       if (queueRes.error) throw queueRes.error;
       if (emailLogRes.error) throw emailLogRes.error;
@@ -190,6 +216,9 @@ export default function InternalInvoicesTable() {
       );
       const claimantById = new Map<string, string>(
         (claimantsRes.data ?? []).map((c: any): [string, string] => [c.id, `${c.first_name ?? ''} ${c.last_name ?? ''}`.trim()]),
+      );
+      const expertById = new Map<string, string>(
+        (expertsRes.data ?? []).map((e: any): [string, string] => [e.id, `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim()]),
       );
       const appointmentById = new Map<string, { appointment_date: string; assessment_code: string | null }>(
         (appointmentsRes.data ?? []).map((a: any): [string, any] => [a.id, a]),
@@ -220,6 +249,7 @@ export default function InternalInvoicesTable() {
           invoice,
           attorneyName: invoice.referring_attorney_id ? attorneyById.get(invoice.referring_attorney_id) ?? null : null,
           claimantName: invoice.claimant_id ? claimantById.get(invoice.claimant_id) ?? null : null,
+          expertName: invoice.expert_id ? expertById.get(invoice.expert_id) ?? null : null,
           appointmentLabel,
           deliveryStatus: deliveryRow?.status ?? 'not_queued',
           deliveryRow,
@@ -314,6 +344,7 @@ export default function InternalInvoicesTable() {
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
               <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="needs_review">Needs Review</SelectItem>
               <SelectItem value="void">Void</SelectItem>
             </SelectContent>
           </Select>
@@ -364,6 +395,7 @@ export default function InternalInvoicesTable() {
                 <TableRow>
                   <TableHead>Invoice #</TableHead>
                   <TableHead>Appointment / Claimant</TableHead>
+                  <TableHead>Expert</TableHead>
                   <TableHead>Referring Attorney</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead className="text-right">VAT</TableHead>
@@ -390,12 +422,20 @@ export default function InternalInvoicesTable() {
                         )}
                       </div>
                     </TableCell>
+                    <TableCell>{item.expertName || '—'}</TableCell>
                     <TableCell>{item.attorneyName || '—'}</TableCell>
                     <TableCell className="text-right">{formatRand(item.invoice.amount)}</TableCell>
                     <TableCell className="text-right">{formatRand(item.invoice.vat_amount)}</TableCell>
                     <TableCell className="text-right font-medium">{formatRand(item.invoice.total_amount)}</TableCell>
                     <TableCell>
-                      <AdminPill tone={invoiceStatusTone(item.invoice.status)}>{item.invoice.status}</AdminPill>
+                      <AdminPill tone={invoiceStatusTone(item.invoice.status)}>
+                        {invoiceStatusLabel(item.invoice.status)}
+                        {item.invoice.status === 'needs_review' && (
+                          <span className="ml-1" aria-hidden="true" title="Requires staff attention">
+                            ⚠
+                          </span>
+                        )}
+                      </AdminPill>
                     </TableCell>
                     <TableCell>{formatDate(item.invoice.invoice_date)}</TableCell>
                     <TableCell>{formatDate(item.invoice.due_date)}</TableCell>
