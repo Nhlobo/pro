@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './useAuth';
+import { postSignOutPath } from '@/utils/externalPortalSession';
 
 /**
  * Offline handling for the whole app, entirely client-side — applies
@@ -61,7 +62,7 @@ export function useOfflineRedirect() {
   locationRef.current = location;
 
   useEffect(() => {
-    const defaultReturnPath = user ? '/dashboard' : '/auth';
+    const defaultReturnPath = user ? '/dashboard' : postSignOutPath();
 
     const forceTimeoutLogout = async () => {
       clearStoredOfflineState();
@@ -69,8 +70,16 @@ export function useOfflineRedirect() {
         window.clearTimeout(limitTimerRef.current);
         limitTimerRef.current = null;
       }
-      if (user) await signOut();
-      navigate('/auth', { replace: true });
+      // Read the redirect target before signOut() clears it, then let
+      // signOut() itself do the navigation — it already knows whether this
+      // is an external-portal account. For the (rare) case where there's
+      // no user to sign out, fall back to the same cached target directly.
+      const target = postSignOutPath();
+      if (user) {
+        await signOut();
+      } else {
+        navigate(target, { replace: true });
+      }
     };
 
     const armSessionLimitTimer = (msRemaining: number) => {
