@@ -8,20 +8,25 @@ import { Mail, Phone, MessageSquare, LogIn, ShieldAlert, Link2Off, WifiOff } fro
  * Same LegalPageLayout/LegalSectionCard shell as the internal /help
  * page and its ExpertHelp.tsx sibling, worded for a referring
  * attorney signing in through the external portal (link + OTP, no
- * staff password) rather than a full internal account. Points back to
- * /attorney-portal (the dashboard) instead of sign-in — an attorney
- * reaching this page is already signed in (whether from the sidebar
- * or the "Get Help" link on the not-linked error page), so sending
- * them to sign-in again made no sense. Covers the issues an attorney
- * actually hits (access link expired, firm not yet linked by admin)
- * instead of internal password-reset flows.
+ * staff password) rather than a full internal account. Reachable both
+ * signed in (the "Get Help" link on the not-linked error page) and
+ * signed out (the Help link in ExternalPortalSignIn's own footer,
+ * before anyone has authenticated) — so "back" can't assume a session
+ * exists. Points to /external-portal/sign-in, same as
+ * AttorneyTerms/AttorneyPrivacy, not the /attorney-portal dashboard:
+ * that route sits behind ProtectedRoute, and for a signed-out visitor
+ * it bounces through the "not authenticated" redirect and lands on
+ * the internal staff /auth instead of this portal's own sign-in.
+ * Covers the issues an attorney actually hits (access link expired,
+ * firm not yet linked by admin) instead of internal password-reset
+ * flows.
  */
 const AttorneyHelp = () => (
   <LegalPageLayout
     title="Help & Support"
     description="Get help accessing the Medico-Legal Pro Attorney Portal."
-    backHref="/attorney-portal"
-    backLabel="Back to dashboard"
+    backHref="/external-portal/sign-in"
+    backLabel="Back to sign in"
   >
     <p>
       Need a hand accessing your Attorney Portal? Our support team is available Monday to
