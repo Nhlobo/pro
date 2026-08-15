@@ -5,6 +5,7 @@ import { WifiOff, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { clearStoredOfflineState, readStoredReturnPath } from '@/hooks/useOfflineRedirect';
+import { postSignOutPath } from '@/utils/externalPortalSession';
 
 const Offline = () => {
   const { user, signOut } = useAuth();
@@ -13,7 +14,7 @@ const Offline = () => {
 
   const handleRetry = () => {
     if (typeof navigator !== 'undefined' && navigator.onLine) {
-      const returnPath = readStoredReturnPath(user ? '/dashboard' : '/auth');
+      const returnPath = readStoredReturnPath(user ? '/dashboard' : postSignOutPath());
       clearStoredOfflineState();
       navigate(returnPath, { replace: true });
       return;
@@ -25,9 +26,13 @@ const Offline = () => {
   const handleBackToSignIn = async () => {
     clearStoredOfflineState();
     if (user) {
+      // signOut() already redirects to the correct destination (staff
+      // /auth vs. the external-portal sign-in page) — don't also navigate
+      // here, or we'd race it back to the wrong page.
       await signOut();
+      return;
     }
-    navigate('/auth', { replace: true });
+    navigate(postSignOutPath(), { replace: true });
   };
 
   return (
