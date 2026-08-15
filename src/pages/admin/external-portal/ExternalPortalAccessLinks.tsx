@@ -7,11 +7,12 @@ import {
   useGenerateExternalPortalLink,
   useRevokeExternalPortalLink,
 } from '@/hooks/externalPortal/useExternalPortalAccessLinks';
+import { useBulkGenerateExternalPortalLinks } from '@/hooks/externalPortal/useBulkGenerateExternalPortalLinks';
 import { AdminCard, AdminCardHeader, AdminCardBody, AdminEmptyState, AdminLoadingState, AdminPill } from '@/components/admin/ui/AdminUI';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Link2, Copy, Ban } from 'lucide-react';
+import { Link2, Copy, Ban, Send, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { PORTAL_TYPE_LABEL } from '@/types/externalPortal';
 import { formatDateTimeShort } from '@/utils/dateTime';
 import { toast } from 'sonner';
@@ -28,10 +29,30 @@ const ExternalPortalAccessLinks: React.FC = () => {
   const { data: links, isLoading } = useExternalPortalAccessLinks();
   const generateLink = useGenerateExternalPortalLink();
   const revokeLink = useRevokeExternalPortalLink();
+  const bulkGenerate = useBulkGenerateExternalPortalLinks();
 
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
   const activeAccounts = (accounts || []).filter((a) => a.status === 'active');
+
+  // Accounts that are active, have never completed registration, and
+  // don't already have a pending link — i.e. accounts genuinely
+  // "waiting" on their first activation email. Someone who already has
+  // a live pending link isn't stuck; re-sending to them belongs to the
+  // per-account flow above (or Revoke + Generate), not the bulk sweep.
+  const awaitingActivation = activeAccounts.filter((a) => !a.registered_at && !a.active_access_link);
+
+  const handleBulkSend = async () => {
+    if (awaitingActivation.length === 0) return;
+    await bulkGenerate.run(
+      awaitingActivation.map((a) => ({
+        id: a.id,
+        full_name: a.full_name,
+        email: a.email,
+        portal_type: a.portal_type,
+      }))
+    );
+  };
 
   const handleGenerate = async () => {
     if (!selectedAccountId) {
@@ -54,6 +75,97 @@ const ExternalPortalAccessLinks: React.FC = () => {
   return (
     <ExternalPortalManagementLayout>
       <Helmet><title>External Portal Management — Access Links</title></Helmet>
+
+      <AdminCard className="mt-4">
+        <AdminCardHeader
+          title="Bulk Activation"
+          description="Send the one-time activation email to every active account still waiting on it — same link, same email, just for everyone at once."
+          icon={Send}
+        />
+        <AdminCardBody className="space-y-3">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-600">
+              {awaitingActivation.length === 0 ? (
+                'Everyone active already has a pending link or has activated — nothing to send.'
+              ) : (
+                <>
+                  <span className="font-medium text-slate-900">{awaitingActivation.length}</span>{' '}
+                  active account{awaitingActivation.length === 1 ? '' : 's'} waiting on activation
+                  {' '}({awaitingActivation.filter((a) => a.portal_type === 'attorney').length} attorneys,{' '}
+                  {awaitingActivation.filter((a) => a.portal_type === 'expert').length} experts).
+                </>
+              )}
+            </p>
+            <div className="flex gap-2">
+              {bulkGenerate.isRunning && (
+                <Button size="sm" variant="outline" className="rounded-none" onClick={bulkGenerate.cancel}>
+                  Stop after current
+                </Button>
+              )}
+              <Button
+                size="sm"
+                className="rounded-none bg-black text-white hover:bg-black/85"
+                disabled={awaitingActivation.length === 0 || bulkGenerate.isRunning}
+                onClick={handleBulkSend}
+              >
+                {bulkGenerate.isRunning ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    Sending {bulkGenerate.sentCount + bulkGenerate.failedCount} / {bulkGenerate.results.length}…
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-1.5 h-4 w-4" />
+                    Send to {awaitingActivation.length || ''} account{awaitingActivation.length === 1 ? '' : 's'}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {bulkGenerate.results.length > 0 && (
+            <div className="border border-black/10">
+              <div className="flex items-center gap-4 border-b border-black/10 bg-slate-50 px-3 py-2 text-xs">
+                <span className="flex items-center gap-1 text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> {bulkGenerate.sentCount} sent
+                </span>
+                {bulkGenerate.failedCount > 0 && (
+                  <span className="flex items-center gap-1 text-destructive">
+                    <XCircle className="h-3.5 w-3.5" /> {bulkGenerate.failedCount} failed
+                  </span>
+                )}
+                {bulkGenerate.pendingCount > 0 && (
+                  <span className="text-slate-500">{bulkGenerate.pendingCount} queued…</span>
+                )}
+                {!bulkGenerate.isRunning && (
+                  <Button size="sm" variant="ghost" className="ml-auto h-6 rounded-none px-2 text-xs" onClick={bulkGenerate.reset}>
+                    Dismiss
+                  </Button>
+                )}
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                <Table>
+                  <TableBody>
+                    {bulkGenerate.results.map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="w-6 py-1.5">
+                          {r.status === 'sent' && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+                          {r.status === 'failed' && <XCircle className="h-4 w-4 text-destructive" />}
+                          {r.status === 'pending' && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+                        </TableCell>
+                        <TableCell className="py-1.5 font-medium">{r.full_name}</TableCell>
+                        <TableCell className="py-1.5 text-slate-500">{PORTAL_TYPE_LABEL[r.portal_type as 'attorney' | 'expert'] || r.portal_type}</TableCell>
+                        <TableCell className="py-1.5 text-slate-500">{r.email}</TableCell>
+                        <TableCell className="py-1.5 text-destructive">{r.error || ''}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
+        </AdminCardBody>
+      </AdminCard>
 
       <AdminCard className="mt-4">
         <AdminCardHeader title="Generate an Access Link" description="Emails a one-time registration link to the account's address." icon={Link2} />
