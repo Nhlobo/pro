@@ -9,17 +9,24 @@ import { Mail, Phone, MessageSquare, LogIn, ShieldAlert, Link2Off, WifiOff } fro
  * /help page (same contact tiles, same numbered-card styling), but
  * the content and "common issues" below are specific to a medical
  * expert signing in through the external portal (link + OTP, no
- * staff password), not a full internal account — so it points back
- * to /external-portal/sign-in instead of /auth, and covers the
- * issues an expert actually hits (access link expired, profile not
- * yet linked by admin) instead of internal password-reset flows.
+ * staff password), not a full internal account. Reachable both
+ * signed in (the "Get Help" link on the not-linked error page) and
+ * signed out (the Help link in ExternalPortalSignIn's own footer,
+ * before anyone has authenticated) — so "back" can't assume a
+ * session exists. Points to /external-portal/sign-in, same as
+ * ExpertTerms/ExpertPrivacy, not the /expert-portal dashboard: that
+ * route sits behind ProtectedRoute, and for a signed-out visitor it
+ * bounces through the "not authenticated" redirect and lands on the
+ * internal staff /auth instead of this portal's own sign-in. Covers
+ * the issues an expert actually hits (access link expired, profile
+ * not yet linked by admin) instead of internal password-reset flows.
  */
 const ExpertHelp = () => (
   <LegalPageLayout
     title="Help & Support"
     description="Get help accessing the Medico-Legal Pro Expert Portal."
-    backHref="/expert-portal"
-    backLabel="Back to dashboard"
+    backHref="/external-portal/sign-in"
+    backLabel="Back to sign in"
   >
     <p>
       Need a hand accessing your Expert Portal? Our support team is available Monday to Friday,
