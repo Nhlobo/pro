@@ -64,6 +64,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { postSignOutPath } from "@/utils/externalPortalSession";
 
 /**
  * "Home" screens for each portal — the natural entry point a user lands on
@@ -216,7 +217,7 @@ export function ExitConfirmationGuard() {
   // straight back into a protected page.
   const handleReopen = useCallback(() => {
     setExited(false);
-    navigate("/auth", { replace: true });
+    navigate(postSignOutPath(), { replace: true });
   }, [navigate]);
 
   return (
@@ -275,4 +276,4 @@ export function ExitConfirmationGuard() {
       )}
     </>
   );
-}
+  }
