@@ -2,7 +2,7 @@ import { useState, useEffect, createContext, useContext, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { logDeviceLogout } from '@/utils/trustedDevice';
-import { markExternalPortalSession, clearExternalPortalSession, postSignOutPath } from '@/utils/externalPortalSession';
+import { markExternalPortalSession, postSignOutPath, EXTERNAL_PORTAL_SIGN_IN_PATH } from '@/utils/externalPortalSession';
 
 interface AuthContextType {
   user: User | null;
@@ -84,12 +84,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // edge function, so it needs the still-active session to satisfy RLS.
       await logDeviceLogout(user?.id);
       cleanupAuthState();
-      clearExternalPortalSession();
+      // Deliberately NOT clearing the external-portal-session flag here —
+      // see the comment on it in externalPortalSession.ts. It has to
+      // survive this sign-out so that a stale Back/bfcache hit on an old
+      // protected page still resolves to the right sign-in page.
       await supabase.auth.signOut({ scope: 'global' });
-      window.location.href = target;
+      // replace(), not href=, so the authenticated page this was called
+      // from is dropped from history rather than left one Back-press away.
+      window.location.replace(target);
     } catch (error) {
       // Force redirect even if signOut fails
-      window.location.href = target;
+      window.location.replace(target);
     }
   };
 
@@ -100,7 +105,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Handle sign out - clear everything
         if (event === 'SIGNED_OUT') {
           cleanupAuthState();
-          clearExternalPortalSession();
+          // external-portal-session flag intentionally left in place —
+          // see externalPortalSession.ts.
           externalCheckedForUserId.current = null;
           setSession(null);
           setUser(null);
@@ -139,7 +145,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         cleanupAuthState();
-        clearExternalPortalSession();
         setSession(null);
         setUser(null);
         setIsEmailConfirmed(false);
@@ -147,8 +152,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Cached from a previous session if this device belongs to an
         // external-portal user — a broken/expired session should still
         // send them back to their own sign-in page, not the staff one.
-        if (window.location.pathname !== '/auth') {
-          window.location.href = postSignOutPath();
+        // (Flag intentionally not cleared here — see externalPortalSession.ts.)
+        if (window.location.pathname !== '/auth' && window.location.pathname !== EXTERNAL_PORTAL_SIGN_IN_PATH) {
+          window.location.replace(postSignOutPath());
         }
         return;
       }
@@ -161,7 +167,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // If there is no session, clear any stale auth keys to prevent refresh loops
       if (!session) {
         cleanupAuthState();
-        clearExternalPortalSession();
       }
     });
 
