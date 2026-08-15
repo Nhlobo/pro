@@ -247,21 +247,38 @@ const usePermissionsState = (): PermissionsContextValue => {
       setUserRole(role || 'user');
       setRoleResolutionFailed(failed);
 
+      // This "is_active" deactivation check is a staff-only concept — it
+      // exists so an admin can offboard an internal employee mid-session
+      // (see 20260728120000_add_staff_deactivation_and_last_login.sql).
+      // External-portal accounts (referring attorneys / medical experts)
+      // are never deactivated this way: their access is governed entirely
+      // by external_portal_accounts.status, managed from the External
+      // Portal admin screens, not this profiles flag. The bridge login
+      // (external-portal-auth) always writes is_active: true on every
+      // sign-in regardless, so this should be a no-op for them in
+      // practice — but skipping it outright means an external user can
+      // never get a spurious "Account deactivated, contact your
+      // administrator" toast (worded for staff) or an unexpected forced
+      // sign-out that has nothing to do with their actual account state.
+      const isExternalPortalRole = role === 'referring_attorney' || role === 'medical_expert';
+
       // A session that was already open when an admin deactivated this
       // account would otherwise keep working until its access token
       // naturally expires and a background refresh gets rejected by the
       // auth-layer ban (up to an hour later). Catch it here instead, on
       // the next load/tab focus.
-      const { data: isActive } = await (supabase.rpc as any)('get_current_user_is_active');
-      if (isActive === false) {
-        toast({
-          title: "Account deactivated",
-          description: "Your account has been deactivated. Please contact your administrator.",
-          variant: "destructive"
-        });
-        setLoading(false);
-        setTimeout(() => signOut(), 1500);
-        return;
+      if (!isExternalPortalRole) {
+        const { data: isActive } = await (supabase.rpc as any)('get_current_user_is_active');
+        if (isActive === false) {
+          toast({
+            title: "Account deactivated",
+            description: "Your account has been deactivated. Please contact your administrator.",
+            variant: "destructive"
+          });
+          setLoading(false);
+          setTimeout(() => signOut(), 1500);
+          return;
+        }
       }
 
       // Get user permissions
