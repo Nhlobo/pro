@@ -19,6 +19,7 @@ import {
   type ApiError,
 } from '@/services/externalPortal/externalPortalAuthClient';
 import type { ExternalPortalType } from '@/types/externalPortal';
+import { useBackNavigationTrap } from '@/hooks/useBackNavigationTrap';
 
 const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
 
@@ -56,6 +57,12 @@ const ExternalPortalSignIn: React.FC = () => {
   const [code, setCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+
+  // This is where sign-out (and any stale/expired external-portal session)
+  // lands people. Back must never be able to step past this page into
+  // whatever attorney/expert-portal (or, if the redirect target were ever
+  // wrong, staff) screen was open before — trap it here instead.
+  useBackNavigationTrap();
 
   // Registration flow: validate the link on mount and trigger the first OTP.
   useEffect(() => {
