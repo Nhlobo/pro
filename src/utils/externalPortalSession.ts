@@ -17,9 +17,22 @@
  *
  * The fix: cache the flag in localStorage the moment it's known (right
  * after sign-in, while a session still exists), and read it
- * synchronously wherever a redirect target has to be picked. It is
- * only ever cleared explicitly, so it survives the null-user window
- * that follows a sign-out.
+ * synchronously wherever a redirect target has to be picked.
+ *
+ * Deliberately NOT cleared on sign-out (or on a session found to be
+ * invalid). This flag drives a routing decision only — it has no bearing
+ * on data access, which is fully governed by the real Supabase session +
+ * RLS — so there is nothing sensitive about it surviving. What it needs
+ * to survive for is the exact scenario sign-out itself creates: after
+ * `signOut()`, `user` goes null but old, already-rendered pages can still
+ * be reached via the browser Back button (or restored from bfcache).
+ * ProtectedRoute's "no user" guard fires again on any of those and calls
+ * `postSignOutPath()` a second time — if the flag had already been wiped
+ * by the sign-out that just happened, that second call would wrongly
+ * resolve to the internal staff `/auth`, which is exactly the "back
+ * button sends an external attorney/expert to the staff login page" bug.
+ * It is only ever overwritten (never blanked) — by `markExternalPortalSession`
+ * right after the next real sign-in, whoever that is.
  */
 
 const STORAGE_KEY = 'mlp.external-portal-session';
