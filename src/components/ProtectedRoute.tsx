@@ -3,6 +3,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BrandedPageLoader from '@/components/BrandedPageLoader';
+import { postSignOutPath } from '@/utils/externalPortalSession';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -14,9 +15,13 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Redirect immediately when unauthenticated (don’t wait for permissions)
+    // Redirect immediately when unauthenticated (don’t wait for permissions).
+    // Referring attorneys / medical experts (external-portal accounts) must
+    // land back on their own sign-in page, not the internal staff /auth —
+    // postSignOutPath() reads a synchronous cache set while they were signed
+    // in, so this is correct even though `user` is already null here.
     if (!loading && !user) {
-      navigate('/auth');
+      navigate(postSignOutPath());
       return;
     }
 
