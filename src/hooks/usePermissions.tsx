@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { postSignOutPath } from '@/utils/externalPortalSession';
 
 export interface Permission {
   id: string;
@@ -428,7 +429,7 @@ const usePermissionsState = (): PermissionsContextValue => {
       if (error) {
         console.error('Session refresh error:', error);
         await supabase.auth.signOut();
-        window.location.href = '/auth';
+        window.location.href = postSignOutPath();
         return;
       }
       
