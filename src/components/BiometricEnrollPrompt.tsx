@@ -10,8 +10,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsExternalPortalUser } from '@/hooks/useIsExternalPortalUser';
 import { toast } from 'sonner';
 import {
+  clearTrustedDevice,
   enrollTrustedDevice,
   getDismissedKey,
   isBiometricSupported,
@@ -24,6 +26,12 @@ const BRAND_TEAL = '#00BAAD';
 
 export const BiometricEnrollPrompt = () => {
   const { user, loading } = useAuth();
+  // Trusted-device biometrics is a staff-only feature (it's the internal
+  // /auth password login getting a device shortcut). Referring
+  // attorneys/medical experts sign in via emailed link + OTP and must never
+  // be offered it — enrolling them here is what makes their device's
+  // trusted-device cache show up on the *internal* staff login page later.
+  const isExternalPortalUser = useIsExternalPortalUser();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -31,6 +39,13 @@ export const BiometricEnrollPrompt = () => {
     let active = true;
     (async () => {
       if (loading || !user?.email) return;
+      if (isExternalPortalUser) {
+        // Remediation for accounts enrolled before this guard existed —
+        // strip any lingering trusted-device entry so the internal /auth
+        // page stops offering biometric sign-in for this account.
+        if (isTrustedDeviceEnrolled(user.email)) clearTrustedDevice();
+        return;
+      }
       if (localStorage.getItem(getDismissedKey(user.email))) return;
       if (isTrustedDeviceEnrolled(user.email)) return;
       if (!(await isBiometricSupported())) return;
@@ -39,7 +54,7 @@ export const BiometricEnrollPrompt = () => {
     return () => {
       active = false;
     };
-  }, [user?.id, user?.email, loading]);
+  }, [user?.id, user?.email, loading, isExternalPortalUser]);
 
   const dismiss = () => {
     if (user?.email) localStorage.setItem(getDismissedKey(user.email), 'true');
