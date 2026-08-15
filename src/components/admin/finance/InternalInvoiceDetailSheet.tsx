@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, Loader2, RotateCw } from 'lucide-react';
 import { AdminPill, AdminLoadingState, AdminErrorState } from '@/components/admin/ui/AdminUI';
 import type { DeliveryQueueRow, EmailLogRow, InternalInvoiceRow } from './InternalInvoicesTable';
 
@@ -17,6 +17,7 @@ interface DetailData {
   invoice: InternalInvoiceRow;
   attorneyName: string | null;
   claimantName: string | null;
+  expertName: string | null;
   appointmentLabel: string | null;
   queueRows: DeliveryQueueRow[]; // full history, most recent first
   emailLog: EmailLogRow | null;
@@ -48,11 +49,35 @@ function deliveryStatusTone(status: string): 'success' | 'warning' | 'destructiv
   }
 }
 
+// Mirrors InternalInvoicesTable's invoiceStatusTone/invoiceStatusLabel.
+// Kept as a local copy rather than a shared import — this file already
+// follows that pattern for formatRand/formatDateTime above.
+function invoiceStatusTone(status: string): 'success' | 'warning' | 'destructive' | 'neutral' {
+  if (status === 'active') return 'success';
+  if (status === 'void' || status === 'cancelled') return 'destructive';
+  if (status === 'needs_review' || status === 'flagged' || status === 'review') return 'warning';
+  return 'neutral';
+}
+
+function invoiceStatusLabel(status: string): string {
+  switch (status) {
+    case 'needs_review':
+      return 'Needs Review';
+    case 'active':
+      return 'Active';
+    case 'void':
+      return 'Void';
+    default:
+      return status;
+  }
+}
+
 export default function InternalInvoiceDetailSheet({ invoiceId, open, onOpenChange }: InternalInvoiceDetailSheetProps) {
   const [data, setData] = useState<DetailData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     if (!open || !invoiceId) return;
@@ -67,7 +92,7 @@ export default function InternalInvoiceDetailSheet({ invoiceId, open, onOpenChan
         const { data: invoiceRow, error: invoiceError } = await supabase
           .from('internal_invoices')
           .select(
-            'id, invoice_number, status, amount, vat_amount, total_amount, invoice_date, due_date, appointment_id, claimant_id, expert_id, referring_attorney_id',
+            'id, invoice_number, status, amount, vat_amount, total_amount, invoice_date, due_date, appointment_id, claimant_id, expert_id, referring_attorney_id, needs_review_reason, needs_review_flagged_at',
           )
           .eq('id', invoiceId)
           .maybeSingle();
@@ -76,12 +101,15 @@ export default function InternalInvoiceDetailSheet({ invoiceId, open, onOpenChan
 
         const invoice = invoiceRow as InternalInvoiceRow;
 
-        const [attorneyRes, claimantRes, appointmentRes, queueRes, emailLogRes] = await Promise.all([
+        const [attorneyRes, claimantRes, expertRes, appointmentRes, queueRes, emailLogRes] = await Promise.all([
           invoice.referring_attorney_id
             ? supabase.from('referring_attorneys').select('name').eq('id', invoice.referring_attorney_id).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
           invoice.claimant_id
             ? supabase.from('claimants').select('first_name, last_name').eq('id', invoice.claimant_id).maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+          invoice.expert_id
+            ? supabase.from('medical_experts').select('first_name, last_name').eq('id', invoice.expert_id).maybeSingle()
             : Promise.resolve({ data: null, error: null }),
           invoice.appointment_id
             ? supabase.from('appointments').select('appointment_date, assessment_code').eq('id', invoice.appointment_id).maybeSingle()
@@ -96,6 +124,7 @@ export default function InternalInvoiceDetailSheet({ invoiceId, open, onOpenChan
 
         if (attorneyRes.error) throw attorneyRes.error;
         if (claimantRes.error) throw claimantRes.error;
+        if (expertRes.error) throw expertRes.error;
         if (appointmentRes.error) throw appointmentRes.error;
         if (queueRes.error) throw queueRes.error;
         if (emailLogRes.error) throw emailLogRes.error;
@@ -104,11 +133,13 @@ export default function InternalInvoiceDetailSheet({ invoiceId, open, onOpenChan
 
         const appt = appointmentRes.data as { appointment_date: string; assessment_code: string | null } | null;
         const claimant = claimantRes.data as { first_name: string; last_name: string } | null;
+        const expert = expertRes.data as { first_name: string; last_name: string } | null;
 
         setData({
           invoice,
           attorneyName: (attorneyRes.data as { name: string } | null)?.name ?? null,
           claimantName: claimant ? `${claimant.first_name ?? ''} ${claimant.last_name ?? ''}`.trim() : null,
+          expertName: expert ? `${expert.first_name ?? ''} ${expert.last_name ?? ''}`.trim() : null,
           appointmentLabel: appt ? appt.assessment_code || appt.appointment_date : null,
           queueRows: (queueRes.data ?? []) as DeliveryQueueRow[],
           emailLog: (emailLogRes.data as EmailLogRow | null) ?? null,
@@ -161,6 +192,42 @@ export default function InternalInvoiceDetailSheet({ invoiceId, open, onOpenChan
 
   const latestQueueRow = data?.queueRows[0] ?? null;
 
+  // Retry is only offered for a genuinely failed delivery: the most
+  // recent queue row (queueRows is ordered newest-first) must itself be
+  // 'failed'. This mirrors the same rule handle_report_delivery_billing()
+  // uses to decide whether to enqueue at all (WHERE NOT EXISTS a pending/
+  // processing/success row for this invoice) — if the latest row were
+  // anything other than 'failed', a duplicate send could result. This
+  // component only ever inserts a new queue row; it never touches the
+  // deployed delivery processor's own claim/attempt/retry logic.
+  const canRetry = latestQueueRow?.status === 'failed';
+
+  const handleRetry = async () => {
+    if (!invoiceId || !canRetry) return;
+    setRetrying(true);
+    try {
+      const { data: insertedRow, error: insertError } = await supabase
+        .from('internal_invoice_delivery_queue')
+        .insert({ internal_invoice_id: invoiceId, status: 'pending' })
+        .select('*')
+        .single();
+      if (insertError) throw insertError;
+
+      // Prepend the new row rather than re-running the full detail load —
+      // everything else on the invoice is unchanged by a retry.
+      setData((prev) =>
+        prev
+          ? { ...prev, queueRows: [insertedRow as DeliveryQueueRow, ...prev.queueRows] }
+          : prev,
+      );
+      toast.success('Invoice re-queued for delivery. It will be sent on the next scheduled run.');
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to re-queue this invoice for delivery.');
+    } finally {
+      setRetrying(false);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
@@ -179,7 +246,16 @@ export default function InternalInvoiceDetailSheet({ invoiceId, open, onOpenChan
               <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Invoice</h4>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                 <span className="text-slate-500">Status</span>
-                <span><AdminPill tone={data.invoice.status === 'active' ? 'success' : 'neutral'}>{data.invoice.status}</AdminPill></span>
+                <span>
+                  <AdminPill tone={invoiceStatusTone(data.invoice.status)}>
+                    {invoiceStatusLabel(data.invoice.status)}
+                    {data.invoice.status === 'needs_review' && (
+                      <span className="ml-1" aria-hidden="true" title="Requires staff attention">
+                        ⚠
+                      </span>
+                    )}
+                  </AdminPill>
+                </span>
                 <span className="text-slate-500">Invoice date</span>
                 <span>{data.invoice.invoice_date}</span>
                 <span className="text-slate-500">Due date</span>
@@ -193,11 +269,29 @@ export default function InternalInvoiceDetailSheet({ invoiceId, open, onOpenChan
               </div>
             </section>
 
+            {data.invoice.status === 'needs_review' && (
+              <section className="flex flex-col gap-2 border border-amber-300 bg-amber-50 p-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+                  ⚠ Requires staff attention
+                </h4>
+                <p className="text-xs text-amber-900">
+                  {data.invoice.needs_review_reason || 'This invoice was flagged for manual review.'}
+                </p>
+                {data.invoice.needs_review_flagged_at && (
+                  <p className="text-xs text-amber-700">
+                    Flagged {formatDateTime(data.invoice.needs_review_flagged_at)}
+                  </p>
+                )}
+              </section>
+            )}
+
             <section className="flex flex-col gap-2">
               <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Appointment</h4>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                 <span className="text-slate-500">Claimant</span>
                 <span>{data.claimantName || '—'}</span>
+                <span className="text-slate-500">Expert</span>
+                <span>{data.expertName || '—'}</span>
                 <span className="text-slate-500">Referring attorney</span>
                 <span>{data.attorneyName || '—'}</span>
                 <span className="text-slate-500">Appointment</span>
@@ -233,6 +327,22 @@ export default function InternalInvoiceDetailSheet({ invoiceId, open, onOpenChan
               )}
               {data.queueRows.length > 1 && (
                 <p className="text-xs text-slate-400">{data.queueRows.length} delivery attempts on record.</p>
+              )}
+              {canRetry && (
+                <Button
+                  onClick={handleRetry}
+                  disabled={retrying}
+                  variant="outline"
+                  size="sm"
+                  className="mt-1 w-fit"
+                >
+                  {retrying ? (
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RotateCw className="mr-2 h-3.5 w-3.5" />
+                  )}
+                  Retry delivery
+                </Button>
               )}
             </section>
 
