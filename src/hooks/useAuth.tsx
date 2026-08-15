@@ -65,16 +65,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
+    // Determine BEFORE any cleanup/signOut call — both need the still-active
+    // session/user id. An external-portal user (referring attorney or medical
+    // expert who logged in via the emailed link + OTP, not a staff password)
+    // must land back on their own sign-in page, never on the internal /auth
+    // staff login. Defaults to false (→ /auth) if the lookup fails, since a
+    // real staff account is the common case and profiles is queryable with
+    // the still-active session at this point.
+    let isExternalPortalUser = false;
+    try {
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_external_portal_user')
+          .eq('id', user.id)
+          .maybeSingle();
+        isExternalPortalUser = !!profile?.is_external_portal_user;
+      }
+    } catch {
+      /* fall back to /auth below */
+    }
+
+    const postSignOutPath = isExternalPortalUser ? '/external-portal/sign-in' : '/auth';
+
     try {
       // Must run BEFORE signOut() — it's a plain authenticated insert, not an
       // edge function, so it needs the still-active session to satisfy RLS.
       await logDeviceLogout(user?.id);
       cleanupAuthState();
       await supabase.auth.signOut({ scope: 'global' });
-      window.location.href = '/auth';
+      window.location.href = postSignOutPath;
     } catch (error) {
       // Force redirect even if signOut fails
-      window.location.href = '/auth';
+      window.location.href = postSignOutPath;
     }
   };
 
