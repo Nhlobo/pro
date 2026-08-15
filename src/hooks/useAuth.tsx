@@ -1,7 +1,8 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { logDeviceLogout } from '@/utils/trustedDevice';
+import { markExternalPortalSession, clearExternalPortalSession, postSignOutPath } from '@/utils/externalPortalSession';
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +20,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEmailConfirmed, setIsEmailConfirmed] = useState(false);
+  // Tracks the id we've already looked up is_external_portal_user for, so
+  // the effect below doesn't re-query on every unrelated re-render.
+  const externalCheckedForUserId = useRef<string | null>(null);
 
   const cleanupAuthState = () => {
     Object.keys(localStorage).forEach((key) => {
@@ -65,39 +69,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signOut = async () => {
-    // Determine BEFORE any cleanup/signOut call — both need the still-active
-    // session/user id. An external-portal user (referring attorney or medical
-    // expert who logged in via the emailed link + OTP, not a staff password)
-    // must land back on their own sign-in page, never on the internal /auth
-    // staff login. Defaults to false (→ /auth) if the lookup fails, since a
-    // real staff account is the common case and profiles is queryable with
-    // the still-active session at this point.
-    let isExternalPortalUser = false;
-    try {
-      if (user?.id) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('is_external_portal_user')
-          .eq('id', user.id)
-          .maybeSingle();
-        isExternalPortalUser = !!profile?.is_external_portal_user;
-      }
-    } catch {
-      /* fall back to /auth below */
-    }
-
-    const postSignOutPath = isExternalPortalUser ? '/external-portal/sign-in' : '/auth';
+    // Read the CACHED flag, not a fresh query — `user` (and the session it
+    // depends on) is about to go null as soon as supabase.auth.signOut()
+    // fires its SIGNED_OUT event, and every other guard that reacts to
+    // "no user" (ProtectedRoute, etc.) does so synchronously on that same
+    // state change. An async profiles lookup here loses that race: by the
+    // time it resolved, ProtectedRoute had already fired its own
+    // navigate('/auth'). Reading the cache is instant, so there's no
+    // window where a stale destination can be used.
+    const target = postSignOutPath();
 
     try {
       // Must run BEFORE signOut() — it's a plain authenticated insert, not an
       // edge function, so it needs the still-active session to satisfy RLS.
       await logDeviceLogout(user?.id);
       cleanupAuthState();
+      clearExternalPortalSession();
       await supabase.auth.signOut({ scope: 'global' });
-      window.location.href = postSignOutPath;
+      window.location.href = target;
     } catch (error) {
       // Force redirect even if signOut fails
-      window.location.href = postSignOutPath;
+      window.location.href = target;
     }
   };
 
@@ -108,6 +100,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Handle sign out - clear everything
         if (event === 'SIGNED_OUT') {
           cleanupAuthState();
+          clearExternalPortalSession();
+          externalCheckedForUserId.current = null;
           setSession(null);
           setUser(null);
           setIsEmailConfirmed(false);
@@ -145,12 +139,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         cleanupAuthState();
+        clearExternalPortalSession();
         setSession(null);
         setUser(null);
         setIsEmailConfirmed(false);
         setLoading(false);
+        // Cached from a previous session if this device belongs to an
+        // external-portal user — a broken/expired session should still
+        // send them back to their own sign-in page, not the staff one.
         if (window.location.pathname !== '/auth') {
-          window.location.href = '/auth';
+          window.location.href = postSignOutPath();
         }
         return;
       }
@@ -163,11 +161,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // If there is no session, clear any stale auth keys to prevent refresh loops
       if (!session) {
         cleanupAuthState();
+        clearExternalPortalSession();
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // As soon as we know who's signed in, cache whether this is an
+  // external-portal account (referring attorney / medical expert) so any
+  // later "no user" redirect — sign-out, a session error, etc. — has a
+  // synchronous answer instead of needing to query it under time pressure.
+  useEffect(() => {
+    if (!user?.id) return;
+    if (externalCheckedForUserId.current === user.id) return;
+    externalCheckedForUserId.current = user.id;
+    let cancelled = false;
+    supabase
+      .from('profiles')
+      .select('is_external_portal_user')
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        markExternalPortalSession(!!data?.is_external_portal_user);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   return (
     <AuthContext.Provider value={{ user, session, loading, isEmailConfirmed, signOut, resendConfirmation }}>
