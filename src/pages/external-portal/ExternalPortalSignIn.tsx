@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -170,7 +170,8 @@ const ExternalPortalSignIn: React.FC = () => {
       <div className="absolute top-20 right-20 hidden h-32 w-32 rotate-45 rounded-lg border-2 border-kutlwano-blue/20 animate-[spin_20s_linear_infinite] sm:block" />
       <div className="absolute bottom-32 left-20 hidden h-24 w-24 rounded-full border-2 border-kutlwano-teal/20 animate-pulse sm:block" />
 
-      <Card className="relative z-10 w-full max-w-md animate-scale-in border-kutlwano-blue/20 bg-card/95 shadow-2xl shadow-kutlwano-blue/10 backdrop-blur-sm">
+      <div className="relative z-10 flex w-full max-w-md flex-col items-center gap-4">
+      <Card className="w-full animate-scale-in border-kutlwano-blue/20 bg-card/95 shadow-2xl shadow-kutlwano-blue/10 backdrop-blur-sm">
         <CardHeader className="items-center text-center">
           <img src={logoSrc} alt="Kutlwano & Associate" className="mb-3 h-12 w-12 object-contain sm:h-14 sm:w-14" />
           <CardTitle className="text-xl sm:text-2xl">Portal Sign In</CardTitle>
@@ -266,6 +267,36 @@ const ExternalPortalSignIn: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Small, always-visible footer — deliberately points at the
+          attorney/expert-specific legal pages (not the internal staff
+          /privacy, /terms), and switches with the selected portal type
+          so an expert never lands on attorney-worded copy or vice versa.
+          These are public routes (see App.tsx) precisely so they're
+          reachable from here, before anyone has signed in. */}
+      <footer className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-2 text-center text-xs text-muted-foreground">
+        <Link
+          to={portalType === 'expert' ? '/expert-portal/legal/privacy' : '/attorney-portal/legal/privacy'}
+          className="hover:text-foreground hover:underline"
+        >
+          Privacy
+        </Link>
+        <span aria-hidden="true">·</span>
+        <Link
+          to={portalType === 'expert' ? '/expert-portal/legal/terms' : '/attorney-portal/legal/terms'}
+          className="hover:text-foreground hover:underline"
+        >
+          Terms
+        </Link>
+        <span aria-hidden="true">·</span>
+        <Link
+          to={portalType === 'expert' ? '/expert-portal/legal/help' : '/attorney-portal/legal/help'}
+          className="hover:text-foreground hover:underline"
+        >
+          Help
+        </Link>
+      </footer>
+      </div>
     </div>
   );
 };
