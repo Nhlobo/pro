@@ -126,7 +126,7 @@ const DEFAULT_SETTINGS: PortalSettings = {
   otp_expiry_minutes: 10,
   otp_max_attempts: 5,
   session_expiry_hours: 12,
-  auto_expire_on_all_cases_closed: true,
+  auto_expire_on_all_cases_closed: false,
 };
 
 // deno-lint-ignore no-explicit-any
@@ -293,25 +293,50 @@ serve(withErrorHandler(async (req) => {
 
     await logHistory(supabaseAdmin, account.id, account.email, "registration_link_opened", true, null, ip, userAgent);
 
-    const otpResult = await issueOtp(supabaseAdmin, {
-      accountId: account.id,
-      accessLinkId: link.id,
-      destination: account.email,
-      fullName: account.full_name,
-      portalType: account.portal_type,
-      purpose: "registration",
-      settings,
-      ip,
-      userAgent,
-    });
+    // This runs on every load of the link URL, not just one deliberate
+    // "send me a code" action — a second tab, a reload, or (very
+    // commonly) a mail provider/security gateway pre-fetching the link
+    // to scan it before the recipient ever opens the message will all
+    // hit this same branch. status can't be used to dedupe that (it
+    // must stay 'pending' until verify_otp succeeds below, since
+    // request_otp/verify_otp both require 'pending' too), so instead:
+    // if a code from a previous hit is still live, reuse it silently
+    // rather than calling issueOtp again — issueOtp unconditionally
+    // invalidates whatever code is outstanding and emails a new one,
+    // so without this check every re-load sends another email and
+    // kills the code from the one before it. The explicit "Resend"
+    // button (request_otp) is unaffected — it always sends a fresh
+    // code on demand, exactly as it should.
+    const { data: liveOtp } = await supabaseAdmin
+      .from("external_portal_otp_codes")
+      .select("id")
+      .eq("account_id", account.id)
+      .eq("purpose", "registration")
+      .is("verified_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
 
-    if (!otpResult.success) {
-      await logHistory(supabaseAdmin, account.id, account.email, "otp_email_failed", false, otpResult.error ?? null, ip, userAgent);
-      return errorResponse(
-        "We couldn't send your verification code email. Please try again in a moment — if this keeps happening, contact your administrator.",
-        502,
-        "EMAIL_SEND_FAILED",
-      );
+    if (!liveOtp) {
+      const otpResult = await issueOtp(supabaseAdmin, {
+        accountId: account.id,
+        accessLinkId: link.id,
+        destination: account.email,
+        fullName: account.full_name,
+        portalType: account.portal_type,
+        purpose: "registration",
+        settings,
+        ip,
+        userAgent,
+      });
+
+      if (!otpResult.success) {
+        await logHistory(supabaseAdmin, account.id, account.email, "otp_email_failed", false, otpResult.error ?? null, ip, userAgent);
+        return errorResponse(
+          "We couldn't send your verification code email. Please try again in a moment — if this keeps happening, contact your administrator.",
+          502,
+          "EMAIL_SEND_FAILED",
+        );
+      }
     }
 
     return jsonResponse({
@@ -720,8 +745,19 @@ async function bridgeToSupabaseAuth(supabaseAdmin: any, account: {
 
   // Keep the profile in sync with the external_portal_accounts record
   // on every login (name changes, re-links to a different
-  // attorney/expert row, etc. all flow through here).
-  await supabaseAdmin.from("profiles").upsert({
+  // attorney/expert row, etc. all flow through here). This is what
+  // actually gives the person access to their own case data — RLS on
+  // appointments/expert_reports/etc. keys off referring_attorney_id /
+  // expert_id on this row, so a failed upsert here means a "successful"
+  // login that can't see any cases at all, active or closed.
+  // Previously this failed on every single call (account_status below
+  // is not a real column on profiles — profiles only has is_active;
+  // account_status belongs to external_portal_accounts, not this
+  // table) and the result was never checked, so the login proceeded
+  // anyway with a blank, unlinked profile. Both are fixed here: the
+  // bad field is gone, and a failure now hard-stops the login instead
+  // of quietly handing out a session that can't see anything.
+  const { error: profileSyncError } = await supabaseAdmin.from("profiles").upsert({
     id: authUserId,
     email,
     first_name: firstName,
@@ -732,8 +768,10 @@ async function bridgeToSupabaseAuth(supabaseAdmin: any, account: {
     referring_attorney_id: account.portal_type === "attorney" ? account.referring_attorney_id : null,
     expert_id: account.portal_type === "expert" ? account.medical_expert_id : null,
     is_active: true,
-    account_status: "active",
   });
+  if (profileSyncError) {
+    throw new Error(`Could not link portal session to case data: ${profileSyncError.message}`);
+  }
 
   await supabaseAdmin
     .from("user_roles")
