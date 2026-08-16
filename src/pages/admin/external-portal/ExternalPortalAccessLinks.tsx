@@ -172,16 +172,18 @@ const ExternalPortalAccessLinks: React.FC = () => {
         <AdminCardBody>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-              <SelectTrigger className="rounded-none border-black/15 sm:max-w-sm">
+              <SelectTrigger className="w-full rounded-none border-black/15 sm:max-w-sm">
                 <SelectValue placeholder="Select a portal account" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-w-[92vw] sm:max-w-sm">
                 {activeAccounts.length === 0 ? (
                   <div className="px-3 py-2 text-sm text-slate-500">No active accounts — create one under Portal Accounts first.</div>
                 ) : (
                   activeAccounts.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
-                      {a.full_name} — {PORTAL_TYPE_LABEL[a.portal_type]} ({a.email})
+                      <span className="block max-w-full truncate">
+                        {a.full_name} — {PORTAL_TYPE_LABEL[a.portal_type]} ({a.email})
+                      </span>
                     </SelectItem>
                   ))
                 )}
