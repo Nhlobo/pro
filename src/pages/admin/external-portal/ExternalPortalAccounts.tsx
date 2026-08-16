@@ -34,6 +34,7 @@ import { UserPlus, MoreHorizontal, PauseCircle, PlayCircle, XCircle, Trash2, Use
 import { PORTAL_TYPE_LABEL, ACCOUNT_STATUS_LABEL, ACCOUNT_STATUS_TONE, type ExternalPortalType } from '@/types/externalPortal';
 import { formatDateTimeShort } from '@/utils/dateTime';
 import { toast } from 'sonner';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const EMPTY_FORM: CreateExternalPortalAccountInput = {
   portal_type: 'attorney',
@@ -44,6 +45,8 @@ const EMPTY_FORM: CreateExternalPortalAccountInput = {
 };
 
 const ExternalPortalAccounts: React.FC = () => {
+  const { userRole } = usePermissions();
+  const isAdminUser = userRole === 'admin';
   const { data: accounts, isLoading } = useExternalPortalAccounts(false);
   const createAccount = useCreateExternalPortalAccount();
   const setStatus = useSetExternalPortalAccountStatus();
@@ -169,13 +172,17 @@ const ExternalPortalAccounts: React.FC = () => {
                                 <XCircle className="mr-2 h-4 w-4" /> Mark Expired
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => setStatus.mutate({ accountId: a.id, status: 'deleted' })}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" /> Move to Recycle Bin
-                            </DropdownMenuItem>
+                            {isAdminUser && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => setStatus.mutate({ accountId: a.id, status: 'deleted' })}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Move to Recycle Bin
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
