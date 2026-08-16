@@ -33,9 +33,11 @@ import Help from "./pages/legal/Help";
 import ExpertPrivacy from "./pages/expert-portal/legal/ExpertPrivacy";
 import ExpertTerms from "./pages/expert-portal/legal/ExpertTerms";
 import ExpertHelp from "./pages/expert-portal/legal/ExpertHelp";
+import ExpertHelpPortal from "./pages/expert-portal/legal/ExpertHelpPortal";
 import AttorneyPrivacy from "./pages/attorney-portal/legal/AttorneyPrivacy";
 import AttorneyTerms from "./pages/attorney-portal/legal/AttorneyTerms";
 import AttorneyHelp from "./pages/attorney-portal/legal/AttorneyHelp";
+import AttorneyHelpPortal from "./pages/attorney-portal/legal/AttorneyHelpPortal";
 import AdminPortalLayout from "./components/portal/AdminPortalLayout";
 import ExpertPortalLayout from "./components/portal/ExpertPortalLayout";
 
@@ -360,6 +362,7 @@ const App = () => (
 
                 {/* Attorney Portal Routes */}
                 <Route path="/attorney-portal" element={<ProtectedRoute><AttorneyPortalDashboard /></ProtectedRoute>} />
+                <Route path="/attorney-portal/help" element={<ProtectedRoute><AttorneyHelpPortal /></ProtectedRoute>} />
                 <Route path="/attorney-portal/cases" element={<ProtectedRoute><AttorneyMyCases /></ProtectedRoute>} />
                 <Route path="/attorney-portal/case-status" element={<ProtectedRoute><AttorneyCaseStatus /></ProtectedRoute>} />
                 <Route path="/attorney-portal/appointments" element={<ProtectedRoute><AttorneyAppointments /></ProtectedRoute>} />
@@ -371,6 +374,7 @@ const App = () => (
                 
                 {/* ============ EXPERT PORTAL ============ */}
                 <Route path="/expert-portal" element={<ExpertPortalRoute><ExpertDashboard /></ExpertPortalRoute>} />
+                <Route path="/expert-portal/help" element={<ExpertPortalRoute><ExpertHelpPortal /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/cases" element={<ExpertPortalRoute><ExpertCases /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/case/:appointmentId" element={<ExpertPortalRoute><ExpertCaseDetail /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/schedule" element={<ExpertPortalRoute><ExpertSchedule /></ExpertPortalRoute>} />
