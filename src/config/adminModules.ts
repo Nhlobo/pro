@@ -210,6 +210,23 @@ export const ADMIN_MODULES: AdminModule[] = [
     permissions: [{ category: 'User Management' }],
   },
   {
+    key: 'external-portal-access',
+    title: 'Attorney & Expert Portal Access',
+    href: '/admin/external-portal/accounts',
+    group: 'System',
+    icon: KeyRound,
+    description: 'Create portal accounts and send access links to referring attorneys and medical experts',
+    // Deliberately narrower than 'external-portal' above: employees and
+    // consultants get exactly the two screens that replace what the old
+    // Attorney CRM "Portal Links" tab used to do (create access, send the
+    // link) — not sessions, OTP internals, login history, audit logs,
+    // the recycle bin, or settings, which stay admin-only. Admins keep
+    // using the 'external-portal' entry above for the full module; this
+    // is additive, not a replacement, so admin's nav is unchanged.
+    roles: ['employee', 'sales_consultant'],
+    permissions: [{ category: 'User Management' }],
+  },
+  {
     key: 'system-control',
     title: 'System Control',
     href: '/admin/system-control',
