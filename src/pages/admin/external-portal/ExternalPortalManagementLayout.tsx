@@ -73,7 +73,7 @@ const ExternalPortalManagementLayout: React.FC<Props> = ({ children, description
           const tab = TABS.find((t) => t.value === v);
           if (tab) navigate(BASE + tab.path);
         }}>
-          <AdminTabList>
+          <AdminTabList sticky columns={TABS.length}>
             {TABS.map((t) => (
               <AdminTabTrigger key={t.value} value={t.value} label={t.label} icon={t.icon} />
             ))}
