@@ -86,7 +86,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   }, [location.pathname]);
 
   // Routes a sales_consultant is allowed to view inside the admin portal
-  const SC_ALLOWED = ['/admin/appointments', '/admin/finance', '/admin/attorney-crm', '/admin/heatmap', '/admin/my-profile', '/admin/external-portal/accounts', '/admin/external-portal/links'];
+  const SC_ALLOWED = ['/admin/appointments', '/admin/finance', '/admin/attorney-crm', '/admin/sales-dashboard', '/admin/heatmap', '/admin/my-profile', '/admin/external-portal/accounts', '/admin/external-portal/links'];
   const isAllowedForSC = SC_ALLOWED.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
 
   // Routes the finance/director roles are allowed to view inside the
@@ -119,7 +119,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
     }
     if (isSalesConsultant()) {
       if (!isAllowedForSC) {
-        navigate('/admin/appointments', { replace: true });
+        navigate('/admin/sales-dashboard', { replace: true });
       }
       return;
     }
