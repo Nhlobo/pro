@@ -269,7 +269,7 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => 
             </Button>
           )}
           <Button asChild variant="outline" size="sm" className="h-9 shrink-0 gap-2 rounded-none border-black/15 text-black hover:bg-black/5">
-            <Link to="/availability-heatmap">
+            <Link to={embedded ? "/admin/heatmap" : "/availability-heatmap"}>
               <MapPin className="h-4 w-4" />
               Availability Heatmap
             </Link>
