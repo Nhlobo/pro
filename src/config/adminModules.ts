@@ -64,6 +64,16 @@ export const ADMIN_MODULES: AdminModule[] = [
     permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
   },
   {
+    key: 'sales-dashboard',
+    title: 'Sales Dashboard',
+    href: '/admin/sales-dashboard',
+    group: 'Core',
+    icon: BarChart3,
+    description: 'Personal targets, incentives & deal tracking for sales consultants',
+    roles: ['admin', 'employee', 'sales_consultant'],
+    permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
+  },
+  {
     key: 'experts',
     title: 'Expert Network',
     href: '/admin/experts',
