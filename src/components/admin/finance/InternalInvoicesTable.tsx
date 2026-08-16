@@ -151,7 +151,12 @@ export default function InternalInvoicesTable() {
   const [searchDraft, setSearchDraft] = useState('');
   const [search, setSearch] = useState('');
   const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<string>('all');
-  const [deliveryStatusFilter, setDeliveryStatusFilter] = useState<string>('all');
+  // Defaults to "Emailed" (delivery status 'success') on open — this is
+  // the view finance staff actually want first: "did this invoice
+  // auto-send correctly." All other states (Not queued/Pending/
+  // Processing/Failed) are one dropdown change away, never hidden or
+  // removed — see the deliveryStatusFilter <Select> options below.
+  const [deliveryStatusFilter, setDeliveryStatusFilter] = useState<string>('success');
   const [page, setPage] = useState(1);
 
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
@@ -319,7 +324,11 @@ export default function InternalInvoicesTable() {
       <AdminCardHeader
         icon={Receipt}
         title="Internal Invoices"
-        description={`${filteredItems.length} invoice${filteredItems.length === 1 ? '' : 's'}`}
+        description={
+          deliveryStatusFilter === 'all'
+            ? `${filteredItems.length} invoice${filteredItems.length === 1 ? '' : 's'}`
+            : `${filteredItems.length} ${deliveryStatusLabel(deliveryStatusFilter as InvoiceListItem['deliveryStatus']).toLowerCase()} invoice${filteredItems.length === 1 ? '' : 's'} — showing "${deliveryStatusLabel(deliveryStatusFilter as InvoiceListItem['deliveryStatus'])}" only`
+        }
       />
 
       <AdminCardBody className="flex flex-col gap-3 border-b border-black/10 sm:flex-row sm:items-center">
@@ -384,8 +393,12 @@ export default function InternalInvoicesTable() {
       ) : filteredItems.length === 0 ? (
         <AdminEmptyState
           icon={FileText}
-          title="No invoices found"
-          description="Invoices appear here automatically once a report is delivered and reconciled."
+          title={deliveryStatusFilter === 'all' ? 'No invoices found' : `No "${deliveryStatusLabel(deliveryStatusFilter as InvoiceListItem['deliveryStatus'])}" invoices`}
+          description={
+            deliveryStatusFilter === 'all'
+              ? 'Invoices appear here automatically once a report is delivered and reconciled.'
+              : 'Try "All delivery states" to see invoices in other stages, such as those not yet queued.'
+          }
         />
       ) : (
         <>
