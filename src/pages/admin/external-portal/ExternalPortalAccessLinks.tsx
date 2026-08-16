@@ -16,6 +16,7 @@ import { Link2, Copy, Ban, Send, Loader2, CheckCircle2, XCircle } from 'lucide-r
 import { PORTAL_TYPE_LABEL } from '@/types/externalPortal';
 import { formatDateTimeShort } from '@/utils/dateTime';
 import { toast } from 'sonner';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const LINK_STATUS_TONE: Record<string, 'success' | 'neutral' | 'warning' | 'destructive'> = {
   pending: 'success',
@@ -25,6 +26,8 @@ const LINK_STATUS_TONE: Record<string, 'success' | 'neutral' | 'warning' | 'dest
 };
 
 const ExternalPortalAccessLinks: React.FC = () => {
+  const { userRole } = usePermissions();
+  const isAdminUser = userRole === 'admin';
   const { data: accounts } = useExternalPortalAccounts(false);
   const { data: links, isLoading } = useExternalPortalAccessLinks();
   const generateLink = useGenerateExternalPortalLink();
@@ -76,7 +79,8 @@ const ExternalPortalAccessLinks: React.FC = () => {
     <ExternalPortalManagementLayout>
       <Helmet><title>External Portal Management — Access Links</title></Helmet>
 
-      <AdminCard className="mt-4">
+      {isAdminUser && (
+        <AdminCard className="mt-4">
         <AdminCardHeader
           title="Bulk Activation"
           description="Send the one-time activation email to every active account still waiting on it — same link, same email, just for everyone at once."
@@ -166,24 +170,23 @@ const ExternalPortalAccessLinks: React.FC = () => {
           )}
         </AdminCardBody>
       </AdminCard>
+      )}
 
       <AdminCard className="mt-4">
         <AdminCardHeader title="Generate an Access Link" description="Emails a one-time registration link to the account's address." icon={Link2} />
         <AdminCardBody>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-              <SelectTrigger className="w-full rounded-none border-black/15 sm:max-w-sm">
+              <SelectTrigger className="rounded-none border-black/15 sm:max-w-sm">
                 <SelectValue placeholder="Select a portal account" />
               </SelectTrigger>
-              <SelectContent className="max-w-[92vw] sm:max-w-sm">
+              <SelectContent>
                 {activeAccounts.length === 0 ? (
                   <div className="px-3 py-2 text-sm text-slate-500">No active accounts — create one under Portal Accounts first.</div>
                 ) : (
                   activeAccounts.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
-                      <span className="block max-w-full truncate">
-                        {a.full_name} — {PORTAL_TYPE_LABEL[a.portal_type]} ({a.email})
-                      </span>
+                      {a.full_name} — {PORTAL_TYPE_LABEL[a.portal_type]} ({a.email})
                     </SelectItem>
                   ))
                 )}
