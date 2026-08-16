@@ -86,7 +86,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   }, [location.pathname]);
 
   // Routes a sales_consultant is allowed to view inside the admin portal
-  const SC_ALLOWED = ['/admin/appointments', '/admin/finance', '/admin/attorney-crm', '/admin/heatmap', '/admin/my-profile'];
+  const SC_ALLOWED = ['/admin/appointments', '/admin/finance', '/admin/attorney-crm', '/admin/heatmap', '/admin/my-profile', '/admin/external-portal/accounts', '/admin/external-portal/links'];
   const isAllowedForSC = SC_ALLOWED.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
 
   // Routes the finance/director roles are allowed to view inside the
@@ -96,9 +96,17 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   const FINANCE_ROLE_ALLOWED = ['/admin/finance'];
   const isAllowedForFinanceRole = FINANCE_ROLE_ALLOWED.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
 
-  // Routes restricted to administrators only — company employees cannot access
+  // Routes restricted to administrators only — company employees cannot access.
+  // /admin/external-portal/accounts and /admin/external-portal/links are
+  // carved out below: employees (and sales consultants, via SC_ALLOWED
+  // above) can create portal accounts and send access links — the same
+  // two things the old Attorney CRM "Portal Links" tab let them do —
+  // without opening up sessions, OTP internals, login history, audit
+  // logs, the recycle bin, or settings, which stay admin-only.
   const ADMIN_ONLY_ROUTES = ['/admin/analytics', '/admin/iam', '/admin/system-control', '/admin/external-portal'];
-  const isAdminOnlyRoute = ADMIN_ONLY_ROUTES.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
+  const EMPLOYEE_EXCEPTIONS = ['/admin/external-portal/accounts', '/admin/external-portal/links'];
+  const isAdminOnlyRoute = ADMIN_ONLY_ROUTES.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'))
+    && !EMPLOYEE_EXCEPTIONS.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
 
   React.useEffect(() => {
     if (loading) return;
