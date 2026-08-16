@@ -8,9 +8,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Target, Users } from "lucide-react";
 import CompanyFooter from "@/components/CompanyFooter";
-import SalesConsultantStats from "@/components/SalesConsultantStats";
 import DashboardStatsGrid from "@/components/dashboard/DashboardStatsGrid";
 import RecentActivityCard from "@/components/dashboard/RecentActivityCard";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -49,6 +47,15 @@ const Index = () => {
       navigate("/admin", { replace: true });
     }
   }, [loading, admin, referringAttorney, navigate]);
+
+  // Sales consultants get their own module inside the same Admin Portal
+  // shell (sidebar + header) that admin/employee users use, rather than
+  // landing on this generic dashboard first and having to click through.
+  useEffect(() => {
+    if (!loading && salesConsultant) {
+      navigate("/admin/sales-dashboard", { replace: true });
+    }
+  }, [loading, salesConsultant, navigate]);
 
   // Medical experts have their own portal — previously this role had no
   // redirect here at all, so a medical expert who ever landed on /dashboard
@@ -111,6 +118,12 @@ const Index = () => {
     return <BrandedPageLoader message="Loading…" />;
   }
 
+  // Same treatment for sales consultants — being redirected to
+  // /admin/sales-dashboard by the effect above.
+  if (salesConsultant) {
+    return <BrandedPageLoader message="Loading…" />;
+  }
+
   // Role genuinely couldn't be resolved even after retries. Every account in
   // this system is created by an administrator with a role attached, so this
   // means something is actually wrong with this account's setup — show that
@@ -163,48 +176,16 @@ const Index = () => {
           <div className="container mx-auto px-4 py-8 space-y-8">
             <WelcomeSection onRefresh={handleRefresh} refreshing={refreshing} />
 
-            {salesConsultant && userProfile?.first_name && (
-              <Card className="bg-gradient-card border-border/50 shadow-soft">
-                <CardHeader>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Target className="h-5 w-5 text-primary" />
-                        Welcome back, {userProfile.first_name}!
-                      </CardTitle>
-                      <CardDescription className="mt-1">
-                        Your personal sales performance — Deals Closed are pulled live from Scheduled Assessment
-                        Appointments and stay in sync with the Sales Dashboard and Attorney Pitchlog.
-                      </CardDescription>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => navigate("/sales-dashboard")} className="gap-1">
-                        <BarChart3 className="h-4 w-4" /> My Sales Dashboard
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => navigate("/attorney-pitchlog")} className="gap-1">
-                        <Users className="h-4 w-4" /> Attorney Pitchlog
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <SalesConsultantStats firstName={userProfile.first_name} lastName={userProfile.last_name} />
-                </CardContent>
-              </Card>
-            )}
-
-            {!salesConsultant && <DashboardStatsGrid stats={stats} loading={statsLoading} />}
+            <DashboardStatsGrid stats={stats} loading={statsLoading} />
 
             <DashboardMenus />
 
-            {!salesConsultant && (
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <WorkflowAlertsCard />
-                <QuickActionsCard />
-                <RecentActivityCard />
-                <HelpSupportCard />
-              </div>
-            )}
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <WorkflowAlertsCard />
+              <QuickActionsCard />
+              <RecentActivityCard />
+              <HelpSupportCard />
+            </div>
           </div>
         </div>
 
