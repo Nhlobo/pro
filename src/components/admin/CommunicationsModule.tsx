@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { FileText, FileQuestion, Send, Search, Loader2 } from 'lucide-react';
 
 interface RecipientInfo {
@@ -18,7 +19,25 @@ interface RecipientInfo {
   type: 'attorney' | 'expert';
 }
 
+// Send-Report-specific: a real, selected expert_reports row, joined to
+// its appointment / claimant / referring attorney / expert exactly the
+// way AdminReportManagement.tsx already does it. This is scoped to the
+// Send Report card only — Request Document and New Instruction are
+// untouched and keep using RecipientInfo/selectedRecipient as before.
+interface ReportSearchResult {
+  expertReportId: string;
+  appointmentId: string | null;
+  claimantName: string;
+  expertName: string;
+  reportStatus: string;
+  appointmentDate: string | null;
+  referringAttorneyId: string | null;
+  referringAttorneyName: string;
+  referringAttorneyEmail: string;
+}
+
 const CommunicationsModule: React.FC = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('send-report');
   const [searchQuery, setSearchQuery] = useState('');
   const [recipientType, setRecipientType] = useState<'attorney' | 'expert'>('attorney');
@@ -30,6 +49,15 @@ const CommunicationsModule: React.FC = () => {
   const [documentTypes, setDocumentTypes] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isSending, setIsSending] = useState(false);
+
+  // Send-Report-specific state — separate from searchQuery/searchResults/
+  // selectedRecipient above so Request Document and New Instruction are
+  // never affected by anything below.
+  const [reportSearchQuery, setReportSearchQuery] = useState('');
+  const [isSearchingReports, setIsSearchingReports] = useState(false);
+  const [reportSearchResults, setReportSearchResults] = useState<ReportSearchResult[]>([]);
+  const [selectedReport, setSelectedReport] = useState<ReportSearchResult | null>(null);
+  const [reportAttorneyEmail, setReportAttorneyEmail] = useState('');
 
   const searchRecipients = async () => {
     if (!searchQuery.trim()) return;
@@ -83,6 +111,92 @@ const CommunicationsModule: React.FC = () => {
     setSearchResults([]);
   };
 
+  // Send-Report-specific search: real expert_reports rows, joined to
+  // appointments/claimants/referring_attorneys/medical_experts exactly
+  // like AdminReportManagement.tsx's fetchReports() does. Search is
+  // client-side over a bounded, most-recently-updated batch — the same
+  // "fetch a bounded batch, filter client-side" approach already used
+  // for the Internal Invoices tab — rather than a fragile multi-level
+  // nested PostgREST .or() filter across two joined tables.
+  const searchReports = async () => {
+    const term = reportSearchQuery.trim().toLowerCase();
+    if (!term) return;
+    setIsSearchingReports(true);
+    try {
+      const { data, error } = await supabase
+        .from('expert_reports')
+        .select(`
+          id, report_status, appointment_id,
+          claimants(first_name, last_name),
+          medical_experts(first_name, last_name),
+          appointments(referring_attorney_id, appointment_date, referring_attorneys(name, email))
+        `)
+        .order('updated_at', { ascending: false })
+        .limit(300);
+      if (error) throw error;
+
+      const mapped: ReportSearchResult[] = (data || []).map((r: any) => {
+        const claimantName = r.claimants ? `${r.claimants.first_name ?? ''} ${r.claimants.last_name ?? ''}`.trim() : '';
+        const expertName = r.medical_experts ? `${r.medical_experts.first_name ?? ''} ${r.medical_experts.last_name ?? ''}`.trim() : '';
+        return {
+          expertReportId: r.id,
+          appointmentId: r.appointment_id,
+          claimantName,
+          expertName,
+          reportStatus: r.report_status,
+          appointmentDate: r.appointments?.appointment_date || null,
+          referringAttorneyId: r.appointments?.referring_attorney_id || null,
+          referringAttorneyName: r.appointments?.referring_attorneys?.name || '',
+          referringAttorneyEmail: r.appointments?.referring_attorneys?.email || '',
+        };
+      });
+
+      const filtered = mapped.filter(
+        (r) =>
+          r.claimantName.toLowerCase().includes(term) ||
+          r.referringAttorneyName.toLowerCase().includes(term) ||
+          r.expertName.toLowerCase().includes(term),
+      ).slice(0, 20);
+
+      setReportSearchResults(filtered);
+      if (filtered.length === 0) {
+        toast({ title: 'No matching reports found', description: 'Try a different claimant, attorney, or expert name.' });
+      }
+    } catch (error: any) {
+      toast({ title: 'Report search failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSearchingReports(false);
+    }
+  };
+
+  const handleSelectReport = (r: ReportSearchResult) => {
+    setSelectedReport(r);
+    setReportSearchResults([]);
+    setReportAttorneyEmail(r.referringAttorneyEmail || '');
+  };
+
+  // Point 17: a stale selected report must never remain attached once
+  // the search text changes — clear it (and the email field that was
+  // seeded from it) rather than let it silently keep pointing at a
+  // report that no longer matches what's on screen.
+  const handleReportSearchQueryChange = (value: string) => {
+    setReportSearchQuery(value);
+    if (selectedReport) {
+      setSelectedReport(null);
+      setReportAttorneyEmail('');
+    }
+  };
+
+  const resetReportForm = () => {
+    setSelectedReport(null);
+    setReportSearchQuery('');
+    setReportSearchResults([]);
+    setReportAttorneyEmail('');
+    setSubject('');
+    setMessage('');
+    setCaseReference('');
+  };
+
   const queueEmail = async (emailType: string, htmlContent: string, emailSubject: string) => {
     if (!selectedRecipient) {
       toast({ title: 'No recipient selected', variant: 'destructive' });
@@ -134,23 +248,133 @@ const CommunicationsModule: React.FC = () => {
     }
   };
 
-  const handleSendReport = () => {
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1fb6ce; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Report Delivery</h2>
-        <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <p><strong>Recipient:</strong> ${selectedRecipient?.name}</p>
-          ${caseReference ? `<p><strong>Case Reference:</strong> ${caseReference}</p>` : ''}
+  const handleSendReport = async () => {
+    // a. Validate a report is selected.
+    if (!selectedReport) {
+      toast({ title: 'Select a report', description: 'Search for and select the specific report you want to send.', variant: 'destructive' });
+      return;
+    }
+    // b. Validate an attorney is selected (from the selected report).
+    if (!selectedReport.referringAttorneyId) {
+      toast({
+        title: 'No referring attorney on file',
+        description: 'This report has no linked referring attorney, so delivery cannot be recorded. Please fix the appointment record first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    // c. Validate recipient email is not empty.
+    const recipientEmail = reportAttorneyEmail.trim();
+    if (!recipientEmail) {
+      toast({ title: 'Recipient email required', description: "Enter the attorney's email address before sending.", variant: 'destructive' });
+      return;
+    }
+
+    setIsSending(true);
+    try {
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1fb6ce; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Report Delivery</h2>
+          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <p><strong>Claimant:</strong> ${selectedReport.claimantName}</p>
+            <p><strong>Recipient:</strong> ${selectedReport.referringAttorneyName || recipientEmail}</p>
+            ${caseReference ? `<p><strong>Case Reference:</strong> ${caseReference}</p>` : ''}
+          </div>
+          <div style="padding: 15px 0;">
+            <p>${message || 'Please find the attached report for your review.'}</p>
+          </div>
+          <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; margin-top: 20px;">
+            <p style="margin: 0; font-size: 13px; color: #64748b;">This is an automated notification from KA Medico-Legal. Please do not reply directly to this email.</p>
+          </div>
         </div>
-        <div style="padding: 15px 0;">
-          <p>${message || 'Please find the attached report for your review.'}</p>
-        </div>
-        <div style="background-color: #f1f5f9; padding: 15px; border-radius: 8px; margin-top: 20px;">
-          <p style="margin: 0; font-size: 13px; color: #64748b;">This is an automated notification from KA Medico-Legal. Please do not reply directly to this email.</p>
-        </div>
-      </div>
-    `;
-    queueEmail('report_delivery', html, subject || `Report Delivery${caseReference ? ` - ${caseReference}` : ''}`);
+      `;
+      const emailSubject = subject || `Report Delivery${caseReference ? ` - ${caseReference}` : ''}`;
+
+      // d. Queue/send the email using the existing email_queue and
+      // auto-send-queued-email flow — same mechanism as queueEmail()
+      // above, kept separate here rather than extended, so Request
+      // Document and New Instruction are never touched by this change.
+      const { data: inserted, error: queueError } = await supabase.from('email_queue').insert({
+        email_type: 'report_delivery',
+        recipient_email: recipientEmail,
+        recipient_name: selectedReport.referringAttorneyName || recipientEmail,
+        subject: emailSubject,
+        html_content: html,
+        status: 'sending',
+        metadata: {
+          recipient_type: 'attorney',
+          case_reference: caseReference,
+          communication_type: 'report_delivery',
+          expert_report_id: selectedReport.expertReportId,
+        },
+      }).select('id').single();
+      if (queueError) throw queueError;
+
+      let sendSucceeded = false;
+      if (inserted?.id) {
+        const { data: sendResult } = await supabase.functions.invoke('auto-send-queued-email', { body: { emailId: inserted.id } });
+        sendSucceeded = !!sendResult?.success;
+        if (!sendSucceeded) {
+          console.error('Auto-send failed for report delivery (Communications "Send Report")');
+        }
+      }
+
+      if (!sendSucceeded) {
+        toast({
+          title: 'Failed to send report email',
+          description: 'The email could not be sent, so no delivery record was created.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      await supabase.from('audit_logs').insert({
+        table_name: 'email_queue',
+        action_type: 'COMMUNICATION_QUEUED',
+        function_area: 'communications',
+        description: `report_delivery queued for attorney: ${selectedReport.referringAttorneyName} (${recipientEmail})`,
+        new_values: {
+          email_type: 'report_delivery',
+          recipient: selectedReport.referringAttorneyName,
+          case_reference: caseReference,
+          expert_report_id: selectedReport.expertReportId,
+        },
+      });
+
+      // e. Only after the email send succeeds: insert report_deliveries.
+      // This is the exact same insert shape already used correctly in
+      // ReportManagement.tsx / AdminReportManagement.tsx, and the only
+      // thing that starts the existing, unmodified
+      // handle_report_delivery_billing() trigger — previously absent
+      // from this specific flow entirely.
+      const { error: deliveryError } = await supabase.from('report_deliveries').insert({
+        expert_report_id: selectedReport.expertReportId,
+        delivered_to_attorney_id: selectedReport.referringAttorneyId,
+        delivery_method: 'email',
+        delivered_by: user?.id || null,
+        notes: `Email sent via Communications: ${emailSubject}`,
+      });
+
+      if (deliveryError) {
+        // The email genuinely sent — do not pretend the whole operation
+        // failed, but do not hide this either: invoice automation will
+        // not start for this report until it's recorded manually.
+        console.error('Failed to record report_deliveries after sending email (Communications "Send Report"):', deliveryError);
+        toast({
+          title: 'Email sent, but delivery not recorded',
+          description: 'The report email was sent, but the delivery record failed to save, so automatic invoicing will not start for this report. Please record the delivery manually via Report Management.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'Report sent successfully', description: 'The report email was sent and the delivery has been recorded.' });
+      }
+
+      resetReportForm();
+    } catch (error: any) {
+      toast({ title: 'Failed to send report', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleRequestDocument = () => {
@@ -278,10 +502,74 @@ const CommunicationsModule: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Send Report</CardTitle>
-              <CardDescription>Deliver a report to a referring attorney or medical expert</CardDescription>
+              <CardDescription>Deliver a report to a referring attorney — search for and select the specific report</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <RecipientSearch />
+              <div className="space-y-4">
+                <div>
+                  <Label>Search Report (claimant, attorney, or expert name)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Search by claimant, attorney, or expert name..."
+                      value={reportSearchQuery}
+                      onChange={(e) => handleReportSearchQueryChange(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && searchReports()}
+                    />
+                    <Button variant="outline" size="icon" onClick={searchReports} disabled={isSearchingReports}>
+                      {isSearchingReports ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+
+                {selectedReport && (
+                  <div className="flex flex-col gap-1 p-3 rounded-lg border border-primary/30 bg-primary/5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary">Report Selected</Badge>
+                      <span className="font-medium text-sm">{selectedReport.claimantName || 'Unnamed claimant'}</span>
+                      <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={() => { setSelectedReport(null); setReportAttorneyEmail(''); }}>Change</Button>
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-0.5">
+                      <p>Referring attorney: {selectedReport.referringAttorneyName || 'None on file'}</p>
+                      <p>Expert: {selectedReport.expertName || '—'}</p>
+                      <p>Appointment date: {selectedReport.appointmentDate ? new Date(selectedReport.appointmentDate).toLocaleDateString() : '—'}</p>
+                      <p>Report status: {selectedReport.reportStatus?.replace(/_/g, ' ')}</p>
+                    </div>
+                  </div>
+                )}
+
+                {!selectedReport && reportSearchResults.length > 0 && (
+                  <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
+                    {reportSearchResults.map((r) => (
+                      <button
+                        key={r.expertReportId}
+                        className="w-full text-left px-4 py-2.5 hover:bg-muted/50 transition-colors"
+                        onClick={() => handleSelectReport(r)}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium">{r.claimantName || 'Unnamed claimant'}</p>
+                          <Badge variant="outline" className="text-[10px] shrink-0">{r.reportStatus?.replace(/_/g, ' ')}</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Attorney: {r.referringAttorneyName || 'None on file'}
+                          {r.appointmentDate ? ` • ${new Date(r.appointmentDate).toLocaleDateString()}` : ''}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {selectedReport && (
+                  <div>
+                    <Label>Attorney Email</Label>
+                    <Input
+                      placeholder="attorney@example.com"
+                      value={reportAttorneyEmail}
+                      onChange={(e) => setReportAttorneyEmail(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Case Reference</Label>
@@ -296,9 +584,9 @@ const CommunicationsModule: React.FC = () => {
                 <Label>Message (optional)</Label>
                 <Textarea placeholder="Add a message to accompany the report..." value={message} onChange={(e) => setMessage(e.target.value)} rows={4} />
               </div>
-              <Button onClick={handleSendReport} disabled={!selectedRecipient || isSending} className="gradient-teal w-full border sm:w-auto">
+              <Button onClick={handleSendReport} disabled={!selectedReport || !reportAttorneyEmail.trim() || isSending} className="gradient-teal w-full border sm:w-auto">
                 {isSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-                Queue Report Email
+                Send Report Email
               </Button>
             </CardContent>
           </Card>
