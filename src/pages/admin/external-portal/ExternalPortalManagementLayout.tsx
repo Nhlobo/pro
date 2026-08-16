@@ -7,6 +7,7 @@ import {
   AdminTabList,
   AdminTabTrigger,
 } from '@/components/admin/ui/AdminUI';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   LayoutDashboard,
   Users,
@@ -30,15 +31,15 @@ import {
  */
 
 const TABS = [
-  { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '' },
-  { value: 'accounts', label: 'Portal Accounts', icon: Users, path: '/accounts' },
-  { value: 'links', label: 'Access Links', icon: Link2, path: '/links' },
-  { value: 'sessions', label: 'Active Sessions', icon: Radio, path: '/sessions' },
-  { value: 'otp', label: 'OTP Management', icon: KeyRound, path: '/otp' },
-  { value: 'login-history', label: 'Login History', icon: History, path: '/login-history' },
-  { value: 'audit-logs', label: 'Audit Logs', icon: ScrollText, path: '/audit-logs' },
-  { value: 'recycle-bin', label: 'Recycle Bin', icon: Trash2, path: '/recycle-bin' },
-  { value: 'settings', label: 'Settings', icon: SettingsIcon, path: '/settings' },
+  { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '', adminOnly: true },
+  { value: 'accounts', label: 'Portal Accounts', icon: Users, path: '/accounts', adminOnly: false },
+  { value: 'links', label: 'Access Links', icon: Link2, path: '/links', adminOnly: false },
+  { value: 'sessions', label: 'Active Sessions', icon: Radio, path: '/sessions', adminOnly: true },
+  { value: 'otp', label: 'OTP Management', icon: KeyRound, path: '/otp', adminOnly: true },
+  { value: 'login-history', label: 'Login History', icon: History, path: '/login-history', adminOnly: true },
+  { value: 'audit-logs', label: 'Audit Logs', icon: ScrollText, path: '/audit-logs', adminOnly: true },
+  { value: 'recycle-bin', label: 'Recycle Bin', icon: Trash2, path: '/recycle-bin', adminOnly: true },
+  { value: 'settings', label: 'Settings', icon: SettingsIcon, path: '/settings', adminOnly: true },
 ] as const;
 
 const BASE = '/admin/external-portal';
@@ -51,10 +52,18 @@ interface Props {
 const ExternalPortalManagementLayout: React.FC<Props> = ({ children, description }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { userRole } = usePermissions();
+
+  // Employees and sales consultants can only ever land on Portal
+  // Accounts or Access Links (AdminPortalLayout's route guard sends
+  // them elsewhere for anything else) — so for them the strip only
+  // shows those two tabs, instead of all nine with seven of them
+  // silently bouncing back out if clicked.
+  const visibleTabs = userRole === 'admin' ? TABS : TABS.filter((t) => !t.adminOnly);
 
   const activeTab =
-    TABS.find((t) => (t.path ? location.pathname === BASE + t.path : location.pathname === BASE))?.value ||
-    'dashboard';
+    visibleTabs.find((t) => (t.path ? location.pathname === BASE + t.path : location.pathname === BASE))?.value ||
+    visibleTabs[0]?.value;
 
   return (
     <div className="brand-legal-theme">
@@ -70,11 +79,11 @@ const ExternalPortalManagementLayout: React.FC<Props> = ({ children, description
         />
 
         <Tabs value={activeTab} onValueChange={(v) => {
-          const tab = TABS.find((t) => t.value === v);
+          const tab = visibleTabs.find((t) => t.value === v);
           if (tab) navigate(BASE + tab.path);
         }}>
-          <AdminTabList sticky columns={TABS.length}>
-            {TABS.map((t) => (
+          <AdminTabList>
+            {visibleTabs.map((t) => (
               <AdminTabTrigger key={t.value} value={t.value} label={t.label} icon={t.icon} />
             ))}
           </AdminTabList>
