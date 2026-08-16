@@ -265,6 +265,7 @@ const App = () => (
                 {/* ============ ADMIN PORTAL ============ */}
                 <Route path="/admin" element={<AdminPortalRoute><AdminOperationsDashboard /></AdminPortalRoute>} />
                 <Route path="/admin/attorney-crm" element={<AdminPortalRoute><AdminAttorneyCRM /></AdminPortalRoute>} />
+                <Route path="/admin/sales-dashboard" element={<AdminPortalRoute><SalesDashboard embedded /></AdminPortalRoute>} />
                 <Route path="/admin/experts" element={<AdminPortalRoute><AdminExpertNetwork /></AdminPortalRoute>} />
                 <Route path="/admin/find-experts" element={<AdminPortalRoute><AdminFindExperts /></AdminPortalRoute>} />
                 
@@ -354,8 +355,11 @@ const App = () => (
                 <Route path="/attorney-pitchlog" element={<ProtectedRoute><PermissionProtectedRoute permission={["admin_only", "attorney_pitchlog"]}><AttorneyPitchlog /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/attorney-referral-intelligence" element={<ProtectedRoute><PermissionProtectedRoute permission={["admin_only", "view_analytics"]}><AttorneyReferralIntelligence /></PermissionProtectedRoute></ProtectedRoute>} />
                 
-                {/* Sales Incentive Routes */}
-                <Route path="/sales-dashboard" element={<ProtectedRoute><div className="min-h-screen bg-background"><div className="container mx-auto p-4 md:p-6"><SalesDashboard /></div></div></ProtectedRoute>} />
+                {/* Sales Incentive Routes — now lives inside the Admin Portal shell at
+                    /admin/sales-dashboard (same sidebar/header as every other admin
+                    module). This path is kept as a redirect so old bookmarks/links
+                    keep working. */}
+                <Route path="/sales-dashboard" element={<Navigate to="/admin/sales-dashboard" replace />} />
 
                 {/* National Availability Heatmap — accessible to all authenticated users (incl. sales consultants & non-consultants) */}
                 <Route path="/availability-heatmap" element={<ProtectedRoute><div className="min-h-screen bg-background"><div className="container mx-auto p-4 md:p-6"><AdminHeatmap /></div></div></ProtectedRoute>} />
