@@ -40,6 +40,21 @@ export interface AdminModule {
   roles?: string[];
   /** Backing function-permission categories used by IAM. */
   permissions: Array<{ category: string; functionName?: string }>;
+  /**
+   * Roles for which this module is a guaranteed default/core page — always
+   * accessible even if the admin hasn't (or has un-)granted its backing
+   * permissions. Every role in `roles` still needs *some* core page so it
+   * always has somewhere to land; everything else for that role is gated
+   * by the permissions above. Has no effect for admin/employee, who bypass
+   * module gating entirely.
+   */
+  core?: string[];
+  /**
+   * Extra paths that should be treated as part of this module for nav
+   * highlighting and route-guard purposes, beyond `href` and its
+   * sub-routes (e.g. a paired screen that doesn't nest under href).
+   */
+  aliasPaths?: string[];
 }
 
 export const ADMIN_MODULES: AdminModule[] = [
@@ -72,6 +87,10 @@ export const ADMIN_MODULES: AdminModule[] = [
     description: 'Personal targets, incentives & deal tracking for sales consultants',
     roles: ['admin', 'employee', 'sales_consultant'],
     permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
+    // A sales consultant's home base — always reachable so they're never
+    // locked out of the portal entirely, even with every other module
+    // revoked.
+    core: ['sales_consultant'],
   },
   {
     key: 'experts',
@@ -157,6 +176,9 @@ export const ADMIN_MODULES: AdminModule[] = [
     description: 'AOD, debtors, payments, agreements, internal invoices',
     roles: ['admin', 'employee', 'sales_consultant', 'finance', 'director'],
     permissions: [{ category: 'Case Management', functionName: 'AOD Management' }],
+    // Home base for finance/director — mirrors the sales-dashboard 'core'
+    // carve-out above so those roles always have somewhere to land.
+    core: ['finance', 'director'],
   },
   {
     key: 'expert-payment-planner',
@@ -235,6 +257,10 @@ export const ADMIN_MODULES: AdminModule[] = [
     // is additive, not a replacement, so admin's nav is unchanged.
     roles: ['employee', 'sales_consultant'],
     permissions: [{ category: 'User Management' }],
+    // The old Attorney CRM "Portal Links" tab this replaces was really two
+    // screens (create account, send link) that live at two different
+    // routes — both belong to the same grant.
+    aliasPaths: ['/admin/external-portal/links'],
   },
   {
     key: 'system-control',
@@ -287,14 +313,9 @@ export const ADMIN_MODULE_GROUP_ORDER: AdminModuleGroup[] = [
   'Account',
 ];
 
-/** Sidebar-shaped grouping (excludes Account modules with no permissions if desired). */
-export const getNavigationGroups = () =>
-  ADMIN_MODULE_GROUP_ORDER.map(group => ({
-    label: group,
-    items: ADMIN_MODULES.filter(m => m.group === group).map(m => ({
-      title: m.title,
-      href: m.href,
-      icon: m.icon,
-      roles: m.roles,
-    })),
-  })).filter(g => g.items.length > 0);
+// Note: sidebar grouping is now built from ADMIN_MODULES directly by
+// useModuleAccess + AdminPortalLayout, filtered through each user's actual
+// granted permissions (see @/lib/moduleAccess). There is deliberately no
+// role-only "getNavigationGroups" helper here anymore — a nav list built
+// from `roles` alone, without the permission check, is exactly the kind of
+// second, drifting source of truth this file exists to prevent.
