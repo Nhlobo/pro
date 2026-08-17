@@ -50,6 +50,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { useFunctionPermissions, GroupedPermissions, PREDEFINED_FUNCTIONS } from '@/hooks/useFunctionPermissions';
 import { UserProfile, usePermissions } from '@/hooks/usePermissions';
+import { resolveModuleFunctions } from '@/lib/moduleAccess';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -358,22 +359,9 @@ const FunctionPermissionsManager: React.FC<FunctionPermissionsManagerProps> = ({
     }
   };
 
-  /** Resolve all (category, functionName) pairs that back a module. */
-  const resolveModuleFunctions = (mod: ModuleDef): Array<{ category: string; functionName: string }> => {
-    const result: Array<{ category: string; functionName: string }> = [];
-    mod.permissions.forEach(p => {
-      const categoryFns = PREDEFINED_FUNCTIONS[p.category];
-      if (!categoryFns) return;
-      if (p.functionName) {
-        if (categoryFns[p.functionName]) {
-          result.push({ category: p.category, functionName: p.functionName });
-        }
-      } else {
-        Object.keys(categoryFns).forEach(fn => result.push({ category: p.category, functionName: fn }));
-      }
-    });
-    return result;
-  };
+  // resolveModuleFunctions now lives in @/lib/moduleAccess so the runtime
+  // nav/route guard (useModuleAccess) resolves modules the exact same way
+  // this editor does — one definition of "what backs a module," not two.
 
   const isModuleEnabled = (mod: ModuleDef): boolean => {
     const fns = resolveModuleFunctions(mod);
