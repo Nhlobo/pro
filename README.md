@@ -7,7 +7,12 @@ frontend and **Supabase** (Postgres + RLS + Edge Functions) on the backend.
 - Preview: <https://id-preview--d782484e-4dde-4502-9b59-ffe68f3de0a7.lovable.app>
 - Production: <https://kamedico-legal.co.za>
 - Lovable project: <https://lovable.dev/projects/d782484e-4dde-4502-9b59-ffe68f3de0a7>
+Restoration in progress
 
+Restoration can take from a few minutes up to several hours depending on the size of your database. Your project will be offline while the restoration is running.
+
+
+Dow
 ---
 
 ## Table of contents
