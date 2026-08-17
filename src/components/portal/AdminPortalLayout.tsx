@@ -41,14 +41,9 @@ interface AdminPortalLayoutProps {
   children: React.ReactNode;
 }
 
-// Roles allowed per nav item. `undefined` = admin/employee only (default).
-type NavItem = { title: string; href: string; icon: any; roles?: string[] };
-type NavGroup = { label: string; items: NavItem[] };
-
-import { getNavigationGroups, ADMIN_MODULES } from '@/config/adminModules';
+import { ADMIN_MODULES, ADMIN_MODULE_GROUP_ORDER, type AdminModuleGroup } from '@/config/adminModules';
 import { useFunctionPermissionIndexCheck } from '@/hooks/useFunctionPermissionIndexCheck';
-
-const navigationGroups: NavGroup[] = getNavigationGroups();
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 
 const PAGE_TITLE_BY_PATH: Record<string, string> = ADMIN_MODULES.reduce(
   (acc, m) => ({ ...acc, [m.href]: m.title }),
@@ -73,6 +68,14 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
   const { isAdmin, isSalesConsultant, userRole, loading } = usePermissions();
+  const {
+    loading: moduleAccessLoading,
+    canAccessModule,
+    canAccessPath,
+    accessibleModules,
+    homeModule,
+    homeHref,
+  } = useModuleAccess();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -85,66 +88,39 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
     setMobileOpen(false);
   }, [location.pathname]);
 
-  // Routes a sales_consultant is allowed to view inside the admin portal
-  const SC_ALLOWED = ['/admin/appointments', '/admin/finance', '/admin/attorney-crm', '/admin/sales-dashboard', '/admin/heatmap', '/admin/my-profile', '/admin/external-portal/accounts', '/admin/external-portal/links'];
-  const isAllowedForSC = SC_ALLOWED.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
-
-  // Routes the finance/director roles are allowed to view inside the
-  // admin portal — scoped to /admin/finance only (the Internal Invoices
-  // tab lives there), least-privilege, mirroring the SC_ALLOWED pattern
-  // above rather than granting broader admin-portal access.
-  const FINANCE_ROLE_ALLOWED = ['/admin/finance'];
-  const isAllowedForFinanceRole = FINANCE_ROLE_ALLOWED.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
-
-  // Routes restricted to administrators only — company employees cannot access.
-  // /admin/external-portal/accounts and /admin/external-portal/links are
-  // carved out below: employees (and sales consultants, via SC_ALLOWED
-  // above) can create portal accounts and send access links — the same
-  // two things the old Attorney CRM "Portal Links" tab let them do —
-  // without opening up sessions, OTP internals, login history, audit
-  // logs, the recycle bin, or settings, which stay admin-only.
-  const ADMIN_ONLY_ROUTES = ['/admin/analytics', '/admin/iam', '/admin/system-control', '/admin/external-portal'];
-  const EMPLOYEE_EXCEPTIONS = ['/admin/external-portal/accounts', '/admin/external-portal/links'];
-  const isAdminOnlyRoute = ADMIN_ONLY_ROUTES.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'))
-    && !EMPLOYEE_EXCEPTIONS.some((p) => location.pathname === p || location.pathname.startsWith(p + '/'));
+  // Single source of truth for "can this user be here": the same grant
+  // check (useModuleAccess -> @/lib/moduleAccess) that decides what shows
+  // up in the sidebar below. A user who isn't provisioned for the current
+  // page at all (no matching role) or who's had the admin-configured
+  // permission for it revoked is sent to their own home base — not a
+  // hand-maintained list of routes that can quietly drift out of sync
+  // with what Manage Permissions actually grants.
+  const accessReady = !loading && !moduleAccessLoading;
+  const hasAccess = accessReady && canAccessPath(location.pathname);
 
   React.useEffect(() => {
-    if (loading) return;
-    if (userRole === 'admin') return;
-    if (userRole === 'employee') {
-      if (isAdminOnlyRoute) {
-        navigate('/admin', { replace: true });
-      }
-      return;
-    }
-    if (isSalesConsultant()) {
-      if (!isAllowedForSC) {
-        navigate('/admin/sales-dashboard', { replace: true });
-      }
-      return;
-    }
-    if (userRole === 'finance' || userRole === 'director') {
-      if (!isAllowedForFinanceRole) {
-        navigate('/admin/finance', { replace: true });
-      }
-      return;
-    }
-    navigate('/dashboard');
-  }, [loading, userRole, isSalesConsultant, isAllowedForSC, isAllowedForFinanceRole, isAdminOnlyRoute, navigate]);
+    if (!accessReady) return;
+    if (hasAccess) return;
+    navigate(homeHref, { replace: true });
+  }, [accessReady, hasAccess, homeHref, navigate]);
 
-  if (loading) {
+  if (loading || moduleAccessLoading) {
     return <BrandedPageLoader message="Loading…" />;
   }
 
-  const visibleGroups = navigationGroups
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((item) => {
-        if (!item.roles) return isAdmin(); // admin/employee only
-        return item.roles.includes(userRole || '');
-      }),
-    }))
-    .filter((g) => g.items.length > 0);
+  // Don't render the page underneath while we're redirecting away from it
+  // — otherwise a restricted screen (and whatever data it fetches) would
+  // flash on screen for a frame before the effect above kicks in.
+  if (!hasAccess) {
+    return <BrandedPageLoader message="Loading…" />;
+  }
+
+  const visibleGroups = ADMIN_MODULE_GROUP_ORDER.map((group: AdminModuleGroup) => ({
+    label: group,
+    items: accessibleModules
+      .filter((m) => m.group === group)
+      .map((m) => ({ title: m.title, href: m.href, icon: m.icon })),
+  })).filter((g) => g.items.length > 0);
 
   const roleLabel =
     userRole === 'sales_consultant' ? 'Sales Consultant'
@@ -318,19 +294,23 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
               </div>
 
               <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                {/* Circular on the Operations Dashboard itself — "back to
-                    Operations Dashboard" makes no sense while already on it. */}
-                {location.pathname !== '/admin' && (
+                {/* Targets this user's actual home base — Operations
+                    Dashboard for admin/employee, but their own landing
+                    module (Sales Dashboard, Finance & Payments, …) for
+                    roles that can't reach /admin at all. Hidden on that
+                    home page itself, since "back to X" makes no sense
+                    while already on X. */}
+                {homeModule && location.pathname !== homeHref && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => navigate('/admin')}
+                    onClick={() => navigate(homeHref)}
                     className="shrink-0 gap-1 border border-white/30 bg-white/10 px-2 text-white hover:bg-white/20 hover:text-white sm:px-3"
-                    aria-label="Back to Operations Dashboard"
+                    aria-label={`Back to ${homeModule.title}`}
                   >
                     <ChevronLeft className="h-4 w-4" />
                     <span className="hidden text-xs font-semibold uppercase tracking-wide sm:inline">
-                      Operations Dashboard
+                      {homeModule.title}
                     </span>
                     <span className="text-xs font-semibold uppercase tracking-wide sm:hidden">Back</span>
                   </Button>
