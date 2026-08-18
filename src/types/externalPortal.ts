@@ -85,6 +85,27 @@ export interface ExternalPortalAccessLink {
   created_at: string;
   ip_address: string | null;
   user_agent: string | null;
+  /** Address this specific link was emailed to — may differ from the account's current email if it changed later. */
+  sent_to_email: string | null;
+}
+
+/** One row in an account's email history. Multiple rows can exist per account; exactly one has is_current = true. */
+export interface ExternalPortalAccountEmail {
+  id: string;
+  account_id: string;
+  email: string;
+  is_current: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+/** A referring attorney or medical expert ranked by actual usage (non-deleted, non-cancelled appointment count), for the Access Links "choose a person" step. */
+export interface ExternalPortalPersonByUsage {
+  id: string;
+  /** Display name — pre-joined so attorney (name) and expert (first_name + last_name) look identical to the caller. */
+  display_name: string;
+  email: string | null;
+  usage_count: number;
 }
 
 export interface ExternalPortalSession {
