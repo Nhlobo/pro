@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import ExternalPortalManagementLayout from './ExternalPortalManagementLayout';
 import { useExternalPortalAccounts } from '@/hooks/externalPortal/useExternalPortalAccounts';
@@ -8,12 +8,19 @@ import {
   useRevokeExternalPortalLink,
 } from '@/hooks/externalPortal/useExternalPortalAccessLinks';
 import { useBulkGenerateExternalPortalLinks } from '@/hooks/externalPortal/useBulkGenerateExternalPortalLinks';
+import { useReferringAttorneysByUsage, useMedicalExpertsByUsage } from '@/hooks/externalPortal/useExternalPortalUsageRanking';
+import {
+  useExternalPortalAccountForPerson,
+  useCreateExternalPortalAccountForPerson,
+} from '@/hooks/externalPortal/useExternalPortalAccountForPerson';
+import { useExternalPortalAccountEmails } from '@/hooks/externalPortal/useExternalPortalAccountEmails';
 import { AdminCard, AdminCardHeader, AdminCardBody, AdminEmptyState, AdminLoadingState, AdminPill } from '@/components/admin/ui/AdminUI';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Link2, Copy, Ban, Send, Loader2, CheckCircle2, XCircle } from 'lucide-react';
-import { PORTAL_TYPE_LABEL } from '@/types/externalPortal';
+import { Link2, Copy, Ban, Send, Loader2, CheckCircle2, XCircle, Scale, Stethoscope, Plus } from 'lucide-react';
+import { PORTAL_TYPE_LABEL, ACCOUNT_STATUS_LABEL, ACCOUNT_STATUS_TONE, type ExternalPortalType } from '@/types/externalPortal';
 import { formatDateTimeShort } from '@/utils/dateTime';
 import { toast } from 'sonner';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -25,6 +32,12 @@ const LINK_STATUS_TONE: Record<string, 'success' | 'neutral' | 'warning' | 'dest
   revoked: 'destructive',
 };
 
+// Same pattern as the server-side check in external-portal-admin-links —
+// kept loose on purpose (not overly restrictive) since the Edge
+// Function is the actual source of truth; this is just fast client
+// feedback before the round trip.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const ExternalPortalAccessLinks: React.FC = () => {
   const { userRole } = usePermissions();
   const isAdminUser = userRole === 'admin';
@@ -33,8 +46,6 @@ const ExternalPortalAccessLinks: React.FC = () => {
   const generateLink = useGenerateExternalPortalLink();
   const revokeLink = useRevokeExternalPortalLink();
   const bulkGenerate = useBulkGenerateExternalPortalLinks();
-
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
   const activeAccounts = (accounts || []).filter((a) => a.status === 'active');
 
@@ -57,15 +68,6 @@ const ExternalPortalAccessLinks: React.FC = () => {
     );
   };
 
-  const handleGenerate = async () => {
-    if (!selectedAccountId) {
-      toast.error('Choose a portal account first');
-      return;
-    }
-    await generateLink.mutateAsync(selectedAccountId);
-    setSelectedAccountId('');
-  };
-
   const handleCopy = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
@@ -73,6 +75,87 @@ const ExternalPortalAccessLinks: React.FC = () => {
     } catch {
       toast.error('Could not copy — copy it manually from your email client');
     }
+  };
+
+  // ---- Choose a person (Referring Attorney / Medical Expert), ranked
+  // most-used → least-used, then choose which email the link goes to. ----
+
+  const [portalType, setPortalType] = useState<ExternalPortalType>('attorney');
+  const [personId, setPersonId] = useState<string>('');
+  const [emailChoice, setEmailChoice] = useState<string>(''); // a history email, or the sentinel '__new__'
+  const [newEmail, setNewEmail] = useState('');
+
+  const { data: attorneysByUsage, isLoading: loadingAttorneys } = useReferringAttorneysByUsage();
+  const { data: expertsByUsage, isLoading: loadingExperts } = useMedicalExpertsByUsage();
+  const people = portalType === 'attorney' ? attorneysByUsage : expertsByUsage;
+  const loadingPeople = portalType === 'attorney' ? loadingAttorneys : loadingExperts;
+  const selectedPerson = people?.find((p) => p.id === personId) || null;
+
+  const { data: existingAccount, isLoading: loadingAccount } = useExternalPortalAccountForPerson(portalType, personId || null);
+  const createAccountForPerson = useCreateExternalPortalAccountForPerson();
+  const { data: emailHistory } = useExternalPortalAccountEmails(existingAccount?.id || null);
+
+  // Reset downstream selections whenever the person or portal type
+  // changes, so a stale email choice can't carry over to a new person.
+  useEffect(() => {
+    setEmailChoice('');
+    setNewEmail('');
+  }, [personId, portalType]);
+
+  // Once we know whether an account already exists, default the email
+  // choice sensibly: the account's current email if one exists, or the
+  // CRM record's email (referring_attorneys.email / medical_experts.email)
+  // as a starting point for a brand-new account — falling through to
+  // "enter a new email" if neither is available.
+  useEffect(() => {
+    if (!personId) return;
+    if (existingAccount) {
+      setEmailChoice(existingAccount.email);
+    } else if (selectedPerson?.email) {
+      setEmailChoice('__new__');
+      setNewEmail(selectedPerson.email);
+    } else {
+      setEmailChoice('__new__');
+      setNewEmail('');
+    }
+  }, [personId, existingAccount, selectedPerson]);
+
+  const resolvedEmail = emailChoice === '__new__' ? newEmail.trim().toLowerCase() : emailChoice;
+  const emailIsValid = !!resolvedEmail && EMAIL_REGEX.test(resolvedEmail) && !/\s/.test(resolvedEmail);
+
+  const accountBlockedReason = existingAccount?.deleted_at
+    ? 'This account is in the Recycle Bin — restore it from Portal Accounts first.'
+    : existingAccount && existingAccount.status !== 'active'
+      ? `This account is ${existingAccount.status} — set it to Active from Portal Accounts first.`
+      : null;
+
+  const canGenerate = !!personId && emailIsValid && !accountBlockedReason;
+
+  const handleGenerateForPerson = async () => {
+    if (!selectedPerson || !emailIsValid) {
+      toast.error('Choose a person and a valid email first');
+      return;
+    }
+    if (accountBlockedReason) {
+      toast.error(accountBlockedReason);
+      return;
+    }
+
+    let accountId = existingAccount?.id;
+    if (!accountId) {
+      const created = await createAccountForPerson.mutateAsync({
+        portal_type: portalType,
+        person_id: selectedPerson.id,
+        full_name: selectedPerson.display_name,
+        email: resolvedEmail,
+      });
+      accountId = created.id;
+    }
+
+    await generateLink.mutateAsync({ accountId, email: resolvedEmail });
+    setPersonId('');
+    setEmailChoice('');
+    setNewEmail('');
   };
 
   return (
@@ -173,33 +256,118 @@ const ExternalPortalAccessLinks: React.FC = () => {
       )}
 
       <AdminCard className="mt-4">
-        <AdminCardHeader title="Generate an Access Link" description="Emails a one-time registration link to the account's address." icon={Link2} />
-        <AdminCardBody>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
-              <SelectTrigger className="rounded-none border-black/15 sm:max-w-sm">
-                <SelectValue placeholder="Select a portal account" />
+        <AdminCardHeader title="Generate an Access Link" description="Choose a person, choose which email address to use, then send a one-time registration link." icon={Link2} />
+        <AdminCardBody className="space-y-4">
+          {/* Step 1 — portal type */}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { setPortalType('attorney'); setPersonId(''); }}
+              className={`flex items-center gap-1.5 border px-3 py-1.5 text-sm font-medium transition-colors ${
+                portalType === 'attorney'
+                  ? 'border-black bg-black text-white'
+                  : 'border-black/15 text-slate-600 hover:border-black/30'
+              }`}
+            >
+              <Scale className="h-3.5 w-3.5" /> Referring Attorney
+            </button>
+            <button
+              type="button"
+              onClick={() => { setPortalType('expert'); setPersonId(''); }}
+              className={`flex items-center gap-1.5 border px-3 py-1.5 text-sm font-medium transition-colors ${
+                portalType === 'expert'
+                  ? 'border-black bg-black text-white'
+                  : 'border-black/15 text-slate-600 hover:border-black/30'
+              }`}
+            >
+              <Stethoscope className="h-3.5 w-3.5" /> Medical Expert
+            </button>
+          </div>
+
+          {/* Step 2 — person, ranked most used → least used */}
+          <div className="space-y-1.5">
+            <Select value={personId} onValueChange={setPersonId} disabled={loadingPeople}>
+              <SelectTrigger className="rounded-none border-black/15 sm:max-w-md">
+                <SelectValue placeholder={loadingPeople ? 'Loading…' : `Select a ${PORTAL_TYPE_LABEL[portalType].toLowerCase()} (most used first)`} />
               </SelectTrigger>
-              <SelectContent>
-                {activeAccounts.length === 0 ? (
-                  <div className="px-3 py-2 text-sm text-slate-500">No active accounts — create one under Portal Accounts first.</div>
+              <SelectContent className="max-h-80">
+                {!people || people.length === 0 ? (
+                  <div className="px-3 py-2 text-sm text-slate-500">No {PORTAL_TYPE_LABEL[portalType].toLowerCase()} records found.</div>
                 ) : (
-                  activeAccounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.full_name} — {PORTAL_TYPE_LABEL[a.portal_type]} ({a.email})
+                  people.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.display_name}
+                      {p.usage_count > 0 ? ` — ${p.usage_count} case${p.usage_count === 1 ? '' : 's'}` : ' — unused'}
                     </SelectItem>
                   ))
                 )}
               </SelectContent>
             </Select>
-            <Button
-              className="rounded-none bg-black text-white hover:bg-black/85"
-              disabled={generateLink.isPending}
-              onClick={handleGenerate}
-            >
-              {generateLink.isPending ? 'Generating…' : 'Generate & Email Link'}
-            </Button>
           </div>
+
+          {/* Step 3 — email: existing history, or a new address */}
+          {personId && (
+            <div className="space-y-2 border border-black/10 bg-slate-50 p-3">
+              {loadingAccount ? (
+                <p className="text-sm text-slate-500">Checking for an existing portal account…</p>
+              ) : (
+                <>
+                  {existingAccount && (
+                    <p className="text-xs text-slate-500">
+                      Existing portal account —{' '}
+                      <AdminPill tone={ACCOUNT_STATUS_TONE[existingAccount.status]}>{ACCOUNT_STATUS_LABEL[existingAccount.status]}</AdminPill>
+                    </p>
+                  )}
+                  {!existingAccount && (
+                    <p className="text-xs text-slate-500">No portal account yet — one will be created when you generate the link.</p>
+                  )}
+
+                  <Select value={emailChoice} onValueChange={setEmailChoice}>
+                    <SelectTrigger className="rounded-none border-black/15 sm:max-w-md">
+                      <SelectValue placeholder="Choose an email address" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(emailHistory || []).map((h) => (
+                        <SelectItem key={h.id} value={h.email}>
+                          {h.email}{h.is_current ? ' (current)' : ''}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__new__">
+                        <span className="flex items-center gap-1"><Plus className="h-3.5 w-3.5" /> Enter a new email…</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {emailChoice === '__new__' && (
+                    <Input
+                      type="email"
+                      className="rounded-none border-black/15 sm:max-w-md"
+                      placeholder="name@example.com"
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                    />
+                  )}
+
+                  {emailChoice === '__new__' && newEmail.trim() && !emailIsValid && (
+                    <p className="text-xs text-destructive">That doesn't look like a valid email address.</p>
+                  )}
+
+                  {accountBlockedReason && (
+                    <p className="text-xs text-destructive">{accountBlockedReason}</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          <Button
+            className="rounded-none bg-black text-white hover:bg-black/85"
+            disabled={!canGenerate || generateLink.isPending || createAccountForPerson.isPending}
+            onClick={handleGenerateForPerson}
+          >
+            {generateLink.isPending || createAccountForPerson.isPending ? 'Generating…' : 'Generate & Email Link'}
+          </Button>
+
           {generateLink.data && (
             <div className="mt-3 flex items-center gap-2 border border-black/10 bg-slate-50 px-3 py-2 text-xs">
               <span className="truncate">{generateLink.data.link_url}</span>
@@ -225,6 +393,7 @@ const ExternalPortalAccessLinks: React.FC = () => {
                   <TableRow>
                     <TableHead>Account</TableHead>
                     <TableHead>Portal</TableHead>
+                    <TableHead>Sent To</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Expires</TableHead>
                     <TableHead>Created</TableHead>
@@ -236,9 +405,9 @@ const ExternalPortalAccessLinks: React.FC = () => {
                     <TableRow key={l.id}>
                       <TableCell>
                         <p className="font-medium">{l.account_full_name}</p>
-                        <p className="text-xs text-slate-500">{l.account_email}</p>
                       </TableCell>
                       <TableCell>{PORTAL_TYPE_LABEL[l.account_portal_type as 'attorney' | 'expert'] || l.account_portal_type}</TableCell>
+                      <TableCell className="text-xs text-slate-500">{l.sent_to_email || l.account_email}</TableCell>
                       <TableCell><AdminPill tone={LINK_STATUS_TONE[l.status]}>{l.status}</AdminPill></TableCell>
                       <TableCell className="text-slate-500">{formatDateTimeShort(l.expires_at)}</TableCell>
                       <TableCell className="text-slate-500">{formatDateTimeShort(l.created_at)}</TableCell>
