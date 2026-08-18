@@ -49,6 +49,23 @@ function escapeHtml(str: string): string {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
+// Same pattern used by supabase/functions/create-user/index.ts, kept
+// identical on purpose so email validation behaves consistently across
+// the app rather than introducing a second, stricter/looser regex here.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function normalizeEmail(raw: string): string {
+  return raw.trim().toLowerCase();
+}
+
+function isValidEmail(raw: string): boolean {
+  const email = normalizeEmail(raw);
+  if (!email) return false;
+  if (email.length > 254) return false;
+  if (/\s/.test(email)) return false;
+  return EMAIL_REGEX.test(email);
+}
+
 const PORTAL_LABEL: Record<string, string> = { attorney: "Referring Attorney", expert: "Medical Expert" };
 
 interface PortalSettings {
@@ -174,6 +191,11 @@ interface RequestBody {
   link_id?: string;
   reason?: string;
   send_email?: boolean;
+  // Optional override for generate_link: send this link to a specific
+  // address instead of the account's current email — either one picked
+  // from that account's email history, or a brand-new address. When
+  // omitted, behavior is unchanged (falls back to account.email).
+  email?: string;
 }
 
 serve(async (req) => {
@@ -214,6 +236,19 @@ serve(async (req) => {
       if (account.deleted_at) return errorResponse("Account is in the Recycle Bin — restore it first");
       if (account.status !== "active") return errorResponse(`Account is ${account.status} — set it to Active first`);
 
+      // Resolve which address this link actually goes to. Defaults to
+      // the account's current email (unchanged behavior) but an admin
+      // may override it with either a previously-used address or a
+      // brand-new one — validated server-side regardless of source,
+      // since the frontend's "existing email" list is not itself proof
+      // of validity (it was validated when first entered, but we never
+      // trust the client not to tamper with the request body).
+      const rawTargetEmail = body.email && body.email.trim() ? body.email : account.email;
+      const targetEmail = normalizeEmail(rawTargetEmail);
+      if (!isValidEmail(targetEmail)) {
+        return errorResponse("Invalid email address — check for typos, missing '@', or a missing domain");
+      }
+
       await supabaseAdmin
         .from("external_portal_access_links")
         .update({ status: "revoked", revoked_at: new Date().toISOString(), revoked_reason: "Superseded by new link" })
@@ -227,18 +262,67 @@ serve(async (req) => {
 
       const { data: link, error: linkError } = await supabaseAdmin
         .from("external_portal_access_links")
-        .insert({ account_id: account.id, token_hash: tokenHash, expires_at: expiresAt, created_by: user.id })
+        .insert({
+          account_id: account.id,
+          token_hash: tokenHash,
+          expires_at: expiresAt,
+          created_by: user.id,
+          sent_to_email: targetEmail,
+        })
         .select("id, expires_at, created_at")
         .single();
 
       if (linkError) return errorResponse(linkError.message);
+
+      // If the resolved address differs from the account's current
+      // email, that address becomes the account's new current email
+      // (it's what future OTP logins will be sent to — see
+      // external-portal-auth, which always sends OTPs to account.email)
+      // and is recorded in the email-history table. The previous
+      // address is NOT deleted from history — only its is_current flag
+      // flips to false — so it stays selectable/auditable later.
+      const emailChanged = targetEmail !== normalizeEmail(account.email);
+      if (emailChanged) {
+        const { error: updateEmailError } = await supabaseAdmin
+          .from("external_portal_accounts")
+          .update({ email: targetEmail })
+          .eq("id", account.id);
+
+        if (updateEmailError) {
+          // Most likely the (portal_type, email) uniqueness constraint —
+          // another active account already uses this address. Roll the
+          // link back rather than leaving an inconsistent state.
+          await supabaseAdmin.from("external_portal_access_links").delete().eq("id", link.id);
+          const msg = updateEmailError.message?.includes("external_portal_accounts_email_active_uq")
+            ? "Another active account already uses this email address for this portal type."
+            : updateEmailError.message;
+          return errorResponse(msg);
+        }
+
+        await supabaseAdmin
+          .from("external_portal_account_emails")
+          .update({ is_current: false })
+          .eq("account_id", account.id)
+          .eq("is_current", true);
+
+        const { error: historyError } = await supabaseAdmin
+          .from("external_portal_account_emails")
+          .upsert(
+            { account_id: account.id, email: targetEmail, is_current: true, created_by: user.id },
+            { onConflict: "account_id,email" },
+          );
+        // Non-fatal: the link itself is already correct (sent_to_email
+        // is set regardless), so a history-write hiccup shouldn't block
+        // the admin from sending the link. Logged for visibility only.
+        if (historyError) console.error("Failed to record email history:", historyError);
+      }
 
       const portalLabel = PORTAL_LABEL[account.portal_type] ?? "External";
       const linkUrl = `${APP_ORIGIN}/external-portal/sign-in?token=${rawToken}`;
 
       let emailSent = false;
       if (body.send_email !== false) {
-        emailSent = await sendLinkEmail(account.email, account.full_name, linkUrl, settings.access_link_expiry_hours, portalLabel, account.portal_type);
+        emailSent = await sendLinkEmail(targetEmail, account.full_name, linkUrl, settings.access_link_expiry_hours, portalLabel, account.portal_type);
       }
 
       await supabaseAdmin.rpc("external_portal_log_audit", {
@@ -246,12 +330,12 @@ serve(async (req) => {
         _actor_id: user.id,
         _account_id: account.id,
         _action: "access_link_generated",
-        _details: { link_id: link.id, email_sent: emailSent },
+        _details: { link_id: link.id, email_sent: emailSent, sent_to_email: targetEmail, email_changed: emailChanged },
       });
 
       return jsonResponse({
         success: true,
-        data: { link_id: link.id, link_url: linkUrl, expires_at: link.expires_at, email_sent: emailSent },
+        data: { link_id: link.id, link_url: linkUrl, expires_at: link.expires_at, email_sent: emailSent, sent_to_email: targetEmail },
       });
     }
 
