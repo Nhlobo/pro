@@ -44,50 +44,56 @@ export const useAttorneyDashboardStats = () => {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch matters submitted (total appointments/referrals)
-      const { count: mattersCount } = await supabase
-        .from('appointments')
-        .select('*', { count: 'exact', head: true })
-        .is('deleted_at', null);
-
-      // Fetch reports in progress
-      const { count: inProgressCount } = await supabase
-        .from('expert_reports')
-        .select('*', { count: 'exact', head: true })
-        .in('report_status', [
-          'in_progress', 'initial_stage', 'Initial Stage', 
-          'Preparing Report', 'preparing_report', 
-          'Report On Final Stage', 'report_on_final_stage',
-          'under_review', 'pending', 'not_received', 'Pending', 'Not Received'
-        ]);
-
-      // Fetch reports ready to download (completed/taken out)
-      const { count: readyCount } = await supabase
-        .from('expert_reports')
-        .select('*', { count: 'exact', head: true })
-        .in('report_status', [
-          'completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted',
-          'report_fully_paid_submitted', 'Report Submitted', 'report_submitted',
-          'taken_out', 'Taken Out', 'Report Submitted On AOD', 'report_submitted_on_aod',
-          'Report Submitted Without Full Payment', 'report_submitted_without_full_payment'
-        ]);
-
-      // Fetch pending confirmations (appointment requests not yet approved)
-      const { count: pendingConfirmations } = await supabase
-        .from('appointment_requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
-
-      // Fetch appointments missing documents (appointments without associated documents)
-      const { data: appointmentsData } = await supabase
-        .from('appointments')
-        .select('id')
-        .is('deleted_at', null);
-
-      const { data: documentsData } = await supabase
-        .from('documents')
-        .select('appointment_id')
-        .not('appointment_id', 'is', null);
+      // Six independent queries — none depends on another's result — so
+      // they run in parallel instead of the sequential waterfall this
+      // used to be. Same data, same RLS scoping (attorneys only ever
+      // see their own referring_attorney_id's appointments, enforced by
+      // the "Users can view appointments from their referring attorney"
+      // policy — see get_current_user_referring_attorney()), just not
+      // blocking each other for no reason.
+      const [
+        { count: mattersCount },
+        { count: inProgressCount },
+        { count: readyCount },
+        { count: pendingConfirmations },
+        { data: appointmentsData },
+        { data: documentsData },
+      ] = await Promise.all([
+        supabase
+          .from('appointments')
+          .select('*', { count: 'exact', head: true })
+          .is('deleted_at', null),
+        supabase
+          .from('expert_reports')
+          .select('*', { count: 'exact', head: true })
+          .in('report_status', [
+            'in_progress', 'initial_stage', 'Initial Stage',
+            'Preparing Report', 'preparing_report',
+            'Report On Final Stage', 'report_on_final_stage',
+            'under_review', 'pending', 'not_received', 'Pending', 'Not Received'
+          ]),
+        supabase
+          .from('expert_reports')
+          .select('*', { count: 'exact', head: true })
+          .in('report_status', [
+            'completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted',
+            'report_fully_paid_submitted', 'Report Submitted', 'report_submitted',
+            'taken_out', 'Taken Out', 'Report Submitted On AOD', 'report_submitted_on_aod',
+            'Report Submitted Without Full Payment', 'report_submitted_without_full_payment'
+          ]),
+        supabase
+          .from('appointment_requests')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending'),
+        supabase
+          .from('appointments')
+          .select('id')
+          .is('deleted_at', null),
+        supabase
+          .from('documents')
+          .select('appointment_id')
+          .not('appointment_id', 'is', null),
+      ]);
 
       const appointmentIdsWithDocs = new Set(documentsData?.map(d => d.appointment_id) || []);
       const missingDocsCount = appointmentsData?.filter(a => !appointmentIdsWithDocs.has(a.id)).length || 0;
