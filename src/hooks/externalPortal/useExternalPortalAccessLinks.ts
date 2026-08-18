@@ -37,9 +37,11 @@ export function useGenerateExternalPortalLink() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (accountId: string) => {
+    mutationFn: async (input: string | { accountId: string; email?: string }) => {
+      const accountId = typeof input === 'string' ? input : input.accountId;
+      const email = typeof input === 'string' ? undefined : input.email;
       const { data, error } = await supabase.functions.invoke('external-portal-admin-links', {
-        body: { action: 'generate_link', account_id: accountId, send_email: true },
+        body: { action: 'generate_link', account_id: accountId, send_email: true, ...(email ? { email } : {}) },
       });
       if (error) {
         const ctx = (error as any)?.context;
@@ -50,10 +52,12 @@ export function useGenerateExternalPortalLink() {
         throw new Error(error.message);
       }
       if (data?.success === false) throw new Error(data.error || 'Failed to generate link');
-      return data.data as { link_id: string; link_url: string; expires_at: string; email_sent: boolean };
+      return data.data as { link_id: string; link_url: string; expires_at: string; email_sent: boolean; sent_to_email: string };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ['external-portal', 'accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['external-portal', 'account-emails'] });
       toast.success(result.email_sent ? 'Access link generated and emailed' : 'Access link generated (email not sent — copy it manually)');
     },
     onError: (error: any) => toast.error(error?.message || 'Failed to generate access link'),
