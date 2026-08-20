@@ -64,6 +64,36 @@ const ExternalPortalSignIn: React.FC = () => {
   // wrong, staff) screen was open before — trap it here instead.
   useBackNavigationTrap();
 
+  // SECURITY: purge any session this tab already has the instant the
+  // External Portal front door mounts — BEFORE the person has done
+  // anything here.
+  //
+  // Root cause this closes: opening an External Portal link in a new
+  // same-origin tab (via a link/window.open from an already-authenticated
+  // Internal Staff tab) can have the browser clone that tab's
+  // `sessionStorage` — which is exactly where the Supabase session lives
+  // (see `src/integrations/supabase/client.ts`) — into the new tab. That
+  // new tab then silently starts out "signed in" as the staff member, on
+  // what's supposed to be the External Portal's own sign-in screen. If
+  // anything in this tab subsequently called `signOut()` on that
+  // inherited session, it would revoke it with Supabase — logging the
+  // *staff member* out of the Internal System in their original tab too.
+  // This is a real incident that happened.
+  //
+  // The fix: this screen must never trust or act on a session it did not
+  // itself create via the OTP exchange below. `scope: 'local'` only
+  // clears *this tab's* copy — it does not call Supabase to revoke the
+  // token, so a legitimate session open elsewhere (the staff member's
+  // original tab) is completely unaffected. Only the bridge session
+  // created by a successful OTP verification (further down, in
+  // `handleVerify`) is ever allowed to persist here.
+  useEffect(() => {
+    supabase.auth.signOut({ scope: 'local' }).catch(() => {
+      /* nothing to clear, or storage unavailable — either way, fine */
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Registration flow: validate the link on mount and trigger the first OTP.
   useEffect(() => {
     if (!linkToken) return;
