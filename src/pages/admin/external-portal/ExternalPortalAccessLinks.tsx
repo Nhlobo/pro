@@ -9,9 +9,11 @@ import {
 } from '@/hooks/externalPortal/useExternalPortalAccessLinks';
 import { useBulkGenerateExternalPortalLinks } from '@/hooks/externalPortal/useBulkGenerateExternalPortalLinks';
 import { useReferringAttorneysByUsage, useMedicalExpertsByUsage } from '@/hooks/externalPortal/useExternalPortalUsageRanking';
+import { useReferringAttorneyContacts, useCreateReferringAttorneyContact } from '@/hooks/externalPortal/useReferringAttorneyContacts';
 import {
   useExternalPortalAccountForPerson,
   useCreateExternalPortalAccountForPerson,
+  useUpdateExternalPortalAccountContact,
 } from '@/hooks/externalPortal/useExternalPortalAccountForPerson';
 import { useExternalPortalAccountEmails } from '@/hooks/externalPortal/useExternalPortalAccountEmails';
 import { AdminCard, AdminCardHeader, AdminCardBody, AdminEmptyState, AdminLoadingState, AdminPill } from '@/components/admin/ui/AdminUI';
@@ -93,7 +95,35 @@ const ExternalPortalAccessLinks: React.FC = () => {
 
   const { data: existingAccount, isLoading: loadingAccount } = useExternalPortalAccountForPerson(portalType, personId || null);
   const createAccountForPerson = useCreateExternalPortalAccountForPerson();
+  const updateAccountContact = useUpdateExternalPortalAccountContact();
   const { data: emailHistory } = useExternalPortalAccountEmails(existingAccount?.id || null);
+
+  // ---- Step 2b (attorney only) — WHICH individual at that firm this
+  // account is scoped to. Required: an attorney account with no
+  // contact assigned sees no cases at all (Phase 12/13 RLS), by
+  // design, rather than falling back to the whole firm. ----
+  const [contactId, setContactId] = useState<string>('');
+  const [showNewContact, setShowNewContact] = useState(false);
+  const [newContactName, setNewContactName] = useState('');
+  const [newContactEmail, setNewContactEmail] = useState('');
+  const { data: contacts, isLoading: loadingContacts } = useReferringAttorneyContacts(
+    portalType === 'attorney' ? personId || null : null
+  );
+  const createContact = useCreateReferringAttorneyContact();
+
+  useEffect(() => {
+    setContactId('');
+    setShowNewContact(false);
+    setNewContactName('');
+    setNewContactEmail('');
+  }, [personId, portalType]);
+
+  // Default to the existing account's current contact, once known.
+  useEffect(() => {
+    if (existingAccount && (existingAccount as any).assigned_attorney_contact_id) {
+      setContactId((existingAccount as any).assigned_attorney_contact_id);
+    }
+  }, [existingAccount]);
 
   // Reset downstream selections whenever the person or portal type
   // changes, so a stale email choice can't carry over to a new person.
@@ -129,7 +159,23 @@ const ExternalPortalAccessLinks: React.FC = () => {
       ? `This account is ${existingAccount.status} — set it to Active from Portal Accounts first.`
       : null;
 
-  const canGenerate = !!personId && emailIsValid && !accountBlockedReason;
+  const canGenerate = !!personId && emailIsValid && !accountBlockedReason && (portalType !== 'attorney' || !!contactId);
+
+  const handleCreateContactInline = async () => {
+    if (!selectedPerson || !newContactName.trim()) {
+      toast.error('Enter the individual attorney\'s name');
+      return;
+    }
+    const created = await createContact.mutateAsync({
+      referring_attorney_id: selectedPerson.id,
+      full_name: newContactName,
+      email: newContactEmail || null,
+    });
+    setContactId(created.id);
+    setShowNewContact(false);
+    setNewContactName('');
+    setNewContactEmail('');
+  };
 
   const handleGenerateForPerson = async () => {
     if (!selectedPerson || !emailIsValid) {
@@ -140,6 +186,10 @@ const ExternalPortalAccessLinks: React.FC = () => {
       toast.error(accountBlockedReason);
       return;
     }
+    if (portalType === 'attorney' && !contactId) {
+      toast.error('Choose (or add) the specific individual attorney this account belongs to');
+      return;
+    }
 
     let accountId = existingAccount?.id;
     if (!accountId) {
@@ -148,8 +198,13 @@ const ExternalPortalAccessLinks: React.FC = () => {
         person_id: selectedPerson.id,
         full_name: selectedPerson.display_name,
         email: resolvedEmail,
+        assigned_attorney_contact_id: portalType === 'attorney' ? contactId : null,
       });
       accountId = created.id;
+    } else if (portalType === 'attorney' && (existingAccount as any)?.assigned_attorney_contact_id !== contactId) {
+      // Existing account, but the individual relationship changed —
+      // repair it in place rather than touching the account itself.
+      await updateAccountContact.mutateAsync({ accountId, contactId });
     }
 
     await generateLink.mutateAsync({ accountId, email: resolvedEmail });
@@ -304,6 +359,56 @@ const ExternalPortalAccessLinks: React.FC = () => {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Step 2b (attorney only) — the specific individual at that firm */}
+          {portalType === 'attorney' && personId && (
+            <div className="space-y-2 border border-black/10 bg-slate-50 p-3">
+              <p className="text-xs font-medium text-slate-700">Which individual attorney at {selectedPerson?.display_name}?</p>
+              <p className="text-xs text-slate-500">
+                Required — without this, the account can log in but won't see any cases (it's never scoped to the whole firm).
+              </p>
+              {loadingContacts ? (
+                <p className="text-sm text-slate-500">Loading…</p>
+              ) : (
+                <Select value={contactId} onValueChange={(v) => (v === '__new__' ? setShowNewContact(true) : setContactId(v))}>
+                  <SelectTrigger className="rounded-none border-black/15 sm:max-w-md">
+                    <SelectValue placeholder="Select the individual attorney" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(contacts || []).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.full_name}{c.email ? ` — ${c.email}` : ''}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__new__">
+                      <span className="flex items-center gap-1"><Plus className="h-3.5 w-3.5" /> Add a new individual…</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+
+              {showNewContact && (
+                <div className="space-y-2 border border-black/10 bg-white p-2">
+                  <Input
+                    className="rounded-none border-black/15 sm:max-w-md"
+                    placeholder="Individual attorney's full name"
+                    value={newContactName}
+                    onChange={(e) => setNewContactName(e.target.value)}
+                  />
+                  <Input
+                    type="email"
+                    className="rounded-none border-black/15 sm:max-w-md"
+                    placeholder="Their email (optional)"
+                    value={newContactEmail}
+                    onChange={(e) => setNewContactEmail(e.target.value)}
+                  />
+                  <Button size="sm" className="rounded-none bg-black text-white hover:bg-black/85" disabled={createContact.isPending} onClick={handleCreateContactInline}>
+                    {createContact.isPending ? 'Adding…' : 'Add & Select'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Step 3 — email: existing history, or a new address */}
           {personId && (
