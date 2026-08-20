@@ -15,9 +15,22 @@
  * error path, etc. — would fall back to the staff `/auth` page for
  * everyone, external portal users included.
  *
- * The fix: cache the flag in localStorage the moment it's known (right
- * after sign-in, while a session still exists), and read it
- * synchronously wherever a redirect target has to be picked.
+ * The fix: cache the flag the moment it's known (right after sign-in,
+ * while a session still exists), and read it synchronously wherever a
+ * redirect target has to be picked.
+ *
+ * SECURITY: this MUST be `sessionStorage`, not `localStorage`.
+ * `localStorage` is shared live, in real time, across every tab of the
+ * origin — so the instant any one tab signs in as an external-portal
+ * account, every OTHER tab (including an internal staff tab that has
+ * nothing to do with that sign-in) would read this flag as `true` too.
+ * That was the exact cause of a real incident: a staff member logging
+ * out of the Internal System in one tab was redirected to the External
+ * Portal sign-in page, because some other tab had an external-portal
+ * session marked. `sessionStorage` is scoped to this browsing-context's
+ * tab only (matching where the Supabase session itself lives — see
+ * `src/integrations/supabase/client.ts`), so it can only ever reflect
+ * *this* tab's own sign-in, never another tab's.
  *
  * Deliberately NOT cleared on sign-out (or on a session found to be
  * invalid). This flag drives a routing decision only — it has no bearing
@@ -31,8 +44,12 @@
  * by the sign-out that just happened, that second call would wrongly
  * resolve to the internal staff `/auth`, which is exactly the "back
  * button sends an external attorney/expert to the staff login page" bug.
+ * `sessionStorage` still satisfies this: it survives page reloads and
+ * in-tab Back/Forward navigation exactly like `localStorage` does — it
+ * only stops surviving once the tab itself is closed, which is fine,
+ * since there is no "wrong tab" left to route at that point.
  * It is only ever overwritten (never blanked) — by `markExternalPortalSession`
- * right after the next real sign-in, whoever that is.
+ * right after the next real sign-in, whoever that is, in this tab.
  */
 
 const STORAGE_KEY = 'mlp.external-portal-session';
@@ -40,18 +57,18 @@ const STORAGE_KEY = 'mlp.external-portal-session';
 export function markExternalPortalSession(isExternal: boolean): void {
   try {
     if (isExternal) {
-      localStorage.setItem(STORAGE_KEY, 'true');
+      sessionStorage.setItem(STORAGE_KEY, 'true');
     } else {
-      localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY);
     }
   } catch {
-    /* localStorage may be unavailable in some contexts */
+    /* sessionStorage may be unavailable in some contexts */
   }
 }
 
 export function isExternalPortalSession(): boolean {
   try {
-    return localStorage.getItem(STORAGE_KEY) === 'true';
+    return sessionStorage.getItem(STORAGE_KEY) === 'true';
   } catch {
     return false;
   }
@@ -59,9 +76,9 @@ export function isExternalPortalSession(): boolean {
 
 export function clearExternalPortalSession(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
   } catch {
-    /* localStorage may be unavailable in some contexts */
+    /* sessionStorage may be unavailable in some contexts */
   }
 }
 
