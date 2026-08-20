@@ -31,6 +31,7 @@ import { useShortTermAgreements } from "@/hooks/useShortTermAgreements";
 import { ShortTermAgreementPreview } from "@/components/ShortTermAgreementPreview";
 import { classifyPaymentTerms, resolveAgreementDurationMonths } from "@/utils/paymentTermsClassification";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { useReferringAttorneyContacts, useCreateReferringAttorneyContact } from "@/hooks/externalPortal/useReferringAttorneyContacts";
 import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
 import DebtTrackerPanel from "@/components/DebtTrackerPanel";
 import { AdminCard, AdminSectionLabel, BRAND_TEAL } from "@/components/admin/ui/AdminUI";
@@ -42,6 +43,7 @@ const NEW_APPOINTMENT_DEFAULTS = {
   appointmentDate: "",
   appointmentTime: "",
   referringAttorney: "",
+  attorneyContactId: "",
   assessmentType: "",
   location: "",
   assessmentFees: "",
@@ -109,6 +111,11 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
   const [pendingAODData, setPendingAODData] = useState(null);
   const { creating, aodId, createAODFromAppointment } = useAODWorkflow();
   const { createAgreement: createShortTermAgreementRecord } = useShortTermAgreements();
+  const { data: attorneyContacts, isLoading: loadingAttorneyContacts } = useReferringAttorneyContacts(formData.referringAttorney || null);
+  const createAttorneyContact = useCreateReferringAttorneyContact();
+  const [showNewAttorneyContact, setShowNewAttorneyContact] = useState(false);
+  const [newAttorneyContactName, setNewAttorneyContactName] = useState('');
+  const [newAttorneyContactEmail, setNewAttorneyContactEmail] = useState('');
   const [showShortTermAgreement, setShowShortTermAgreement] = useState(false);
   const [shortTermAgreementData, setShortTermAgreementData] = useState<any>(null);
 
@@ -223,6 +230,7 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
           appointmentDate: dateStr,
           appointmentTime: timeStr,
           referringAttorney: appointment.referring_attorney_id || "",
+          attorneyContactId: (appointment as any).assigned_attorney_contact_id || "",
           assessmentType: appointment.matter_type || "",
           location: "",
           assessmentFees: originalFees ? String(originalFees) : "",
@@ -575,6 +583,7 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
       appointmentDate: "",
       appointmentTime: "",
       referringAttorney: "",
+      attorneyContactId: "",
       assessmentType: "",
       location: "",
       assessmentFees: "",
@@ -734,6 +743,7 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
           expert_id: item.expertId,
           referring_attorney_id: item.referringAttorneyId,
           referring_attorney: item.attorneyName,
+          assigned_attorney_contact_id: (item as any).attorneyContactId || null,
           appointment_date: appointmentDateTime.toISOString(),
           matter_type: item.assessmentType || null,
           service_fee: serviceFee || null,
@@ -901,6 +911,7 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
         expert_id: formData.expertId,
         referring_attorney_id: formData.referringAttorney,
         referring_attorney: selectedAttorney.name,
+        assigned_attorney_contact_id: formData.attorneyContactId || null,
         appointment_date: appointmentDateTime.toISOString(),
         matter_type: formData.assessmentType || null,
         service_fee: serviceFee || null,
@@ -1129,6 +1140,11 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
     }
     setFormData(prev => {
       const next = { ...prev, [field]: value };
+      // Changing the firm invalidates whichever individual contact was
+      // selected for the previous firm — never carry it over silently.
+      if (field === 'referringAttorney' && prev.referringAttorney !== value) {
+        next.attorneyContactId = '';
+      }
       // Persist draft to localStorage on every change (non-edit mode only)
       if (!isEditMode) setDraft(next);
       return next;
@@ -1412,6 +1428,66 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
                   </Select>
                   {validationErrors.referringAttorney && <p className="text-sm text-destructive">Please select a referring attorney</p>}
                 </div>
+
+                {/* Individual attorney contact — optional, but this is what the
+                    External Portal actually authorizes case visibility against
+                    (see referring_attorney_contacts / Phase 12). Leaving it
+                    blank just means this case stays invisible to any attorney
+                    portal account until it's set — never a guess. */}
+                {formData.referringAttorney && (
+                  <div className="space-y-2 md:col-span-2" data-field="attorneyContactId">
+                    <Label htmlFor="attorney-contact">Individual Attorney (optional — controls External Portal visibility)</Label>
+                    <Select
+                      value={formData.attorneyContactId}
+                      onValueChange={(value) => (value === '__new__' ? setShowNewAttorneyContact(true) : handleInputChange('attorneyContactId', value))}
+                    >
+                      <SelectTrigger className="rounded-none">
+                        <SelectValue placeholder={loadingAttorneyContacts ? "Loading…" : "Not assigned to a specific individual yet"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(attorneyContacts || []).map((c) => (
+                          <SelectItem key={c.id} value={c.id}>{c.full_name}{c.email ? ` — ${c.email}` : ''}</SelectItem>
+                        ))}
+                        <SelectItem value="__new__">+ Add a new individual attorney…</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {showNewAttorneyContact && (
+                      <div className="flex flex-col gap-2 border border-black/10 bg-slate-50 p-2 sm:flex-row sm:items-center">
+                        <input
+                          className="h-9 flex-1 rounded-none border border-black/15 bg-white px-2 text-sm"
+                          placeholder="Attorney's full name"
+                          value={newAttorneyContactName}
+                          onChange={(e) => setNewAttorneyContactName(e.target.value)}
+                        />
+                        <input
+                          className="h-9 flex-1 rounded-none border border-black/15 bg-white px-2 text-sm"
+                          placeholder="Email (optional)"
+                          value={newAttorneyContactEmail}
+                          onChange={(e) => setNewAttorneyContactEmail(e.target.value)}
+                        />
+                        <button
+                          type="button"
+                          className="h-9 shrink-0 rounded-none bg-black px-3 text-sm text-white hover:bg-black/85 disabled:opacity-50"
+                          disabled={createAttorneyContact.isPending || !newAttorneyContactName.trim()}
+                          onClick={async () => {
+                            const created = await createAttorneyContact.mutateAsync({
+                              referring_attorney_id: formData.referringAttorney,
+                              full_name: newAttorneyContactName,
+                              email: newAttorneyContactEmail || null,
+                            });
+                            handleInputChange('attorneyContactId', created.id);
+                            setShowNewAttorneyContact(false);
+                            setNewAttorneyContactName('');
+                            setNewAttorneyContactEmail('');
+                          }}
+                        >
+                          {createAttorneyContact.isPending ? 'Adding…' : 'Add'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Claimant - filtered by selected referring attorney (in both new + edit modes) */}
                 <div className="space-y-2" data-field="claimantId">
