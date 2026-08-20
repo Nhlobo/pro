@@ -2,6 +2,7 @@ import React from 'react';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedState';
 import { useAttorneyLinkStatus } from '@/hooks/useAttorneyLinkStatus';
+import { useMyExternalPortalAccountId } from '@/hooks/useMyExternalPortalAccountId';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,9 +43,10 @@ import { User, Building2, Mail, Phone, MapPin, ShieldCheck } from 'lucide-react'
 const AttorneyProfile: React.FC = () => {
   const linkStatus = useAttorneyLinkStatus();
   const { user } = useAuth();
+  const { data: myAccountId } = useMyExternalPortalAccountId();
 
   const { data, isLoading } = useQuery({
-    queryKey: ['attorney-portal', 'profile', user?.id],
+    queryKey: ['attorney-portal', 'profile', user?.id, myAccountId],
     queryFn: async () => {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -60,13 +62,18 @@ const AttorneyProfile: React.FC = () => {
           .select('name, contact_person, email, phone, address, province')
           .eq('id', profile.referring_attorney_id)
           .maybeSingle(),
-        supabase
-          .from('external_portal_accounts' as any)
-          .select('full_name, email, status')
-          .eq('portal_type', 'attorney')
-          .eq('referring_attorney_id', profile.referring_attorney_id)
-          .is('deleted_at', null)
-          .maybeSingle(),
+        // Scoped to THIS specific portal account (resolved by the
+        // person's own email via get_current_user_external_portal_account_id,
+        // not by firm) — a firm with more than one individual attorney
+        // portal account previously had this section non-deterministically
+        // pick up whichever other account matched the firm first.
+        myAccountId
+          ? supabase
+              .from('external_portal_accounts' as any)
+              .select('full_name, email, status')
+              .eq('id', myAccountId)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
       ]);
 
       return { firm, account, profile };
