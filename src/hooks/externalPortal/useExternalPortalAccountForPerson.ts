@@ -45,6 +45,8 @@ export interface CreateAccountForPersonInput {
   person_id: string;
   full_name: string;
   email: string;
+  /** Phase 14: for attorney accounts, the individual referring_attorney_contacts row this account is scoped to. Required in practice — the account can log in without it, but sees no cases until it's set (RLS intentionally treats a null contact as "nothing assigned yet", never a guess). */
+  assigned_attorney_contact_id?: string | null;
 }
 
 /** Creates a portal account tied to a specific attorney/expert record. Only call this after useExternalPortalAccountForPerson confirms none exists — this hook doesn't re-check. */
@@ -64,6 +66,7 @@ export function useCreateExternalPortalAccountForPerson() {
           email: input.email.trim().toLowerCase(),
           referring_attorney_id: isAttorney ? input.person_id : null,
           medical_expert_id: isAttorney ? null : input.person_id,
+          assigned_attorney_contact_id: isAttorney ? (input.assigned_attorney_contact_id || null) : null,
           created_by: userData?.user?.id || null,
         })
         .select()
@@ -91,6 +94,38 @@ export function useCreateExternalPortalAccountForPerson() {
         ? 'An active account with this email already exists for this portal type.'
         : error?.message || 'Failed to create portal account';
       toast.error(msg);
+    },
+  });
+}
+
+/**
+ * Phase 14: repair the individual-attorney relationship on an
+ * EXISTING account without deleting/recreating it — the account keeps
+ * working (its login, history, everything) throughout.
+ */
+export function useUpdateExternalPortalAccountContact() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { accountId: string; contactId: string | null }) => {
+      const { error } = await supabase
+        .from('external_portal_accounts' as any)
+        .update({ assigned_attorney_contact_id: input.contactId })
+        .eq('id', input.accountId);
+      if (error) throw error;
+
+      // The account's bridged profile (if it's ever logged in before)
+      // is re-synced automatically on its NEXT login by
+      // external-portal-auth. If it's currently mid-session, this
+      // takes effect the next time it authenticates.
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['external-portal', 'accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['external-portal', 'account-for-person'] });
+      toast.success('Individual attorney relationship updated');
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to update relationship');
     },
   });
 }
