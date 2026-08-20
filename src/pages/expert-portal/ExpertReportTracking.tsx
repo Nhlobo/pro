@@ -81,19 +81,24 @@ const ExpertReportTracking: React.FC = () => {
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
-    if (!profile?.expert_id) { setNotLinked(true); setLoading(false); return; }
+    try {
+      const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
+      if (!profile?.expert_id) { setNotLinked(true); setLoading(false); return; }
 
-    const [reportsRes, apptsRes] = await Promise.all([
-      supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id).order('created_at', { ascending: false }),
-      supabase.from('appointments')
-        .select(`id, appointment_date, matter_type, claimants(first_name, last_name, auto_id), referring_attorneys:referring_attorney_id(name)`)
-        .eq('expert_id', profile.expert_id)
-        .is('deleted_at', null),
-    ]);
-    setReports(reportsRes.data || []);
-    setAppointments(apptsRes.data || []);
-    setLoading(false);
+      const [reportsRes, apptsRes] = await Promise.all([
+        supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id).order('created_at', { ascending: false }),
+        supabase.from('appointments')
+          .select(`id, appointment_date, matter_type, claimants(first_name, last_name, auto_id), referring_attorneys:referring_attorney_id(name)`)
+          .eq('expert_id', profile.expert_id)
+          .is('deleted_at', null),
+      ]);
+      setReports(reportsRes.data || []);
+      setAppointments(apptsRes.data || []);
+    } catch (error) {
+      console.error('[ExpertReportTracking] load failed', error);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => { load(); }, [load]);
