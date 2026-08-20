@@ -70,6 +70,9 @@ const ExpertProfile: React.FC = () => {
     personal_assistant_contact: '',
     practice_company_name: '',
     province: '',
+    hpcsa_number: '',
+    practice_number: '',
+    matter_types: [] as string[],
     consultation_fee_mva: '',
     consultation_fee_med_neg: '',
     merit_fees: '',
@@ -116,6 +119,9 @@ const ExpertProfile: React.FC = () => {
           personal_assistant_contact: expert.personal_assistant_contact || '',
           practice_company_name: expert.practice_company_name || '',
           province: expert.province || '',
+          hpcsa_number: (expert as any).hpcsa_number || '',
+          practice_number: (expert as any).practice_number || '',
+          matter_types: Array.isArray((expert as any).matter_types) ? (expert as any).matter_types : [],
           consultation_fee_mva: expert.consultation_fee_mva != null ? String(expert.consultation_fee_mva) : '',
           consultation_fee_med_neg: expert.consultation_fee_med_neg != null ? String(expert.consultation_fee_med_neg) : '',
           merit_fees: (expert as any).merit_fees != null ? String((expert as any).merit_fees) : '',
@@ -237,6 +243,9 @@ const ExpertProfile: React.FC = () => {
         personal_assistant_contact: form.personal_assistant_contact,
         practice_company_name: form.practice_company_name,
         province: form.province,
+        hpcsa_number: form.hpcsa_number || null,
+        practice_number: form.practice_number || null,
+        matter_types: form.matter_types,
         updated_at: new Date().toISOString(),
       }).eq('id', expertId);
       if (error) throw error;
@@ -377,6 +386,44 @@ const ExpertProfile: React.FC = () => {
               {editing ? (
                 <Textarea value={form.qualifications} onChange={e => setForm(f => ({ ...f, qualifications: e.target.value }))} rows={2} />
               ) : <p className="text-sm text-foreground">{form.qualifications || '—'}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs">HPCSA Number</Label>
+                {editing ? (
+                  <Input value={form.hpcsa_number} onChange={e => setForm(f => ({ ...f, hpcsa_number: e.target.value }))} />
+                ) : <p className="text-sm text-foreground">{form.hpcsa_number || '—'}</p>}
+              </div>
+              <div>
+                <Label className="text-xs">Practice / License Number</Label>
+                {editing ? (
+                  <Input value={form.practice_number} onChange={e => setForm(f => ({ ...f, practice_number: e.target.value }))} />
+                ) : <p className="text-sm text-foreground">{form.practice_number || '—'}</p>}
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Specializations</Label>
+              {editing ? (
+                <div className="flex gap-4 mt-1">
+                  {['MVA', 'Med Neg'].map((mt) => (
+                    <label key={mt} className="flex items-center gap-1.5 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={form.matter_types.includes(mt)}
+                        onChange={(e) => setForm(f => ({
+                          ...f,
+                          matter_types: e.target.checked
+                            ? [...f.matter_types, mt]
+                            : f.matter_types.filter(t => t !== mt),
+                        }))}
+                      />
+                      {mt}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-foreground">{form.matter_types.length ? form.matter_types.join(', ') : '—'}</p>
+              )}
             </div>
             <div>
               <Label className="text-xs">Practice / Company Name</Label>
