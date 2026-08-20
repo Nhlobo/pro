@@ -18,7 +18,6 @@ import {
   Menu,
   HeadsetIcon,
   ShieldCheck,
-  MessageSquare,
   Bell,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,7 +32,6 @@ const navigationItems = [
   { title: 'Schedule', href: '/expert-portal/schedule', icon: Calendar },
   { title: 'Reports', href: '/expert-portal/reports', icon: FileText },
   { title: 'Performance', href: '/expert-portal/performance', icon: BarChart3 },
-  { title: 'Messages', href: '/expert-portal/messages', icon: MessageSquare },
   { title: 'Profile', href: '/expert-portal/profile', icon: User },
   { title: 'Security', href: '/expert-portal/security', icon: ShieldCheck },
   { title: 'Notifications', href: '/expert-portal/notifications', icon: Bell },
