@@ -56,16 +56,17 @@ const ExpertPerformance: React.FC = () => {
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
-    if (!profile?.expert_id) { setNotLinked(true); setLoading(false); return; }
+    try {
+      const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
+      if (!profile?.expert_id) { setNotLinked(true); setLoading(false); return; }
 
-    const [reportsRes, apptsRes] = await Promise.all([
-      supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id),
-      supabase.from('appointments').select('id, appointment_date').eq('expert_id', profile.expert_id).is('deleted_at', null),
-    ]);
+      const [reportsRes, apptsRes] = await Promise.all([
+        supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id),
+        supabase.from('appointments').select('id, appointment_date').eq('expert_id', profile.expert_id).is('deleted_at', null),
+      ]);
 
-    const reports = reportsRes.data || [];
-    const appointments = apptsRes.data || [];
+      const reports = reportsRes.data || [];
+      const appointments = apptsRes.data || [];
     const completed = reports.filter(r => r.report_status === 'completed' || r.report_status === 'taken_out');
     const withDays = completed.filter(r => r.days_to_complete != null);
     const avgDays = withDays.length > 0 ? Math.round(withDays.reduce((s, r) => s + (r.days_to_complete || 0), 0) / withDays.length) : 0;
@@ -105,21 +106,27 @@ const ExpertPerformance: React.FC = () => {
     const overallScore = Math.round((completionScore * 0.3 + speedScore * 0.3 + onTimeRate * 0.2 + qualityScore * 0.2));
     const overallRating = overallScore >= 85 ? 'Excellent' : overallScore >= 70 ? 'Good' : overallScore >= 50 ? 'Average' : 'Needs Improvement';
 
-    setMetrics({
-      totalCases: appointments.length,
-      completedReports: completed.length,
-      avgDaysToComplete: avgDays,
-      onTimeRate,
-      overdueCount: overdue.length,
-      excellentCount: excellent,
-      goodCount: good,
-      averageCount: average,
-      poorCount: poor,
-      monthlyTrend,
-      overallScore,
-      overallRating,
-    });
-    setLoading(false);
+      setMetrics({
+        totalCases: appointments.length,
+        completedReports: completed.length,
+        avgDaysToComplete: avgDays,
+        onTimeRate,
+        overdueCount: overdue.length,
+        excellentCount: excellent,
+        goodCount: good,
+        averageCount: average,
+        poorCount: poor,
+        monthlyTrend,
+        overallScore,
+        overallRating,
+      });
+    } catch (error) {
+      // Previously unguarded — a thrown error left `loading` stuck
+      // true forever with a blank performance page and no error state.
+      console.error('[ExpertPerformance] load failed', error);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => { load(); }, [load]);
