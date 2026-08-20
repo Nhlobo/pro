@@ -7,7 +7,6 @@ import {
   useSetExternalPortalAccountStatus,
   type CreateExternalPortalAccountInput,
 } from '@/hooks/externalPortal/useExternalPortalAccounts';
-import { useExternalPortalLinkableCases, useToggleExternalPortalCaseLink } from '@/hooks/externalPortal/useExternalPortalCaseLinks';
 import {
   AdminCard,
   AdminCardHeader,
@@ -21,10 +20,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   DropdownMenu,
@@ -33,7 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { UserPlus, MoreHorizontal, PauseCircle, PlayCircle, XCircle, Trash2, Users, MessageSquare } from 'lucide-react';
+import { UserPlus, MoreHorizontal, PauseCircle, PlayCircle, XCircle, Trash2, Users } from 'lucide-react';
 import { PORTAL_TYPE_LABEL, ACCOUNT_STATUS_LABEL, ACCOUNT_STATUS_TONE, type ExternalPortalType, type ExternalPortalAccount } from '@/types/externalPortal';
 import { formatDateTimeShort } from '@/utils/dateTime';
 import { toast } from 'sonner';
@@ -58,7 +55,6 @@ const ExternalPortalAccounts: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<'all' | ExternalPortalType>('all');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [form, setForm] = useState<CreateExternalPortalAccountInput>(EMPTY_FORM);
-  const [caseAccessAccount, setCaseAccessAccount] = useState<ExternalPortalAccount | null>(null);
 
   const filtered = useMemo(() => {
     return (accounts || []).filter((a) => {
@@ -139,7 +135,14 @@ const ExternalPortalAccounts: React.FC = () => {
                 <TableBody>
                   {filtered.map((a) => (
                     <TableRow key={a.id}>
-                      <TableCell className="font-medium">{a.full_name}</TableCell>
+                      <TableCell className="font-medium">
+                        {a.full_name}
+                        {a.portal_type === 'attorney' && !a.assigned_attorney_contact_id && (
+                          <div className="mt-0.5 text-[11px] font-normal text-amber-700">
+                            No individual attorney assigned — sees no cases yet. Fix on Access Links.
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell>{PORTAL_TYPE_LABEL[a.portal_type]}</TableCell>
                       <TableCell className="text-slate-600">{a.email}</TableCell>
                       <TableCell>
@@ -176,9 +179,6 @@ const ExternalPortalAccounts: React.FC = () => {
                                 <XCircle className="mr-2 h-4 w-4" /> Mark Expired
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onClick={() => setCaseAccessAccount(a)}>
-                              <MessageSquare className="mr-2 h-4 w-4" /> Case Access (Messages)
-                            </DropdownMenuItem>
                             {isAdminUser && (
                               <>
                                 <DropdownMenuSeparator />
@@ -275,50 +275,7 @@ const ExternalPortalAccounts: React.FC = () => {
         </SheetContent>
       </Sheet>
 
-      <Dialog open={!!caseAccessAccount} onOpenChange={(open) => !open && setCaseAccessAccount(null)}>
-        <DialogContent className="max-h-[80vh] overflow-y-auto rounded-none sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Case Access — {caseAccessAccount?.full_name}</DialogTitle>
-            <DialogDescription>
-              Toggle which cases {caseAccessAccount?.full_name} can message about in the portal. Turning a case off doesn't affect what they can see elsewhere (My Cases, Appointments) — only the message thread for that case.
-            </DialogDescription>
-          </DialogHeader>
-          {caseAccessAccount && <CaseAccessList account={caseAccessAccount} />}
-        </DialogContent>
-      </Dialog>
     </ExternalPortalManagementLayout>
-  );
-};
-
-const CaseAccessList: React.FC<{ account: ExternalPortalAccount }> = ({ account }) => {
-  const { data: cases, isLoading } = useExternalPortalLinkableCases(account);
-  const toggleLink = useToggleExternalPortalCaseLink();
-
-  if (isLoading) return <AdminLoadingState label="Loading cases…" />;
-  if (!cases || cases.length === 0) {
-    return <AdminEmptyState icon={Users} title="No cases found" description="No appointments are linked to this person's attorney/expert record yet." />;
-  }
-
-  return (
-    <div className="divide-y divide-black/10 border border-black/10">
-      {cases.map((c) => (
-        <div key={c.appointment_id} className="flex items-center justify-between gap-3 px-3 py-2">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{c.claimant_name}</p>
-            <p className="text-xs text-slate-500">
-              {c.appointment_date ? formatDateTimeShort(c.appointment_date) : 'No date'} · {c.case_status || 'unknown status'}
-            </p>
-          </div>
-          <Switch
-            checked={c.is_linked}
-            disabled={toggleLink.isPending}
-            onCheckedChange={(checked) =>
-              toggleLink.mutate({ accountId: account.id, appointmentId: c.appointment_id, link: checked })
-            }
-          />
-        </div>
-      ))}
-    </div>
   );
 };
 
