@@ -19,7 +19,6 @@ import {
   HeadsetIcon,
   LogOut,
   User,
-  MessageSquare,
   ChevronLeft,
   Menu,
 } from 'lucide-react';
@@ -39,7 +38,6 @@ const navigationItems = [
   { title: 'Reports', href: '/attorney-portal/reports', icon: FileText },
   { title: 'AOD & Payments', href: '/attorney-portal/payments', icon: CreditCard },
   { title: 'Agreements', href: '/attorney-portal/agreements', icon: FileSignature },
-  { title: 'Messages', href: '/attorney-portal/messages', icon: MessageSquare },
   { title: 'Profile', href: '/attorney-portal/profile', icon: User },
   { title: 'Notifications', href: '/attorney-portal/notifications', icon: Bell },
   { title: 'Support', href: '/attorney-portal/support', icon: HeadsetIcon },
