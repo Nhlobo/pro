@@ -46,22 +46,29 @@ const ExpertSchedule: React.FC = () => {
   const load = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
-    if (!profile?.expert_id) { setNotLinked(true); setLoading(false); return; }
+    try {
+      const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
+      if (!profile?.expert_id) { setNotLinked(true); setLoading(false); return; }
 
-    const [apptsRes, reportsRes] = await Promise.all([
-      supabase.from('appointments')
-        .select(`*, claimants(first_name, last_name, auto_id), referring_attorneys:referring_attorney_id(name)`)
-        .eq('expert_id', profile.expert_id)
-        .is('deleted_at', null)
-        .order('appointment_date', { ascending: true }),
-      supabase.from('expert_reports')
-        .select('*')
-        .eq('expert_id', profile.expert_id),
-    ]);
-    setAppointments(apptsRes.data || []);
-    setReports(reportsRes.data || []);
-    setLoading(false);
+      const [apptsRes, reportsRes] = await Promise.all([
+        supabase.from('appointments')
+          .select(`*, claimants(first_name, last_name, auto_id), referring_attorneys:referring_attorney_id(name)`)
+          .eq('expert_id', profile.expert_id)
+          .is('deleted_at', null)
+          .order('appointment_date', { ascending: true }),
+        supabase.from('expert_reports')
+          .select('*')
+          .eq('expert_id', profile.expert_id),
+      ]);
+      setAppointments(apptsRes.data || []);
+      setReports(reportsRes.data || []);
+    } catch (error) {
+      // Previously unguarded — a thrown error left `loading` stuck
+      // true forever with an empty calendar and no way out.
+      console.error('[ExpertSchedule] load failed', error);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   const initialFetchDone = useRef(false);
