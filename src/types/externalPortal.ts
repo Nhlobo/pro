@@ -30,6 +30,16 @@ export interface ExternalPortalAccount {
   phone: string | null;
   referring_attorney_id: string | null;
   medical_expert_id: string | null;
+  /**
+   * Phase 12: the specific individual (public.referring_attorney_contacts)
+   * this attorney account is scoped to. This — not referring_attorney_id —
+   * is what RLS actually authorizes case visibility against for bridged
+   * sessions. Null means the account hasn't been assigned to a specific
+   * person yet; such an account can log in but sees no cases until an
+   * admin assigns one, by design (no guessing which of a firm's several
+   * attorneys a case belongs to).
+   */
+  assigned_attorney_contact_id: string | null;
   /** The real auth.users row bridged to this account on first login. Null until they've signed in at least once. */
   auth_user_id: string | null;
   status: ExternalPortalAccountStatus;
