@@ -80,14 +80,16 @@ const ExpertProfile: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       if (!user) return;
-      const { data: prof } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
-      if (!prof?.expert_id) { setLoading(false); return; }
-      setExpertId(prof.expert_id);
+      setLoading(true);
+      try {
+        const { data: prof } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
+        if (!prof?.expert_id) { setLoading(false); return; }
+        setExpertId(prof.expert_id);
 
-      const { data: expert } = await supabase.from('medical_experts').select('*').eq('id', prof.expert_id).single();
-      if (expert) {
-        setProfile(expert);
-        setForm({
+        const { data: expert } = await supabase.from('medical_experts').select('*').eq('id', prof.expert_id).single();
+        if (expert) {
+          setProfile(expert);
+          setForm({
           practice_address: expert.practice_address || '',
           contact_number: expert.contact_number || '',
           email: expert.email || '',
@@ -114,7 +116,13 @@ const ExpertProfile: React.FC = () => {
         .order('date');
       setAvailability(avail || []);
       await loadFeeHistory(prof.expert_id);
-      setLoading(false);
+      } catch (error) {
+        // Previously unguarded — a thrown error left `loading` stuck
+        // true forever with a blank profile page.
+        console.error('[ExpertProfile] load failed', error);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [user]);
