@@ -116,9 +116,41 @@ const ExpertFeeReviewApprovals: React.FC = () => {
         const eff = new Date(req.effective_date);
         const today = new Date(); today.setHours(0, 0, 0, 0);
         if (eff <= today) {
+          const patch: Record<string, number> = { [req.fee_field]: req.proposed_value };
+
+          // `medical_experts.consultation_fees` is a legacy roll-up column that
+          // the rest of the system — the Appointment Engine directory,
+          // AdminFindExperts, the payment planner, credit control, expert
+          // reports, and the public expert directory — all read directly
+          // instead of the split MVA/Med-Neg/Per-Hour columns (see the same
+          // precedence in MedicalExpertFormPage.tsx's save handler). This
+          // approval flow was only ever writing the split column an expert
+          // actually requested, so an approved fee change was correctly
+          // applied to e.g. `consultation_fee_mva` but never reached
+          // `consultation_fees` — every other screen kept showing the old
+          // amount even though the source-of-truth split column was right.
+          // Recompute the roll-up the same way the admin edit form does
+          // whenever the approval touches one of the columns that feed it.
+          if (['consultation_fee_mva', 'consultation_fee_med_neg', 'consultation_fee_per_hour'].includes(req.fee_field)) {
+            const { data: current, error: fetchErr } = await supabase
+              .from('medical_experts')
+              .select('consultation_fee_mva, consultation_fee_med_neg, consultation_fee_per_hour, consultation_fees')
+              .eq('id', req.expert_id)
+              .single();
+            if (fetchErr) {
+              toast({ title: 'Approved but fee not applied', description: fetchErr.message, variant: 'destructive' });
+            } else {
+              const mva = req.fee_field === 'consultation_fee_mva' ? req.proposed_value : current?.consultation_fee_mva;
+              const medNeg = req.fee_field === 'consultation_fee_med_neg' ? req.proposed_value : current?.consultation_fee_med_neg;
+              const perHour = req.fee_field === 'consultation_fee_per_hour' ? req.proposed_value : current?.consultation_fee_per_hour;
+              const legacy = medNeg ?? mva ?? perHour ?? current?.consultation_fees ?? null;
+              if (legacy != null) patch.consultation_fees = legacy;
+            }
+          }
+
           const { error: feeErr } = await supabase
             .from('medical_experts')
-            .update({ [req.fee_field]: req.proposed_value } as any)
+            .update(patch as any)
             .eq('id', req.expert_id);
           if (feeErr) {
             toast({ title: 'Approved but fee not applied', description: feeErr.message, variant: 'destructive' });
