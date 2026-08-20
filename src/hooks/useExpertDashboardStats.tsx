@@ -87,6 +87,20 @@ export const useExpertDashboardStats = () => {
           .eq('expert_id', linkedExpertId),
       ]);
 
+      // Previously these three results were used purely as `.data || []`
+      // with their `.error` fields never inspected — an RLS denial (e.g.
+      // the appointments/expert_reports policies not yet granting expert
+      // access) looks identical to "this expert genuinely has 0 cases":
+      // both return an empty array with no visible error, which is why
+      // every card on this dashboard reads 0 with nothing in the UI or
+      // console to tell you why. Logging it here doesn't change what the
+      // dashboard shows (the cards should still degrade to 0, not throw,
+      // if a real expert genuinely has no data yet) — it just makes an
+      // actual permissions failure loud instead of silent.
+      if (apptsRes.error) console.error('[useExpertDashboardStats] appointments query failed', apptsRes.error);
+      if (reportsRes.error) console.error('[useExpertDashboardStats] expert_reports query failed', reportsRes.error);
+      if (debtsRes.error) console.error('[useExpertDashboardStats] expert_payments query failed', debtsRes.error);
+
       const now = new Date();
       const allAppts = apptsRes.data || [];
       const allReports = reportsRes.data || [];
