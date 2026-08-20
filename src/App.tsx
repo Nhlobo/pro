@@ -108,7 +108,6 @@ const AttorneyAgreements = lazy(() => import("./pages/attorney-portal/AttorneyAg
 const AttorneyNotifications = lazy(() => import("./pages/attorney-portal/AttorneyNotifications"));
 const AttorneyCaseStatus = lazy(() => import("./pages/attorney-portal/AttorneyCaseStatus"));
 const AttorneySupport = lazy(() => import("./pages/attorney-portal/AttorneySupport"));
-const AttorneyMessages = lazy(() => import("./pages/attorney-portal/AttorneyMessages"));
 const AttorneyProfile = lazy(() => import("./pages/attorney-portal/AttorneyProfile"));
 
 // Expert Portal Pages
@@ -122,7 +121,6 @@ const ExpertProfile = lazy(() => import("./pages/expert-portal/ExpertProfile"));
 const ExpertSecurity = lazy(() => import("./pages/expert-portal/ExpertSecurity"));
 const ExpertSupport = lazy(() => import("./pages/expert-portal/ExpertSupport"));
 const ExpertNotifications = lazy(() => import("./pages/expert-portal/ExpertNotifications"));
-const ExpertMessages = lazy(() => import("./pages/expert-portal/ExpertMessages"));
 
 // Admin Portal Pages
 const AdminOperationsDashboard = lazy(() => import("./pages/admin/AdminOperationsDashboard"));
@@ -378,7 +376,6 @@ const App = () => (
                 <Route path="/attorney-portal/agreements" element={<ProtectedRoute><AttorneyAgreements /></ProtectedRoute>} />
                 <Route path="/attorney-portal/notifications" element={<ProtectedRoute><AttorneyNotifications /></ProtectedRoute>} />
                 <Route path="/attorney-portal/support" element={<ProtectedRoute><AttorneySupport /></ProtectedRoute>} />
-                <Route path="/attorney-portal/messages" element={<ProtectedRoute><AttorneyMessages /></ProtectedRoute>} />
                 <Route path="/attorney-portal/profile" element={<ProtectedRoute><AttorneyProfile /></ProtectedRoute>} />
                 
                 {/* ============ EXPERT PORTAL ============ */}
@@ -393,7 +390,6 @@ const App = () => (
                 <Route path="/expert-portal/security" element={<ExpertPortalRoute><ExpertSecurity /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/support" element={<ExpertPortalRoute><ExpertSupport /></ExpertPortalRoute>} />
                 <Route path="/expert-portal/notifications" element={<ExpertPortalRoute><ExpertNotifications /></ExpertPortalRoute>} />
-                <Route path="/expert-portal/messages" element={<ExpertPortalRoute><ExpertMessages /></ExpertPortalRoute>} />
 
                 <Route path="/health" element={<Health />} />
                 <Route path="/api-docs" element={<ApiDocs />} />
