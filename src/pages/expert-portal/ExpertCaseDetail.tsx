@@ -57,65 +57,74 @@ const ExpertCaseDetail: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       if (!user || !appointmentId) return;
+      setLoading(true);
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('expert_id')
+          .eq('id', user.id)
+          .single();
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('expert_id')
-        .eq('id', user.id)
-        .single();
+        if (!profile?.expert_id) { setLoading(false); return; }
+        setExpertId(profile.expert_id);
 
-      if (!profile?.expert_id) { setLoading(false); return; }
-      setExpertId(profile.expert_id);
+        // Load appointment with claimant and attorney info
+        const { data: appt } = await supabase
+          .from('appointments')
+          .select(`
+            *, 
+            claimants(first_name, last_name, auto_id, contact_number),
+            referring_attorneys:referring_attorney_id(name, email, phone, contact_person),
+            medical_experts:expert_id(first_name, last_name, expert_type, practice_address)
+          `)
+          .eq('id', appointmentId)
+          .eq('expert_id', profile.expert_id)
+          .is('deleted_at', null)
+          .single();
 
-      // Load appointment with claimant and attorney info
-      const { data: appt } = await supabase
-        .from('appointments')
-        .select(`
-          *, 
-          claimants(first_name, last_name, auto_id, contact_number),
-          referring_attorneys:referring_attorney_id(name, email, phone, contact_person),
-          medical_experts:expert_id(first_name, last_name, expert_type, practice_address)
-        `)
-        .eq('id', appointmentId)
-        .eq('expert_id', profile.expert_id)
-        .is('deleted_at', null)
-        .single();
+        if (!appt) {
+          toast({ title: 'Access Denied', description: 'Case not found or not assigned to you.', variant: 'destructive' });
+          navigate('/expert-portal/cases');
+          return;
+        }
+        setAppointment(appt);
 
-      if (!appt) {
-        toast({ title: 'Access Denied', description: 'Case not found or not assigned to you.', variant: 'destructive' });
-        navigate('/expert-portal/cases');
-        return;
+        // Load report, documents, and debt in parallel
+        const [rptRes, docsRes, debtRes] = await Promise.all([
+          supabase
+            .from('expert_reports')
+            .select('*')
+            .eq('appointment_id', appointmentId)
+            .eq('expert_id', profile.expert_id)
+            .maybeSingle(),
+          supabase
+            .from('documents')
+            .select('*')
+            .eq('appointment_id', appointmentId)
+            .eq('is_visible_to_expert', true)
+            .neq('document_type', 'Expert Report')
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('expert_payments')
+            .select('payment_amount, payment_date, payment_notes')
+            .eq('expert_id', profile.expert_id)
+            .eq('appointment_id', appointmentId),
+        ]);
+
+        setReport(rptRes.data);
+        if (rptRes.data?.notes) setReportNotes(rptRes.data.notes);
+        setDocuments(docsRes.data || []);
+        setExpertDebt(debtRes.data || []);
+      } catch (error) {
+        // Previously unguarded — a thrown error anywhere above (network
+        // failure, etc.) left `loading` stuck true forever with no
+        // error state or redirect, unlike the "case not found" path
+        // right above which at least navigates away.
+        console.error('[ExpertCaseDetail] load failed', error);
+        toast({ title: 'Error', description: 'Failed to load case details.', variant: 'destructive' });
+      } finally {
+        setLoading(false);
       }
-      setAppointment(appt);
-
-      // Load report, documents, and debt in parallel
-      const [rptRes, docsRes, debtRes] = await Promise.all([
-        supabase
-          .from('expert_reports')
-          .select('*')
-          .eq('appointment_id', appointmentId)
-          .eq('expert_id', profile.expert_id)
-          .maybeSingle(),
-        supabase
-          .from('documents')
-          .select('*')
-          .eq('appointment_id', appointmentId)
-          .eq('is_visible_to_expert', true)
-          .neq('document_type', 'Expert Report')
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('expert_payments')
-          .select('payment_amount, payment_date, payment_notes')
-          .eq('expert_id', profile.expert_id)
-          .eq('appointment_id', appointmentId),
-      ]);
-
-      setReport(rptRes.data);
-      if (rptRes.data?.notes) setReportNotes(rptRes.data.notes);
-      setDocuments(docsRes.data || []);
-      setExpertDebt(debtRes.data || []);
-
-      setLoading(false);
     };
     load();
   }, [user, appointmentId]);
