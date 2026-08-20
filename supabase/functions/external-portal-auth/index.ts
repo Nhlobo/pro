@@ -461,6 +461,7 @@ serve(withErrorHandler(async (req) => {
       status: string;
       referring_attorney_id: string | null;
       medical_expert_id: string | null;
+      assigned_attorney_contact_id: string | null;
     } | null = null;
     let link: { id: string } | null = null;
 
@@ -480,7 +481,7 @@ serve(withErrorHandler(async (req) => {
 
       const { data: acct } = await supabaseAdmin
         .from("external_portal_accounts")
-        .select("id, full_name, email, portal_type, status, referring_attorney_id, medical_expert_id")
+        .select("id, full_name, email, portal_type, status, referring_attorney_id, medical_expert_id, assigned_attorney_contact_id")
         .eq("id", linkRow.account_id)
         .single();
       account = acct;
@@ -488,7 +489,7 @@ serve(withErrorHandler(async (req) => {
       if (!body.email || !body.portal_type) return errorResponse("email and portal_type are required");
       const { data: acct } = await supabaseAdmin
         .from("external_portal_accounts")
-        .select("id, full_name, email, portal_type, status, referring_attorney_id, medical_expert_id")
+        .select("id, full_name, email, portal_type, status, referring_attorney_id, medical_expert_id, assigned_attorney_contact_id")
         .eq("email", body.email.trim().toLowerCase())
         .eq("portal_type", body.portal_type)
         .is("deleted_at", null)
@@ -709,6 +710,7 @@ async function bridgeToSupabaseAuth(supabaseAdmin: any, account: {
   portal_type: string;
   referring_attorney_id: string | null;
   medical_expert_id: string | null;
+  assigned_attorney_contact_id: string | null;
 }): Promise<{ bridgeEmail: string; bridgeToken: string; portalPath: string }> {
   const email = account.email.trim().toLowerCase();
   const role = PORTAL_ROLE[account.portal_type];
@@ -757,6 +759,19 @@ async function bridgeToSupabaseAuth(supabaseAdmin: any, account: {
   // anyway with a blank, unlinked profile. Both are fixed here: the
   // bad field is gone, and a failure now hard-stops the login instead
   // of quietly handing out a session that can't see anything.
+  //
+  // attorney_contact_id (Phase 12) is synced here too — this was
+  // missing entirely, which meant every bridged attorney session had
+  // profiles.attorney_contact_id = NULL forever, regardless of what
+  // external_portal_accounts.assigned_attorney_contact_id said. Since
+  // the individual-contact RLS branch (get_current_user_attorney_contact())
+  // is the ONLY branch a bridged session can use — the firm-level
+  // branch is explicitly excluded for is_external_portal_user = true —
+  // a NULL here means appointments/expert_reports/claimants/documents/
+  // case_timelines/document_checklist/expert_payments all resolve to
+  // zero rows for that attorney, no matter how many real cases they
+  // have. Same failure mode as the original bug this comment already
+  // describes: a "successful" login that can't see anything.
   const { error: profileSyncError } = await supabaseAdmin.from("profiles").upsert({
     id: authUserId,
     email,
@@ -766,6 +781,7 @@ async function bridgeToSupabaseAuth(supabaseAdmin: any, account: {
     user_type: "external_portal",
     is_external_portal_user: true,
     referring_attorney_id: account.portal_type === "attorney" ? account.referring_attorney_id : null,
+    attorney_contact_id: account.portal_type === "attorney" ? account.assigned_attorney_contact_id : null,
     expert_id: account.portal_type === "expert" ? account.medical_expert_id : null,
     is_active: true,
   });
