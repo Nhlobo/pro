@@ -5,6 +5,7 @@ import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedSta
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useAttorneyLinkStatus } from '@/hooks/useAttorneyLinkStatus';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -138,45 +139,50 @@ const AttorneyCaseStatus: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [claimants, setClaimants] = useState<ClaimantCase[]>([]);
-  const [attorneyIds, setAttorneyIds] = useState<string[]>([]);
-  const [attorneyIdsResolved, setAttorneyIdsResolved] = useState(false);
 
-  // 1. Resolve which referring attorneys this user is linked to
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      const { data } = await supabase
-        .from('user_attorney_links')
-        .select('referring_attorney_id')
-        .eq('user_id', user.id);
-      setAttorneyIds((data || []).map(r => r.referring_attorney_id));
-      setAttorneyIdsResolved(true);
-    })();
-  }, [user]);
+  // Whether this account is linked to a firm's referrals at all
+  // (profiles.referring_attorney_id). This is the SAME check every
+  // other Attorney Portal page uses, and — unlike the old
+  // `user_attorney_links` table this page used to query — it is
+  // actually populated for bridged External Portal sessions (synced
+  // by external-portal-auth on login), not just native firm-created
+  // logins. `user_attorney_links` is a separate, admin-only,
+  // multi-firm linking table (see EditProfileDialog) that a bridged
+  // portal account never gets a row in, so gating on it made this
+  // page show "not linked" for every real, active attorney account
+  // that came in through the External Portal.
+  const linkStatus = useAttorneyLinkStatus();
 
-  // 2. Load all attorney-scoped claimants + appointments + reports + report docs
+  // Load all attorney-scoped claimants + appointments + reports + report
+  // docs. No client-side attorney/firm filter here — the Appointment
+  // Engine (via `claimants`) is queried directly and RLS is what scopes
+  // the result to this exact person: firm-wide for a native/old-portal
+  // login, or narrowed to their own assigned_attorney_contact_id cases
+  // for a bridged External Portal login. Same pattern as
+  // useAttorneyDashboardStats.
   const loadData = useCallback(async () => {
     if (!user) return;
-    // Wait for the link lookup above to actually resolve before deciding
-    // anything — attorneyIds starts as [] on mount, same shape as a
-    // genuinely-unlinked account, so running this before it resolves
-    // was showing an empty/not-linked state for a beat and then
-    // swapping to the real data once the real links came in.
-    if (!attorneyIdsResolved) return;
+    // Wait for the link-status check above to actually resolve before
+    // deciding anything — running this while it's still "checking" was
+    // showing an empty/not-linked state for a beat and then swapping to
+    // the real data once the real status came in.
+    if (linkStatus === 'checking') return;
     setLoading(true);
     try {
-      // If user has no attorney links, show the not-linked state (security: never fall back to all data)
-      if (attorneyIds.length === 0) {
+      // Not linked to any firm at all — nothing to show (security:
+      // never fall back to all data).
+      if (linkStatus === 'not_linked') {
         setClaimants([]);
         setLoading(false);
         return;
       }
 
-      // Pull claimants for the linked attorneys
+      // RLS-scoped: no `.in('referring_attorney_id', ...)` filter needed
+      // or wanted — the database itself returns only the rows this
+      // signed-in person is allowed to see.
       const { data: claimantsData, error: claimantsErr } = await supabase
         .from('claimants')
-        .select('id, first_name, last_name, auto_id, referring_attorney_id, created_at')
-        .in('referring_attorney_id', attorneyIds);
+        .select('id, first_name, last_name, auto_id, referring_attorney_id, created_at');
       if (claimantsErr) throw claimantsErr;
 
       const claimantIds = (claimantsData || []).map(c => c.id);
@@ -280,7 +286,7 @@ const AttorneyCaseStatus: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, attorneyIds, attorneyIdsResolved, toast]);
+  }, [user, linkStatus, toast]);
 
   useEffect(() => {
     loadData();
@@ -288,7 +294,7 @@ const AttorneyCaseStatus: React.FC = () => {
 
   // Realtime subscriptions — reflect admin changes immediately
   useEffect(() => {
-    if (attorneyIds.length === 0) return;
+    if (linkStatus !== 'linked') return;
     const channel = supabase
       .channel('attorney-case-status-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => loadData())
@@ -299,7 +305,7 @@ const AttorneyCaseStatus: React.FC = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'short_term_agreements' }, () => loadData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [attorneyIds, loadData]);
+  }, [linkStatus, loadData]);
 
   // Dashboard summary cards
   const summary = useMemo(() => {
@@ -461,7 +467,7 @@ const AttorneyCaseStatus: React.FC = () => {
     return <PortalPill tone="warning">Outstanding</PortalPill>;
   };
 
-  if (!attorneyIdsResolved) {
+  if (linkStatus === 'checking') {
     return (
       <AttorneyPortalLayout>
         <PortalPage>
@@ -472,7 +478,7 @@ const AttorneyCaseStatus: React.FC = () => {
     );
   }
 
-  if (attorneyIds.length === 0) {
+  if (linkStatus === 'not_linked') {
     return (
       <AttorneyPortalLayout>
         <PortalPage>
