@@ -82,11 +82,27 @@ const ExpertProfile: React.FC = () => {
       if (!user) return;
       setLoading(true);
       try {
-        const { data: prof } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
+        const { data: prof, error: profErr } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
+        if (profErr) throw profErr;
         if (!prof?.expert_id) { setLoading(false); return; }
         setExpertId(prof.expert_id);
 
-        const { data: expert } = await supabase.from('medical_experts').select('*').eq('id', prof.expert_id).single();
+        // Previously this destructured only `data`, ignoring `error`.
+        // Supabase-js does NOT throw a JS exception for a failed query
+        // (RLS denial, 0/multiple rows on .single(), etc.) — it resolves
+        // normally with `{ data: null, error }`. Silently ignoring that
+        // error meant a failed lookup here looked identical to "this
+        // expert genuinely has nothing filled in yet": `expert` stayed
+        // undefined, the `if (expert)` block below was skipped, and the
+        // whole page rendered at its all-blank/all-zero initial defaults
+        // with no error surfaced anywhere — exactly the symptom being
+        // debugged. Checking `error` explicitly turns that into a loud,
+        // visible failure instead of a silent one.
+        const { data: expert, error: expertErr } = await supabase.from('medical_experts').select('*').eq('id', prof.expert_id).single();
+        if (expertErr) {
+          console.error('[ExpertProfile] medical_experts lookup failed for expert_id', prof.expert_id, expertErr);
+          throw expertErr;
+        }
         if (expert) {
           setProfile(expert);
           setForm({
