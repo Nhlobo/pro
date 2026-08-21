@@ -9,128 +9,83 @@ import PortalSwitcher from './PortalSwitcher';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import {
   LayoutDashboard,
-  Users,
   Briefcase,
-  Stethoscope,
-  MapPin,
-  Scale,
-  FileText,
-  FolderLock,
+  Activity,
   Calendar,
-  BarChart3,
-  ShieldCheck,
+  FileText,
+  CreditCard,
+  FileSignature,
+  Bell,
   HeadsetIcon,
   LogOut,
   User,
   ChevronLeft,
   Menu,
-  ChevronDown,
-  Settings,
-  Building2,
-  Mail
-} from "lucide-react";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+} from 'lucide-react';
+import BrandedPageLoader from '@/components/BrandedPageLoader';
 
 const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
 
-interface AdminPortalLayoutProps {
+interface AttorneyPortalLayoutProps {
   children: React.ReactNode;
 }
 
-import { ADMIN_MODULES, ADMIN_MODULE_GROUP_ORDER, type AdminModuleGroup } from '@/config/adminModules';
-import { useFunctionPermissionIndexCheck } from '@/hooks/useFunctionPermissionIndexCheck';
-import { useModuleAccess } from '@/hooks/useModuleAccess';
+const navigationItems = [
+  { title: 'Dashboard', href: '/attorney-portal', icon: LayoutDashboard },
+  { title: 'My Cases', href: '/attorney-portal/cases', icon: Briefcase },
+  { title: 'View Case Status', href: '/attorney-portal/case-status', icon: Activity },
+  { title: 'Appointments', href: '/attorney-portal/appointments', icon: Calendar },
+  { title: 'Reports', href: '/attorney-portal/reports', icon: FileText },
+  { title: 'AOD & Payments', href: '/attorney-portal/payments', icon: CreditCard },
+  { title: 'Agreements', href: '/attorney-portal/agreements', icon: FileSignature },
+  { title: 'Profile', href: '/attorney-portal/profile', icon: User },
+  { title: 'Notifications', href: '/attorney-portal/notifications', icon: Bell },
+  { title: 'Support', href: '/attorney-portal/support', icon: HeadsetIcon },
+];
 
-const PAGE_TITLE_BY_PATH: Record<string, string> = ADMIN_MODULES.reduce(
-  (acc, m) => ({ ...acc, [m.href]: m.title }),
-  {} as Record<string, string>
+const PAGE_TITLE_BY_PATH: Record<string, string> = navigationItems.reduce(
+  (acc, item) => ({ ...acc, [item.href]: item.title }),
+  {} as Record<string, string>,
 );
 
 function resolvePageTitle(pathname: string): string {
   if (PAGE_TITLE_BY_PATH[pathname]) return PAGE_TITLE_BY_PATH[pathname];
-  // Longest-prefix match for nested routes
   const match = Object.keys(PAGE_TITLE_BY_PATH)
-    .filter((href) => href !== '/admin' && pathname.startsWith(href + '/'))
+    .filter((href) => href !== '/attorney-portal' && pathname.startsWith(href + '/'))
     .sort((a, b) => b.length - a.length)[0];
-  return match ? PAGE_TITLE_BY_PATH[match] : 'Admin';
+  return match ? PAGE_TITLE_BY_PATH[match] : 'Attorney Portal';
 }
 
-import SalesConsultantDeleteGuard from './SalesConsultantDeleteGuard';
-import InternalChatWidget from '@/components/internalChat/InternalChatWidget';
-import BrandedPageLoader from '@/components/BrandedPageLoader';
-
-export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }) => {
+/**
+ * Attorney Portal shell.
+ *
+ * Rebuilt to share the exact same responsive shell as AdminPortalLayout
+ * (mobile drawer sidebar, sticky branded header, skip-link, lg: breakpoint
+ * offsets) instead of its own one-off fixed-sidebar layout, which had no
+ * mobile handling at all — on a narrow viewport the fixed 256px sidebar
+ * and the main content's unconditional ml-64 fought each other, which is
+ * what "not responsive / overlapping" was. Referring attorneys should feel
+ * like they're in the same real platform staff use, not a separate,
+ * lower-effort build.
+ */
+export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
-  const { isAdmin, isSalesConsultant, userRole, loading } = usePermissions();
-  const {
-    loading: moduleAccessLoading,
-    canAccessModule,
-    canAccessPath,
-    accessibleModules,
-    homeModule,
-    homeHref,
-  } = useModuleAccess();
+  const { loading } = usePermissions();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Admin-only schema verification — alerts if function_permissions unique
-  // indexes would re-introduce NULL-conflict duplicate-row behaviour.
-  useFunctionPermissionIndexCheck(!loading && userRole === 'admin');
-
-  // Close the mobile drawer whenever the route changes
   React.useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  // Single source of truth for "can this user be here": the same grant
-  // check (useModuleAccess -> @/lib/moduleAccess) that decides what shows
-  // up in the sidebar below. A user who isn't provisioned for the current
-  // page at all (no matching role) or who's had the admin-configured
-  // permission for it revoked is sent to their own home base — not a
-  // hand-maintained list of routes that can quietly drift out of sync
-  // with what Manage Permissions actually grants.
-  const accessReady = !loading && !moduleAccessLoading;
-  const hasAccess = accessReady && canAccessPath(location.pathname);
-
-  React.useEffect(() => {
-    if (!accessReady) return;
-    if (hasAccess) return;
-    navigate(homeHref, { replace: true });
-  }, [accessReady, hasAccess, homeHref, navigate]);
-
-  if (loading || moduleAccessLoading) {
+  if (loading) {
     return <BrandedPageLoader message="Loading…" />;
   }
-
-  // Don't render the page underneath while we're redirecting away from it
-  // — otherwise a restricted screen (and whatever data it fetches) would
-  // flash on screen for a frame before the effect above kicks in.
-  if (!hasAccess) {
-    return <BrandedPageLoader message="Loading…" />;
-  }
-
-  const visibleGroups = ADMIN_MODULE_GROUP_ORDER.map((group: AdminModuleGroup) => ({
-    label: group,
-    items: accessibleModules
-      .filter((m) => m.group === group)
-      .map((m) => ({ title: m.title, href: m.href, icon: m.icon })),
-  })).filter((g) => g.items.length > 0);
-
-  const roleLabel =
-    userRole === 'sales_consultant' ? 'Sales Consultant'
-    : userRole === 'employee' ? 'Company Employee'
-    : 'Administrator';
 
   return (
     <div className="flex min-h-screen bg-background">
-      {isSalesConsultant() && <SalesConsultantDeleteGuard />}
-
       {/* Mobile backdrop */}
       {mobileOpen && (
         <div
@@ -143,15 +98,12 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden gradient-nav text-white shadow-xl transition-all duration-300",
-          // Width
+          "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden gradient-nav-attorney text-white shadow-xl transition-all duration-300",
           sidebarCollapsed ? "w-16" : "w-64",
-          // Mobile: slide in/out; Desktop: always visible
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           "lg:translate-x-0"
         )}
       >
-        {/* Ambient glow accents to match the auth brand panel */}
         <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
 
@@ -163,14 +115,13 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 p-1 ring-2 ring-white/30">
                   <img src={logoSrc} alt="Kutlwano & Associate" className="h-full w-full object-contain" />
                 </div>
-                <span className="truncate font-semibold text-sm">Admin Portal</span>
+                <span className="truncate font-semibold text-sm">Attorney Portal</span>
               </div>
             )}
             <Button
               variant="ghost"
               size="icon"
               onClick={() => {
-                // On mobile, the same control closes the drawer
                 if (window.innerWidth < 1024) {
                   setMobileOpen(false);
                 } else {
@@ -188,42 +139,30 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
           </div>
 
           {/* Navigation */}
-          <ScrollArea className="min-h-0 flex-1 py-2">
-            {visibleGroups.map((group) => (
-              <Collapsible key={group.label} defaultOpen className="mb-1 px-2">
-                {!sidebarCollapsed && (
-                  <CollapsibleTrigger className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-white/60 hover:text-white/85">
-                    <span className="truncate">{group.label}</span>
-                    <ChevronDown className="h-3 w-3 shrink-0" />
-                  </CollapsibleTrigger>
-                )}
-                <CollapsibleContent>
-                  <nav className="space-y-0.5">
-                    {group.items.map((item) => {
-                      const isActive = location.pathname === item.href;
-                      return (
-                        <Link
-                          key={item.href}
-                          to={item.href}
-                          onClick={() => setMobileOpen(false)}
-                          className={cn(
-                            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
-                            isActive
-                              ? "bg-white text-[#0F7A9C] shadow-sm"
-                              : "text-white/80 hover:bg-white/15 hover:text-white",
-                            sidebarCollapsed && "justify-center px-2"
-                          )}
-                          title={sidebarCollapsed ? item.title : undefined}
-                        >
-                          <item.icon className="h-4 w-4 flex-shrink-0" />
-                          {!sidebarCollapsed && <span className="truncate">{item.title}</span>}
-                        </Link>
-                      );
-                    })}
-                  </nav>
-                </CollapsibleContent>
-              </Collapsible>
-            ))}
+          <ScrollArea className="min-h-0 flex-1 px-2 py-3">
+            <nav className="space-y-0.5">
+              {navigationItems.map((item) => {
+                const isActive = location.pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    onClick={() => setMobileOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
+                      isActive
+                        ? "bg-white text-[#146C36] shadow-sm"
+                        : "text-white/80 hover:bg-white/15 hover:text-white",
+                      sidebarCollapsed && "justify-center px-2"
+                    )}
+                    title={sidebarCollapsed ? item.title : undefined}
+                  >
+                    <item.icon className="h-4 w-4 flex-shrink-0" />
+                    {!sidebarCollapsed && <span className="truncate">{item.title}</span>}
+                  </Link>
+                );
+              })}
+            </nav>
           </ScrollArea>
 
           {/* User section */}
@@ -238,7 +177,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
               {!sidebarCollapsed && (
                 <div className="min-w-0 flex-1 overflow-hidden">
                   <p className="truncate text-xs font-medium">{user?.email}</p>
-                  <p className="truncate text-[10px] text-white/70">{roleLabel}</p>
+                  <p className="truncate text-[10px] text-white/70">Referring Attorney</p>
                 </div>
               )}
             </div>
@@ -264,21 +203,15 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
         id="main-content"
         className={cn(
           "flex-1 min-w-0 transition-all duration-300",
-          // Mobile: full width (sidebar is drawer). Desktop: offset by sidebar width.
           "ml-0",
           sidebarCollapsed ? "lg:ml-16" : "lg:ml-64"
         )}
       >
-        {/* Skip to content link — visible on keyboard focus */}
         <a href="#main-content" className="skip-link">Skip to main content</a>
 
-        {/* Top bar — the same branded teal/blue gradient on every admin page,
-            Operations Dashboard included, so the whole portal shares one
-            header instead of Operations Dashboard having its own separate,
-            search-bar version. */}
-        <header className="sticky top-0 z-30 gradient-nav text-white shadow-md">
+        {/* Top bar — same branded gradient header every portal shares */}
+        <header className="sticky top-0 z-30 gradient-nav-attorney text-white shadow-md">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 lg:px-6">
-            {/* Row 1: eyebrow + right actions (back, notifications) */}
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/85 sm:text-xs sm:tracking-[0.28em]">
@@ -294,23 +227,23 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
               </div>
 
               <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                {/* Targets this user's actual home base — Operations
-                    Dashboard for admin/employee, but their own landing
-                    module (Sales Dashboard, Finance & Payments, …) for
-                    roles that can't reach /admin at all. Hidden on that
-                    home page itself, since "back to X" makes no sense
-                    while already on X. */}
-                {homeModule && location.pathname !== homeHref && (
+                {/* Same sticky "back to dashboard" control shape as the
+                    internal Operations Dashboard header — same
+                    border/sizing, just on this portal's own
+                    gradient-nav-attorney (green) background and pointed at
+                    the Attorney Portal's own dashboard. Hidden on the
+                    dashboard itself, same as the internal one. */}
+                {location.pathname !== '/attorney-portal' && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => navigate(homeHref)}
+                    onClick={() => navigate('/attorney-portal')}
                     className="shrink-0 gap-1 border border-white/30 bg-white/10 px-2 text-white hover:bg-white/20 hover:text-white sm:px-3"
-                    aria-label={`Back to ${homeModule.title}`}
+                    aria-label="Back to Dashboard"
                   >
                     <ChevronLeft className="h-4 w-4" />
                     <span className="hidden text-xs font-semibold uppercase tracking-wide sm:inline">
-                      {homeModule.title}
+                      Dashboard
                     </span>
                     <span className="text-xs font-semibold uppercase tracking-wide sm:hidden">Back</span>
                   </Button>
@@ -320,7 +253,6 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
               </div>
             </div>
 
-            {/* Row 2: bottom-left hamburger (opens sidebar drawer on mobile/tablet) */}
             <div className="flex items-center justify-between gap-2">
               <Button
                 variant="ghost"
@@ -329,7 +261,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
                 onClick={() => setMobileOpen(true)}
                 aria-label="Open navigation menu"
                 aria-expanded={mobileOpen}
-                aria-controls="admin-mobile-sidebar"
+                aria-controls="attorney-mobile-sidebar"
               >
                 <Menu className="h-5 w-5" />
               </Button>
@@ -339,12 +271,10 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
           </div>
         </header>
 
-
-        <div className="min-w-0 p-3 sm:p-4 lg:p-6">{children}</div>
+        <div className="min-w-0 mx-auto w-full max-w-7xl p-3 sm:p-4 lg:p-6">{children}</div>
       </main>
-      <InternalChatWidget />
     </div>
   );
 };
 
-export default AdminPortalLayout;
+export default AttorneyPortalLayout;
