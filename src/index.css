@@ -265,25 +265,31 @@ All colors MUST be HSL.
     --ring: 142 65% 32%;
   }
 
-  /* Primary buttons (shadcn Button's "default" variant, which always
-     renders "rounded-md ... bg-primary text-primary-foreground
-     hover:bg-primary/90" together — a fingerprint no other shared control
-     shares, so this can't catch Badge/Checkbox/Switch/Progress, which use
-     different shapes) paint the same --portal-gradient as the header/nav
-     rather than a flat colour, so a button and the chrome around it are
-     visibly the same gradient. Because that gradient is light (white →
-     soft accent), the button text switches to the portal's dark text
-     colour instead of the white --primary-foreground shadcn normally
-     uses, to keep WCAG-friendly contrast — same reasoning as the header.
-     A subtle brightness dip on hover gives press feedback without
-     swapping to a different gradient. */
-  .expert-portal-theme .rounded-md.bg-primary,
-  .attorney-portal-theme .rounded-md.bg-primary {
+  /* Primary buttons (shadcn Button's "default" variant, identified by
+     "whitespace-nowrap ... bg-primary text-primary-foreground" appearing
+     together — a fingerprint no other shared control shares, so this
+     can't catch Badge/Checkbox/Switch/Progress/Tabs, which use different
+     shapes or state-driven classes instead of plain bg-primary. Chosen
+     over Button's "rounded-md" base class because several portal pages
+     pass their own "rounded-none" className, and Tailwind's class-merging
+     then drops "rounded-md" from that button's element even though both
+     render identical square corners here — --radius is 0rem globally —
+     so anchoring to "rounded-md" silently missed those buttons.) paint
+     the same --portal-gradient as the header/nav rather than a flat
+     colour, so a button and the chrome around it are visibly the same
+     gradient. Because that gradient is light (white → soft accent), the
+     button text switches to the portal's dark text colour instead of the
+     white --primary-foreground shadcn normally uses, to keep
+     WCAG-friendly contrast — same reasoning as the header. A subtle
+     brightness dip on hover gives press feedback without swapping to a
+     different gradient. */
+  .expert-portal-theme .whitespace-nowrap.bg-primary.text-primary-foreground,
+  .attorney-portal-theme .whitespace-nowrap.bg-primary.text-primary-foreground {
     background-image: var(--portal-gradient);
     color: hsl(var(--portal-fg));
   }
-  .expert-portal-theme .rounded-md.bg-primary:hover,
-  .attorney-portal-theme .rounded-md.bg-primary:hover {
+  .expert-portal-theme .whitespace-nowrap.bg-primary.text-primary-foreground:hover,
+  .attorney-portal-theme .whitespace-nowrap.bg-primary.text-primary-foreground:hover {
     filter: brightness(0.96);
     color: hsl(var(--portal-fg));
   }
