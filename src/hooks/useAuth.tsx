@@ -104,14 +104,46 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       (event, newSession) => {
         // Handle sign out - clear everything
         if (event === 'SIGNED_OUT') {
-          cleanupAuthState();
-          // external-portal-session flag intentionally left in place —
-          // see externalPortalSession.ts.
-          externalCheckedForUserId.current = null;
-          setSession(null);
-          setUser(null);
-          setIsEmailConfirmed(false);
-          setLoading(false);
+          // SECURITY: a SIGNED_OUT event here is not necessarily THIS tab's
+          // own sign-out. supabase-js relays every SIGNED_OUT across all
+          // same-origin tabs via a BroadcastChannel keyed by the client's
+          // storage key — and Internal Staff and External Portal tabs share
+          // the exact same client config, so they share that channel too.
+          // That relay fires purely on storage-key match; it does not check
+          // whether the tab receiving it was signed in as the same account
+          // as the tab that signed out. So an attorney/expert logging out
+          // of the External Portal in one tab broadcasts SIGNED_OUT to an
+          // unrelated Internal Staff tab, which — before this check existed
+          // — would blindly wipe its own still-valid session in response.
+          //
+          // The broadcast relay only invokes this callback; it never
+          // touches this tab's own storage (that only happens when this
+          // tab's own client actually removes its session). So we can tell
+          // a genuine local sign-out apart from cross-tab noise by checking
+          // whether this tab's own storage still has a session: by the time
+          // a real local sign-out reaches this callback, the SDK has
+          // already cleared it — but a relayed broadcast from another tab's
+          // sign-out leaves this tab's own storage untouched.
+          //
+          // Deferred via setTimeout, not awaited inline, to match this
+          // file's existing rule for the SIGNED_IN branch below: never run
+          // further async Supabase calls directly inside this callback, to
+          // avoid deadlocking against the client's own internal auth lock.
+          setTimeout(() => {
+            supabase.auth.getSession().then(({ data: { session: stillPresent } }) => {
+              if (stillPresent) {
+                return;
+              }
+              cleanupAuthState();
+              // external-portal-session flag intentionally left in place —
+              // see externalPortalSession.ts.
+              externalCheckedForUserId.current = null;
+              setSession(null);
+              setUser(null);
+              setIsEmailConfirmed(false);
+              setLoading(false);
+            });
+          }, 0);
           return;
         }
 
