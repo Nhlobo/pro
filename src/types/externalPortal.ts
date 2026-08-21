@@ -16,6 +16,15 @@
 
 export type ExternalPortalType = 'attorney' | 'expert';
 
+/**
+ * Phase 20: for attorney accounts, whether this portal account
+ * represents the WHOLE firm (sees every case referred by that
+ * referring_attorneys row) or ONE INDIVIDUAL at that firm (sees only
+ * appointments assigned to them via assigned_attorney_contact_id).
+ * Null/undefined for expert accounts — scope doesn't apply to them.
+ */
+export type ExternalPortalAccountScope = 'firm' | 'individual';
+
 export type ExternalPortalAccountStatus = 'active' | 'paused' | 'expired' | 'deleted';
 
 export type ExternalPortalLinkStatus = 'pending' | 'used' | 'expired' | 'revoked';
@@ -40,6 +49,12 @@ export interface ExternalPortalAccount {
    * attorneys a case belongs to).
    */
   assigned_attorney_contact_id: string | null;
+  /**
+   * Phase 20: 'firm' (sees every case for this account's
+   * referring_attorney_id) or 'individual' (sees only cases matching
+   * assigned_attorney_contact_id). Null for expert accounts.
+   */
+  account_scope: ExternalPortalAccountScope | null;
   /** The real auth.users row bridged to this account on first login. Null until they've signed in at least once. */
   auth_user_id: string | null;
   status: ExternalPortalAccountStatus;
