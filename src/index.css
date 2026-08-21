@@ -190,6 +190,24 @@ All colors MUST be HSL.
     background: linear-gradient(135deg, hsl(var(--kutlwano-blue)), hsl(var(--kutlwano-teal)));
   }
 
+  /* External portal header/nav accents — logged-in Expert Portal users see
+     blue, logged-in Attorney Portal users see green, so the two external
+     portals are visually distinguishable from each other and from the
+     internal Admin Portal's teal/blue .gradient-nav. Deliberately kept as
+     their own classes rather than edits to .gradient-nav itself: that
+     class is also used by AdminPortalLayout and by pre-login/shared chrome
+     (Auth, legal pages, Offline, NotFound, exit-confirmation dialog), none
+     of which should change. Only the <aside> sidebar and <header> top bar
+     in ExpertPortalLayout / AttorneyPortalLayout reference these classes —
+     no other external-portal styling changes. */
+  .gradient-nav-expert {
+    background: linear-gradient(135deg, hsl(213 94% 36%), hsl(199 92% 46%));
+  }
+
+  .gradient-nav-attorney {
+    background: linear-gradient(135deg, hsl(152 69% 28%), hsl(158 64% 39%));
+  }
+
   /* Solid teal gradient for primary download/export actions (e.g. "Export
      Report", "Download" buttons) — distinct from gradient-nav, which mixes
      in brand blue and is reserved for navigation chrome. */
