@@ -202,19 +202,13 @@ All colors MUST be HSL.
      ExpertPortalLayout / AttorneyPortalLayout reference these classes —
      no other external-portal styling changes.
 
-     Each gradient is a light, low-saturation white → very-light accent →
-     soft accent sweep (same 135deg three-stop shape as .gradient-nav) so
-     white stays the dominant tone and no teal ever mixes in. Because the
-     lightest stop is near-white, chrome inside these two layouts is paired
-     with the dark-on-light .expert-portal-theme / .attorney-portal-theme
-     text variables below rather than white text, to keep WCAG-friendly
-     contrast across the whole gradient. */
-  .gradient-nav-expert {
-    background: linear-gradient(135deg, hsl(0 0% 100%), hsl(213 100% 95%), hsl(214 88% 85%));
-  }
-
+     Each reads --portal-gradient from the theme scope below instead of
+     hardcoding its own copy, so the header, the nav sidebar, and every
+     primary button in a portal always paint the exact same gradient from
+     one definition. */
+  .gradient-nav-expert,
   .gradient-nav-attorney {
-    background: linear-gradient(135deg, hsl(0 0% 100%), hsl(140 60% 95%), hsl(142 55% 83%));
+    background: var(--portal-gradient);
   }
 
   /* Scoped text/accent tokens for the two external portal layouts only.
@@ -225,6 +219,7 @@ All colors MUST be HSL.
      white/blue/green so contrast is intentional (dark text on the light
      gradient above) and the two portals share one implementation. */
   .expert-portal-theme {
+    --portal-gradient: linear-gradient(135deg, hsl(0 0% 100%), hsl(213 100% 95%), hsl(214 88% 85%));
     --portal-fg: 217 70% 24%;
     --portal-fg-muted: 217 45% 33%;
     --portal-border: 214 70% 55%;
@@ -235,11 +230,11 @@ All colors MUST be HSL.
 
     /* Re-theme the shared button/badge/control tokens (--primary,
        --secondary, --accent, --ring) to this portal's blue so every
-       shadcn control (Button, Badge, Checkbox, Switch, Progress, links)
-       rendered anywhere inside this layout matches the header/nav
-       identity. Scoped to this wrapper class only — the internal
-       AdminPortalLayout and every other tree keeps the original
-       --primary/--secondary/--accent values untouched. */
+       shadcn control (Badge, Checkbox, Switch, Progress, links, the
+       "soft"/"outline"/"ghost" Button variants) rendered anywhere inside
+       this layout matches the header/nav identity. Scoped to this wrapper
+       class only — the internal AdminPortalLayout and every other tree
+       keeps the original --primary/--secondary/--accent values untouched. */
     --primary: 221 82% 40%;
     --primary-foreground: 0 0% 100%;
     --secondary: 213 90% 94%;
@@ -250,6 +245,7 @@ All colors MUST be HSL.
   }
 
   .attorney-portal-theme {
+    --portal-gradient: linear-gradient(135deg, hsl(0 0% 100%), hsl(140 60% 95%), hsl(142 55% 83%));
     --portal-fg: 152 55% 16%;
     --portal-fg-muted: 152 40% 26%;
     --portal-border: 142 55% 45%;
@@ -269,28 +265,27 @@ All colors MUST be HSL.
     --ring: 142 65% 32%;
   }
 
-  /* Buttons specifically (shadcn Button's "default" variant, which always
+  /* Primary buttons (shadcn Button's "default" variant, which always
      renders "rounded-md ... bg-primary text-primary-foreground
      hover:bg-primary/90" together — a fingerprint no other shared control
      shares, so this can't catch Badge/Checkbox/Switch/Progress, which use
-     different shapes) get the portal's actual gradient rather than the
-     flat --primary swap above, so primary buttons visually match the
-     header. Everything else driven by --primary/--secondary/--accent
-     (badges, checkboxes, switches, progress bars, links, the "soft" and
-     "outline" button variants) still gets the recolored flat tokens from
-     the scope above, which is enough for those smaller controls. */
-  .expert-portal-theme .rounded-md.bg-primary {
-    background-image: linear-gradient(135deg, hsl(213 88% 45%), hsl(221 82% 40%), hsl(226 72% 33%));
-  }
-  .expert-portal-theme .rounded-md.bg-primary:hover {
-    background-image: linear-gradient(135deg, hsl(213 88% 40%), hsl(221 82% 35%), hsl(226 72% 28%));
-  }
-
+     different shapes) paint the same --portal-gradient as the header/nav
+     rather than a flat colour, so a button and the chrome around it are
+     visibly the same gradient. Because that gradient is light (white →
+     soft accent), the button text switches to the portal's dark text
+     colour instead of the white --primary-foreground shadcn normally
+     uses, to keep WCAG-friendly contrast — same reasoning as the header.
+     A subtle brightness dip on hover gives press feedback without
+     swapping to a different gradient. */
+  .expert-portal-theme .rounded-md.bg-primary,
   .attorney-portal-theme .rounded-md.bg-primary {
-    background-image: linear-gradient(135deg, hsl(140 55% 32%), hsl(142 60% 28%), hsl(144 62% 22%));
+    background-image: var(--portal-gradient);
+    color: hsl(var(--portal-fg));
   }
+  .expert-portal-theme .rounded-md.bg-primary:hover,
   .attorney-portal-theme .rounded-md.bg-primary:hover {
-    background-image: linear-gradient(135deg, hsl(140 55% 28%), hsl(142 60% 24%), hsl(144 62% 18%));
+    filter: brightness(0.96);
+    color: hsl(var(--portal-fg));
   }
 
   /* Solid teal gradient for primary download/export actions (e.g. "Export
