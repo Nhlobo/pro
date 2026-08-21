@@ -65,6 +65,13 @@ function resolvePageTitle(pathname: string): string {
  * shells). Internal chat is staff-to-staff communication; the Expert
  * Portal is an external, link+OTP surface — same as the Attorney
  * Portal, which never had that widget either.
+ *
+ * Theme: wrapped in `expert-portal-theme`, which scopes a set of
+ * `--portal-*` CSS variables (see index.css) used throughout this file
+ * instead of hardcoded white/blue utilities. That keeps the soft
+ * white→blue gradient's text dark-on-light for contrast, and keeps the
+ * whole theme isolated to this layout — it never touches
+ * AdminPortalLayout, AttorneyPortalLayout, or any shared/global styles.
  */
 const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
@@ -83,7 +90,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="expert-portal-theme flex min-h-screen bg-background">
       {/* Mobile backdrop */}
       {mobileOpen && (
         <div
@@ -96,21 +103,21 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden gradient-nav-expert text-white shadow-xl transition-all duration-300",
+          "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden gradient-nav-expert text-[hsl(var(--portal-fg))] shadow-xl transition-all duration-300",
           sidebarCollapsed ? "w-16" : "w-64",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           "lg:translate-x-0"
         )}
       >
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-white/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[hsl(var(--portal-decor)/0.18)] blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-[hsl(var(--portal-decor)/0.18)] blur-3xl" />
 
         <div className="relative flex h-full min-h-0 flex-col">
           {/* Logo */}
-          <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-white/15 px-4">
+          <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-[hsl(var(--portal-border)/0.35)] px-4">
             {!sidebarCollapsed && (
               <div className="flex min-w-0 items-center gap-2">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 p-1 ring-2 ring-white/30">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--portal-overlay)/0.16)] p-1 ring-2 ring-[hsl(var(--portal-border)/0.4)]">
                   <img src={logoSrc} alt="Kutlwano & Associate" className="h-full w-full object-contain" />
                 </div>
                 <span className="truncate font-semibold text-sm">Expert Portal</span>
@@ -127,7 +134,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
               }}
               className={cn(
-                "h-8 w-8 shrink-0 text-white/90 hover:bg-white/15 hover:text-white",
+                "h-8 w-8 shrink-0 text-[hsl(var(--portal-fg-muted))] hover:bg-[hsl(var(--portal-overlay)/0.16)] hover:text-[hsl(var(--portal-fg))]",
                 sidebarCollapsed && "mx-auto"
               )}
               aria-label="Toggle sidebar"
@@ -149,8 +156,8 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                       isActive
-                        ? "bg-white text-[#1E3A8A] shadow-sm"
-                        : "text-white/80 hover:bg-white/15 hover:text-white",
+                        ? "bg-[hsl(var(--portal-active-bg))] text-[hsl(var(--portal-active-fg))] shadow-sm"
+                        : "text-[hsl(var(--portal-fg-muted))] hover:bg-[hsl(var(--portal-overlay)/0.16)] hover:text-[hsl(var(--portal-fg))]",
                       sidebarCollapsed && "justify-center px-2"
                     )}
                     title={sidebarCollapsed ? item.title : undefined}
@@ -164,18 +171,18 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           </ScrollArea>
 
           {/* User section */}
-          <div className="shrink-0 border-t border-white/15 p-3">
+          <div className="shrink-0 border-t border-[hsl(var(--portal-border)/0.35)] p-3">
             <div className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
               sidebarCollapsed && "justify-center px-2"
             )}>
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[hsl(var(--portal-overlay)/0.16)]">
                 <Stethoscope className="h-4 w-4" />
               </div>
               {!sidebarCollapsed && (
                 <div className="min-w-0 flex-1 overflow-hidden">
                   <p className="truncate text-xs font-medium">{user?.email}</p>
-                  <p className="truncate text-[10px] text-white/70">Medical Expert</p>
+                  <p className="truncate text-[10px] text-[hsl(var(--portal-fg-muted))]">Medical Expert</p>
                 </div>
               )}
             </div>
@@ -183,7 +190,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
               variant="ghost"
               size={sidebarCollapsed ? "icon" : "default"}
               className={cn(
-                "mt-1 w-full text-white/80 hover:bg-white/15 hover:text-white",
+                "mt-1 w-full text-[hsl(var(--portal-fg-muted))] hover:bg-[hsl(var(--portal-overlay)/0.16)] hover:text-[hsl(var(--portal-fg))]",
                 sidebarCollapsed && "px-2"
               )}
               onClick={() => signOut()}
@@ -208,15 +215,15 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
         <a href="#main-content" className="skip-link">Skip to main content</a>
 
         {/* Top bar — same branded gradient header every portal shares */}
-        <header className="sticky top-0 z-30 gradient-nav-expert text-white shadow-md">
+        <header className="sticky top-0 z-30 gradient-nav-expert text-[hsl(var(--portal-fg))] shadow-md">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 lg:px-6">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/85 sm:text-xs sm:tracking-[0.28em]">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[hsl(var(--portal-fg-muted))] sm:text-xs sm:tracking-[0.28em]">
                   Medico-Legal Pro
                 </div>
                 <h1
-                  className="mt-0.5 break-words font-bold leading-tight text-white
+                  className="mt-0.5 break-words font-bold leading-tight text-[hsl(var(--portal-fg))]
                              text-[clamp(1.15rem,5.5vw,2rem)] sm:text-[clamp(1.4rem,3.5vw,2.25rem)]"
                   title={resolvePageTitle(location.pathname)}
                 >
@@ -235,7 +242,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
                     variant="ghost"
                     size="sm"
                     onClick={() => navigate('/expert-portal')}
-                    className="shrink-0 gap-1 border border-white/30 bg-white/10 px-2 text-white hover:bg-white/20 hover:text-white sm:px-3"
+                    className="shrink-0 gap-1 border border-[hsl(var(--portal-border)/0.45)] bg-[hsl(var(--portal-overlay)/0.14)] px-2 text-[hsl(var(--portal-fg))] hover:bg-[hsl(var(--portal-overlay)/0.24)] hover:text-[hsl(var(--portal-fg))] sm:px-3"
                     aria-label="Back to Dashboard"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -254,7 +261,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 shrink-0 border border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white lg:hidden"
+                className="h-9 w-9 shrink-0 border border-[hsl(var(--portal-border)/0.4)] bg-[hsl(var(--portal-overlay)/0.14)] text-[hsl(var(--portal-fg))] hover:bg-[hsl(var(--portal-overlay)/0.24)] hover:text-[hsl(var(--portal-fg))] lg:hidden"
                 onClick={() => setMobileOpen(true)}
                 aria-label="Open navigation menu"
                 aria-expanded={mobileOpen}
@@ -263,7 +270,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
                 <Menu className="h-5 w-5" />
               </Button>
               <div className="hidden lg:block" />
-              <div className="h-0.5 flex-1 rounded-full bg-white/15" />
+              <div className="h-0.5 flex-1 rounded-full bg-[hsl(var(--portal-border)/0.3)]" />
             </div>
           </div>
         </header>
