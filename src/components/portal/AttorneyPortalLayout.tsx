@@ -98,7 +98,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden gradient-nav text-white shadow-xl transition-all duration-300",
+          "fixed left-0 top-0 z-40 flex h-screen flex-col overflow-hidden gradient-nav-attorney text-white shadow-xl transition-all duration-300",
           sidebarCollapsed ? "w-16" : "w-64",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
           "lg:translate-x-0"
@@ -151,7 +151,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                       isActive
-                        ? "bg-white text-[#0F7A9C] shadow-sm"
+                        ? "bg-white text-[#146C36] shadow-sm"
                         : "text-white/80 hover:bg-white/15 hover:text-white",
                       sidebarCollapsed && "justify-center px-2"
                     )}
@@ -210,7 +210,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
         <a href="#main-content" className="skip-link">Skip to main content</a>
 
         {/* Top bar — same branded gradient header every portal shares */}
-        <header className="sticky top-0 z-30 gradient-nav text-white shadow-md">
+        <header className="sticky top-0 z-30 gradient-nav-attorney text-white shadow-md">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 lg:px-6">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
@@ -227,11 +227,12 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
               </div>
 
               <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                {/* Same sticky "back to dashboard" control as the internal
-                    Operations Dashboard header — identical gradient-nav
-                    teal/blue background, border, and sizing, just pointed
-                    at the Attorney Portal's own dashboard instead. Hidden
-                    on the dashboard itself, same as the internal one. */}
+                {/* Same sticky "back to dashboard" control shape as the
+                    internal Operations Dashboard header — same
+                    border/sizing, just on this portal's own
+                    gradient-nav-attorney (green) background and pointed at
+                    the Attorney Portal's own dashboard. Hidden on the
+                    dashboard itself, same as the internal one. */}
                 {location.pathname !== '/attorney-portal' && (
                   <Button
                     variant="ghost"
