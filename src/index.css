@@ -191,21 +191,57 @@ All colors MUST be HSL.
   }
 
   /* External portal header/nav accents — logged-in Expert Portal users see
-     blue, logged-in Attorney Portal users see green, so the two external
-     portals are visually distinguishable from each other and from the
-     internal Admin Portal's teal/blue .gradient-nav. Deliberately kept as
-     their own classes rather than edits to .gradient-nav itself: that
-     class is also used by AdminPortalLayout and by pre-login/shared chrome
-     (Auth, legal pages, Offline, NotFound, exit-confirmation dialog), none
-     of which should change. Only the <aside> sidebar and <header> top bar
-     in ExpertPortalLayout / AttorneyPortalLayout reference these classes —
-     no other external-portal styling changes. */
+     a soft white→blue gradient, logged-in Attorney Portal users see a soft
+     white→green gradient, so the two external portals are visually
+     distinguishable from each other and from the internal Admin Portal's
+     teal/blue .gradient-nav. Deliberately kept as their own classes rather
+     than edits to .gradient-nav itself: that class is also used by
+     AdminPortalLayout and by pre-login/shared chrome (Auth, legal pages,
+     Offline, NotFound, exit-confirmation dialog), none of which should
+     change. Only the <aside> sidebar and <header> top bar in
+     ExpertPortalLayout / AttorneyPortalLayout reference these classes —
+     no other external-portal styling changes.
+
+     Each gradient is a light, low-saturation white → very-light accent →
+     soft accent sweep (same 135deg three-stop shape as .gradient-nav) so
+     white stays the dominant tone and no teal ever mixes in. Because the
+     lightest stop is near-white, chrome inside these two layouts is paired
+     with the dark-on-light .expert-portal-theme / .attorney-portal-theme
+     text variables below rather than white text, to keep WCAG-friendly
+     contrast across the whole gradient. */
   .gradient-nav-expert {
-    background: linear-gradient(135deg, hsl(226 71% 28%), hsl(221 78% 42%), hsl(217 89% 55%));
+    background: linear-gradient(135deg, hsl(0 0% 100%), hsl(213 100% 95%), hsl(214 88% 85%));
   }
 
   .gradient-nav-attorney {
-    background: linear-gradient(135deg, hsl(142 62% 20%), hsl(142 60% 30%), hsl(142 65% 42%));
+    background: linear-gradient(135deg, hsl(0 0% 100%), hsl(140 60% 95%), hsl(142 55% 83%));
+  }
+
+  /* Scoped text/accent tokens for the two external portal layouts only.
+     Applied to the outermost wrapper <div> of ExpertPortalLayout /
+     AttorneyPortalLayout so they cascade solely inside those trees — they
+     do not touch .gradient-nav, AdminPortalLayout, or any shared/global
+     selector. Chrome inside each layout reads these instead of hardcoded
+     white/blue/green so contrast is intentional (dark text on the light
+     gradient above) and the two portals share one implementation. */
+  .expert-portal-theme {
+    --portal-fg: 217 70% 24%;
+    --portal-fg-muted: 217 45% 33%;
+    --portal-border: 214 70% 55%;
+    --portal-overlay: 213 85% 60%;
+    --portal-decor: 213 80% 55%;
+    --portal-active-bg: 0 0% 100%;
+    --portal-active-fg: 224 64% 33%;
+  }
+
+  .attorney-portal-theme {
+    --portal-fg: 152 55% 16%;
+    --portal-fg-muted: 152 40% 26%;
+    --portal-border: 142 55% 45%;
+    --portal-overlay: 142 65% 55%;
+    --portal-decor: 142 60% 45%;
+    --portal-active-bg: 0 0% 100%;
+    --portal-active-fg: 144 61% 20%;
   }
 
   /* Solid teal gradient for primary download/export actions (e.g. "Export
