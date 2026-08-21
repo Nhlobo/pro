@@ -14,6 +14,7 @@ import {
   useExternalPortalAccountForPerson,
   useCreateExternalPortalAccountForPerson,
   useUpdateExternalPortalAccountContact,
+  useUpdateExternalPortalAccountScope,
 } from '@/hooks/externalPortal/useExternalPortalAccountForPerson';
 import { useExternalPortalAccountEmails } from '@/hooks/externalPortal/useExternalPortalAccountEmails';
 import { AdminCard, AdminCardHeader, AdminCardBody, AdminEmptyState, AdminLoadingState, AdminPill } from '@/components/admin/ui/AdminUI';
@@ -22,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Link2, Copy, Ban, Send, Loader2, CheckCircle2, XCircle, Scale, Stethoscope, Plus } from 'lucide-react';
-import { PORTAL_TYPE_LABEL, ACCOUNT_STATUS_LABEL, ACCOUNT_STATUS_TONE, type ExternalPortalType } from '@/types/externalPortal';
+import { PORTAL_TYPE_LABEL, ACCOUNT_STATUS_LABEL, ACCOUNT_STATUS_TONE, type ExternalPortalType, type ExternalPortalAccountScope } from '@/types/externalPortal';
 import { formatDateTimeShort } from '@/utils/dateTime';
 import { toast } from 'sonner';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -96,12 +97,32 @@ const ExternalPortalAccessLinks: React.FC = () => {
   const { data: existingAccount, isLoading: loadingAccount } = useExternalPortalAccountForPerson(portalType, personId || null);
   const createAccountForPerson = useCreateExternalPortalAccountForPerson();
   const updateAccountContact = useUpdateExternalPortalAccountContact();
+  const updateAccountScope = useUpdateExternalPortalAccountScope();
   const { data: emailHistory } = useExternalPortalAccountEmails(existingAccount?.id || null);
 
-  // ---- Step 2b (attorney only) — WHICH individual at that firm this
-  // account is scoped to. Required: an attorney account with no
-  // contact assigned sees no cases at all (Phase 12/13 RLS), by
-  // design, rather than falling back to the whole firm. ----
+  // ---- Step 2a (attorney only) — is this account the WHOLE FIRM's
+  // external portal, or ONE INDIVIDUAL attorney at that firm? A firm
+  // is one external customer: it sees every case referred by that
+  // referring_attorneys row, regardless of which individual inside it
+  // a case happens to be assigned to. Defaults to 'firm' for a new
+  // account — the individual-isolation model is now something an
+  // admin opts into deliberately, not the only option. ----
+  const [accountScope, setAccountScope] = useState<ExternalPortalAccountScope>('firm');
+
+  useEffect(() => {
+    if (existingAccount) {
+      setAccountScope(((existingAccount as any).account_scope as ExternalPortalAccountScope) || 'firm');
+    } else {
+      setAccountScope('firm');
+    }
+  }, [existingAccount]);
+
+  // ---- Step 2b (attorney + 'individual' scope only) — WHICH
+  // individual at that firm this account is scoped to. Required in
+  // that case: an individual-scoped account with no contact assigned
+  // sees no cases at all (Phase 12/13 RLS), by design, rather than
+  // falling back to the whole firm. Not shown/required at all for a
+  // 'firm'-scoped account. ----
   const [contactId, setContactId] = useState<string>('');
   const [showNewContact, setShowNewContact] = useState(false);
   const [newContactName, setNewContactName] = useState('');
@@ -116,6 +137,7 @@ const ExternalPortalAccessLinks: React.FC = () => {
     setShowNewContact(false);
     setNewContactName('');
     setNewContactEmail('');
+    setAccountScope('firm');
   }, [personId, portalType]);
 
   // Default to the existing account's current contact, once known.
@@ -159,7 +181,8 @@ const ExternalPortalAccessLinks: React.FC = () => {
       ? `This account is ${existingAccount.status} — set it to Active from Portal Accounts first.`
       : null;
 
-  const canGenerate = !!personId && emailIsValid && !accountBlockedReason && (portalType !== 'attorney' || !!contactId);
+  const canGenerate = !!personId && emailIsValid && !accountBlockedReason
+    && (portalType !== 'attorney' || accountScope === 'firm' || !!contactId);
 
   const handleCreateContactInline = async () => {
     if (!selectedPerson || !newContactName.trim()) {
@@ -186,7 +209,7 @@ const ExternalPortalAccessLinks: React.FC = () => {
       toast.error(accountBlockedReason);
       return;
     }
-    if (portalType === 'attorney' && !contactId) {
+    if (portalType === 'attorney' && accountScope === 'individual' && !contactId) {
       toast.error('Choose (or add) the specific individual attorney this account belongs to');
       return;
     }
@@ -198,13 +221,19 @@ const ExternalPortalAccessLinks: React.FC = () => {
         person_id: selectedPerson.id,
         full_name: selectedPerson.display_name,
         email: resolvedEmail,
-        assigned_attorney_contact_id: portalType === 'attorney' ? contactId : null,
+        account_scope: portalType === 'attorney' ? accountScope : null,
+        assigned_attorney_contact_id: portalType === 'attorney' && accountScope === 'individual' ? contactId : null,
       });
       accountId = created.id;
-    } else if (portalType === 'attorney' && (existingAccount as any)?.assigned_attorney_contact_id !== contactId) {
-      // Existing account, but the individual relationship changed —
-      // repair it in place rather than touching the account itself.
-      await updateAccountContact.mutateAsync({ accountId, contactId });
+    } else if (portalType === 'attorney') {
+      // Existing account — repair scope and/or the individual
+      // relationship in place rather than touching the account itself.
+      if ((existingAccount as any)?.account_scope !== accountScope) {
+        await updateAccountScope.mutateAsync({ accountId, scope: accountScope });
+      }
+      if (accountScope === 'individual' && (existingAccount as any)?.assigned_attorney_contact_id !== contactId) {
+        await updateAccountContact.mutateAsync({ accountId, contactId });
+      }
     }
 
     await generateLink.mutateAsync({ accountId, email: resolvedEmail });
@@ -360,12 +389,37 @@ const ExternalPortalAccessLinks: React.FC = () => {
             </Select>
           </div>
 
-          {/* Step 2b (attorney only) — the specific individual at that firm */}
+          {/* Step 2a (attorney only) — firm-wide account, or one individual? */}
           {portalType === 'attorney' && personId && (
+            <div className="space-y-2 border border-black/10 bg-slate-50 p-3">
+              <p className="text-xs font-medium text-slate-700">Who is this portal account for?</p>
+              <Select value={accountScope} onValueChange={(v) => setAccountScope(v as ExternalPortalAccountScope)}>
+                <SelectTrigger className="rounded-none border-black/15 sm:max-w-md">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="firm">
+                    The whole firm — {selectedPerson?.display_name} (sees every case referred by this firm)
+                  </SelectItem>
+                  <SelectItem value="individual">
+                    One individual attorney at {selectedPerson?.display_name} (sees only their own assigned cases)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-slate-500">
+                {accountScope === 'firm'
+                  ? 'The firm is the external customer here — this account is not limited to any one attorney inside it, and stays correct even if the internally assigned attorney on a case changes later.'
+                  : 'Only cases explicitly assigned to this individual will be visible — cases assigned to other attorneys at the same firm will not.'}
+              </p>
+            </div>
+          )}
+
+          {/* Step 2b (attorney + individual scope only) — the specific individual at that firm */}
+          {portalType === 'attorney' && personId && accountScope === 'individual' && (
             <div className="space-y-2 border border-black/10 bg-slate-50 p-3">
               <p className="text-xs font-medium text-slate-700">Which individual attorney at {selectedPerson?.display_name}?</p>
               <p className="text-xs text-slate-500">
-                Required — without this, the account can log in but won't see any cases (it's never scoped to the whole firm).
+                Required — without this, the account can log in but won't see any cases (it's scoped to one individual, not the whole firm).
               </p>
               {loadingContacts ? (
                 <p className="text-sm text-slate-500">Loading…</p>
