@@ -149,7 +149,7 @@ const ExpertPortalLayout: React.FC<{ children: React.ReactNode }> = ({ children 
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                       isActive
-                        ? "bg-white text-[#0B4F94] shadow-sm"
+                        ? "bg-white text-[#1E3A8A] shadow-sm"
                         : "text-white/80 hover:bg-white/15 hover:text-white",
                       sidebarCollapsed && "justify-center px-2"
                     )}
