@@ -201,11 +201,11 @@ All colors MUST be HSL.
      in ExpertPortalLayout / AttorneyPortalLayout reference these classes —
      no other external-portal styling changes. */
   .gradient-nav-expert {
-    background: linear-gradient(135deg, hsl(213 94% 36%), hsl(199 92% 46%));
+    background: linear-gradient(135deg, hsl(226 71% 28%), hsl(221 78% 42%), hsl(217 89% 55%));
   }
 
   .gradient-nav-attorney {
-    background: linear-gradient(135deg, hsl(152 69% 28%), hsl(158 64% 39%));
+    background: linear-gradient(135deg, hsl(142 62% 20%), hsl(142 60% 30%), hsl(142 65% 42%));
   }
 
   /* Solid teal gradient for primary download/export actions (e.g. "Export
