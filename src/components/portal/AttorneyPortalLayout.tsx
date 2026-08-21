@@ -151,7 +151,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200",
                       isActive
-                        ? "bg-white text-[#146C36] shadow-sm"
+                        ? "bg-white text-[#14532D] shadow-sm"
                         : "text-white/80 hover:bg-white/15 hover:text-white",
                       sidebarCollapsed && "justify-center px-2"
                     )}
