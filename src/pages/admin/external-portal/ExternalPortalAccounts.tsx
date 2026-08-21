@@ -137,13 +137,20 @@ const ExternalPortalAccounts: React.FC = () => {
                     <TableRow key={a.id}>
                       <TableCell className="font-medium">
                         {a.full_name}
-                        {a.portal_type === 'attorney' && !a.assigned_attorney_contact_id && (
+                        {a.portal_type === 'attorney' && a.account_scope === 'individual' && !a.assigned_attorney_contact_id && (
                           <div className="mt-0.5 text-[11px] font-normal text-amber-700">
                             No individual attorney assigned — sees no cases yet. Fix on Access Links.
                           </div>
                         )}
                       </TableCell>
-                      <TableCell>{PORTAL_TYPE_LABEL[a.portal_type]}</TableCell>
+                      <TableCell>
+                        {PORTAL_TYPE_LABEL[a.portal_type]}
+                        {a.portal_type === 'attorney' && (
+                          <span className="ml-1 text-[11px] text-slate-500">
+                            ({a.account_scope === 'individual' ? 'Individual' : 'Firm'})
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell className="text-slate-600">{a.email}</TableCell>
                       <TableCell>
                         <AdminPill tone={ACCOUNT_STATUS_TONE[a.status]}>{ACCOUNT_STATUS_LABEL[a.status]}</AdminPill>
