@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import type { ExternalPortalAccount, ExternalPortalType } from '@/types/externalPortal';
+import type { ExternalPortalAccount, ExternalPortalAccountScope, ExternalPortalType } from '@/types/externalPortal';
 
 /**
  * External Portal Module — resolves the (at most one) portal account
@@ -45,8 +45,10 @@ export interface CreateAccountForPersonInput {
   person_id: string;
   full_name: string;
   email: string;
-  /** Phase 14: for attorney accounts, the individual referring_attorney_contacts row this account is scoped to. Required in practice — the account can log in without it, but sees no cases until it's set (RLS intentionally treats a null contact as "nothing assigned yet", never a guess). */
+  /** Phase 14: for attorney accounts scoped to 'individual', the referring_attorney_contacts row this account belongs to. Ignored (and stored as null) for 'firm'-scoped accounts, which see every case for the firm regardless of any one individual. */
   assigned_attorney_contact_id?: string | null;
+  /** Phase 20: for attorney accounts, whether this account represents the whole firm or one individual at it. Required for attorney accounts; ignored for expert accounts (always null — experts are individually scoped via medical_expert_id already). */
+  account_scope?: ExternalPortalAccountScope | null;
 }
 
 /** Creates a portal account tied to a specific attorney/expert record. Only call this after useExternalPortalAccountForPerson confirms none exists — this hook doesn't re-check. */
@@ -66,7 +68,10 @@ export function useCreateExternalPortalAccountForPerson() {
           email: input.email.trim().toLowerCase(),
           referring_attorney_id: isAttorney ? input.person_id : null,
           medical_expert_id: isAttorney ? null : input.person_id,
-          assigned_attorney_contact_id: isAttorney ? (input.assigned_attorney_contact_id || null) : null,
+          account_scope: isAttorney ? (input.account_scope || null) : null,
+          assigned_attorney_contact_id: isAttorney && input.account_scope === 'individual'
+            ? (input.assigned_attorney_contact_id || null)
+            : null,
           created_by: userData?.user?.id || null,
         })
         .select()
@@ -94,6 +99,40 @@ export function useCreateExternalPortalAccountForPerson() {
         ? 'An active account with this email already exists for this portal type.'
         : error?.message || 'Failed to create portal account';
       toast.error(msg);
+    },
+  });
+}
+
+/**
+ * Phase 20: change an EXISTING account's scope (firm <-> individual)
+ * without deleting/recreating it. Switching to 'firm' clears any
+ * assigned contact (a firm-scoped account isn't limited to one
+ * individual's cases); switching to 'individual' requires the caller
+ * to separately set a contact via useUpdateExternalPortalAccountContact
+ * — this mutation alone would otherwise leave an individual-scoped
+ * account with no contact, which resolves to zero visible cases.
+ */
+export function useUpdateExternalPortalAccountScope() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { accountId: string; scope: ExternalPortalAccountScope }) => {
+      const { error } = await supabase
+        .from('external_portal_accounts' as any)
+        .update({
+          account_scope: input.scope,
+          assigned_attorney_contact_id: input.scope === 'firm' ? null : undefined,
+        })
+        .eq('id', input.accountId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['external-portal', 'accounts'] });
+      queryClient.invalidateQueries({ queryKey: ['external-portal', 'account-for-person'] });
+      toast.success('Account scope updated');
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to update account scope');
     },
   });
 }
