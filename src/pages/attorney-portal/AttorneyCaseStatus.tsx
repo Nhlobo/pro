@@ -157,8 +157,9 @@ const AttorneyCaseStatus: React.FC = () => {
   // docs. No client-side attorney/firm filter here — the Appointment
   // Engine (via `claimants`) is queried directly and RLS is what scopes
   // the result to this exact person: firm-wide for a native/old-portal
-  // login, or narrowed to their own assigned_attorney_contact_id cases
-  // for a bridged External Portal login. Same pattern as
+  // login OR a bridged 'firm'-scope External Portal account, or
+  // narrowed to their own assigned_attorney_contact_id cases only for
+  // a bridged 'individual'-scope account (Phase 20). Same pattern as
   // useAttorneyDashboardStats.
   const loadData = useCallback(async () => {
     if (!user) return;
