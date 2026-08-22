@@ -213,6 +213,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!user?.id) return;
     if (externalCheckedForUserId.current === user.id) return;
     externalCheckedForUserId.current = user.id;
+
+    // SECURITY: reset to the staff-safe default the instant we know a
+    // (possibly different) account has just signed in, BEFORE the async
+    // confirmation query below has a chance to run.
+    //
+    // The cached flag this sets is deliberately never cleared on sign-out
+    // (see externalPortalSession.ts — that's required so a stale
+    // Back/bfcache hit still resolves correctly for whoever *was* signed
+    // in). That means if an external-portal account ever used this same
+    // tab earlier, the flag can still be sitting at `true` in
+    // sessionStorage when a completely different account — e.g. a staff
+    // member — signs in next. Without this reset, that leftover `true`
+    // is what `postSignOutPath()` would read if this new person signs
+    // out again before the query below finishes (a real race: the
+    // dashboard renders, and sign-out can happen, well before this
+    // unrelated network round-trip resolves) — sending internal staff to
+    // the External Portal sign-in page instead of their own.
+    //
+    // Resetting here first closes that gap: a genuine external-portal
+    // account still gets flipped back to `true` a moment later once the
+    // query confirms it, exactly as before; everyone else now starts
+    // this session at the correct, safe default instead of inheriting
+    // whoever used this tab previously.
+    markExternalPortalSession(false);
+
     let cancelled = false;
     supabase
       .from('profiles')
