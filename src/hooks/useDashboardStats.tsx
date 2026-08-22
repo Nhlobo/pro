@@ -30,6 +30,7 @@ export interface ProvinceStatusData {
 export interface DashboardStats {
   totalClaimants: number;
   totalAppointments: number;
+  totalAppointmentsThisYear: number;
   pendingReports: number;
   reportsInProgress: number;
   reportsTakenOut: number;
@@ -122,6 +123,7 @@ export const useDashboardStats = () => {
   const [stats, setStats] = useState<DashboardStats>({
     totalClaimants: 0,
     totalAppointments: 0,
+    totalAppointmentsThisYear: 0,
     pendingReports: 0,
     reportsInProgress: 0,
     reportsTakenOut: 0,
@@ -149,7 +151,11 @@ export const useDashboardStats = () => {
         .from('claimants')
         .select('*', { count: 'exact', head: true });
 
-      // Fetch appointments count (excluding deleted)
+      // All-time appointments count (excluding deleted) — this is the
+      // "Total appointments" figure, used as-is by the staff dashboard's
+      // Appointments stat card. It is NOT the same number as this year's
+      // bookings below, and must not be reused for the Operations
+      // Dashboard's year-over-year pace card.
       const { count: appointmentsCount } = await supabase
         .from('appointments')
         .select('*', { count: 'exact', head: true })
@@ -356,6 +362,7 @@ export const useDashboardStats = () => {
       setStats({
         totalClaimants: claimantsCount || 0,
         totalAppointments: appointmentsCount || 0,
+        totalAppointmentsThisYear: (currentYearAppts || []).length,
         pendingReports: pendingCount || 0,
         reportsInProgress: inProgressCount || 0,
         reportsTakenOut: takenOutCount || 0,
