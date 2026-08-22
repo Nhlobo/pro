@@ -722,13 +722,20 @@ const AttorneyMyCases: React.FC = () => {
                           ) : (
                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                               {docs.map(d => (
-                                <div key={d.id} className="flex items-center gap-2 border border-black/10 bg-black/[0.015] p-2 text-xs">
+                                <button
+                                  key={d.id}
+                                  type="button"
+                                  onClick={() => handleDownloadReport(d.file_path, d.file_name)}
+                                  className="flex items-center gap-2 border border-black/10 bg-black/[0.015] p-2 text-xs text-left transition-colors hover:border-black/25 hover:bg-black/[0.03]"
+                                  title={`Download ${d.file_name}`}
+                                >
                                   <FileCheck className="h-3 w-3 shrink-0 text-success" />
                                   <span className="flex-1 truncate">{d.file_name}</span>
                                   <PortalPill className="shrink-0 text-[9px]">
                                     {DOCUMENT_TYPES.find(t => t.value === d.document_type)?.label || d.document_type}
                                   </PortalPill>
-                                </div>
+                                  <Download className="h-3 w-3 shrink-0 text-slate-400" />
+                                </button>
                               ))}
                             </div>
                           )}
