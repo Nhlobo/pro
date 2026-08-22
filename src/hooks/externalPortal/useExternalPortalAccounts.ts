@@ -13,12 +13,13 @@ import type {
  * External Portal Module — admin account management.
  *
  * Create/list/pause/resume/expire/soft-delete/restore/permanently-
- * delete accounts. Access to case data is no longer curated here
- * case-by-case — a bridged account sees every case tied to its
- * linked referring_attorney_id / medical_expert_id, exactly like a
- * staff attorney/expert login (see external-portal-auth's login
- * bridge). This page's job is who gets a login at all, not which
- * cases they can see once they have one.
+ * delete accounts. Access to case data is curated by account_scope
+ * (Phase 20): a 'firm'-scoped attorney account sees every case tied
+ * to its linked referring_attorney_id (the whole firm); an
+ * 'individual'-scoped one sees only cases assigned to its specific
+ * assigned_attorney_contact_id. An expert account always sees its own
+ * medical_expert_id's cases. This page's job is who gets a login and
+ * what scope it has, not the underlying RLS mechanics.
  *
  * Every mutation that changes lifecycle state goes through the
  * `external_portal_set_account_status` / permanent-delete RPCs
@@ -68,10 +69,36 @@ async function fetchAccounts(includeDeleted: boolean): Promise<ExternalPortalAcc
     ((pendingLinks || []) as unknown as Array<{ account_id: string }>).map((l) => l.account_id)
   );
 
+  // Phase 22: resolve each individual-scoped attorney account's actual
+  // contact name for display — "Individual" alone in the list doesn't
+  // say WHICH individual, which is exactly the ambiguity this page was
+  // flagged for.
+  const contactIds = Array.from(
+    new Set(
+      accounts
+        .filter((a) => a.portal_type === 'attorney' && (a as any).account_scope === 'individual' && a.assigned_attorney_contact_id)
+        .map((a) => a.assigned_attorney_contact_id as string)
+    )
+  );
+
+  let contactNamesById = new Map<string, string>();
+  if (contactIds.length > 0) {
+    const { data: contactRows } = await supabase
+      .from('referring_attorney_contacts' as any)
+      .select('id, full_name')
+      .in('id', contactIds);
+    contactNamesById = new Map(
+      ((contactRows || []) as unknown as Array<{ id: string; full_name: string }>).map((c) => [c.id, c.full_name])
+    );
+  }
+
   return accounts.map((account) => ({
     ...account,
     is_bridged: !!account.auth_user_id,
     active_access_link: activeLinkAccountIds.has(account.id),
+    assigned_attorney_contact_name: account.assigned_attorney_contact_id
+      ? contactNamesById.get(account.assigned_attorney_contact_id) || null
+      : null,
   }));
 }
 
