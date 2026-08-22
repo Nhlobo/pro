@@ -16,6 +16,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 import { RandSign } from "@/components/icons/RandSign";
 import {
   PortalPage,
@@ -54,13 +55,56 @@ const PAYMENT_STATUS_TONE: Record<string, PortalPillTone> = {
 
 const AttorneyAgreements: React.FC = () => {
   const linkStatus = useAttorneyLinkStatus();
+  const { toast } = useToast();
   const [agreements, setAgreements] = useState<Agreement[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<AgreementsTab>('all');
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAgreements();
   }, []);
+
+  // Downloads the agreement PDF from the aod-documents bucket. This
+  // was previously wired to nothing at all — both the Eye (view) and
+  // Download buttons had no onClick handler. document_url stores a
+  // bucket-relative path (`${referring_attorney_id}/${filename}`, see
+  // useAODDocuments.tsx), not a full URL, so it needs an actual
+  // storage call rather than a plain link.
+  const handleViewOrDownload = async (agreement: Agreement, mode: 'view' | 'download') => {
+    if (!agreement.document_url || agreement.document_url === 'pending') {
+      toast({ title: 'Not available', description: 'This agreement document has not been uploaded yet.', variant: 'destructive' });
+      return;
+    }
+    setDownloadingId(agreement.id);
+    try {
+      if (mode === 'view') {
+        const { data, error } = await supabase.storage
+          .from('aod-documents')
+          .createSignedUrl(agreement.document_url, 3600);
+        if (error) throw error;
+        if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        const { data, error } = await supabase.storage
+          .from('aod-documents')
+          .download(agreement.document_url);
+        if (error) throw error;
+        const url = URL.createObjectURL(data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = agreement.file_name || 'agreement.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Agreement download error:', err);
+      toast({ title: 'Download failed', description: 'Could not retrieve this document. Please try again or contact support.', variant: 'destructive' });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const fetchAgreements = async () => {
     setLoading(true);
@@ -164,12 +208,25 @@ const AttorneyAgreements: React.FC = () => {
               </TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
-                  <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded-none"
+                    disabled={downloadingId === agreement.id}
+                    onClick={() => handleViewOrDownload(agreement, 'view')}
+                    title="View agreement"
+                  >
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="outline" size="sm" className="rounded-none">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-none"
+                    disabled={downloadingId === agreement.id}
+                    onClick={() => handleViewOrDownload(agreement, 'download')}
+                  >
                     <Download className="mr-1 h-3.5 w-3.5" />
-                    Download
+                    {downloadingId === agreement.id ? 'Downloading…' : 'Download'}
                   </Button>
                 </div>
               </TableCell>
