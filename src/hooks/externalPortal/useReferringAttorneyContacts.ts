@@ -37,6 +37,45 @@ export function useReferringAttorneyContacts(referringAttorneyId: string | null)
   });
 }
 
+/**
+ * Phase 22 — same contacts as useReferringAttorneyContacts, but each
+ * one annotated with its own case count (non-deleted, non-cancelled
+ * appointments assigned to that specific individual). Used in the
+ * account-creation picker so the admin can see, BEFORE creating an
+ * individual-scoped account, what that account will actually see —
+ * which is a subset of the firm's total case count shown one step
+ * earlier, not the same number.
+ */
+export interface ReferringAttorneyContactWithUsage extends ReferringAttorneyContact {
+  usage_count: number;
+}
+
+export function useReferringAttorneyContactsByUsage(referringAttorneyId: string | null) {
+  return useQuery({
+    queryKey: ['external-portal', 'attorney-contacts-by-usage', referringAttorneyId],
+    queryFn: async (): Promise<ReferringAttorneyContactWithUsage[]> => {
+      if (!referringAttorneyId) return [];
+      const { data, error } = await supabase.rpc(
+        'external_portal_attorney_contacts_by_usage' as any,
+        { p_referring_attorney_id: referringAttorneyId }
+      );
+      if (error) throw error;
+      return ((data || []) as any[]).map((row) => ({
+        id: row.id,
+        referring_attorney_id: row.referring_attorney_id,
+        full_name: row.full_name,
+        email: row.email,
+        phone: row.phone,
+        is_active: row.is_active,
+        created_at: row.created_at ?? '',
+        usage_count: Number(row.usage_count) || 0,
+      }));
+    },
+    enabled: !!referringAttorneyId,
+    staleTime: 15_000,
+  });
+}
+
 export function useCreateReferringAttorneyContact() {
   const queryClient = useQueryClient();
 
