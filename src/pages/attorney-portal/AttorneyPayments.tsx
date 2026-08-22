@@ -18,6 +18,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 import { PaymentPopUploader } from "@/components/finance/PaymentPopUploader";
 import { RandSign } from "@/components/icons/RandSign";
 import {
@@ -37,6 +38,7 @@ import {
 interface AODDocument {
   id: string;
   file_name: string;
+  document_url: string;
   total_contract_value: number | null;
   deposit_amount: number | null;
   payments_made: number | null;
@@ -64,10 +66,39 @@ const PAYMENT_STATUS_TONE: Record<string, PortalPillTone> = {
 const AttorneyPayments: React.FC = () => {
   const { debtSummary, debtCases, loading: debtsLoading } = useAttorneyDebts();
   const linkStatus = useAttorneyLinkStatus();
+  const { toast } = useToast();
   const [aodDocuments, setAodDocuments] = useState<AODDocument[]>([]);
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<PaymentsTab>('aod');
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  // Same underlying document as the "All Agreements" page — document_url
+  // is a bucket-relative path in the aod-documents bucket, not a full URL.
+  const handleDownloadAod = async (doc: AODDocument) => {
+    if (!doc.document_url || doc.document_url === 'pending') {
+      toast({ title: 'Not available', description: 'This agreement document has not been uploaded yet.', variant: 'destructive' });
+      return;
+    }
+    setDownloadingId(doc.id);
+    try {
+      const { data, error } = await supabase.storage.from('aod-documents').download(doc.document_url);
+      if (error) throw error;
+      const url = URL.createObjectURL(data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = doc.file_name || 'aod-agreement.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('AOD download error:', err);
+      toast({ title: 'Download failed', description: 'Could not retrieve this document. Please try again or contact support.', variant: 'destructive' });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -250,9 +281,15 @@ const AttorneyPayments: React.FC = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Button variant="outline" size="sm" className="rounded-none">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-none"
+                              disabled={downloadingId === doc.id}
+                              onClick={() => handleDownloadAod(doc)}
+                            >
                               <Download className="mr-1 h-3.5 w-3.5" />
-                              Download
+                              {downloadingId === doc.id ? 'Downloading…' : 'Download'}
                             </Button>
                           </TableCell>
                         </TableRow>
