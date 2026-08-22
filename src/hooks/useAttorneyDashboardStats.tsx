@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 
@@ -25,6 +25,17 @@ export interface LiveCaseStatus {
     name: string;
     status: 'completed' | 'in_progress' | 'pending';
     completedAt?: string;
+  }[];
+  /** Same value as `id` — appointments.id. Added so consumers reading
+   * `appointmentId` (AttorneyReports.tsx) get a real value instead of
+   * an always-undefined property access. */
+  appointmentId: string;
+  caseStatus: string | null;
+  reportVersions: {
+    file_name: string;
+    file_path: string;
+    version_number: number;
+    created_at: string;
   }[];
 }
 
@@ -127,7 +138,8 @@ export const useAttorneyDashboardStats = () => {
           case_status,
           claimants(first_name, last_name, auto_id),
           medical_experts(expert_type),
-          expert_reports(report_status, report_submitted_date, created_at)
+          expert_reports(report_status, report_submitted_date, created_at,
+            report_versions(file_name, file_path, version_number, created_at))
         `)
         .is('deleted_at', null)
         .order('appointment_date', { ascending: false });
@@ -142,6 +154,16 @@ export const useAttorneyDashboardStats = () => {
         const report = Array.isArray(appointment.expert_reports) 
           ? appointment.expert_reports[0] 
           : appointment.expert_reports;
+
+        // report_versions was never fetched before, so AttorneyReports.tsx
+        // hardcoded this to [] and every "Download" click on a Complete
+        // report showed "No report available" regardless of whether a
+        // file actually existed. Sort newest-first so consumers can just
+        // take reportVersions[0] as "the latest version" (which
+        // AttorneyReports.tsx already assumes).
+        const reportVersions = [...(report?.report_versions || [])].sort(
+          (a, b) => (b.version_number || 0) - (a.version_number || 0)
+        );
 
         const reportStatus = report?.report_status?.toLowerCase() || '';
 
@@ -210,7 +232,14 @@ export const useAttorneyDashboardStats = () => {
           appointmentDate: appointment.appointment_date,
           currentPhase,
           phaseOrder,
-          phases
+          phases,
+          // appointmentId duplicates `id` under the name AttorneyReports.tsx
+          // was actually reading — it previously read (c as any).appointmentId,
+          // a field that never existed on this object, so it was always
+          // null there regardless of the real appointment id.
+          appointmentId: appointment.id,
+          caseStatus: appointment.case_status,
+          reportVersions,
         };
       });
 
