@@ -78,11 +78,11 @@ const AttorneyReports: React.FC = () => {
         expertName: c.expertType,
         expertType: c.expertType,
         appointmentDate: c.appointmentDate,
-        appointmentId: (c as any).appointmentId || null,
+        appointmentId: c.appointmentId,
         status,
-        caseStatus: (c as any).caseStatus || null,
+        caseStatus: c.caseStatus,
         issueDate: status === 'completed' ? c.appointmentDate : undefined,
-        reportVersions: [],
+        reportVersions: c.reportVersions,
       };
     });
   }, [liveCases]);
