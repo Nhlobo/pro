@@ -109,7 +109,16 @@ export const useAttorneyDashboardStats = () => {
         pendingConfirmations: pendingConfirmations || 0,
       });
 
-      // Fetch live case data for timeline
+      // Fetch live case data for the case list. No .limit() here — this
+      // is the same array AttorneyMyCases.tsx and AttorneyReports.tsx
+      // use as their PRIMARY, COMPLETE case list (not a preview), so
+      // capping it here silently truncated "My Cases" to 20 entries
+      // and undercounted the Dashboard's own "Total Active Cases" tile
+      // and "View All N Cases" link (both read liveCases.length).
+      // AttorneyPortalDashboard.tsx already does its own
+      // liveCases.slice(0, 5) for its small preview widget — that's
+      // the right place for a preview cap, not here, where every
+      // other consumer needs the true, complete list.
       const { data: casesData } = await supabase
         .from('appointments')
         .select(`
@@ -121,8 +130,7 @@ export const useAttorneyDashboardStats = () => {
           expert_reports(report_status, report_submitted_date, created_at)
         `)
         .is('deleted_at', null)
-        .order('appointment_date', { ascending: false })
-        .limit(20);
+        .order('appointment_date', { ascending: false });
 
       const processedCases: LiveCaseStatus[] = (casesData || []).map(appointment => {
         const claimant = Array.isArray(appointment.claimants) 
