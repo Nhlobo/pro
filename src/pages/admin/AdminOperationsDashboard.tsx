@@ -132,20 +132,21 @@ const DOT_COLORS = ['#00BAAD', '#2563EB', '#16A34A', '#9333EA', '#D97706', '#DC2
  */
 const AppointmentsPerformanceCard: React.FC<{
   loading: boolean;
-  totalAppointments: number;
+  totalAppointmentsAllTime: number;
+  totalAppointmentsThisYear: number;
   totalAppointmentsLastYear: number;
-}> = ({ loading, totalAppointments, totalAppointmentsLastYear }) => {
+}> = ({ loading, totalAppointmentsAllTime, totalAppointmentsThisYear, totalAppointmentsLastYear }) => {
   const { getCurrentTarget, loading: targetsLoading } = useTeamTargets(CURRENT_YEAR);
   const yearlyTarget = getCurrentTarget('yearly');
   const target = yearlyTarget?.team_target || 0;
 
   const daysInYear = isLeapYear(CURRENT_YEAR) ? 366 : 365;
   const elapsedDays = Math.min(daysInYear, dayOfYear(new Date()));
-  const projectedTotal = elapsedDays > 0 ? Math.round((totalAppointments / elapsedDays) * daysInYear) : totalAppointments;
-  const progressPct = target > 0 ? Math.min(100, Math.round((totalAppointments / target) * 100)) : 0;
-  const remaining = Math.max(0, target - totalAppointments);
+  const projectedTotal = elapsedDays > 0 ? Math.round((totalAppointmentsThisYear / elapsedDays) * daysInYear) : totalAppointmentsThisYear;
+  const progressPct = target > 0 ? Math.min(100, Math.round((totalAppointmentsThisYear / target) * 100)) : 0;
+  const remaining = Math.max(0, target - totalAppointmentsThisYear);
   const onTrack = target > 0 && projectedTotal >= target;
-  const targetReached = target > 0 && totalAppointments >= target;
+  const targetReached = target > 0 && totalAppointmentsThisYear >= target;
 
   const isLoading = loading || targetsLoading;
 
@@ -161,12 +162,16 @@ const AppointmentsPerformanceCard: React.FC<{
           <AdminLoadingState label="Loading appointment data…" />
         ) : (
           <>
+            <div className="mb-3 flex items-center justify-between text-[11px] text-slate-500">
+              <span>Total appointments (all time)</span>
+              <span className="font-semibold text-black">{totalAppointmentsAllTime}</span>
+            </div>
             <div className="mb-4 grid grid-cols-2 gap-3 border-b border-black/10 pb-4">
               <div>
-                <p className="text-3xl font-bold text-black">{totalAppointments}</p>
+                <p className="text-3xl font-bold text-black">{totalAppointmentsThisYear}</p>
                 <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500">
                   {CURRENT_YEAR} appointments
-                  <TrendBadge current={totalAppointments} previous={totalAppointmentsLastYear} />
+                  <TrendBadge current={totalAppointmentsThisYear} previous={totalAppointmentsLastYear} />
                 </p>
               </div>
               <div className="text-right">
@@ -191,7 +196,7 @@ const AppointmentsPerformanceCard: React.FC<{
                   />
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  {totalAppointments} of {target} booked
+                  {totalAppointmentsThisYear} of {target} booked
                   {!targetReached && ` · ${remaining} more to reach target`}
                 </p>
                 <p
@@ -240,7 +245,8 @@ const AdminOperationsDashboard: React.FC = () => {
       {/* Appointments — real-time 2026 vs 2025 pace and target progress */}
       <AppointmentsPerformanceCard
         loading={loading}
-        totalAppointments={stats.totalAppointments}
+        totalAppointmentsAllTime={stats.totalAppointments}
+        totalAppointmentsThisYear={stats.totalAppointmentsThisYear}
         totalAppointmentsLastYear={stats.totalAppointmentsLastYear}
       />
 
