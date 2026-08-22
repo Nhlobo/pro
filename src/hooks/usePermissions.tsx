@@ -408,10 +408,29 @@ const usePermissionsState = (): PermissionsContextValue => {
 
       if (insertError) throw insertError;
 
-      // Keep profiles.role in sync so UI badges and isAdmin() reflect the change
+      // Keep profiles.role in sync so UI badges and isAdmin() reflect the
+      // change. is_external_portal_user MUST be kept in lockstep with role
+      // here, in the SAME update:
+      //  - it drives postSignOutPath() (src/utils/externalPortalSession.ts),
+      //    which decides whether sign-out lands someone on the internal
+      //    /auth page or the External Portal /external-portal/sign-in page;
+      //  - profiles has a CHECK constraint (profiles_external_portal_not_staff_chk)
+      //    forbidding is_external_portal_user = true together with an
+      //    admin/employee role — so converting a referring-attorney/
+      //    medical-expert account into staff (or vice versa) via THIS
+      //    screen without also flipping this flag doesn't just leave stale
+      //    data, it makes the role half of this very update fail the
+      //    constraint outright, silently (only console.warn'd below), while
+      //    user_roles has already been changed to the new role. That split
+      //    state is exactly what sent a since-converted-to-staff user to
+      //    the External Portal sign-in page on every sign-out: user_roles
+      //    (the source of truth for isAdmin()/get_current_user_role())
+      //    correctly showed them as staff, while profiles.is_external_portal_user
+      //    stayed stuck at `true` from back when they really were external.
+      const isExternalRole = newRole === 'referring_attorney' || newRole === 'medical_expert';
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ role: newRole })
+        .update({ role: newRole, is_external_portal_user: isExternalRole })
         .eq('id', userId);
       if (profileError) console.warn('Profile role sync failed:', profileError);
 
