@@ -9,7 +9,7 @@ import {
 } from '@/hooks/externalPortal/useExternalPortalAccessLinks';
 import { useBulkGenerateExternalPortalLinks } from '@/hooks/externalPortal/useBulkGenerateExternalPortalLinks';
 import { useReferringAttorneysByUsage, useMedicalExpertsByUsage } from '@/hooks/externalPortal/useExternalPortalUsageRanking';
-import { useReferringAttorneyContacts, useCreateReferringAttorneyContact } from '@/hooks/externalPortal/useReferringAttorneyContacts';
+import { useReferringAttorneyContactsByUsage, useCreateReferringAttorneyContact } from '@/hooks/externalPortal/useReferringAttorneyContacts';
 import {
   useExternalPortalAccountForPerson,
   useCreateExternalPortalAccountForPerson,
@@ -127,7 +127,12 @@ const ExternalPortalAccessLinks: React.FC = () => {
   const [showNewContact, setShowNewContact] = useState(false);
   const [newContactName, setNewContactName] = useState('');
   const [newContactEmail, setNewContactEmail] = useState('');
-  const { data: contacts, isLoading: loadingContacts } = useReferringAttorneyContacts(
+  // Phase 22: per-contact case counts, so the admin sees BEFORE
+  // creating an individual-scoped account what that specific
+  // individual's case count actually is — distinct from (and usually
+  // smaller than) the firm-wide total shown one step earlier next to
+  // the firm's name in the Step 2 picker.
+  const { data: contacts, isLoading: loadingContacts } = useReferringAttorneyContactsByUsage(
     portalType === 'attorney' ? personId || null : null
   );
   const createContact = useCreateReferringAttorneyContact();
@@ -381,7 +386,11 @@ const ExternalPortalAccessLinks: React.FC = () => {
                   people.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.display_name}
-                      {p.usage_count > 0 ? ` — ${p.usage_count} case${p.usage_count === 1 ? '' : 's'}` : ' — unused'}
+                      {p.usage_count > 0
+                        ? portalType === 'attorney'
+                          ? ` — ${p.usage_count} total firm case${p.usage_count === 1 ? '' : 's'}`
+                          : ` — ${p.usage_count} case${p.usage_count === 1 ? '' : 's'}`
+                        : ' — unused'}
                     </SelectItem>
                   ))
                 )}
@@ -411,15 +420,19 @@ const ExternalPortalAccessLinks: React.FC = () => {
                   ? 'The firm is the external customer here — this account is not limited to any one attorney inside it, and stays correct even if the internally assigned attorney on a case changes later.'
                   : 'Only cases explicitly assigned to this individual will be visible — cases assigned to other attorneys at the same firm will not.'}
               </p>
+              {accountScope === 'firm' && (
+                <p className="text-xs font-medium text-slate-700">
+                  This account will see all {selectedPerson?.usage_count ?? 0} case{(selectedPerson?.usage_count ?? 0) === 1 ? '' : 's'} currently on file for {selectedPerson?.display_name}.
+                </p>
+              )}
             </div>
           )}
-
           {/* Step 2b (attorney + individual scope only) — the specific individual at that firm */}
           {portalType === 'attorney' && personId && accountScope === 'individual' && (
             <div className="space-y-2 border border-black/10 bg-slate-50 p-3">
               <p className="text-xs font-medium text-slate-700">Which individual attorney at {selectedPerson?.display_name}?</p>
               <p className="text-xs text-slate-500">
-                Required — without this, the account can log in but won't see any cases (it's scoped to one individual, not the whole firm).
+                Required — without this, the account can log in but won't see any cases (it's scoped to one individual, not the whole firm). The count next to each name below is that individual's own case count — it will usually be smaller than the firm's total shown above.
               </p>
               {loadingContacts ? (
                 <p className="text-sm text-slate-500">Loading…</p>
@@ -431,7 +444,7 @@ const ExternalPortalAccessLinks: React.FC = () => {
                   <SelectContent>
                     {(contacts || []).map((c) => (
                       <SelectItem key={c.id} value={c.id}>
-                        {c.full_name}{c.email ? ` — ${c.email}` : ''}
+                        {c.full_name} — {c.usage_count} case{c.usage_count === 1 ? '' : 's'}{c.email ? ` (${c.email})` : ''}
                       </SelectItem>
                     ))}
                     <SelectItem value="__new__">
@@ -439,6 +452,11 @@ const ExternalPortalAccessLinks: React.FC = () => {
                     </SelectItem>
                   </SelectContent>
                 </Select>
+              )}
+              {contactId && contactId !== '__new__' && (
+                <p className="text-xs font-medium text-slate-700">
+                  This account will see {(contacts || []).find((c) => c.id === contactId)?.usage_count ?? 0} case{((contacts || []).find((c) => c.id === contactId)?.usage_count ?? 0) === 1 ? '' : 's'} — only cases assigned specifically to {(contacts || []).find((c) => c.id === contactId)?.full_name}.
+                </p>
               )}
 
               {showNewContact && (
