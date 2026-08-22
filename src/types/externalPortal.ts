@@ -86,6 +86,15 @@ export interface ExternalPortalAccountWithMeta extends ExternalPortalAccount {
    */
   is_bridged: boolean;
   active_access_link: boolean;
+  /**
+   * Phase 22: for an attorney account with account_scope = 'individual',
+   * the resolved name of the specific referring_attorney_contacts row
+   * it's assigned to — so the admin list can show WHICH individual,
+   * not just the word "Individual". Null for firm-scoped and expert
+   * accounts, or an individual-scoped account with no contact assigned
+   * yet.
+   */
+  assigned_attorney_contact_name: string | null;
 }
 
 export interface ExternalPortalCaseLink {
