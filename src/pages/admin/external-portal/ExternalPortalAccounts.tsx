@@ -142,6 +142,11 @@ const ExternalPortalAccounts: React.FC = () => {
                             No individual attorney assigned — sees no cases yet. Fix on Access Links.
                           </div>
                         )}
+                        {a.portal_type === 'attorney' && a.account_scope === 'individual' && a.assigned_attorney_contact_name && (
+                          <div className="mt-0.5 text-[11px] font-normal text-slate-500">
+                            Scoped to: {a.assigned_attorney_contact_name}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         {PORTAL_TYPE_LABEL[a.portal_type]}
