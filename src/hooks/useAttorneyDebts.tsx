@@ -82,8 +82,19 @@ export const useAttorneyDebts = () => {
 
       const referringAttorneyId = profile?.referring_attorney_id;
 
-      // Fetch appointments with related data - all active appointments
-      let appointmentsQuery = supabase
+      // Fetch appointments with related data - all active appointments.
+      // No explicit .eq('referring_attorney_id', ...) filter — RLS
+      // ("Users can view appointments from their referring attorney",
+      // Phase 20) already implements the correct scoping: firm-wide
+      // for a firm-scoped or native/old-portal login, only-my-own for
+      // an individual-scoped login, everything for admin/employee.
+      // The previous explicit filter here used profile.referring_attorney_id
+      // unconditionally, which is populated the same way for BOTH firm-
+      // and individual-scoped accounts — so it was silently overriding
+      // Phase 20's individual-scope restriction and showing an
+      // individual-scoped attorney their WHOLE FIRM's outstanding
+      // debt/payment summary, not just their own cases.
+      const appointmentsQuery = supabase
         .from('appointments')
         .select(`
           id,
@@ -103,11 +114,6 @@ export const useAttorneyDebts = () => {
         .is('deleted_at', null)
         .order('appointment_date', { ascending: false });
 
-      // Filter by referring attorney only if not admin/employee
-      if (!isAdminOrEmployee && referringAttorneyId) {
-        appointmentsQuery = appointmentsQuery.eq('referring_attorney_id', referringAttorneyId);
-      }
-
       const { data: appointments, error: appointmentsError } = await appointmentsQuery;
 
       if (appointmentsError) throw appointmentsError;
@@ -120,17 +126,13 @@ export const useAttorneyDebts = () => {
 
       if (reportsError) throw reportsError;
 
-      // Fetch AOD documents for total debt
-      let aodQuery = supabase
+      // Fetch AOD documents for total debt — same reasoning as above:
+      // RLS ("Admins and employees can view all AOD documents", Phase
+      // 20) already scopes this correctly per account_scope; no
+      // client-side filter needed or wanted.
+      const { data: aodDocs, error: aodError } = await supabase
         .from('aod_documents')
         .select('*');
-
-      // Filter by referring attorney only if not admin/employee
-      if (!isAdminOrEmployee && referringAttorneyId) {
-        aodQuery = aodQuery.eq('referring_attorney_id', referringAttorneyId);
-      }
-
-      const { data: aodDocs, error: aodError } = await aodQuery;
 
       if (aodError) throw aodError;
 
