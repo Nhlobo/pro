@@ -6,7 +6,7 @@ import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedSta
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import {
   FileText, Search, Download, Clock, CheckCircle2, AlertCircle,
@@ -330,18 +330,21 @@ const AttorneyReports: React.FC = () => {
       </PortalPage>
 
       {/* Case Status Dialog */}
-      <Dialog open={caseStatusDialogOpen} onOpenChange={setCaseStatusDialogOpen}>
-        <DialogContent className="rounded-none border-black/10 sm:rounded-none">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-black">
+      <Sheet open={caseStatusDialogOpen} onOpenChange={setCaseStatusDialogOpen}>
+        <SheetContent
+          side="right"
+          className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-md"
+        >
+          <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+            <SheetTitle className="flex items-center gap-2 text-black">
               <Activity className="h-4 w-4" style={{ color: BRAND_TEAL }} />
               Case Status
-            </DialogTitle>
-            <DialogDescription>
+            </SheetTitle>
+            <SheetDescription>
               {selectedReport?.claimantName} — {selectedReport?.expertName}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-4 px-4 py-4 sm:px-6">
             <div className="space-y-2.5 border border-black/10 bg-black/[0.015] p-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-500">Case Status:</span>
@@ -373,11 +376,11 @@ const AttorneyReports: React.FC = () => {
               </Button>
             )}
           </div>
-          <DialogFooter>
+          <SheetFooter className="border-t border-black/10 px-4 py-4 sm:px-6">
             <Button variant="outline" className="rounded-none" onClick={() => setCaseStatusDialogOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </AttorneyPortalLayout>
   );
 };
