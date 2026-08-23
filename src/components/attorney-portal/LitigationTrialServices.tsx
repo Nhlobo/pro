@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Scale, FileText, Users, BookOpen, Gavel, FileCheck,
@@ -301,18 +301,21 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
       </Card>
 
       {/* Request Service Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+      <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
+        <SheetContent
+          side="right"
+          className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-lg"
+        >
+          <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+            <SheetTitle className="flex items-center gap-2">
               <Scale className="h-5 w-5 text-primary" />
               Request Service
-            </DialogTitle>
-            <DialogDescription>
+            </SheetTitle>
+            <SheetDescription>
               {SERVICE_TYPES.find(s => s.value === selectedService)?.description || 'Submit a litigation service request'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-4 px-4 py-4 sm:px-6">
             <div>
               <label className="text-sm font-medium">Service Type</label>
               <Select value={formData.serviceType} onValueChange={v => setFormData(p => ({ ...p, serviceType: v }))}>
@@ -375,15 +378,15 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
               />
             </div>
           </div>
-          <DialogFooter>
+          <SheetFooter className="border-t border-black/10 px-4 py-4 sm:px-6">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleSubmitRequest} disabled={submitting || !formData.claimantName || !formData.serviceType}>
               {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
               Submit Request
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
