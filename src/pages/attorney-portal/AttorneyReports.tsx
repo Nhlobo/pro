@@ -103,7 +103,21 @@ const AttorneyReports: React.FC = () => {
 
   const handleDownloadReport = async (report: ReportItem) => {
     if (!report.reportVersions.length) {
-      toast({ title: "No Report Available", description: "Report file has not been uploaded yet.", variant: "destructive" });
+      // Two different reasons this can be empty, and they mean very
+      // different things to the person reading the message:
+      //  - the expert has already submitted (report_status =
+      //    'completed', visible via Phase 24's expert_reports fix) but
+      //    the file itself is still pending staff review (Phase 27
+      //    correctly hides it from the attorney until approved) — RLS
+      //    silently filters the row out either way, so there's no way
+      //    to tell "never existed" from "exists but hidden" other than
+      //    by cross-checking the status the attorney can already see.
+      //  - nothing has been submitted yet at all.
+      if (report.status === 'completed') {
+        toast({ title: "Report Pending Review", description: "The expert has submitted this report — it's completing final staff review and will be available here shortly.", variant: "default" });
+      } else {
+        toast({ title: "No Report Available", description: "Report file has not been uploaded yet.", variant: "destructive" });
+      }
       return;
     }
     const latestVersion = report.reportVersions[0];
@@ -374,6 +388,11 @@ const AttorneyReports: React.FC = () => {
                 <Download className="mr-2 h-4 w-4" />
                 Download Report
               </Button>
+            )}
+            {selectedReport?.status === 'completed' && selectedReport.reportVersions.length === 0 && (
+              <div className="border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">
+                The expert has submitted this report — it's completing final staff review and will be available to download here shortly.
+              </div>
             )}
           </div>
           <SheetFooter className="border-t border-black/10 px-4 py-4 sm:px-6">
