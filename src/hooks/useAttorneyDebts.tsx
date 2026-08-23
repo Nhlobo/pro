@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
@@ -290,9 +290,23 @@ export const useAttorneyDebts = () => {
     }
   };
 
-  // Only refetch when lastUpdate changes AND tab is active AND page is NOT locked
+  // Always fetch on initial mount, then respect sync conditions for
+  // updates — same pattern useAttorneyDashboardStats.tsx already uses.
+  // Without the initialFetchDone guard, this only ever fetched when
+  // isActiveTab && !isPageLocked were already true at the exact moment
+  // this effect first ran; if that condition was false even briefly at
+  // mount (a real, plausible tab-visibility timing race), the fetch
+  // never fired at all and `loading` stayed stuck at true forever —
+  // which is exactly what made every dashboard stat card render "–"
+  // permanently, since PortalStatCard shows the dash whenever its
+  // `loading` prop is true, regardless of whether the OTHER hook
+  // (useAttorneyDashboardStats) had already finished and had real data.
+  const initialFetchDone = useRef(false);
   useEffect(() => {
-    if (isActiveTab && !isPageLocked) {
+    if (!initialFetchDone.current) {
+      fetchAttorneyDebts();
+      initialFetchDone.current = true;
+    } else if (isActiveTab && !isPageLocked) {
       fetchAttorneyDebts();
     }
   }, [lastUpdate, isActiveTab, isPageLocked]);
