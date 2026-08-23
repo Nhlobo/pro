@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import {
@@ -431,34 +431,43 @@ const AttorneyAppointments: React.FC = () => {
       </PortalPage>
 
       {/* System Request Dialog */}
-      <Dialog open={systemRequestOpen} onOpenChange={setSystemRequestOpen}>
-        <DialogContent className="max-w-lg rounded-none border-black/10 sm:rounded-none">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-black">
+      <Sheet open={systemRequestOpen} onOpenChange={setSystemRequestOpen}>
+        <SheetContent
+          side="right"
+          className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-lg"
+        >
+          <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+            <SheetTitle className="flex items-center gap-2 text-black">
               <Plus className="h-4 w-4" style={{ color: BRAND_TEAL }} /> System Appointment Request
-            </DialogTitle>
-            <DialogDescription>Submit a booking request through the system</DialogDescription>
-          </DialogHeader>
-          <RequestFormFields data={systemRequest} setData={setSystemRequest} />
-          <DialogFooter>
+            </SheetTitle>
+            <SheetDescription>Submit a booking request through the system</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 px-4 py-4 sm:px-6">
+            <RequestFormFields data={systemRequest} setData={setSystemRequest} />
+          </div>
+          <SheetFooter className="border-t border-black/10 px-4 py-4 sm:px-6">
             <Button variant="outline" className="rounded-none" onClick={() => setSystemRequestOpen(false)}>Cancel</Button>
             <Button className="rounded-none" onClick={handleSystemRequest} disabled={submitting || !systemRequest.firstName || !systemRequest.lastName}>
               {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
               Submit Request
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* Email Request Dialog */}
-      <Dialog open={emailRequestOpen} onOpenChange={setEmailRequestOpen}>
-        <DialogContent className="max-w-lg rounded-none border-black/10 sm:rounded-none">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-black">
+      <Sheet open={emailRequestOpen} onOpenChange={setEmailRequestOpen}>
+        <SheetContent
+          side="right"
+          className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-lg"
+        >
+          <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+            <SheetTitle className="flex items-center gap-2 text-black">
               <Mail className="h-4 w-4" style={{ color: BRAND_TEAL }} /> Email Appointment Request
-            </DialogTitle>
-            <DialogDescription>Send a booking request via email with attachments</DialogDescription>
-          </DialogHeader>
+            </SheetTitle>
+            <SheetDescription>Send a booking request via email with attachments</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-4 px-4 py-4 sm:px-6">
           <RequestFormFields data={emailRequest} setData={setEmailRequest} />
           <div>
             <Label className="flex items-center gap-2 text-xs text-slate-500">
@@ -495,15 +504,16 @@ const AttorneyAppointments: React.FC = () => {
               </div>
             )}
           </div>
-          <DialogFooter>
+          </div>
+          <SheetFooter className="border-t border-black/10 px-4 py-4 sm:px-6">
             <Button variant="outline" className="rounded-none" onClick={() => setEmailRequestOpen(false)}>Cancel</Button>
             <Button className="rounded-none" onClick={handleEmailRequest} disabled={emailSubmitting || !emailRequest.firstName || !emailRequest.lastName}>
               {emailSubmitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
               Send Email Request
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </AttorneyPortalLayout>
   );
 };
