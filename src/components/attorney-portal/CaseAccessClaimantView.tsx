@@ -7,7 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Users, UserCheck, UserX, ClipboardList, FileText, AlertTriangle,
@@ -445,17 +445,21 @@ const CaseAccessClaimantView: React.FC<Props> = ({ cases, onOpenDocuments }) => 
       </Card>
 
       {/* ─── 3. CLAIMANT DETAIL DIALOG ─── */}
-      <Dialog open={!!selectedClaimant} onOpenChange={(o) => !o && setSelectedClaimant(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <Sheet open={!!selectedClaimant} onOpenChange={(o) => !o && setSelectedClaimant(null)}>
+        <SheetContent
+          side="right"
+          className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-4xl"
+        >
           {selectedClaimant && (
             <>
-              <DialogHeader>
-                <DialogTitle className="text-xl">{selectedClaimant.name}</DialogTitle>
-                <DialogDescription>
+              <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+                <SheetTitle className="text-xl">{selectedClaimant.name}</SheetTitle>
+                <SheetDescription>
                   Case Ref: <span className="font-mono">{selectedClaimant.caseRef}</span> • {selectedClaimant.claimType}
-                </DialogDescription>
-              </DialogHeader>
+                </SheetDescription>
+              </SheetHeader>
 
+              <div className="flex-1 px-4 py-4 sm:px-6">
               <Tabs value={detailTab} onValueChange={setDetailTab} className="mt-4">
                 <TabsList className="grid grid-cols-3 w-full">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -614,10 +618,11 @@ const CaseAccessClaimantView: React.FC<Props> = ({ cases, onOpenDocuments }) => 
                   </Table>
                 </TabsContent>
               </Tabs>
+              </div>
             </>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
