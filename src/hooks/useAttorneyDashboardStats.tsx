@@ -1,4 +1,4 @@
- import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 
@@ -130,6 +130,16 @@ export const useAttorneyDashboardStats = () => {
       // liveCases.slice(0, 5) for its small preview widget — that's
       // the right place for a preview cap, not here, where every
       // other consumer needs the true, complete list.
+      //
+      // The report file itself comes from `documents` (document_type =
+      // 'Expert Report'), NOT `report_versions` — report_versions has a
+      // schema but is never written to by any code path in this app;
+      // the real file an expert submits (ExpertCaseDetail.tsx) is
+      // inserted straight into `documents`. RLS (Phase 27) already
+      // filters this embed down to only reports that are both
+      // is_visible_to_attorney and past staff review, so an empty
+      // result here correctly means "not available to you yet",
+      // not "query is broken".
       const { data: casesData } = await supabase
         .from('appointments')
         .select(`
@@ -138,8 +148,8 @@ export const useAttorneyDashboardStats = () => {
           case_status,
           claimants(first_name, last_name, auto_id),
           medical_experts(expert_type),
-          expert_reports(report_status, report_submitted_date, created_at,
-            report_versions(file_name, file_path, version_number, created_at))
+          expert_reports(report_status, report_submitted_date, created_at),
+          documents(file_name, file_path, document_type, approval_status, created_at)
         `)
         .is('deleted_at', null)
         .order('appointment_date', { ascending: false });
@@ -155,15 +165,25 @@ export const useAttorneyDashboardStats = () => {
           ? appointment.expert_reports[0] 
           : appointment.expert_reports;
 
-        // report_versions was never fetched before, so AttorneyReports.tsx
-        // hardcoded this to [] and every "Download" click on a Complete
-        // report showed "No report available" regardless of whether a
-        // file actually existed. Sort newest-first so consumers can just
-        // take reportVersions[0] as "the latest version" (which
-        // AttorneyReports.tsx already assumes).
-        const reportVersions = [...(report?.report_versions || [])].sort(
-          (a, b) => (b.version_number || 0) - (a.version_number || 0)
-        );
+        // The actual report file lives in `documents` (document_type =
+        // 'Expert Report'), not the orphaned report_versions table —
+        // nothing in this codebase ever writes a report_versions row.
+        // RLS (Phase 27) already excludes documents still pending staff
+        // approval or explicitly hidden from the attorney, so whatever
+        // comes back here is genuinely available to download. Mapped
+        // into the same {file_name, file_path, version_number,
+        // created_at} shape AttorneyReports.tsx already expects —
+        // version_number is synthesized from upload order since these
+        // rows were never actually versioned.
+        const reportDocs = (Array.isArray(appointment.documents) ? appointment.documents : [])
+          .filter((d: any) => d.document_type === 'Expert Report')
+          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        const reportVersions = reportDocs.map((d: any, idx: number) => ({
+          file_name: d.file_name,
+          file_path: d.file_path,
+          version_number: reportDocs.length - idx,
+          created_at: d.created_at,
+        }));
 
         const reportStatus = report?.report_status?.toLowerCase() || '';
 
