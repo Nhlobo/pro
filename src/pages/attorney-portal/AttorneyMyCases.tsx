@@ -14,12 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
 import {
   Briefcase, Filter, AlertTriangle, CheckCircle2, Clock, FileText,
-  User, Eye, Plus, Upload, Download, Send, FolderOpen, Receipt,
+  User, Eye, Plus, Download, Send, FolderOpen, Receipt,
   TrendingUp, FileCheck, Loader2, Scale, CreditCard, Stethoscope,
 } from 'lucide-react';
 import { LitigationTrialServices } from '@/components/attorney-portal/LitigationTrialServices';
@@ -79,11 +79,6 @@ const AttorneyMyCases: React.FC = () => {
   const [activeTab, setActiveTab] = useState('cases');
   const [expandedCaseId, setExpandedCaseId] = useState<string | null>(null);
   const [caseDocuments, setCaseDocuments] = useState<Record<string, CaseDocument[]>>({});
-  const [uploading, setUploading] = useState(false);
-  const [uploadDocType, setUploadDocType] = useState('medical_records');
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [selectedCaseForUpload, setSelectedCaseForUpload] = useState<string | null>(null);
-  const [selectedClaimantForUpload, setSelectedClaimantForUpload] = useState<string>('');
 
   // Case detail dialog
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -263,39 +258,6 @@ const AttorneyMyCases: React.FC = () => {
     if (risk.status === 'critical') return <PortalPill tone="destructive"><AlertTriangle className="h-3 w-3" />{risk.daysLeft}d</PortalPill>;
     if (risk.status === 'warning') return <PortalPill tone="warning"><Clock className="h-3 w-3" />{risk.daysLeft}d</PortalPill>;
     return null;
-  };
-
-  // Upload document
-  const handleUploadDocument = async (file: File) => {
-    if (!selectedCaseForUpload || !user) return;
-    setUploading(true);
-    try {
-      const filePath = `attorney-documents/${selectedCaseForUpload}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file);
-      if (uploadError) throw uploadError;
-
-      const { error: insertError } = await supabase.from('documents').insert({
-        appointment_id: selectedCaseForUpload,
-        file_name: file.name,
-        file_path: filePath,
-        file_size: file.size,
-        file_type: file.type,
-        document_type: uploadDocType,
-        uploaded_by: user.id,
-        upload_date: new Date().toISOString().split('T')[0],
-        upload_time: new Date().toTimeString().split(' ')[0],
-      });
-      if (insertError) throw insertError;
-
-      toast({ title: 'Document Uploaded', description: `${file.name} uploaded successfully.` });
-      setUploadDialogOpen(false);
-      fetchCaseDocuments(selectedCaseForUpload);
-    } catch (err: any) {
-      console.error('Upload error:', err);
-      toast({ title: 'Error', description: 'Failed to upload document.', variant: 'destructive' });
-    } finally {
-      setUploading(false);
-    }
   };
 
   // Submit new referral
@@ -611,13 +573,6 @@ const AttorneyMyCases: React.FC = () => {
                                   <Button size="icon" variant="ghost" className="h-7 w-7 rounded-none" onClick={() => openCaseDetail(caseItem)} title="View Details">
                                     <Eye className="h-3.5 w-3.5" />
                                   </Button>
-                                  <Button size="icon" variant="ghost" className="h-7 w-7 rounded-none" onClick={() => {
-                                    setSelectedCaseForUpload(caseItem.id);
-                                    setSelectedClaimantForUpload(caseItem.claimantName);
-                                    setUploadDialogOpen(true);
-                                  }} title="Upload Document">
-                                    <Upload className="h-3.5 w-3.5" />
-                                  </Button>
                                 </div>
                               </TableCell>
                             </TableRow>
@@ -651,13 +606,6 @@ const AttorneyMyCases: React.FC = () => {
                               <div className="flex shrink-0 gap-1" onClick={e => e.stopPropagation()}>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 rounded-none" onClick={() => openCaseDetail(caseItem)} title="View Details">
                                   <Eye className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="h-7 w-7 rounded-none" onClick={() => {
-                                  setSelectedCaseForUpload(caseItem.id);
-                                  setSelectedClaimantForUpload(caseItem.claimantName);
-                                  setUploadDialogOpen(true);
-                                }} title="Upload Document">
-                                  <Upload className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
                             </div>
@@ -704,14 +652,6 @@ const AttorneyMyCases: React.FC = () => {
                               <span className="truncate text-sm font-semibold text-black">{caseItem.claimantName}</span>
                               <PortalPill>{formatExpertType(caseItem.expertType)}</PortalPill>
                             </div>
-                            <Button size="sm" variant="outline" className="rounded-none" onClick={() => {
-                              setSelectedCaseForUpload(caseItem.id);
-                              setSelectedClaimantForUpload(caseItem.claimantName);
-                              setUploadDialogOpen(true);
-                              if (!caseDocuments[caseItem.id]) fetchCaseDocuments(caseItem.id);
-                            }}>
-                              <Upload className="mr-1 h-3 w-3" />Upload
-                            </Button>
                           </div>
                           {!caseDocuments[caseItem.id] ? (
                             <Button variant="ghost" size="sm" className="rounded-none" onClick={() => fetchCaseDocuments(caseItem.id)}>
@@ -862,17 +802,21 @@ const AttorneyMyCases: React.FC = () => {
       </PortalPage>
 
       {/* Case Detail Dialog */}
-      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto rounded-none border-black/10 sm:rounded-none">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-black">
+      <Sheet open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <SheetContent
+          side="right"
+          className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-3xl"
+        >
+          <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+            <SheetTitle className="flex items-center gap-2 text-black">
               <Briefcase className="h-5 w-5" style={{ color: BRAND_TEAL }} />
               Case Detail — {selectedCase?.claimantName}
-            </DialogTitle>
-            <DialogDescription>
+            </SheetTitle>
+            <SheetDescription>
               {selectedCase?.claimantAutoId} • {formatExpertType(selectedCase?.expertType || '')}
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 px-4 py-4 sm:px-6">
 
           {detailLoading ? (
             <PortalLoadingState label="Loading case detail…" />
@@ -1008,26 +952,26 @@ const AttorneyMyCases: React.FC = () => {
                   <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-black">
                     <FolderOpen className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Documents
                   </h3>
-                  <Button size="sm" variant="outline" className="rounded-none" onClick={() => {
-                    setSelectedCaseForUpload(selectedCase.id);
-                    setSelectedClaimantForUpload(selectedCase.claimantName);
-                    setUploadDialogOpen(true);
-                  }}>
-                    <Upload className="mr-1 h-3 w-3" /> Upload
-                  </Button>
                 </div>
                 {(caseDocuments[selectedCase.id] || []).length === 0 ? (
                   <p className="text-xs italic text-slate-400">No documents uploaded yet.</p>
                 ) : (
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {(caseDocuments[selectedCase.id] || []).map((d: CaseDocument) => (
-                      <div key={d.id} className="flex items-center gap-2 border border-black/10 bg-black/[0.015] p-2 text-xs">
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => handleDownloadReport(d.file_path, d.file_name)}
+                        className="flex items-center gap-2 border border-black/10 bg-black/[0.015] p-2 text-xs text-left transition-colors hover:border-black/25 hover:bg-black/[0.03]"
+                        title={`Download ${d.file_name}`}
+                      >
                         <FileCheck className="h-3 w-3 shrink-0 text-success" />
                         <span className="flex-1 truncate">{d.file_name}</span>
                         <PortalPill className="shrink-0 text-[9px]">
                           {DOCUMENT_TYPES.find(t => t.value === d.document_type)?.label || d.document_type}
                         </PortalPill>
-                      </div>
+                        <Download className="h-3 w-3 shrink-0 text-slate-400" />
+                      </button>
                     ))}
                   </div>
                 )}
@@ -1089,62 +1033,25 @@ const AttorneyMyCases: React.FC = () => {
               </div>
             </div>
           )}
-
-          <DialogFooter>
-            <Button variant="outline" className="rounded-none" onClick={() => setDetailDialogOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Upload Document Dialog */}
-      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-        <DialogContent className="rounded-none border-black/10 sm:rounded-none">
-          <DialogHeader>
-            <DialogTitle className="text-black">Upload Document</DialogTitle>
-            <DialogDescription>Upload documents for {selectedClaimantForUpload}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Document Type</label>
-              <Select value={uploadDocType} onValueChange={setUploadDocType}>
-                <SelectTrigger className={cn(FIELD_CLASS, 'mt-1')}><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DOCUMENT_TYPES.map(dt => (
-                    <SelectItem key={dt.value} value={dt.value}>{dt.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="text-xs font-medium uppercase tracking-wide text-slate-500">Select File</label>
-              <Input
-                type="file"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                disabled={uploading}
-                className={cn(FIELD_CLASS, 'mt-1')}
-                onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) handleUploadDocument(file);
-                }}
-              />
-            </div>
-            {uploading && (
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <Loader2 className="h-4 w-4 animate-spin" />Uploading...
-              </div>
-            )}
           </div>
-        </DialogContent>
-      </Dialog>
+
+          <SheetFooter className="border-t border-black/10 px-4 py-4 sm:px-6">
+            <Button variant="outline" className="rounded-none" onClick={() => setDetailDialogOpen(false)}>Close</Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* New Referral Dialog */}
-      <Dialog open={referralDialogOpen} onOpenChange={setReferralDialogOpen}>
-        <DialogContent className="max-w-lg rounded-none border-black/10 sm:rounded-none">
-          <DialogHeader>
-            <DialogTitle className="text-black">Submit New Referral</DialogTitle>
-            <DialogDescription>Submit a new or existing case for medico-legal assessment</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
+      <Sheet open={referralDialogOpen} onOpenChange={setReferralDialogOpen}>
+        <SheetContent
+          side="right"
+          className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-lg"
+        >
+          <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+            <SheetTitle className="text-black">Submit New Referral</SheetTitle>
+            <SheetDescription>Submit a new or existing case for medico-legal assessment</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-4 px-4 py-4 sm:px-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-medium uppercase tracking-wide text-slate-500">First Name *</label>
@@ -1201,15 +1108,15 @@ const AttorneyMyCases: React.FC = () => {
               <Textarea value={newReferral.notes} onChange={e => setNewReferral(p => ({ ...p, notes: e.target.value }))} placeholder="Any additional information about the case..." className={cn(FIELD_CLASS, 'mt-1')} />
             </div>
           </div>
-          <DialogFooter>
+          <SheetFooter className="border-t border-black/10 px-4 py-4 sm:px-6">
             <Button variant="outline" className="rounded-none" onClick={() => setReferralDialogOpen(false)}>Cancel</Button>
             <Button className="rounded-none" onClick={handleSubmitReferral} disabled={submittingReferral || !newReferral.firstName || !newReferral.lastName}>
               {submittingReferral ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Submit Referral
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </AttorneyPortalLayout>
   );
 };
