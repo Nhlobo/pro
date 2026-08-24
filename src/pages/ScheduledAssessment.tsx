@@ -20,6 +20,7 @@ import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import CompanyFooter from "@/components/CompanyFooter";
+import SystemHeaderNav from "@/components/dashboard/SystemHeaderNav";
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 import { BulkAppointmentUpload } from "@/components/BulkAppointmentUpload";
 import { BulkAppointmentEmailDialog } from "@/components/BulkAppointmentEmailDialog";
@@ -1995,6 +1996,8 @@ const ScheduledAssessment = () => {
         <meta name="description" content="View and manage all scheduled medical assessment appointments with download reporting capabilities." />
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
+
+      <SystemHeaderNav />
 
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 sm:py-6">
