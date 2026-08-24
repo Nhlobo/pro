@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
+import SystemHeaderNav from "@/components/dashboard/SystemHeaderNav";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
@@ -771,6 +772,8 @@ const AssessmentReportsStatistics = () => {
         <meta name="description" content="Comprehensive reports and statistics for medical assessment performance, completion rates, and expert analytics." />
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
+
+      <SystemHeaderNav />
 
       {/* ------------------------------------------------------------- */}
       {/* Header — same eyebrow/icon/title language as the Admin Portal  */}
