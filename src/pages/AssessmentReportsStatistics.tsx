@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { ArrowLeft, Download, TrendingUp, Calendar, FileText, Users, Archive, History, Trash2 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
+import {
+  ArrowLeft, Download, TrendingUp, TrendingDown, Calendar, FileText, Users, Archive,
+  History, Trash2, BarChart3, RefreshCw, Wifi, WifiOff, Clock, Target, Activity,
+  PieChart as PieChartIcon, LineChart as LineChartIcon, ArrowUpRight, CheckCircle2,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from 'jspdf';
@@ -16,6 +20,39 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
+import {
+  AdminPage,
+  AdminCard,
+  AdminCardHeader,
+  AdminCardBody,
+  AdminStatCard,
+  AdminPill,
+  AdminSectionLabel,
+  AdminTabList,
+  AdminTabTrigger,
+  AdminEmptyState,
+  BRAND_TEAL,
+} from "@/components/admin/ui/AdminUI";
+
+/**
+ * Shared recharts tooltip — flat hairline card matching the Admin Portal
+ * Analytics module, so every chart on this page (and that one) reads as the
+ * same product instead of two different chart styles.
+ */
+const StatsTooltip: React.FC<any> = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="border border-black/10 bg-white px-3 py-2 shadow-sm">
+      {label && <p className="text-xs font-semibold text-black">{label}</p>}
+      {payload.map((p: any) => (
+        <p key={p.dataKey || p.name} className="text-xs text-slate-500">
+          <span className="mr-1.5 inline-block h-2 w-2 align-middle" style={{ backgroundColor: p.fill || p.stroke || p.payload?.color }} />
+          {p.name}: <span className="font-medium text-black">{p.value}</span>
+        </p>
+      ))}
+    </div>
+  );
+};
 
 const AssessmentReportsStatistics = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
@@ -41,7 +78,7 @@ const AssessmentReportsStatistics = () => {
   });
   const { toast } = useToast();
   const { user } = useAuth();
-  const { lastUpdate } = useAppointmentSync();
+  const { lastUpdate, isConnected, syncStatus } = useAppointmentSync();
 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/assessment-reports-statistics';
 
@@ -174,7 +211,7 @@ const AssessmentReportsStatistics = () => {
 
       // Calculate matter type statistics
       const matterTypes = ['MVA', 'Medical Negligence', 'PRASA Matter', 'Other'];
-      const colors = ["hsl(var(--primary))", "#82ca9d", "#ffc658", "#ff7c7c"];
+      const colors = [BRAND_TEAL, "#0B0B0B", "#F59E0B", "#94A3B8"];
       
       const matterStats = matterTypes.map((type, index) => {
         const typeAppointments = appointments?.filter(a => 
@@ -609,9 +646,9 @@ const AssessmentReportsStatistics = () => {
   };
 
   const reportStatusData = [
-    { name: "Completed Reports", value: displayData.completedReports, color: "hsl(var(--primary))" },
-    { name: "Reports Taken Out", value: displayData.reportsTakenOut, color: "#ff7c7c" },
-    { name: "Pending Reports", value: displayData.pendingReports, color: "#ffc658" }
+    { name: "Completed Reports", value: displayData.completedReports, color: BRAND_TEAL },
+    { name: "Reports Taken Out", value: displayData.reportsTakenOut, color: "#F43F5E" },
+    { name: "Pending Reports", value: displayData.pendingReports, color: "#F59E0B" }
   ];
 
   const generatePDFReport = () => {
@@ -718,6 +755,15 @@ const AssessmentReportsStatistics = () => {
     doc.save(filename);
   };
 
+  const periodLabel =
+    selectedPeriod === "monthly"
+      ? `${new Date(0, selectedMonth).toLocaleString("default", { month: "long" })} ${selectedYear}`
+      : selectedPeriod === "quarterly"
+      ? `Q${selectedQuarter} ${selectedYear}`
+      : `${selectedYear}`;
+
+  const maxExpertAssessments = Math.max(1, ...expertPerformanceData.map((e) => e.assessments));
+
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
@@ -726,33 +772,64 @@ const AssessmentReportsStatistics = () => {
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-6">
-          {/* Back to Dashboard removed — the operations dashboard is already
-              reachable from the persistent portal header, so this was a
-              duplicate. Everything below now wraps on narrow screens
-              instead of overflowing/overlapping the viewport. */}
+      {/* ------------------------------------------------------------- */}
+      {/* Header — same eyebrow/icon/title language as the Admin Portal  */}
+      {/* Analytics module (AdminHeader), rebuilt inline here because     */}
+      {/* this route renders outside the admin sidebar shell and keeps   */}
+      {/* its own action bar (period pickers, archive, export, clear).   */}
+      {/* ------------------------------------------------------------- */}
+      <header className="sticky top-0 z-30 border-b border-black/10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+        <div className="container mx-auto px-4 py-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-xl font-bold sm:text-2xl">
-                {isHistoricalView ? 'Historical Assessment Reports' : 'Assessment Reports & Statistics'}
-              </h1>
-              {isHistoricalView && (
-                <Button variant="outline" size="sm" onClick={() => {
-                  setIsHistoricalView(false);
-                  setCurrentArchive(null);
-                }}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black/5">
+                <BarChart3 className="h-5 w-5" style={{ color: BRAND_TEAL }} />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: BRAND_TEAL }}>
+                    {isHistoricalView ? "Archived Period" : "Reporting"}
+                  </span>
+                  {!isHistoricalView && (
+                    <span className="hidden items-center gap-1 text-[10px] font-medium text-slate-400 sm:inline-flex">
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-emerald-500" : "bg-slate-300"}`}
+                      />
+                      {isConnected ? "Live sync" : "Reconnecting…"}
+                    </span>
+                  )}
+                </div>
+                <h1 className="truncate text-xl font-bold text-black sm:text-2xl">
+                  {isHistoricalView ? "Historical Assessment Reports" : "Assessment Reports & Statistics"}
+                </h1>
+                <p className="truncate text-xs text-slate-500 md:text-sm">
+                  {isHistoricalView
+                    ? "Archived snapshot — read-only view of a past reporting period"
+                    : "Live performance across assessments, experts, and referring attorneys"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {isHistoricalView ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-none border-black/15"
+                  onClick={() => {
+                    setIsHistoricalView(false);
+                    setCurrentArchive(null);
+                  }}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to Current
                 </Button>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              {!isHistoricalView && (
+              ) : (
                 <>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
+                    className="rounded-none border-black/15"
                     onClick={() => {
                       loadRealData();
                       toast({
@@ -762,12 +839,12 @@ const AssessmentReportsStatistics = () => {
                     }}
                     disabled={isLoading}
                   >
-                    <Download className="h-4 w-4 mr-2" />
-                    {isLoading ? 'Loading...' : 'Refresh Data'}
+                    <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+                    {isLoading ? "Loading…" : "Refresh"}
                   </Button>
-                  
+
                   <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                    <SelectTrigger className="w-[140px] sm:w-[180px]">
+                    <SelectTrigger className="w-[130px] rounded-none border-black/15 sm:w-[160px]">
                       <SelectValue placeholder="Select period" />
                     </SelectTrigger>
                     <SelectContent>
@@ -776,24 +853,24 @@ const AssessmentReportsStatistics = () => {
                       <SelectItem value="yearly">Yearly View</SelectItem>
                     </SelectContent>
                   </Select>
-                  
+
                   {selectedPeriod === "monthly" && (
                     <>
                       <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
-                        <SelectTrigger className="w-[120px] sm:w-[140px]">
+                        <SelectTrigger className="w-[110px] rounded-none border-black/15 sm:w-[130px]">
                           <SelectValue placeholder="Month" />
                         </SelectTrigger>
                         <SelectContent>
                           {Array.from({ length: 12 }, (_, i) => (
                             <SelectItem key={i} value={i.toString()}>
-                              {new Date(0, i).toLocaleString('default', { month: 'long' })}
+                              {new Date(0, i).toLocaleString("default", { month: "long" })}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      
+
                       <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                        <SelectTrigger className="w-[90px] sm:w-[100px]">
+                        <SelectTrigger className="w-[85px] rounded-none border-black/15 sm:w-[95px]">
                           <SelectValue placeholder="Year" />
                         </SelectTrigger>
                         <SelectContent>
@@ -809,33 +886,43 @@ const AssessmentReportsStatistics = () => {
                       </Select>
                     </>
                   )}
-                  
-                  <Button onClick={archiveCurrentData} variant="outline" className="flex items-center gap-2">
-                    <Archive className="h-4 w-4" />
-                    Archive Current
+
+                  <Button
+                    onClick={archiveCurrentData}
+                    variant="outline"
+                    size="sm"
+                    className="rounded-none border-black/15"
+                  >
+                    <Archive className="mr-2 h-4 w-4" />
+                    Archive
                   </Button>
-                  
+
                   {isAdmin && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="destructive" className="flex items-center gap-2" disabled={isClearingData}>
-                          <Trash2 className="h-4 w-4" />
-                          {isClearingData ? 'Clearing...' : 'Clear Data'}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-none border-destructive/30 text-destructive hover:bg-destructive/5"
+                          disabled={isClearingData}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {isClearingData ? "Clearing…" : "Clear Data"}
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent>
+                      <AlertDialogContent className="rounded-none">
                         <AlertDialogHeader>
                           <AlertDialogTitle>Clear Assessment Data</AlertDialogTitle>
                           <AlertDialogDescription>
-                            This action will permanently delete all assessment data including appointments, expert reports, and archives. 
+                            This action will permanently delete all assessment data including appointments, expert reports, and archives.
                             This action cannot be undone. Are you sure you want to continue?
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
+                          <AlertDialogCancel className="rounded-none">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
                             onClick={clearAssessmentData}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            className="rounded-none bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
                             Yes, Clear All Data
                           </AlertDialogAction>
@@ -843,18 +930,26 @@ const AssessmentReportsStatistics = () => {
                       </AlertDialogContent>
                     </AlertDialog>
                   )}
-                  
-                  <Button onClick={generatePDFReport} className="gradient-teal flex items-center gap-2 border">
-                    <Download className="h-4 w-4" />
+
+                  <Button
+                    onClick={generatePDFReport}
+                    size="sm"
+                    className="rounded-none bg-black text-white hover:bg-black/90"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
                     Export Report
                   </Button>
                 </>
               )}
-              
+
               {isHistoricalView && currentArchive && (
-                <Button onClick={() => generateHistoricalPDF(currentArchive)} className="gradient-teal flex items-center gap-2 border">
-                  <Download className="h-4 w-4" />
-                  Download Historical Report
+                <Button
+                  onClick={() => generateHistoricalPDF(currentArchive)}
+                  size="sm"
+                  className="rounded-none bg-black text-white hover:bg-black/90"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Report
                 </Button>
               )}
             </div>
@@ -863,421 +958,458 @@ const AssessmentReportsStatistics = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        {/* Data Source Information */}
-        {!isHistoricalView && (
-          <Card className="mb-6 border-black/10 bg-black/[0.02]">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-black mt-0.5" />
-                <div className="flex-1">
-                  <h3 className="font-semibold text-sm mb-1">Live Data from Scheduled Assessments</h3>
-                  <p className="text-sm text-muted-foreground">
-                    This page displays real-time statistics from appointments created in the{' '}
-                    <Link to="/scheduled-assessment" className="text-primary hover:underline font-medium">
+        <AdminPage>
+          {/* Data source / live-sync banner */}
+          {!isHistoricalView && (
+            <AdminCard className="animate-fade-in border-l-4" style={{ borderLeftColor: BRAND_TEAL }}>
+              <AdminCardBody className="flex items-start gap-3 p-4">
+                <Calendar className="mt-0.5 h-5 w-5 shrink-0" style={{ color: BRAND_TEAL }} />
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold text-black">Live data from scheduled assessments</h3>
+                    <AdminPill tone={isConnected ? "teal" : "neutral"}>
+                      {isConnected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+                      {syncStatus === "syncing" ? "Syncing" : isConnected ? "Connected" : "Offline"}
+                    </AdminPill>
+                  </div>
+                  <p className="text-sm text-slate-500">
+                    This page reflects real-time statistics from appointments created in the{" "}
+                    <Link to="/scheduled-assessment" className="font-medium text-primary hover:underline">
                       Schedule Assessment Appointment
-                    </Link>{' '}
-                    page. Data automatically refreshes every 30 seconds, or click "Refresh Data" for immediate updates.
+                    </Link>{" "}
+                    workflow. It updates automatically as new appointments and reports come in — use{" "}
+                    <span className="font-medium text-black">Refresh</span> any time for an immediate pull.
                   </p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        
-        {/* Historical Data Navigation */}
-        {!isHistoricalView && historicalData.length > 0 && (
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History className="h-5 w-5" />
-                Historical Reports
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {historicalData.slice(0, 6).map((archive) => {
+              </AdminCardBody>
+            </AdminCard>
+          )}
+
+          {/* Historical archive navigator */}
+          {!isHistoricalView && historicalData.length > 0 && (
+            <div className="animate-fade-in space-y-3">
+              <AdminSectionLabel>Historical Reports</AdminSectionLabel>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {historicalData.slice(0, 6).map((archive, i) => {
                   const periodStart = new Date(archive.period_start);
-                  const periodTitle = archive.period_type === 'monthly' 
-                    ? `${periodStart.toLocaleString('default', { month: 'long' })} ${periodStart.getFullYear()}`
-                    : archive.period_type === 'quarterly'
-                    ? `Q${Math.floor((periodStart.getMonth() + 3) / 3)} ${periodStart.getFullYear()}`
-                    : `${periodStart.getFullYear()}`;
-                  
+                  const periodTitle =
+                    archive.period_type === "monthly"
+                      ? `${periodStart.toLocaleString("default", { month: "long" })} ${periodStart.getFullYear()}`
+                      : archive.period_type === "quarterly"
+                      ? `Q${Math.floor((periodStart.getMonth() + 3) / 3)} ${periodStart.getFullYear()}`
+                      : `${periodStart.getFullYear()}`;
+
                   return (
-                    <Card key={archive.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => loadHistoricalReport(archive)}>
-                      <CardContent className="p-4">
-                        <h4 className="font-semibold text-sm mb-2">{periodTitle}</h4>
-                        <div className="space-y-1 text-xs text-muted-foreground">
-                          <p>Total: {archive.total_assessments}</p>
-                          <p>Completed: {archive.completed_reports}</p>
-                          <p>Rate: {archive.completion_rate}%</p>
+                    <AdminCard
+                      key={archive.id}
+                      className="group animate-fade-in cursor-pointer transition-colors hover:border-black/25"
+                      style={{ animationDelay: `${i * 40}ms` }}
+                      onClick={() => loadHistoricalReport(archive)}
+                    >
+                      <AdminCardBody className="p-4">
+                        <div className="mb-2 flex items-center justify-between">
+                          <h4 className="text-sm font-semibold text-black">{periodTitle}</h4>
+                          <History className="h-3.5 w-3.5 text-slate-400" />
                         </div>
-                        <Button size="sm" variant="outline" className="w-full mt-3">
-                          View Report
-                        </Button>
-                      </CardContent>
-                    </Card>
+                        <div className="space-y-1 text-xs text-slate-500">
+                          <p>Total: <span className="font-medium text-black">{archive.total_assessments}</span></p>
+                          <p>Completed: <span className="font-medium text-black">{archive.completed_reports}</span></p>
+                          <p>Rate: <span className="font-medium text-black">{archive.completion_rate}%</span></p>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between border-t border-black/10 pt-2 text-xs font-medium" style={{ color: BRAND_TEAL }}>
+                          View report
+                          <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                        </div>
+                      </AdminCardBody>
+                    </AdminCard>
                   );
                 })}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          )}
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-black" />
-                <span className="text-sm text-muted-foreground">Total Assessments</span>
+          {/* KPI row */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-5">
+            {[
+              { label: isHistoricalView ? `Total — ${periodLabel}` : "Total Assessments", value: displayData.totalAssessments, icon: FileText },
+              { label: "Completed Reports", value: displayData.completedReports, icon: CheckCircle2 },
+              { label: "Pending Reports", value: displayData.pendingReports, icon: Clock },
+              { label: "Reports Taken Out", value: displayData.reportsTakenOut, icon: Archive },
+              { label: "Completion Rate", value: displayData.completionRate, icon: Target },
+            ].map((kpi, i) => (
+              <div key={kpi.label} className="animate-fade-in" style={{ animationDelay: `${i * 50}ms` }}>
+                <AdminStatCard label={kpi.label} value={kpi.value} icon={kpi.icon} loading={isLoading && !isHistoricalView} />
               </div>
-              <p className="text-2xl font-bold mt-2">{displayData.totalAssessments}</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-black" />
-                <span className="text-sm text-muted-foreground">Completed Reports</span>
-              </div>
-              <p className="text-2xl font-bold mt-2">{displayData.completedReports}</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-black" />
-                <span className="text-sm text-muted-foreground">Pending Reports</span>
-              </div>
-              <p className="text-2xl font-bold mt-2">{displayData.pendingReports}</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-black" />
-                <span className="text-sm text-muted-foreground">Reports Taken Out</span>
-              </div>
-              <p className="text-2xl font-bold mt-2">{displayData.reportsTakenOut}</p>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-black" />
-                <span className="text-sm text-muted-foreground">Completion Rate</span>
-              </div>
-              <p className="text-2xl font-bold mt-2">{displayData.completionRate}</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Tabs defaultValue="overview" className="w-full">
-          <div className="-mx-4 mb-6 overflow-x-auto px-4 sm:mx-0 sm:overflow-visible sm:px-0">
-            <TabsList className="w-max sm:w-full">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="attorney-reports">Attorney Reports</TabsTrigger>
-              <TabsTrigger value="performance">Expert Performance</TabsTrigger>
-              <TabsTrigger value="trends">Trends Analysis</TabsTrigger>
-            </TabsList>
+            ))}
           </div>
 
-          <TabsContent value="overview" className="space-y-6">
-            {/* Matter Type Contributions */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Assessments by Matter Type</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={displayData.matterTypeData}>
-                        <XAxis dataKey="name" />
-                        <YAxis />
-                        <Tooltip />
-                        <Bar dataKey="total" fill="hsl(var(--primary))" name="Total Assessments" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
+          <Tabs defaultValue="overview" className="w-full">
+            <AdminTabList>
+              <AdminTabTrigger value="overview" label="Overview" icon={BarChart3} />
+              <AdminTabTrigger value="attorney-reports" label="Attorney Reports" icon={Users} />
+              <AdminTabTrigger value="performance" label="Expert Performance" icon={Activity} />
+              <AdminTabTrigger value="trends" label="Trends Analysis" icon={LineChartIcon} />
+            </AdminTabList>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Overall Report Status Distribution</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={reportStatusData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {reportStatusData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
+            {/* ----------------------------- Overview ----------------------------- */}
+            <TabsContent value="overview" className="mt-4 space-y-4 md:space-y-6">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 md:gap-6">
+                <AdminCard className="animate-fade-in">
+                  <AdminCardHeader icon={BarChart3} title="Assessments by Matter Type" description="Total volume per matter category" />
+                  <AdminCardBody>
+                    {displayData.matterTypeData?.length ? (
+                      <div className="h-72 w-full sm:h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={displayData.matterTypeData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                            <CartesianGrid vertical={false} stroke="rgba(0,0,0,0.08)" />
+                            <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={{ stroke: "rgba(0,0,0,0.1)" }} tickLine={false} />
+                            <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                            <Tooltip content={<StatsTooltip />} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
+                            <Bar dataKey="total" name="Total Assessments" fill={BRAND_TEAL} radius={[2, 2, 0, 0]} maxBarSize={48} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <AdminEmptyState icon={BarChart3} title="No assessment data yet" description="Data will appear once assessments are scheduled for this period." />
+                    )}
+                  </AdminCardBody>
+                </AdminCard>
+
+                <AdminCard className="animate-fade-in" style={{ animationDelay: "60ms" }}>
+                  <AdminCardHeader icon={PieChartIcon} title="Report Status Distribution" description="Share of completed, pending, and taken-out reports" />
+                  <AdminCardBody>
+                    {reportStatusData.some((d) => d.value > 0) ? (
+                      <>
+                        <div className="h-64 w-full sm:h-72">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={reportStatusData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                                outerRadius={90}
+                                dataKey="value"
+                              >
+                                {reportStatusData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                              <Tooltip content={<StatsTooltip />} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center justify-center gap-4 border-t border-black/10 pt-3">
+                          {reportStatusData.map((d) => (
+                            <div key={d.name} className="flex items-center gap-1.5">
+                              <div className="h-2.5 w-2.5" style={{ backgroundColor: d.color }} />
+                              <span className="text-xs text-slate-500">{d.name}</span>
+                            </div>
                           ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                        </div>
+                      </>
+                    ) : (
+                      <AdminEmptyState icon={PieChartIcon} title="No report status data yet" description="Data will appear once expert reports are logged for this period." />
+                    )}
+                  </AdminCardBody>
+                </AdminCard>
+              </div>
 
-            {/* Matter Type Comparison Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Matter Type Comparison</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-2">Matter Type</th>
-                        <th className="text-center p-2">Total Assessments</th>
-                        <th className="text-center p-2">Completed Reports</th>
-                        <th className="text-center p-2">Pending Reports</th>
-                        <th className="text-center p-2">Reports Taken Out</th>
-                        <th className="text-center p-2">Completion Rate</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayData.matterTypeData.map((matter: any, index: number) => (
-                        <tr key={index} className="border-b hover:bg-muted/50">
-                          <td className="p-2 font-medium">{matter.name}</td>
-                          <td className="text-center p-2">{matter.total}</td>
-                          <td className="text-center p-2 text-green-600">{matter.completed}</td>
-                          <td className="text-center p-2 text-yellow-600">{matter.pending}</td>
-                          <td className="text-center p-2 text-red-600">{matter.takenOut}</td>
-                          <td className="text-center p-2">{((matter.completed / matter.total) * 100).toFixed(1)}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Monthly Status Trends */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Monthly Report Status Trends</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayData.monthlyData}>
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="completed" fill="hsl(var(--primary))" name="Completed" />
-                      <Bar dataKey="pending" fill="#ffc658" name="Pending" />
-                      <Bar dataKey="takenOut" fill="#ff7c7c" name="Taken Out" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="attorney-reports" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Referring Attorneys</p>
-                      <p className="text-2xl font-bold">{attorneyReportsData.length}</p>
-                    </div>
-                    <FileText className="h-8 w-8 text-black" />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Referrals</p>
-                      <p className="text-2xl font-bold">{attorneyReportsData.reduce((sum, attorney) => sum + attorney.referrals, 0)}</p>
-                    </div>
-                    <TrendingUp className="h-8 w-8 text-black" />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Avg Response Time</p>
-                      <p className="text-2xl font-bold">{(attorneyReportsData.reduce((sum, attorney) => sum + attorney.response_time, 0) / attorneyReportsData.length).toFixed(1)}h</p>
-                    </div>
-                    <Calendar className="h-8 w-8 text-black" />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Avg Success Rate</p>
-                      <p className="text-2xl font-bold">{(attorneyReportsData.reduce((sum, attorney) => sum + attorney.success_rate, 0) / attorneyReportsData.length).toFixed(1)}%</p>
-                    </div>
-                    <Users className="h-8 w-8 text-black" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6">
-              {/* Attorney Reports Table */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Referring Attorney Performance Summary</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-2 px-4">Referring Attorney</th>
-                          <th className="text-center py-2 px-4">Referrals</th>
-                          <th className="text-center py-2 px-4">Completed</th>
-                          <th className="text-center py-2 px-4">Pending</th>
-                          <th className="text-center py-2 px-4">Success Rate</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {displayData.attorneyReportsData.map((attorney, index) => (
-                          <tr key={index} className="border-b hover:bg-muted/50">
-                            <td className="py-3 px-4">{attorney.name}</td>
-                            <td className="text-center py-3 px-4">{attorney.referrals}</td>
-                            <td className="text-center py-3 px-4">{attorney.completed}</td>
-                            <td className="text-center py-3 px-4">{attorney.pending}</td>
-                            <td className="text-center py-3 px-4">{attorney.success_rate}%</td>
-                          </tr>
+              <AdminCard className="animate-fade-in" style={{ animationDelay: "100ms" }}>
+                <AdminCardHeader icon={FileText} title="Matter Type Comparison" description="Completion breakdown per matter category" />
+                <AdminCardBody className="p-0">
+                  {displayData.matterTypeData?.length ? (
+                    <>
+                      <div className="hidden overflow-x-auto md:block">
+                        <Table className="text-xs [&_td]:px-4 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-4 [&_th]:text-[11px]">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Matter Type</TableHead>
+                              <TableHead className="text-center">Total</TableHead>
+                              <TableHead className="text-center">Completed</TableHead>
+                              <TableHead className="text-center">Pending</TableHead>
+                              <TableHead className="text-center">Taken Out</TableHead>
+                              <TableHead className="text-right">Completion Rate</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {displayData.matterTypeData.map((matter: any, index: number) => (
+                              <TableRow key={index} className="hover:bg-black/[0.02]">
+                                <TableCell className="font-medium text-black">{matter.name}</TableCell>
+                                <TableCell className="text-center">{matter.total}</TableCell>
+                                <TableCell className="text-center text-emerald-600">{matter.completed}</TableCell>
+                                <TableCell className="text-center text-amber-600">{matter.pending}</TableCell>
+                                <TableCell className="text-center text-rose-600">{matter.takenOut}</TableCell>
+                                <TableCell className="text-right font-medium text-black">
+                                  {matter.total > 0 ? ((matter.completed / matter.total) * 100).toFixed(1) : "0.0"}%
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <div className="divide-y divide-black/10 md:hidden">
+                        {displayData.matterTypeData.map((matter: any, index: number) => (
+                          <div key={index} className="p-4">
+                            <div className="mb-2 flex items-center justify-between">
+                              <p className="text-sm font-semibold text-black">{matter.name}</p>
+                              <span className="text-xs font-medium text-black">
+                                {matter.total > 0 ? ((matter.completed / matter.total) * 100).toFixed(1) : "0.0"}%
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                              <span>Total: <span className="font-medium text-black">{matter.total}</span></span>
+                              <span className="text-emerald-600">Completed: {matter.completed}</span>
+                              <span className="text-amber-600">Pending: {matter.pending}</span>
+                              <span className="text-rose-600">Taken Out: {matter.takenOut}</span>
+                            </div>
+                          </div>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                      </div>
+                    </>
+                  ) : (
+                    <AdminEmptyState icon={FileText} title="Nothing to compare yet" description="Matter type stats will appear once assessments exist for this period." />
+                  )}
+                </AdminCardBody>
+              </AdminCard>
 
-            {/* Attorney Performance Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <FileText className="h-5 w-5" />
-                  <span>Attorney Performance Summary</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left py-2 px-4">Referring Attorney</th>
-                        <th className="text-left py-2 px-4">Referrals</th>
-                        <th className="text-left py-2 px-4">Completed</th>
-                        <th className="text-left py-2 px-4">Pending</th>
-                        <th className="text-left py-2 px-4">Response Time (hrs)</th>
-                        <th className="text-left py-2 px-4">Success Rate (%)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {attorneyReportsData.map((attorney, index) => (
-                        <tr key={index} className="border-b last:border-0">
-                          <td className="py-2 px-4 font-medium">{attorney.name}</td>
-                          <td className="py-2 px-4">{attorney.referrals}</td>
-                          <td className="py-2 px-4">
-                            <span className="text-green-600 font-medium">{attorney.completed}</span>
-                          </td>
-                          <td className="py-2 px-4">
-                            <span className="text-orange-600 font-medium">{attorney.pending}</span>
-                          </td>
-                          <td className="py-2 px-4">
-                            <span className={`font-medium ${
-                              attorney.response_time <= 2 ? 'text-green-600' : 
-                              attorney.response_time <= 3 ? 'text-orange-600' : 'text-red-600'
-                            }`}>
-                              {attorney.response_time}
-                            </span>
-                          </td>
-                          <td className="py-2 px-4">
-                            <span className={`font-medium ${
-                              attorney.success_rate >= 92 ? 'text-green-600' : 
-                              attorney.success_rate >= 88 ? 'text-orange-600' : 'text-red-600'
-                            }`}>
-                              {attorney.success_rate.toFixed(1)}%
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              <AdminCard className="animate-fade-in" style={{ animationDelay: "140ms" }}>
+                <AdminCardHeader icon={TrendingUp} title="Monthly Report Status Trends" description="Completed vs. pending vs. taken-out, by month" />
+                <AdminCardBody>
+                  {displayData.monthlyData?.length ? (
+                    <>
+                      <div className="h-72 w-full sm:h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={displayData.monthlyData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                            <CartesianGrid vertical={false} stroke="rgba(0,0,0,0.08)" />
+                            <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={{ stroke: "rgba(0,0,0,0.1)" }} tickLine={false} />
+                            <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                            <Tooltip content={<StatsTooltip />} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
+                            <Bar dataKey="completed" name="Completed" fill={BRAND_TEAL} radius={[2, 2, 0, 0]} maxBarSize={28} />
+                            <Bar dataKey="pending" name="Pending" fill="#F59E0B" radius={[2, 2, 0, 0]} maxBarSize={28} />
+                            <Bar dataKey="takenOut" name="Taken Out" fill="#F43F5E" radius={[2, 2, 0, 0]} maxBarSize={28} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center justify-center gap-4 border-t border-black/10 pt-3">
+                        <div className="flex items-center gap-1.5"><div className="h-2.5 w-2.5" style={{ backgroundColor: BRAND_TEAL }} /><span className="text-xs text-slate-500">Completed</span></div>
+                        <div className="flex items-center gap-1.5"><div className="h-2.5 w-2.5 bg-amber-500" /><span className="text-xs text-slate-500">Pending</span></div>
+                        <div className="flex items-center gap-1.5"><div className="h-2.5 w-2.5 bg-rose-500" /><span className="text-xs text-slate-500">Taken Out</span></div>
+                      </div>
+                    </>
+                  ) : (
+                    <AdminEmptyState icon={TrendingUp} title="No monthly trend data" description="Trends populate automatically once this period has assessment activity." />
+                  )}
+                </AdminCardBody>
+              </AdminCard>
+            </TabsContent>
 
-          <TabsContent value="performance" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Expert Performance Overview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={displayData.expertPerformanceData}>
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="assessments" fill="hsl(var(--primary))" name="Assessments Completed" />
-                    </BarChart>
-                  </ResponsiveContainer>
+            {/* ------------------------- Attorney Reports ------------------------- */}
+            <TabsContent value="attorney-reports" className="mt-4 space-y-4 md:space-y-6">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+                <div className="animate-fade-in">
+                  <AdminStatCard label="Total Referring Attorneys" value={displayData.attorneyReportsData.length} icon={Users} />
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                <div className="animate-fade-in" style={{ animationDelay: "50ms" }}>
+                  <AdminStatCard
+                    label="Total Referrals"
+                    value={displayData.attorneyReportsData.reduce((sum: number, a: any) => sum + a.referrals, 0)}
+                    icon={TrendingUp}
+                  />
+                </div>
+                <div className="animate-fade-in" style={{ animationDelay: "100ms" }}>
+                  <AdminStatCard
+                    label="Avg Response Time"
+                    value={
+                      displayData.attorneyReportsData.length
+                        ? `${(displayData.attorneyReportsData.reduce((sum: number, a: any) => sum + (a.response_time || 0), 0) / displayData.attorneyReportsData.length).toFixed(1)}h`
+                        : "0h"
+                    }
+                    icon={Clock}
+                  />
+                </div>
+                <div className="animate-fade-in" style={{ animationDelay: "150ms" }}>
+                  <AdminStatCard
+                    label="Avg Success Rate"
+                    value={
+                      displayData.attorneyReportsData.length
+                        ? `${(displayData.attorneyReportsData.reduce((sum: number, a: any) => sum + (a.success_rate || 0), 0) / displayData.attorneyReportsData.length).toFixed(1)}%`
+                        : "0%"
+                    }
+                    icon={Target}
+                  />
+                </div>
+              </div>
 
-          <TabsContent value="trends" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Assessment Completion Trends</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={displayData.monthlyData}>
-                      <XAxis dataKey="month" />
-                      <YAxis />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="completed" stroke="hsl(var(--primary))" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              <AdminCard className="animate-fade-in" style={{ animationDelay: "180ms" }}>
+                <AdminCardHeader
+                  icon={Users}
+                  title="Referring Attorney Performance"
+                  description="Referrals, completion, and turnaround per attorney"
+                  actions={<AdminPill tone="teal">{displayData.attorneyReportsData.length} attorneys</AdminPill>}
+                />
+                <AdminCardBody className="p-0">
+                  {displayData.attorneyReportsData.length ? (
+                    <>
+                      <div className="hidden overflow-x-auto md:block">
+                        <Table className="text-xs [&_td]:px-4 [&_td]:py-2.5 [&_th]:h-9 [&_th]:px-4 [&_th]:text-[11px]">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Referring Attorney</TableHead>
+                              <TableHead className="text-center">Referrals</TableHead>
+                              <TableHead className="text-center">Completed</TableHead>
+                              <TableHead className="text-center">Pending</TableHead>
+                              <TableHead className="text-center">Response Time</TableHead>
+                              <TableHead className="text-right">Success Rate</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {displayData.attorneyReportsData.map((attorney: any, index: number) => (
+                              <TableRow key={index} className="hover:bg-black/[0.02]">
+                                <TableCell className="font-medium text-black">{attorney.name}</TableCell>
+                                <TableCell className="text-center">{attorney.referrals}</TableCell>
+                                <TableCell className="text-center text-emerald-600 font-medium">{attorney.completed}</TableCell>
+                                <TableCell className="text-center text-amber-600 font-medium">{attorney.pending}</TableCell>
+                                <TableCell className="text-center">
+                                  <span
+                                    className={`font-medium ${
+                                      attorney.response_time <= 2 ? "text-emerald-600" : attorney.response_time <= 3 ? "text-amber-600" : "text-rose-600"
+                                    }`}
+                                  >
+                                    {typeof attorney.response_time === "number" ? `${attorney.response_time}h` : "—"}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <span
+                                    className={`font-semibold ${
+                                      attorney.success_rate >= 92 ? "text-emerald-600" : attorney.success_rate >= 88 ? "text-amber-600" : "text-rose-600"
+                                    }`}
+                                  >
+                                    {Number(attorney.success_rate || 0).toFixed(1)}%
+                                  </span>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                      <div className="divide-y divide-black/10 md:hidden">
+                        {displayData.attorneyReportsData.map((attorney: any, index: number) => (
+                          <div key={index} className="p-4">
+                            <div className="mb-1.5 flex items-center justify-between gap-2">
+                              <p className="truncate text-sm font-semibold text-black">{attorney.name}</p>
+                              <span
+                                className={`shrink-0 text-xs font-semibold ${
+                                  attorney.success_rate >= 92 ? "text-emerald-600" : attorney.success_rate >= 88 ? "text-amber-600" : "text-rose-600"
+                                }`}
+                              >
+                                {Number(attorney.success_rate || 0).toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                              <span>Referrals: <span className="font-medium text-black">{attorney.referrals}</span></span>
+                              <span className="text-emerald-600">Completed: {attorney.completed}</span>
+                              <span className="text-amber-600">Pending: {attorney.pending}</span>
+                              {typeof attorney.response_time === "number" && <span>Response: {attorney.response_time}h</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <AdminEmptyState icon={Users} title="No attorney referrals yet" description="This table populates once referred appointments exist for the selected period." />
+                  )}
+                </AdminCardBody>
+              </AdminCard>
+            </TabsContent>
+
+            {/* -------------------------- Expert Performance ------------------------ */}
+            <TabsContent value="performance" className="mt-4 space-y-4 md:space-y-6">
+              <AdminCard className="animate-fade-in">
+                <AdminCardHeader icon={Activity} title="Expert Performance Overview" description="Assessments completed per medical expert" />
+                <AdminCardBody>
+                  {displayData.expertPerformanceData?.length ? (
+                    <div className="h-72 w-full sm:h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={displayData.expertPerformanceData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                          <CartesianGrid vertical={false} stroke="rgba(0,0,0,0.08)" />
+                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={{ stroke: "rgba(0,0,0,0.1)" }} tickLine={false} />
+                          <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                          <Tooltip content={<StatsTooltip />} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
+                          <Bar dataKey="assessments" name="Assessments Completed" fill={BRAND_TEAL} radius={[2, 2, 0, 0]} maxBarSize={48} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <AdminEmptyState icon={Activity} title="No expert activity yet" description="Performance data appears once experts complete reports for this period." />
+                  )}
+                </AdminCardBody>
+              </AdminCard>
+
+              {displayData.expertPerformanceData?.length > 0 && (
+                <AdminCard className="animate-fade-in" style={{ animationDelay: "60ms" }}>
+                  <AdminCardHeader icon={TrendingUp} title="Top Performing Experts" description="Ranked by assessments completed this period" />
+                  <AdminCardBody className="space-y-3">
+                    {displayData.expertPerformanceData.slice(0, 10).map((expert: any, i: number) => (
+                      <div key={expert.name} className="flex items-center gap-3">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/5 text-[11px] font-bold text-black">
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-black">{expert.name}</p>
+                          <div className="mt-1 h-1.5 w-full bg-black/5">
+                            <div
+                              className="h-1.5 transition-all duration-700"
+                              style={{ width: `${(expert.assessments / maxExpertAssessments) * 100}%`, backgroundColor: BRAND_TEAL }}
+                            />
+                          </div>
+                        </div>
+                        <span className="flex shrink-0 items-center gap-1 text-sm font-semibold text-black">
+                          {expert.assessments}
+                          <ArrowUpRight className="h-3 w-3 text-slate-400" />
+                        </span>
+                      </div>
+                    ))}
+                  </AdminCardBody>
+                </AdminCard>
+              )}
+            </TabsContent>
+
+            {/* ---------------------------- Trends Analysis -------------------------- */}
+            <TabsContent value="trends" className="mt-4 space-y-4 md:space-y-6">
+              <AdminCard className="animate-fade-in">
+                <AdminCardHeader icon={LineChartIcon} title="Assessment Completion Trends" description="Completed, pending, and taken-out reports over time" />
+                <AdminCardBody>
+                  {displayData.monthlyData?.length ? (
+                    <>
+                      <div className="h-72 w-full sm:h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={displayData.monthlyData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+                            <CartesianGrid vertical={false} stroke="rgba(0,0,0,0.08)" />
+                            <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={{ stroke: "rgba(0,0,0,0.1)" }} tickLine={false} />
+                            <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                            <Tooltip content={<StatsTooltip />} cursor={{ stroke: "rgba(0,0,0,0.1)" }} />
+                            <Line type="monotone" dataKey="completed" name="Completed" stroke={BRAND_TEAL} strokeWidth={2} dot={{ r: 3, fill: BRAND_TEAL }} activeDot={{ r: 4 }} />
+                            <Line type="monotone" dataKey="pending" name="Pending" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3, fill: "#F59E0B" }} activeDot={{ r: 4 }} />
+                            <Line type="monotone" dataKey="takenOut" name="Taken Out" stroke="#F43F5E" strokeWidth={2} dot={{ r: 3, fill: "#F43F5E" }} activeDot={{ r: 4 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center justify-center gap-4 border-t border-black/10 pt-3">
+                        <div className="flex items-center gap-1.5"><div className="h-2.5 w-2.5" style={{ backgroundColor: BRAND_TEAL }} /><span className="text-xs text-slate-500">Completed</span></div>
+                        <div className="flex items-center gap-1.5"><div className="h-2.5 w-2.5 bg-amber-500" /><span className="text-xs text-slate-500">Pending</span></div>
+                        <div className="flex items-center gap-1.5"><div className="h-2.5 w-2.5 bg-rose-500" /><span className="text-xs text-slate-500">Taken Out</span></div>
+                      </div>
+                    </>
+                  ) : (
+                    <AdminEmptyState icon={LineChartIcon} title="No trend data for this period" description="Select a period with assessment activity to see trends." />
+                  )}
+                </AdminCardBody>
+              </AdminCard>
+            </TabsContent>
+          </Tabs>
+        </AdminPage>
       </main>
 
       <CompanyFooter />
