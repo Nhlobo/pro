@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedState';
 import { useAttorneyLinkStatus } from '@/hooks/useAttorneyLinkStatus';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useNotifications, Notification as PortalNotification } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -27,84 +26,21 @@ import {
   PortalLoadingState,
 } from '@/components/attorney-portal/ui/PortalPrimitives';
 
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: string;
-  category: string | null;
-  is_read: boolean;
-  created_at: string;
-  related_table: string | null;
-  related_record_id: string | null;
-}
+type Notification = PortalNotification;
 
 type NotificationsTab = 'all' | 'unread' | 'reports' | 'invoices' | 'missing_docs';
 
 const AttorneyNotifications: React.FC = () => {
-  const { user } = useAuth();
   const linkStatus = useAttorneyLinkStatus();
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const {
+    notifications,
+    loading,
+    markAsRead,
+    markAllAsRead,
+    refetch: fetchNotifications,
+  } = useNotifications();
   const [activeTab, setActiveTab] = useState<NotificationsTab>('all');
-
-  useEffect(() => {
-    if (user) {
-      fetchNotifications();
-      const cleanup = subscribeToNotifications();
-      return cleanup;
-    }
-  }, [user]);
-
-  const fetchNotifications = async () => {
-    setLoading(true);
-    try {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(100);
-      if (data) setNotifications(data);
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const subscribeToNotifications = () => {
-    const channel = supabase
-      .channel('notifications-changes')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${user?.id}`
-      }, (payload) => {
-        setNotifications(prev => [payload.new as Notification, ...prev]);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  };
-
-  const markAsRead = async (notificationId: string) => {
-    await supabase
-      .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq('id', notificationId);
-    setNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, is_read: true } : n));
-  };
-
-  const markAllAsRead = async () => {
-    await supabase
-      .from('notifications')
-      .update({ is_read: true, read_at: new Date().toISOString() })
-      .eq('user_id', user?.id)
-      .eq('is_read', false);
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-  };
 
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.is_read) markAsRead(notification.id);
