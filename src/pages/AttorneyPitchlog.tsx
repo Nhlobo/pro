@@ -33,7 +33,9 @@ import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from '@/ut
 import CompanyFooter from '@/components/CompanyFooter';
 import { usePitchlogFollowUpReminders } from '@/hooks/usePitchlogFollowUpReminders';
 import { isPotentialEntry } from '@/utils/pitchlogPotential';
-import { NotificationCenter } from '@/components/NotificationCenter';
+// AttorneyPitchlog.tsx is staff-only (route-gated to admin_only /
+// attorney_pitchlog permissions in App.tsx) — it never rendered the
+// portal-only NotificationCenter, this import was simply unused.
 import PitchlogInlineRow, { 
   PitchEntry, PROVINCES, ATTORNEY_TYPES, PRACTICE_AREAS, PITCH_STATUSES, COMMENT_OPTIONS 
 } from '@/components/pitchlog/PitchlogInlineRow';
