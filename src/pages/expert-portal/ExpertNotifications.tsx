@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ExpertNotLinkedState } from '@/components/portal/ExpertNotLinkedState';
 import { useExpertLinkStatus } from '@/hooks/useExpertLinkStatus';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +11,7 @@ import {
   CheckCircle2, Clock, Mail, Eye, FileWarning
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { getNotificationRoute } from '@/lib/notificationRouting';
 import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
 import {
   PortalPage,
@@ -56,6 +58,7 @@ type NotificationsTab = 'all' | 'unread' | 'reports' | 'payments' | 'missing_doc
 const ExpertNotifications: React.FC = () => {
   const { user } = useAuth();
   const linkStatus = useExpertLinkStatus();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<NotificationsTab>('all');
@@ -115,6 +118,12 @@ const ExpertNotifications: React.FC = () => {
       .eq('user_id', user?.id)
       .eq('is_read', false);
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.is_read) markAsRead(notification.id);
+    const route = getNotificationRoute(notification, 'expert');
+    if (route) navigate(route);
   };
 
   const getNotificationIcon = (type: string, category: string | null) => {
@@ -229,8 +238,9 @@ const ExpertNotifications: React.FC = () => {
               {filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}
+                  onClick={() => handleNotificationClick(notification)}
                   className={cn(
-                    'border px-4 py-3 transition-colors',
+                    'cursor-pointer border px-4 py-3 transition-colors hover:border-black/25',
                     notification.is_read ? 'border-black/10 bg-black/[0.015]' : 'border-[#00BAAD]/30 bg-[#00BAAD]/5'
                   )}
                 >
@@ -253,7 +263,7 @@ const ExpertNotifications: React.FC = () => {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 shrink-0 rounded-none"
-                            onClick={() => markAsRead(notification.id)}
+                            onClick={(e) => { e.stopPropagation(); markAsRead(notification.id); }}
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
