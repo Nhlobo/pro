@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import PortalSwitcher from './PortalSwitcher';
-import { NotificationCenter } from '@/components/NotificationCenter';
+import { StaffNotificationBell } from '@/components/StaffNotificationBell';
 import {
   LayoutDashboard,
   Users,
@@ -316,7 +316,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
                   </Button>
                 )}
                 <div className="hidden md:block"><PortalSwitcher /></div>
-                <NotificationCenter />
+                <StaffNotificationBell />
               </div>
             </div>
 
