@@ -32,6 +32,7 @@ export interface LiveCaseStatus {
   appointmentId: string;
   caseStatus: string | null;
   reportVersions: {
+    id: string;
     file_name: string;
     file_path: string;
     version_number: number;
@@ -149,7 +150,7 @@ export const useAttorneyDashboardStats = () => {
           claimants(first_name, last_name, auto_id),
           medical_experts(expert_type),
           expert_reports(report_status, report_submitted_date, created_at),
-          documents(file_name, file_path, document_type, approval_status, created_at)
+          documents(id, file_name, file_path, document_type, approval_status, created_at)
         `)
         .is('deleted_at', null)
         .order('appointment_date', { ascending: false });
@@ -179,6 +180,7 @@ export const useAttorneyDashboardStats = () => {
           .filter((d: any) => d.document_type === 'Expert Report')
           .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         const reportVersions = reportDocs.map((d: any, idx: number) => ({
+          id: d.id,
           file_name: d.file_name,
           file_path: d.file_path,
           version_number: reportDocs.length - idx,
