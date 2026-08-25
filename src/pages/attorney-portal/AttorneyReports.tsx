@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
 import { useAttorneyLinkStatus } from '@/hooks/useAttorneyLinkStatus';
@@ -43,7 +44,7 @@ interface ReportItem {
   status: ReportStatus;
   caseStatus: string | null;
   issueDate?: string;
-  reportVersions: { file_name: string; file_path: string; version_number: number; created_at: string }[];
+  reportVersions: { id: string; file_name: string; file_path: string; version_number: number; created_at: string }[];
 }
 
 const AttorneyReports: React.FC = () => {
@@ -86,6 +87,26 @@ const AttorneyReports: React.FC = () => {
       };
     });
   }, [liveCases]);
+
+  // Deep-link support: a notification click (bell or notifications
+  // page) that resolves to this page can append ?open=<documents.id>
+  // for the specific report document — see src/lib/notificationRouting.ts.
+  // Auto-opens that exact report's Case Status sheet on arrival,
+  // rather than just landing on the general Reports page and leaving
+  // the person to find it themselves.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const openId = searchParams.get('open');
+    if (!openId || reports.length === 0) return;
+    const match = reports.find(r => r.reportVersions.some(v => v.id === openId));
+    if (match) {
+      setSelectedReport(match);
+      setCaseStatusDialogOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete('open');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, reports, setSearchParams]);
 
   const filteredReports = useMemo(() => {
     let filtered = reports;
