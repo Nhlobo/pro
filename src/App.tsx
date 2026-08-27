@@ -3,7 +3,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { NEW_ACCESS_CONTROL_ENABLED } from "@/config/newAccessControl";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { AuthProvider } from "@/hooks/useAuth";
 import { PermissionsProvider } from "@/hooks/usePermissions";
 import { SecurityProvider } from "@/components/SecurityProvider";
@@ -176,9 +178,36 @@ const queryClient = new QueryClient({
   },
 });
 
+// Real per-route enforcement, gated behind NEW_ACCESS_CONTROL_ENABLED.
+// While the flag is off, this component is unchanged from before it
+// existed — auth-only, no module check, identical to today. When the
+// flag is on, a direct URL visit to a module this user isn't eligible
+// for now redirects instead of rendering — closing the gap where
+// typing /admin/finance directly bypassed the sidebar entirely.
+const AdminModuleGate = ({ children }: { children: React.ReactNode }) => {
+  const location = useLocation();
+  const { canAccessPath, homeHref, loading } = useModuleAccess();
+
+  if (!NEW_ACCESS_CONTROL_ENABLED) {
+    return <>{children}</>;
+  }
+
+  if (loading) {
+    return <BrandedPageLoader message="Loading access…" />;
+  }
+
+  if (!canAccessPath(location.pathname)) {
+    return <Navigate to={homeHref} replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const AdminPortalRoute = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
-    <AdminPortalLayout>{children}</AdminPortalLayout>
+    <AdminPortalLayout>
+      <AdminModuleGate>{children}</AdminModuleGate>
+    </AdminPortalLayout>
   </ProtectedRoute>
 );
 
