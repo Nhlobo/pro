@@ -17,4 +17,4 @@
  * the single switch described in every prior migration/rollback plan
  * for this project.
  */
-export const NEW_ACCESS_CONTROL_ENABLED = false;
+export const NEW_ACCESS_CONTROL_ENABLED = true;
