@@ -37,7 +37,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDateTimeShort } from '@/utils/dateTime';
 import EmployeeNotificationSettings from '@/components/EmployeeNotificationSettings';
-import FunctionPermissionsManager from '@/components/FunctionPermissionsManager';
+import NewSystemModuleAccessPanel from '@/components/NewSystemModuleAccessPanel';
 import { EmailConfigurationAlert } from '@/components/EmailConfigurationAlert';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import {
@@ -90,7 +90,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
   const [pendingPermissions, setPendingPermissions] = useState<Record<string, boolean>>({});
   const [pendingRole, setPendingRole] = useState<string | null>(null);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
-  // Pending state forwarded from FunctionPermissionsManager so the modal footer Save can trigger its save.
+  // Pending state forwarded from NewSystemModuleAccessPanel so the modal footer Save can trigger its save.
   const [fnPending, setFnPending] = useState<{ count: number; saving: boolean; save: () => Promise<boolean>; reset: () => void }>({
     count: 0,
     saving: false,
@@ -185,6 +185,30 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
           setIsSavingPermissions(false);
           return;
         }
+
+        // Keep the new system's own role assignment in sync. This is a
+        // separate, additive write to access_role_assignments -- it
+        // does not read from or replace the updateUserRole call above,
+        // it runs alongside it so the two systems never drift apart the
+        // way profiles.role/user_roles did on several real accounts.
+        const NEW_SYSTEM_ROLES = ['admin', 'employee', 'sales_consultant', 'finance', 'director'];
+        if (NEW_SYSTEM_ROLES.includes(pendingRole)) {
+          const { data: authData } = await supabase.auth.getUser();
+          const { error: newSystemRoleError } = await supabase
+            .from('access_role_assignments')
+            .upsert(
+              {
+                user_id: selectedUser.id,
+                role_key: pendingRole,
+                assigned_by: authData.user?.id ?? selectedUser.id,
+              },
+              { onConflict: 'user_id' }
+            );
+          if (newSystemRoleError) {
+            console.error('Error updating new-system role assignment:', newSystemRoleError);
+            toast.error('Role updated, but the new access-control assignment failed to sync — check Manage Access.');
+          }
+        }
       }
 
       for (const [permissionName, granted] of Object.entries(pendingPermissions)) {
@@ -196,7 +220,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
         }
       }
 
-      // Forward to FunctionPermissionsManager to persist its staged module/sub-function changes via the atomic RPC.
+      // Forward to NewSystemModuleAccessPanel to persist its staged module overrides.
       if (fnPending.count > 0) {
         try {
           await fnPending.save();
@@ -300,10 +324,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
 
     try {
       console.log('Creating user via edge function...');
-      
-      // Determine role based on position
-      const userRole = newUserForm.position === 'Sales Consultant' ? 'sales_consultant' : newUserForm.role;
-      
+
+      // Role now comes directly from the explicit System Role picker —
+      // no more deriving it from the job-title Position field.
+      const userRole = newUserForm.role;
+
       // Call the edge function to create user
       const { data, error } = await supabase.functions.invoke('create-user', {
         body: {
@@ -1331,39 +1356,49 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                         <SelectItem value="Case Manager - Med Neg">Case Manager - Med Neg</SelectItem>
                         <SelectItem value="Administrator">Administrator</SelectItem>
                         <SelectItem value="Sales Consultant">Sales Consultant</SelectItem>
+                        <SelectItem value="Finance">Finance</SelectItem>
+                        <SelectItem value="Director">Director</SelectItem>
                       </SelectContent>
                     </Select>
+                    <p className="mt-1 text-[11px] text-slate-400">Job title only — does not determine system access. Set that below.</p>
                   </div>
 
                   <div>
                     <Label>System Role</Label>
-                    <div className="mt-1 border border-black/10 bg-black/[0.02] p-2 text-sm text-slate-500">
-                      {newUserForm.position === 'Sales Consultant' 
-                        ? 'Sales Consultant (Attorney Pitchlog, Attorney Management & Claimant access only)' 
-                        : 'Employee (Full system access)'}
-                    </div>
+                    <Select value={newUserForm.role} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, role: value }))}>
+                      <SelectTrigger className="mt-1 rounded-none">
+                        <SelectValue placeholder="Select role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="employee">Company Employee (full operational access)</SelectItem>
+                        <SelectItem value="admin">Administrator (full system access)</SelectItem>
+                        <SelectItem value="sales_consultant">Sales Consultant</SelectItem>
+                        <SelectItem value="finance">Finance</SelectItem>
+                        <SelectItem value="director">Director</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      This is the only thing that determines what this person can see and do — module access can be fine-tuned afterward in Manage Access.
+                    </p>
                   </div>
                  </div>
 
                  <div className="h-px bg-black/10" />
 
-                 {/* Module access notice — set after creation in Manage */}
-                {newUserForm.role !== 'admin' && newUserForm.userType !== 'employee' && (
+                 {/* Module access notice — set after creation in Manage Access */}
+                {newUserForm.role !== 'admin' && newUserForm.role !== 'employee' && (
                   <div className="border border-dashed border-black/15 bg-black/[0.02] p-4">
-                    <Label className="text-sm font-semibold text-black">Admin Portal Module Access</Label>
+                    <Label className="text-sm font-semibold text-black">Module Access</Label>
                     <p className="mt-1 text-xs text-slate-500">
-                      After the user is created, open <strong className="text-black">Manage</strong> to allocate Admin Portal modules
-                      (Attorney CRM, Case Management, Expert Network, Availability Heatmap, Support Hub,
-                      Report Management, Reporting System, Document Vault, Finance & Payments, Appointment Engine, etc.)
-                      or apply a one-click role preset.
+                      This role starts with its default module set. After the user is created, open <strong className="text-black">Manage Access</strong> to fine-tune individual modules if needed.
                     </p>
                   </div>
                 )}
 
-                {(newUserForm.role === 'admin' || newUserForm.userType === 'employee') && (
+                {(newUserForm.role === 'admin' || newUserForm.role === 'employee') && (
                   <div className="border border-black/10 p-4" style={{ backgroundColor: `${BRAND_TEAL}0D` }}>
                     <p className="text-xs text-slate-600">
-                      {newUserForm.role === 'admin' ? 'Administrator' : 'Company Employee'} users automatically have full system access including creating, editing, deleting, and approving records across all modules.
+                      {newUserForm.role === 'admin' ? 'Administrator' : 'Company Employee'} users have full operational system access by default.
                     </p>
                   </div>
                 )}
@@ -1379,7 +1414,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                   </Button>
                   <Button 
                     onClick={handleCreateUser}
-                    disabled={isCreatingUser || !newUserForm.email || !newUserForm.password || !newUserForm.position}
+                    disabled={isCreatingUser || !newUserForm.email || !newUserForm.password || !newUserForm.position || !newUserForm.role}
                     className="rounded-none text-white hover:opacity-90"
                     style={{ backgroundColor: BRAND_TEAL }}
                   >
@@ -1462,20 +1497,17 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
 
                     {/* Role Management */}
                     <div>
-                      <Label className="text-sm font-semibold text-black">User Role</Label>
-                      <Select value={selectedUser.role || 'user'} onValueChange={handleRoleUpdate}>
+                      <Label className="text-sm font-semibold text-black">System Role</Label>
+                      <Select value={selectedUser.role || 'employee'} onValueChange={handleRoleUpdate}>
                         <SelectTrigger className="mt-1 h-8 rounded-none">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="user">User (no admin)</SelectItem>
+                          <SelectItem value="employee">Company Employee (full operational access)</SelectItem>
+                          <SelectItem value="admin">Administrator (full system access)</SelectItem>
                           <SelectItem value="sales_consultant">Sales Consultant</SelectItem>
-                          <SelectItem value="medical_expert">Medical Expert</SelectItem>
-                          <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
                           <SelectItem value="finance">Finance</SelectItem>
                           <SelectItem value="director">Director</SelectItem>
-                          <SelectItem value="employee">Company Employee (full access)</SelectItem>
-                          <SelectItem value="admin">Administrator (full access)</SelectItem>
                         </SelectContent>
                       </Select>
                       <p className="mt-1 text-xs text-slate-500">
@@ -1488,16 +1520,15 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
 
                   </div>
 
-                  {/* Right Column - Admin Portal Module Access (mirrors sidebar) */}
+                  {/* Right Column - Module Access (mirrors sidebar exactly, new access-control system) */}
                   <div className="lg:col-span-2">
-                    <Label className="text-sm font-semibold text-black">Admin Portal Module Access</Label>
+                    <Label className="text-sm font-semibold text-black">Module Access</Label>
                     <p className="mb-3 text-xs text-slate-500">
-                      Toggle modules to match the Admin Portal sidebar. Use a preset for quick role allocation.
+                      One switch per module — matches the sidebar exactly. A greyed-out module isn't available for this person's role at all; no toggle will silently do nothing.
                     </p>
                     <div className="h-full">
-                      <FunctionPermissionsManager
-                        user={selectedUser}
-                        onPermissionChange={fetchUsers}
+                      <NewSystemModuleAccessPanel
+                        userId={selectedUser.id}
                         onPendingStateChange={(s) =>
                           setFnPending({ count: s.pendingCount, saving: s.saving, save: s.save, reset: s.reset })
                         }
