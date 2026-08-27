@@ -88,10 +88,18 @@ serve(withErrorHandler(async (req) => {
       );
     }
 
-    // Validate role
-    const validRoles = ['admin', 'employee', 'referring_attorney', 'user', 'sales_consultant'];
-    const role = requestBody.role || 'user';
-    if (!validRoles.includes(role)) {
+    // Validate role — restricted to the 5 canonical internal roles.
+    // referring_attorney/medical_expert are NOT valid here: those are
+    // exclusively for the separate external_portal_accounts system
+    // (bridged via the external-portal-auth function), confirmed several
+    // rounds ago to still be actively used by the old system's own
+    // /auth login for real external users -- an internal-staff creation
+    // flow must never be able to produce an account holding either
+    // value. 'user' is likewise not a real role (it's the code's
+    // fallback for "no role assigned"), so it's excluded too.
+    const validRoles = ['admin', 'employee', 'sales_consultant', 'finance', 'director'];
+    const role = requestBody.role;
+    if (!role || !validRoles.includes(role)) {
       return new Response(
         JSON.stringify({ error: 'Invalid role. Must be one of: ' + validRoles.join(', ') }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -198,7 +206,10 @@ serve(withErrorHandler(async (req) => {
       console.log('Profile created successfully')
     }
 
-    // Grant role in user_roles table
+    // Grant role in user_roles table (legacy/old-system source of truth
+    // — kept in sync deliberately, same discipline established over the
+    // last several rounds after finding profiles.role/user_roles drift
+    // on multiple real accounts)
     const { error: roleError } = await supabaseAdmin
       .from('user_roles')
       .insert({
@@ -209,6 +220,25 @@ serve(withErrorHandler(async (req) => {
 
     if (roleError) {
       console.error('Error granting role:', roleError);
+    }
+
+    // Grant the SAME role in the new system's own access_role_assignments
+    // table. This is a separate, additive write -- it does not read from
+    // or depend on user_roles/profiles in any way, and a failure here
+    // does not roll back the account creation above (the account still
+    // works for the old system either way; an admin can always assign
+    // the new-system role afterward via Manage Access if this insert
+    // happens to fail).
+    const { error: newSystemRoleError } = await supabaseAdmin
+      .from('access_role_assignments')
+      .insert({
+        user_id: newUser.user.id,
+        role_key: role,
+        assigned_by: user.id
+      });
+
+    if (newSystemRoleError) {
+      console.error('Error granting new-system role assignment:', newSystemRoleError);
     }
 
     // Grant permissions
