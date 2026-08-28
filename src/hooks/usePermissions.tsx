@@ -41,6 +41,8 @@ export interface PermissionsContextValue {
   isEmployee: () => boolean;
   isSalesConsultant: () => boolean;
   isMedicalExpert: () => boolean;
+  isFinance: () => boolean;
+  isDirector: () => boolean;
   grantPermission: (userId: string, permissionName: string) => Promise<boolean>;
   revokePermission: (userId: string, permissionName: string) => Promise<boolean>;
   getAllUsers: () => Promise<UserProfile[]>;
@@ -195,6 +197,16 @@ const usePermissionsState = (): PermissionsContextValue => {
   // Check if user is medical expert
   const isMedicalExpert = (): boolean => {
     return userRole === 'medical_expert';
+  };
+
+  // Check if user is finance
+  const isFinance = (): boolean => {
+    return userRole === 'finance';
+  };
+
+  // Check if user is director
+  const isDirector = (): boolean => {
+    return userRole === 'director';
   };
 
   // Every user in this system is provisioned by an administrator (a row in
@@ -530,6 +542,8 @@ const usePermissionsState = (): PermissionsContextValue => {
     isReferringAttorney,
     isSalesConsultant,
     isMedicalExpert,
+    isFinance,
+    isDirector,
     canAccessData,
     getAccessDenialMessage,
     grantPermission,
