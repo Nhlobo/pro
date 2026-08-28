@@ -21,6 +21,10 @@ import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
 import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
 import BrandedPageLoader from "@/components/BrandedPageLoader";
 import MFARequiredGuard from "@/components/MFARequiredGuard";
+import { ShieldAlert } from "lucide-react";
+import { AdminPage, AdminEmptyState } from "@/components/admin/ui/AdminUI";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 import { BiometricLockGate } from "@/components/BiometricLockGate";
 import { BiometricEnrollPrompt } from "@/components/BiometricEnrollPrompt";
 
@@ -178,6 +182,29 @@ const queryClient = new QueryClient({
   },
 });
 
+// Shown instead of redirecting when NO module is reachable — see the
+// comment in AdminModuleGate below for why a redirect isn't safe here.
+// Deliberately not a full page/route: it renders inside AdminPortalLayout
+// exactly like any other gated page, so the shell (and, if applicable,
+// an empty sidebar) still frames it.
+const AdminAccessRestricted = () => {
+  const { signOut } = useAuth();
+  return (
+    <AdminPage>
+      <AdminEmptyState
+        icon={ShieldAlert}
+        title="Access Restricted"
+        description="You do not have permission to access this module. Your current role and permissions do not allow access to this area. If you believe this is a mistake, contact an administrator."
+        action={
+          <Button variant="outline" size="sm" onClick={() => void signOut()}>
+            Sign out
+          </Button>
+        }
+      />
+    </AdminPage>
+  );
+};
+
 // Real per-route enforcement, gated behind NEW_ACCESS_CONTROL_ENABLED.
 // While the flag is off, this component is unchanged from before it
 // existed — auth-only, no module check, identical to today. When the
@@ -197,7 +224,22 @@ const AdminModuleGate = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!canAccessPath(location.pathname)) {
-    return <Navigate to={homeHref} replace />;
+    // Normal case: this specific module is denied but the user has
+    // somewhere else to go — send them to their real landing page,
+    // same as before.
+    if (canAccessPath(homeHref)) {
+      return <Navigate to={homeHref} replace />;
+    }
+    // Edge case: NOTHING is accessible — e.g. an authenticated user
+    // with no access_role_assignments row at all ("Level 2" per
+    // src/lib/newAccessControlQuery.ts). homeHref falls back to
+    // /admin/my-profile in that case, which would be denied too,
+    // so redirecting there would loop forever (Navigate -> denied ->
+    // Navigate -> denied...) with a blank screen and no explanation.
+    // Render an explicit, non-redirecting Unauthorized state instead —
+    // this is what "fail closed" is supposed to look like from the
+    // user's side, not an infinite redirect.
+    return <AdminAccessRestricted />;
   }
 
   return <>{children}</>;
