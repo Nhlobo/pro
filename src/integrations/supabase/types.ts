@@ -32,6 +32,44 @@ export type Database = {
         Update: { id?: string; user_id?: string; purpose?: string; challenge?: string; expires_at?: string; created_at?: string }
         Relationships: []
       }
+      // --- New access-control system (Phase 4) -----------------------
+      // access_role_assignments / role_module_defaults / user_module_overrides
+      // / access_modules were added directly against the live database and
+      // never had a migration file committed to this repo, so `supabase gen
+      // types` had never picked them up — every query against them failed
+      // typecheck even though the tables are real and in active use (see
+      // src/lib/newAccessControlQuery.ts, src/components/NewSystemModuleAccessPanel.tsx,
+      // src/pages/UserManagement.tsx, supabase/functions/create-user).
+      // These four entries were added by hand to match the columns those
+      // call sites actually read/write. Regenerate from the live schema
+      // (`supabase gen types typescript`) to replace this with the real,
+      // complete definitions (there may be additional columns not listed
+      // here, e.g. timestamps, that no current query happens to select).
+      access_role_assignments: {
+        Row: { id: string; user_id: string; role_key: string; assigned_by: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; user_id: string; role_key: string; assigned_by?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; user_id?: string; role_key?: string; assigned_by?: string | null; created_at?: string; updated_at?: string }
+        Relationships: []
+      }
+      access_modules: {
+        Row: { module_key: string; title: string; description: string | null; group_name: string | null }
+        Insert: { module_key: string; title: string; description?: string | null; group_name?: string | null }
+        Update: { module_key?: string; title?: string; description?: string | null; group_name?: string | null }
+        Relationships: []
+      }
+      role_module_defaults: {
+        Row: { role_key: string; module_key: string; is_eligible: boolean; is_default_on: boolean }
+        Insert: { role_key: string; module_key: string; is_eligible?: boolean; is_default_on?: boolean }
+        Update: { role_key?: string; module_key?: string; is_eligible?: boolean; is_default_on?: boolean }
+        Relationships: []
+      }
+      user_module_overrides: {
+        Row: { user_id: string; module_key: string; granted: boolean; granted_by: string | null; created_at: string; updated_at: string }
+        Insert: { user_id: string; module_key: string; granted: boolean; granted_by?: string | null; created_at?: string; updated_at?: string }
+        Update: { user_id?: string; module_key?: string; granted?: boolean; granted_by?: string | null; created_at?: string; updated_at?: string }
+        Relationships: []
+      }
+      // -----------------------------------------------------------------
       account_activations: {
         Row: {
           consumed_at: string | null
