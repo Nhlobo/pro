@@ -23,7 +23,7 @@ import BrandedPageLoader from "@/components/BrandedPageLoader";
 
 const Index = () => {
   const { user, signOut } = useAuth();
-  const { isReferringAttorney, isAdmin, isSalesConsultant, isMedicalExpert, loading, roleResolutionFailed, refetch } = usePermissions();
+  const { isReferringAttorney, isAdmin, isSalesConsultant, isMedicalExpert, isFinance, isDirector, loading, roleResolutionFailed, refetch } = usePermissions();
   const { stats, loading: statsLoading, refetchStats } = useDashboardStats();
   const { profile: userProfile, error: profileError } = useUserProfile(user ?? null);
   const [refreshing, setRefreshing] = useState(false);
@@ -36,6 +36,8 @@ const Index = () => {
   const referringAttorney = isReferringAttorney();
   const salesConsultant = isSalesConsultant();
   const medicalExpert = isMedicalExpert();
+  const finance = isFinance();
+  const director = isDirector();
 
   useEffect(() => {
     if (profileError) toast.error(`Could not load your profile: ${profileError}`);
@@ -56,6 +58,15 @@ const Index = () => {
       navigate("/admin/sales-dashboard", { replace: true });
     }
   }, [loading, salesConsultant, navigate]);
+
+  // Finance and Director roles land on the Finance & Payments module inside
+  // the Admin Portal shell — same treatment as sales consultants above, so
+  // neither role gets stuck on this generic dashboard first.
+  useEffect(() => {
+    if (!loading && (finance || director)) {
+      navigate("/admin/finance", { replace: true });
+    }
+  }, [loading, finance, director, navigate]);
 
   // Medical experts have their own portal — previously this role had no
   // redirect here at all, so a medical expert who ever landed on /dashboard
@@ -121,6 +132,12 @@ const Index = () => {
   // Same treatment for sales consultants — being redirected to
   // /admin/sales-dashboard by the effect above.
   if (salesConsultant) {
+    return <BrandedPageLoader message="Loading…" />;
+  }
+
+  // Same treatment for finance/director — being redirected to
+  // /admin/finance by the effect above.
+  if (finance || director) {
     return <BrandedPageLoader message="Loading…" />;
   }
 
