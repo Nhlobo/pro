@@ -346,17 +346,27 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
 
       if (error) {
         console.error('Edge function error:', error);
-        
-        // Provide user-friendly error messages based on error type
+
+        // FunctionsHttpError just means create-user responded with a
+        // non-2xx status -- it does NOT specifically mean "already
+        // registered". The function always returns a JSON body describing
+        // what actually went wrong (missing field, weak password, not
+        // admin, a genuine duplicate, a profile-insert failure, etc.), so
+        // read that real message out of the response instead of guessing.
         let errorMessage = 'Failed to create user';
-        
-        if (error.name === 'FunctionsHttpError') {
-          // This typically means the function returned a non-2xx status
-          errorMessage = 'Email address is already registered. Please use a different email or check if the user already exists.';
+
+        if (error.name === 'FunctionsHttpError' && error.context) {
+          try {
+            const body = await error.context.json();
+            errorMessage = body?.error || errorMessage;
+          } catch (parseErr) {
+            console.error('Could not parse create-user error response:', parseErr);
+            errorMessage = error.message || errorMessage;
+          }
         } else {
           errorMessage = error.message || 'An unexpected error occurred while creating the user';
         }
-        
+
         toast.error(errorMessage);
         return;
       }
