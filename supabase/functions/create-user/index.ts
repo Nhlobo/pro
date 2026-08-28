@@ -111,6 +111,69 @@ serve(withErrorHandler(async (req) => {
     console.log('Creating user with email:', email)
 
     const origin = 'https://kamedico-legal.co.za';
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Reject a REAL duplicate up front with a clear message, before ever
+    // touching auth.admin.createUser -- a person visible in User Management
+    // (i.e. has a profiles row) is a genuine "this email is taken".
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id, email')
+      .ilike('email', normalizedEmail)
+      .maybeSingle();
+
+    if (existingProfile) {
+      return new Response(
+        JSON.stringify({ error: `A user with email ${email} already exists in User Management.` }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Look up (paginated) whether an Auth account already exists for this
+    // email with NO matching profile. This happens when a previous
+    // create-user call created the Auth account but a later step (profile
+    // insert, role grant, etc.) failed -- nothing rolled the Auth account
+    // back, so it lingers forever: invisible in User Management (which
+    // only reads `profiles`), yet auth.admin.createUser() will reject any
+    // future attempt at the same email as "already registered". That
+    // combination -- "looks free, but creation says it's taken" -- is
+    // exactly the bug this block exists to self-heal instead of leaving
+    // an admin to hunt for it manually in the Auth dashboard every time.
+    let orphanedAuthUserId: string | null = null;
+    {
+      const maxPages = 20; // 20 x 1000 = up to 20,000 accounts scanned
+      for (let page = 1; page <= maxPages; page++) {
+        const { data: pageData, error: listError } = await supabaseAdmin.auth.admin.listUsers({
+          page,
+          perPage: 1000,
+        });
+        if (listError || !pageData?.users?.length) break;
+        const match = pageData.users.find(
+          (u) => (u.email ?? '').toLowerCase() === normalizedEmail
+        );
+        if (match) {
+          orphanedAuthUserId = match.id;
+          break;
+        }
+        if (pageData.users.length < 1000) break; // last page
+      }
+    }
+
+    if (orphanedAuthUserId) {
+      console.log('Found orphaned Auth account with no profile for this email, removing it first:', orphanedAuthUserId);
+      const { error: deleteOrphanError } = await supabaseAdmin.auth.admin.deleteUser(orphanedAuthUserId);
+      if (deleteOrphanError) {
+        console.error('Failed to remove orphaned Auth account:', deleteOrphanError);
+        return new Response(
+          JSON.stringify({
+            error:
+              'An account for this email exists in Authentication but has no profile, and it could not be automatically removed. ' +
+              'Please delete it manually in Supabase Dashboard -> Authentication -> Users, then try again.',
+          }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
 
     // Create user
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -202,9 +265,21 @@ serve(withErrorHandler(async (req) => {
 
     if (profileError) {
       console.error('Error creating profile:', profileError)
-    } else {
-      console.log('Profile created successfully')
+      // Without a profile row this account is invisible in User Management
+      // and would become exactly the kind of orphaned Auth account this
+      // function now has to detect-and-clean-up on every future attempt
+      // at this email (see the lookup above). Roll it back here instead
+      // of leaving that trap for next time.
+      const { error: rollbackError } = await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+      if (rollbackError) {
+        console.error('Failed to roll back Auth account after profile creation failure:', rollbackError);
+      }
+      return new Response(
+        JSON.stringify({ error: 'Failed to create user profile: ' + profileError.message }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
+    console.log('Profile created successfully')
 
     // Grant role in user_roles table (legacy/old-system source of truth
     // — kept in sync deliberately, same discipline established over the
