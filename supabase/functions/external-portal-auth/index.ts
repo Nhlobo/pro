@@ -730,6 +730,29 @@ async function bridgeToSupabaseAuth(supabaseAdmin: any, account: {
     if (match) authUserId = match.id;
   }
 
+  // Refuse to bridge into an identity that already holds an internal
+  // staff role. Every RLS policy in this system treats admin/employee
+  // as "see everything, no scoping" — if this email happens to match
+  // (or was previously used for) an internal staff account, bridging
+  // into it would silently hand the external portal login full
+  // cross-firm visibility into every case, invoice, and document in
+  // the system, not just their own. This is a hard stop, not a
+  // silent downgrade, because an admin/employee row existing here at
+  // all means something upstream (account creation, an email typo)
+  // needs a human to look at it before this person logs in as anyone.
+  if (authUserId) {
+    const { data: staffRoles } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", authUserId)
+      .in("role", ["admin", "employee"]);
+    if (staffRoles && staffRoles.length > 0) {
+      throw new Error(
+        `Cannot provision external portal session: ${email} is linked to an internal staff account. Contact an administrator.`,
+      );
+    }
+  }
+
   // First login for this external account — create the shadow user.
   // email_confirm is true because they've already proven ownership of
   // the inbox by receiving and entering the OTP.
