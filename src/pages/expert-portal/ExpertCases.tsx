@@ -61,19 +61,23 @@ const ExpertCases: React.FC = () => {
       const { data: profile } = await supabase.from('profiles').select('expert_id').eq('id', user.id).single();
       if (!profile?.expert_id) { setNotLinked(true); setLoading(false); return; }
 
+      // Case list comes from the external-portal mirror table, not
+      // appointments/claimants/referring_attorneys/medical_experts
+      // directly — kept in sync by trigger (see
+      // 20260829060000_external_portal_case_mirror_rework and the
+      // display-fields follow-up migration).
       const apptsRes = await supabase
-        .from('appointments')
+        .from('external_portal_cases' as any)
         .select(`
-          id, appointment_date, matter_type, case_status, payment_status,
-          claimants(first_name, last_name, auto_id),
-          referring_attorneys:referring_attorney_id(name),
-          medical_experts:expert_id(practice_address)
+          appointment_id, appointment_date, matter_type, case_status, payment_status,
+          claimant_first_name, claimant_last_name, claimant_auto_id,
+          referring_attorney_name, expert_practice_address
         `)
         .eq('expert_id', profile.expert_id)
         .is('deleted_at', null)
-        .order('appointment_date', { ascending: false });
+        .order('appointment_date', { ascending: false }) as { data: any[] | null };
 
-      const appointmentIds = (apptsRes.data || []).map((a) => a.id);
+      const appointmentIds = (apptsRes.data || []).map((a) => a.appointment_id);
 
       const [reportsRes, docsRes] = await Promise.all([
         supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id),
@@ -86,33 +90,34 @@ const ExpertCases: React.FC = () => {
         // down to just the expert's own uploads. This mirrors exactly
         // what the documents RLS policy itself checks (Phase 13/14):
         // expert_id OR appointment ownership — appointment_id is the
-        // relationship that's actually always present.
+        // relationship that's actually always present. Reads the
+        // external-portal document mirror rather than documents itself.
         appointmentIds.length
-          ? supabase.from('documents').select('id, appointment_id').in('appointment_id', appointmentIds)
-          : Promise.resolve({ data: [] as { id: string; appointment_id: string }[] }),
+          ? supabase.from('external_portal_case_documents' as any).select('document_id, appointment_id').in('appointment_id', appointmentIds)
+          : Promise.resolve({ data: [] as { document_id: string; appointment_id: string }[] }),
       ]);
 
       const appointments = apptsRes.data || [];
       const reports = reportsRes.data || [];
-      const docs = docsRes.data || [];
+      const docs = (docsRes.data || []) as { document_id: string; appointment_id: string }[];
 
       const mapped: CaseAssignment[] = appointments.map(a => {
-        const report = reports.find(r => r.appointment_id === a.id);
-        const docCount = docs.filter(d => d.appointment_id === a.id).length;
+        const report = reports.find(r => r.appointment_id === a.appointment_id);
+        const docCount = docs.filter(d => d.appointment_id === a.appointment_id).length;
         return {
-          id: a.id,
+          id: a.appointment_id,
           appointment_date: a.appointment_date,
           matter_type: a.matter_type,
           case_status: a.case_status,
-          claimant_name: a.claimants ? `${a.claimants.first_name} ${a.claimants.last_name}` : 'Unknown',
-          claimant_auto_id: a.claimants?.auto_id || '',
-          attorney_name: (a as any).referring_attorneys?.name || 'N/A',
+          claimant_name: a.claimant_first_name ? `${a.claimant_first_name} ${a.claimant_last_name}` : 'Unknown',
+          claimant_auto_id: a.claimant_auto_id || '',
+          attorney_name: a.referring_attorney_name || 'N/A',
           report_status: report?.report_status || null,
           report_due_date: report?.report_due_date || null,
           report_submitted_date: report?.report_submitted_date || null,
           days_to_complete: report?.days_to_complete || null,
           document_count: docCount,
-          location: (a as any).medical_experts?.practice_address || null,
+          location: a.expert_practice_address || null,
           payment_status: a.payment_status,
         };
       });
