@@ -26,7 +26,6 @@ import { AdminPage, AdminEmptyState } from "@/components/admin/ui/AdminUI";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { BiometricLockGate } from "@/components/BiometricLockGate";
-import { BiometricEnrollPrompt } from "@/components/BiometricEnrollPrompt";
 
 // Eager: top-level entry points + portal layouts (small, always needed when in portal)
 import Auth from "./pages/Auth";
@@ -304,7 +303,6 @@ const App = () => (
               <ExitConfirmationGuard />
               <Suspense fallback={<RouteFallback />}>
               <BiometricLockGate>
-              <BiometricEnrollPrompt />
               <Routes>
                 <Route path="/" element={<Navigate to="/auth" replace />} />
                 <Route path="/auth" element={<Auth />} />
