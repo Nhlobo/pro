@@ -87,13 +87,19 @@ const ExpertReportTracking: React.FC = () => {
 
       const [reportsRes, apptsRes] = await Promise.all([
         supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id).order('created_at', { ascending: false }),
-        supabase.from('appointments')
-          .select(`id, appointment_date, matter_type, claimants(first_name, last_name, auto_id), referring_attorneys:referring_attorney_id(name)`)
+        supabase.from('external_portal_cases' as any)
+          .select(`appointment_id, appointment_date, matter_type, claimant_first_name, claimant_last_name, claimant_auto_id, referring_attorney_name`)
           .eq('expert_id', profile.expert_id)
           .is('deleted_at', null),
       ]);
       setReports(reportsRes.data || []);
-      setAppointments(apptsRes.data || []);
+      setAppointments(((apptsRes.data || []) as any[]).map(a => ({
+        id: a.appointment_id,
+        appointment_date: a.appointment_date,
+        matter_type: a.matter_type,
+        claimants: { first_name: a.claimant_first_name, last_name: a.claimant_last_name, auto_id: a.claimant_auto_id },
+        referring_attorneys: { name: a.referring_attorney_name },
+      })));
     } catch (error) {
       console.error('[ExpertReportTracking] load failed', error);
     } finally {
