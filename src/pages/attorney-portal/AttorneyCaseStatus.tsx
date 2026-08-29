@@ -178,35 +178,27 @@ const AttorneyCaseStatus: React.FC = () => {
         return;
       }
 
-      // RLS-scoped: no `.in('referring_attorney_id', ...)` filter needed
-      // or wanted — the database itself returns only the rows this
-      // signed-in person is allowed to see.
-      const { data: claimantsData, error: claimantsErr } = await supabase
-        .from('claimants')
-        .select('id, first_name, last_name, auto_id, referring_attorney_id, created_at');
-      if (claimantsErr) throw claimantsErr;
+      // Reads from the external-portal mirror table (one row per
+      // appointment, already carrying claimant/expert identity
+      // denormalized) instead of claimants + appointments +
+      // medical_experts directly. Same RLS scoping as before — the
+      // database still only returns rows this signed-in person can see.
+      const { data: casesData, error: casesErr } = await supabase
+        .from('external_portal_cases' as any)
+        .select('appointment_id, claimant_id, claimant_first_name, claimant_last_name, claimant_auto_id, appointment_date, case_status, matter_type, expert_id, expert_type, updated_at')
+        .is('deleted_at', null) as { data: any[] | null; error: any };
+      if (casesErr) throw casesErr;
 
-      const claimantIds = (claimantsData || []).map(c => c.id);
-      if (claimantIds.length === 0) {
+      if (!casesData || casesData.length === 0) {
         setClaimants([]);
         setLoading(false);
         return;
       }
 
-      // Appointments + experts for those claimants
-      const { data: appts } = await supabase
-        .from('appointments')
-        .select('id, claimant_id, appointment_date, case_status, matter_type, expert_id, updated_at')
-        .in('claimant_id', claimantIds)
-        .is('deleted_at', null);
+      const apptIds = casesData.map(a => a.appointment_id);
+      const claimantIds = Array.from(new Set(casesData.map(a => a.claimant_id).filter(Boolean)));
 
-      const apptIds = (appts || []).map(a => a.id);
-      const expertIds = Array.from(new Set((appts || []).map(a => a.expert_id).filter(Boolean)));
-
-      const [{ data: experts }, { data: reports }, { data: docs }] = await Promise.all([
-        expertIds.length
-          ? supabase.from('medical_experts').select('id, expert_type').in('id', expertIds)
-          : Promise.resolve({ data: [] as any[] }),
+      const [{ data: reports }, { data: docs }] = await Promise.all([
         apptIds.length
           ? supabase
               .from('expert_reports')
@@ -215,16 +207,13 @@ const AttorneyCaseStatus: React.FC = () => {
           : Promise.resolve({ data: [] as any[] }),
         apptIds.length
           ? supabase
-              .from('documents')
+              .from('external_portal_case_documents' as any)
               .select('appointment_id, file_path, document_type, upload_date')
               .in('appointment_id', apptIds)
               .ilike('document_type', '%report%')
           : Promise.resolve({ data: [] as any[] }),
       ]);
 
-      const expertMap = new Map<string, string>(
-        (experts || []).map((e: any) => [e.id, e.expert_type as string])
-      );
       const reportMap = new Map<string, any>();
       (reports || []).forEach((r: any) => reportMap.set(r.appointment_id, r));
       const docMap = new Map<string, string>();
@@ -232,22 +221,34 @@ const AttorneyCaseStatus: React.FC = () => {
         if (!docMap.has(d.appointment_id)) docMap.set(d.appointment_id, d.file_path);
       });
 
+      // One "claimant" entry per distinct claimant_id, built from the
+      // mirror rows themselves rather than a separate claimants fetch.
+      const claimantsData = claimantIds.map(id => {
+        const row = casesData.find(c => c.claimant_id === id);
+        return {
+          id,
+          first_name: row?.claimant_first_name,
+          last_name: row?.claimant_last_name,
+          auto_id: row?.claimant_auto_id,
+        };
+      });
+
       // Build per-claimant cases
-      const result: ClaimantCase[] = (claimantsData || []).map(cl => {
-        const myAppts = (appts || []).filter(a => a.claimant_id === cl.id);
+      const result: ClaimantCase[] = claimantsData.map(cl => {
+        const myAppts = casesData.filter(a => a.claimant_id === cl.id);
         const assessmentRows: AssessmentRow[] = myAppts.map(a => {
-          const r = reportMap.get(a.id);
+          const r = reportMap.get(a.appointment_id);
           return {
-            appointment_id: a.id,
+            appointment_id: a.appointment_id,
             appointment_date: a.appointment_date,
             case_status: a.case_status,
             matter_type: a.matter_type,
-            expert_type: expertMap.get(a.expert_id) || 'Unknown',
+            expert_type: a.expert_type || 'Unknown',
             report_status: r?.report_status || null,
             report_submitted_date: r?.report_submitted_date || null,
             report_due_date: r?.report_due_date || null,
             report_id: r?.id,
-            report_file_path: docMap.get(a.id) || null,
+            report_file_path: docMap.get(a.appointment_id) || null,
           };
         });
 
@@ -257,12 +258,12 @@ const AttorneyCaseStatus: React.FC = () => {
         const { stage, pct } = computeStage(assessmentRows);
         const hasOverdue = assessmentRows.some(a => isReportOverdue(a.report_due_date, a.report_status));
 
+        const earliestAppointmentDate = myAppts.map(a => a.appointment_date).filter(Boolean).sort()[0];
         const lastUpdatedDates = [
-          cl.created_at,
           ...myAppts.map(a => a.updated_at).filter(Boolean),
           ...assessmentRows.map(a => a.report_submitted_date).filter(Boolean) as string[],
         ];
-        const lastUpdated = lastUpdatedDates.sort().pop() || cl.created_at;
+        const lastUpdated = lastUpdatedDates.sort().pop() || earliestAppointmentDate;
 
         return {
           claimantId: cl.id,
