@@ -68,25 +68,45 @@ const ExpertCaseDetail: React.FC = () => {
         if (!profile?.expert_id) { setLoading(false); return; }
         setExpertId(profile.expert_id);
 
-        // Load appointment with claimant and attorney info
-        const { data: appt } = await supabase
-          .from('appointments')
-          .select(`
-            *, 
-            claimants(first_name, last_name, auto_id, contact_number),
-            referring_attorneys:referring_attorney_id(name, email, phone, contact_person),
-            medical_experts:expert_id(first_name, last_name, expert_type, practice_address)
-          `)
-          .eq('id', appointmentId)
+        // Load case detail from the external-portal mirror table
+        // (one row per appointment, claimant/attorney/expert info
+        // already denormalized) instead of appointments/claimants/
+        // referring_attorneys/medical_experts directly.
+        const { data: caseRow } = await supabase
+          .from('external_portal_cases' as any)
+          .select('*')
+          .eq('appointment_id', appointmentId)
           .eq('expert_id', profile.expert_id)
           .is('deleted_at', null)
-          .single();
+          .single() as { data: any };
 
-        if (!appt) {
+        if (!caseRow) {
           toast({ title: 'Access Denied', description: 'Case not found or not assigned to you.', variant: 'destructive' });
           navigate('/expert-portal/cases');
           return;
         }
+        const appt = {
+          ...caseRow,
+          id: caseRow.appointment_id,
+          claimants: {
+            first_name: caseRow.claimant_first_name,
+            last_name: caseRow.claimant_last_name,
+            auto_id: caseRow.claimant_auto_id,
+            contact_number: caseRow.claimant_contact_number,
+          },
+          referring_attorneys: {
+            name: caseRow.referring_attorney_name,
+            email: caseRow.referring_attorney_email,
+            phone: caseRow.referring_attorney_phone,
+            contact_person: caseRow.referring_attorney_contact_person,
+          },
+          medical_experts: {
+            first_name: caseRow.expert_first_name,
+            last_name: caseRow.expert_last_name,
+            expert_type: caseRow.expert_type,
+            practice_address: caseRow.expert_practice_address,
+          },
+        };
         setAppointment(appt);
 
         // Load report, documents, and debt in parallel
