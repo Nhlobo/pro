@@ -32,6 +32,12 @@ export const useModuleAccess = () => {
   // New-system state — only ever populated when the flag is on. When
   // it's off these stay at their initial values and are never read.
   const [newSystemRole, setNewSystemRole] = useState<string | null>(null);
+  // Distinct from newSystemRole === 'admin': an admin-role user placed in a
+  // restricted staff position (e.g. "Admin Assistant") keeps role 'admin'
+  // for audit/IAM purposes but is NOT full access — they're resolved
+  // through newSystemModules like everyone else. Only a real, unpositioned
+  // (or 'admin'-positioned) admin gets fullAccess = true.
+  const [newSystemFullAccess, setNewSystemFullAccess] = useState(false);
   const [newSystemModules, setNewSystemModules] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -42,6 +48,7 @@ export const useModuleAccess = () => {
     if (!user) {
       setRows([]);
       setNewSystemRole(null);
+      setNewSystemFullAccess(false);
       setNewSystemModules({});
       setRowsLoading(false);
       return;
@@ -49,9 +56,10 @@ export const useModuleAccess = () => {
 
     if (NEW_ACCESS_CONTROL_ENABLED) {
       setRowsLoading(true);
-      fetchNewSystemAccess(user.id).then(({ role, modules }) => {
+      fetchNewSystemAccess(user.id).then(({ role, fullAccess, modules }) => {
         if (active) {
           setNewSystemRole(role);
+          setNewSystemFullAccess(fullAccess);
           setNewSystemModules(modules);
           setRowsLoading(false);
         }
@@ -87,7 +95,7 @@ export const useModuleAccess = () => {
 
   const canAccessModule = (mod: AdminModule): boolean => {
     if (NEW_ACCESS_CONTROL_ENABLED) {
-      if (newSystemRole === 'admin') return true;
+      if (newSystemFullAccess) return true;
       if (newSystemRole === null) return false; // not a new-system member (Level 2)
       return newSystemModules[mod.key] === true;
     }
@@ -101,7 +109,7 @@ export const useModuleAccess = () => {
     const mod = findModuleForPath(ADMIN_MODULES, pathname);
     // A path with no matching module (nothing in ADMIN_MODULES claims it)
     // is treated as admin-only.
-    if (!mod) return NEW_ACCESS_CONTROL_ENABLED ? newSystemRole === 'admin' : isAdmin();
+    if (!mod) return NEW_ACCESS_CONTROL_ENABLED ? newSystemFullAccess : isAdmin();
     return canAccessModule(mod);
   };
 
@@ -113,7 +121,7 @@ export const useModuleAccess = () => {
    *  employee, else the first module it can actually reach, else My
    *  Profile as a last resort. */
   const homeModule: AdminModule | undefined = NEW_ACCESS_CONTROL_ENABLED
-    ? newSystemRole === 'admin'
+    ? newSystemFullAccess
       ? ADMIN_MODULES.find((m) => m.key === 'operations')
       : ADMIN_MODULES.find((m) => newSystemModules[m.key]) ?? accessibleModules[0]
     : isAdmin()
