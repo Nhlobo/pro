@@ -101,13 +101,23 @@ const AttorneyMyCases: React.FC = () => {
 
   // Fetch documents for a case
   const fetchCaseDocuments = useCallback(async (appointmentId: string) => {
+    // Reads from the external-portal mirror table, not the internal
+    // documents table directly — kept in sync by a trigger on
+    // public.documents (see 20260829060000_external_portal_case_mirror_rework).
     const { data } = await supabase
-      .from('documents')
-      .select('id, file_name, document_type, created_at, file_path')
+      .from('external_portal_case_documents' as any)
+      .select('document_id, file_name, document_type, file_path, created_at')
       .eq('appointment_id', appointmentId)
       .order('created_at', { ascending: false });
     if (data) {
-      setCaseDocuments(prev => ({ ...prev, [appointmentId]: data }));
+      const mapped: CaseDocument[] = (data as any[]).map(d => ({
+        id: d.document_id,
+        file_name: d.file_name,
+        document_type: d.document_type,
+        created_at: d.created_at,
+        file_path: d.file_path,
+      }));
+      setCaseDocuments(prev => ({ ...prev, [appointmentId]: mapped }));
     }
   }, []);
 
@@ -123,11 +133,12 @@ const AttorneyMyCases: React.FC = () => {
 
       setCaseExpertReports(reports || []);
 
-      // Fetch financial data
+      // Fetch financial data — from the external-portal mirror, not
+      // appointments directly (kept in sync by trigger).
       const { data: appointment } = await supabase
-        .from('appointments')
+        .from('external_portal_cases' as any)
         .select('service_fee, deposit_amount, payment_status, payment_date, matter_type')
-        .eq('id', caseItem.id)
+        .eq('appointment_id', caseItem.id)
         .single();
 
       setCaseFinancials(appointment);
@@ -154,15 +165,24 @@ const AttorneyMyCases: React.FC = () => {
     setInvoiceLoading(true);
     try {
       const { data } = await supabase
-        .from('appointments')
+        .from('external_portal_cases' as any)
         .select(`
-          id, appointment_date, service_fee, deposit_amount, payment_status,
-          claimants(first_name, last_name, auto_id),
-          medical_experts(first_name, last_name, expert_type)
+          appointment_id, appointment_date, service_fee, deposit_amount, payment_status,
+          claimant_first_name, claimant_last_name, claimant_auto_id,
+          expert_first_name, expert_last_name, expert_type
         `)
         .is('deleted_at', null)
         .order('appointment_date', { ascending: false });
-      setInvoiceData(data || []);
+      const mapped = (data || []).map((c: any) => ({
+        id: c.appointment_id,
+        appointment_date: c.appointment_date,
+        service_fee: c.service_fee,
+        deposit_amount: c.deposit_amount,
+        payment_status: c.payment_status,
+        claimants: { first_name: c.claimant_first_name, last_name: c.claimant_last_name, auto_id: c.claimant_auto_id },
+        medical_experts: { first_name: c.expert_first_name, last_name: c.expert_last_name, expert_type: c.expert_type },
+      }));
+      setInvoiceData(mapped);
     } catch (err) {
       console.error('Error fetching invoice data:', err);
     } finally {
