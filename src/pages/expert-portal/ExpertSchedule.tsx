@@ -51,8 +51,8 @@ const ExpertSchedule: React.FC = () => {
       if (!profile?.expert_id) { setNotLinked(true); setLoading(false); return; }
 
       const [apptsRes, reportsRes] = await Promise.all([
-        supabase.from('appointments')
-          .select(`*, claimants(first_name, last_name, auto_id), referring_attorneys:referring_attorney_id(name)`)
+        supabase.from('external_portal_cases' as any)
+          .select(`appointment_id, appointment_date, case_status, matter_type, claimant_first_name, claimant_last_name, claimant_auto_id, referring_attorney_name`)
           .eq('expert_id', profile.expert_id)
           .is('deleted_at', null)
           .order('appointment_date', { ascending: true }),
@@ -60,7 +60,15 @@ const ExpertSchedule: React.FC = () => {
           .select('*')
           .eq('expert_id', profile.expert_id),
       ]);
-      setAppointments(apptsRes.data || []);
+      const mappedAppts = ((apptsRes.data || []) as any[]).map(a => ({
+        id: a.appointment_id,
+        appointment_date: a.appointment_date,
+        case_status: a.case_status,
+        matter_type: a.matter_type,
+        claimants: { first_name: a.claimant_first_name, last_name: a.claimant_last_name, auto_id: a.claimant_auto_id },
+        referring_attorneys: { name: a.referring_attorney_name },
+      }));
+      setAppointments(mappedAppts);
       setReports(reportsRes.data || []);
     } catch (error) {
       // Previously unguarded — a thrown error left `loading` stuck
