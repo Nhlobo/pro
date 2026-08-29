@@ -1,0 +1,195 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { AlertCircle } from 'lucide-react';
+
+interface ModuleRow {
+  module_key: string;
+  title: string;
+  description: string | null;
+  group_name: string | null;
+}
+
+interface DefaultRow {
+  module_key: string;
+  is_eligible: boolean;
+  is_default_on: boolean;
+}
+
+interface OverrideRow {
+  module_key: string;
+  granted: boolean;
+}
+
+interface PendingState {
+  pendingCount: number;
+  saving: boolean;
+  save: () => Promise<boolean>;
+  reset: () => void;
+}
+
+interface Props {
+  /** The position everyone assigned to it will inherit this from, e.g. 'admin_assistant'. */
+  positionKey: string;
+  /** The role this position sits under (staff_positions.role_key) — used to
+   *  look up that role's module eligibility, since a position can never see
+   *  a module its underlying role isn't eligible for in the first place. */
+  roleKey: string;
+  onPendingStateChange: (s: PendingState) => void;
+}
+
+/**
+ * Same shape as NewSystemModuleAccessPanel, but the toggle here changes
+ * what EVERYONE in this position sees (position_module_overrides), not
+ * one individual (user_module_overrides). A person's own per-user override,
+ * if they have one, still wins over whatever is set here — this panel is
+ * for setting the position's baseline, e.g. locking Admin Assistant out of
+ * Finance and IAM while leaving the real 'admin' position untouched.
+ */
+const PositionModuleAccessPanel: React.FC<Props> = ({ positionKey, roleKey, onPendingStateChange }) => {
+  const [loading, setLoading] = useState(true);
+  const [modules, setModules] = useState<ModuleRow[]>([]);
+  const [defaults, setDefaults] = useState<DefaultRow[]>([]);
+  const [overrides, setOverrides] = useState<OverrideRow[]>([]);
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const [{ data: moduleRows }, { data: defaultRows }, { data: overrideRows }] = await Promise.all([
+      supabase.from('access_modules').select('module_key, title, description, group_name').order('group_name'),
+      supabase.from('role_module_defaults').select('module_key, is_eligible, is_default_on').eq('role_key', roleKey),
+      supabase.from('position_module_overrides').select('module_key, granted').eq('position_key', positionKey),
+    ]);
+    setModules(moduleRows ?? []);
+    setDefaults(defaultRows ?? []);
+    setOverrides(overrideRows ?? []);
+    setPending({});
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positionKey, roleKey]);
+
+  const defaultsByKey = useMemo(() => new Map(defaults.map((d) => [d.module_key, d])), [defaults]);
+  const overridesByKey = useMemo(() => new Map(overrides.map((o) => [o.module_key, o.granted])), [overrides]);
+
+  const effective = (moduleKey: string): { eligible: boolean; granted: boolean; isOverride: boolean } => {
+    const d = defaultsByKey.get(moduleKey);
+    if (!d || !d.is_eligible) return { eligible: false, granted: false, isOverride: false };
+    if (moduleKey in pending) return { eligible: true, granted: pending[moduleKey], isOverride: pending[moduleKey] !== d.is_default_on };
+    const override = overridesByKey.get(moduleKey);
+    if (override !== undefined) return { eligible: true, granted: override, isOverride: override !== d.is_default_on };
+    return { eligible: true, granted: d.is_default_on, isOverride: false };
+  };
+
+  const toggle = (moduleKey: string, next: boolean) => {
+    setPending((prev) => {
+      const updated = { ...prev, [moduleKey]: next };
+      const d = defaultsByKey.get(moduleKey);
+      if (d && next === d.is_default_on && overridesByKey.get(moduleKey) === undefined) {
+        delete updated[moduleKey];
+      }
+      return updated;
+    });
+  };
+
+  const save = async (): Promise<boolean> => {
+    setSaving(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const adminId = authData.user?.id;
+      for (const [moduleKey, granted] of Object.entries(pending)) {
+        const d = defaultsByKey.get(moduleKey);
+        const matchesDefault = d && granted === d.is_default_on;
+        const hadOverride = overridesByKey.has(moduleKey);
+
+        if (matchesDefault) {
+          if (hadOverride) {
+            await supabase.from('position_module_overrides').delete().eq('position_key', positionKey).eq('module_key', moduleKey);
+          }
+          continue;
+        }
+
+        await supabase.from('position_module_overrides').upsert(
+          { position_key: positionKey, module_key: moduleKey, granted, granted_by: adminId },
+          { onConflict: 'position_key,module_key' }
+        );
+      }
+      await load();
+      return true;
+    } catch (err) {
+      console.error('Error saving position module overrides:', err);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const reset = () => setPending({});
+
+  useEffect(() => {
+    onPendingStateChange({ pendingCount: Object.keys(pending).length, saving, save, reset });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, saving, positionKey]);
+
+  if (loading) {
+    return <p className="text-xs text-slate-400">Loading position module access…</p>;
+  }
+
+  const grouped = modules.reduce<Record<string, ModuleRow[]>>((acc, m) => {
+    const g = m.group_name ?? 'Other';
+    (acc[g] ??= []).push(m);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-2 border border-dashed border-black/15 bg-black/[0.02] p-3 text-xs text-slate-500">
+        <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span>
+          These toggles set the baseline for everyone in this position. A person's own individual
+          override (set from their profile in Manage Users) still takes priority over this.
+        </span>
+      </div>
+      {Object.entries(grouped).map(([group, mods]) => (
+        <div key={group}>
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{group}</p>
+          <div className="divide-y divide-black/5 border border-black/10">
+            {mods.map((m) => {
+              const { eligible, granted, isOverride } = effective(m.module_key);
+              return (
+                <div key={m.module_key} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <div className="min-w-0">
+                    <Label className={`text-sm ${eligible ? 'text-black' : 'text-slate-400'}`}>{m.title}</Label>
+                    {m.description && (
+                      <p className="truncate text-[11px] text-slate-400">{m.description}</p>
+                    )}
+                    {!eligible && (
+                      <p className="text-[11px] text-slate-400">Not available for this role</p>
+                    )}
+                    {eligible && isOverride && (
+                      <p className="text-[11px] font-medium" style={{ color: '#0ea5e9' }}>
+                        Position override (role default is {granted ? 'off' : 'on'})
+                      </p>
+                    )}
+                  </div>
+                  {eligible ? (
+                    <Switch checked={granted} onCheckedChange={(v) => toggle(m.module_key, v)} />
+                  ) : (
+                    <Switch checked={false} disabled />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default PositionModuleAccessPanel;
