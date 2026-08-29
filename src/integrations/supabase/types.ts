@@ -69,6 +69,34 @@ export type Database = {
         Update: { user_id?: string; module_key?: string; granted?: boolean; granted_by?: string | null; created_at?: string; updated_at?: string }
         Relationships: []
       }
+      // --- Position-based module access (staff_positions / role_position_rules /
+      // staff_access_profiles / position_module_overrides) -- same situation as the
+      // block above: real tables, no committed migration, added by hand to match
+      // what src/lib/newAccessControlQuery.ts and the IAM position editors read/write.
+      staff_positions: {
+        Row: { position_key: string; role_key: string; display_name: string; description: string | null; is_active: boolean; created_at: string; updated_at: string }
+        Insert: { position_key: string; role_key: string; display_name: string; description?: string | null; is_active?: boolean; created_at?: string; updated_at?: string }
+        Update: { position_key?: string; role_key?: string; display_name?: string; description?: string | null; is_active?: boolean; created_at?: string; updated_at?: string }
+        Relationships: []
+      }
+      role_position_rules: {
+        Row: { role_key: string; position_key: string; is_allowed: boolean; created_at: string }
+        Insert: { role_key: string; position_key: string; is_allowed?: boolean; created_at?: string }
+        Update: { role_key?: string; position_key?: string; is_allowed?: boolean; created_at?: string }
+        Relationships: []
+      }
+      staff_access_profiles: {
+        Row: { user_id: string; role_key: string; position_key: string | null; is_active: boolean; created_at: string; updated_at: string; updated_by: string | null }
+        Insert: { user_id: string; role_key: string; position_key?: string | null; is_active?: boolean; created_at?: string; updated_at?: string; updated_by?: string | null }
+        Update: { user_id?: string; role_key?: string; position_key?: string | null; is_active?: boolean; created_at?: string; updated_at?: string; updated_by?: string | null }
+        Relationships: []
+      }
+      position_module_overrides: {
+        Row: { position_key: string; module_key: string; granted: boolean; reason: string | null; granted_by: string | null; granted_at: string }
+        Insert: { position_key: string; module_key: string; granted: boolean; reason?: string | null; granted_by?: string | null; granted_at?: string }
+        Update: { position_key?: string; module_key?: string; granted?: boolean; reason?: string | null; granted_by?: string | null; granted_at?: string }
+        Relationships: []
+      }
       // -----------------------------------------------------------------
       account_activations: {
         Row: {
