@@ -38,6 +38,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatDateTimeShort } from '@/utils/dateTime';
 import EmployeeNotificationSettings from '@/components/EmployeeNotificationSettings';
 import NewSystemModuleAccessPanel from '@/components/NewSystemModuleAccessPanel';
+import PositionModuleAccessPanel from '@/components/PositionModuleAccessPanel';
 import { EmailConfigurationAlert } from '@/components/EmailConfigurationAlert';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import {
@@ -89,6 +90,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
   const [isManageModalOpen, setIsManageModalOpen] = useState(false);
   const [pendingPermissions, setPendingPermissions] = useState<Record<string, boolean>>({});
   const [pendingRole, setPendingRole] = useState<string | null>(null);
+  // Staff position (staff_access_profiles) for the user currently open in the
+  // Manage modal. undefined pending = no change staged; null = explicitly
+  // cleared back to "no position" (full access for their role, e.g. a plain
+  // 'admin' with no restrictive position).
+  const [currentUserPosition, setCurrentUserPosition] = useState<string | null>(null);
+  const [pendingUserPosition, setPendingUserPosition] = useState<string | null | undefined>(undefined);
   const [isSavingPermissions, setIsSavingPermissions] = useState(false);
   // Pending state forwarded from NewSystemModuleAccessPanel so the modal footer Save can trigger its save.
   const [fnPending, setFnPending] = useState<{ count: number; saving: boolean; save: () => Promise<boolean>; reset: () => void }>({
@@ -97,6 +104,44 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
     save: async () => true,
     reset: () => {},
   });
+  // Position Access Defaults card — separate from the per-user modal above.
+  // This edits position_module_overrides, which sets the baseline for
+  // EVERYONE in that position (e.g. all Admin Assistants), not one person.
+  const [positions, setPositions] = useState<{ position_key: string; role_key: string; display_name: string }[]>([]);
+  const [selectedPositionKey, setSelectedPositionKey] = useState<string | null>(null);
+  const [positionPending, setPositionPending] = useState<{ count: number; saving: boolean; save: () => Promise<boolean>; reset: () => void }>({
+    count: 0,
+    saving: false,
+    save: async () => true,
+    reset: () => {},
+  });
+
+  useEffect(() => {
+    supabase
+      .from('staff_positions')
+      .select('position_key, role_key, display_name')
+      .eq('is_active', true)
+      .order('display_name')
+      .then(({ data }) => {
+        setPositions(data ?? []);
+        if (!selectedPositionKey && data && data.length > 0) {
+          setSelectedPositionKey(data[0].position_key);
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectedPosition = positions.find((p) => p.position_key === selectedPositionKey) ?? null;
+
+  const handleSavePositionDefaults = async () => {
+    const success = await positionPending.save();
+    if (success) {
+      toast.success(`Module access updated for ${selectedPosition?.display_name ?? 'this position'}`);
+    } else {
+      toast.error('Failed to update position module access');
+    }
+  };
+
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -157,6 +202,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
     setUserPermissions(permissions);
     setPendingPermissions({});
     setPendingRole(null);
+    setPendingUserPosition(undefined);
+    const { data: staffProfile } = await supabase
+      .from('staff_access_profiles')
+      .select('position_key, is_active')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    setCurrentUserPosition(staffProfile?.is_active ? staffProfile.position_key ?? null : null);
     setIsManageModalOpen(true);
   };
 
@@ -164,6 +216,19 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
     if (!selectedUser) return;
     setPendingRole(newRole);
     setSelectedUser({ ...selectedUser, role: newRole });
+    // A position only makes sense under the role it belongs to (see
+    // role_position_rules) — changing role clears whatever position was
+    // staged or on file so an admin can't accidentally leave a stale,
+    // invalid role/position pairing.
+    const effectivePosition = pendingUserPosition !== undefined ? pendingUserPosition : currentUserPosition;
+    if (effectivePosition) {
+      const stillValid = positions.some((p) => p.position_key === effectivePosition && p.role_key === newRole);
+      if (!stillValid) setPendingUserPosition(null);
+    }
+  };
+
+  const handlePositionUpdate = (newPosition: string) => {
+    setPendingUserPosition(newPosition === '__none__' ? null : newPosition);
   };
 
   const handlePermissionToggle = (permissionName: string, granted: boolean) => {
@@ -171,7 +236,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
     setPendingPermissions(prev => ({ ...prev, [permissionName]: granted }));
   };
 
-  const hasPendingChanges = pendingRole !== null || Object.keys(pendingPermissions).length > 0 || fnPending.count > 0;
+  const hasPendingChanges = pendingRole !== null || pendingUserPosition !== undefined || Object.keys(pendingPermissions).length > 0 || fnPending.count > 0;
 
   const handleSaveAllChanges = async () => {
     if (!selectedUser) return;
@@ -209,6 +274,40 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
             toast.error('Role updated, but the new access-control assignment failed to sync — check Manage Access.');
           }
         }
+      }
+
+      if (pendingUserPosition !== undefined) {
+        const { data: authData } = await supabase.auth.getUser();
+        const effectiveRole = pendingRole ?? selectedUser.role ?? 'employee';
+        if (pendingUserPosition === null) {
+          // Cleared back to "no position" — deactivate rather than delete,
+          // so the assignment history (who set what, and when) is kept.
+          const { error } = await supabase
+            .from('staff_access_profiles')
+            .update({ is_active: false, updated_by: authData.user?.id })
+            .eq('user_id', selectedUser.id);
+          if (error) {
+            console.error('Error clearing staff position:', error);
+            toast.error('Failed to clear staff position');
+          }
+        } else {
+          const { error } = await supabase.from('staff_access_profiles').upsert(
+            {
+              user_id: selectedUser.id,
+              role_key: effectiveRole,
+              position_key: pendingUserPosition,
+              is_active: true,
+              updated_by: authData.user?.id,
+            },
+            { onConflict: 'user_id' }
+          );
+          if (error) {
+            console.error('Error updating staff position:', error);
+            toast.error('Failed to update staff position');
+          }
+        }
+        setCurrentUserPosition(pendingUserPosition);
+        setPendingUserPosition(undefined);
       }
 
       for (const [permissionName, granted] of Object.entries(pendingPermissions)) {
@@ -787,6 +886,76 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
           <AdminStatCard label="Referring Attorneys" value={attorneyCount} icon={Briefcase} />
           <AdminStatCard label="Inactive Staff" value={inactiveCount} icon={UserX} />
         </div>
+
+        {/* Position Access Defaults — sets the module baseline for everyone in a
+            given staff position (e.g. Admin Assistant, RAF Case Manager), separate
+            from any one person's individual override below. */}
+        {positions.length > 0 && (
+          <AdminCard>
+            <AdminCardHeader
+              icon={Briefcase}
+              title="Position Access Defaults"
+              description="What a staff position can see by default, within what its role already allows. A person's own individual override (set on their profile below) still wins over this."
+              actions={
+                positionPending.count > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <AdminPill tone="neutral">{positionPending.count} unsaved</AdminPill>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-none border-black/15 text-black hover:bg-black/5"
+                      onClick={() => positionPending.reset()}
+                    >
+                      Discard
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="rounded-none text-white hover:opacity-90"
+                      style={{ backgroundColor: BRAND_TEAL }}
+                      disabled={positionPending.saving}
+                      onClick={handleSavePositionDefaults}
+                    >
+                      {positionPending.saving ? 'Saving…' : 'Save'}
+                    </Button>
+                  </div>
+                ) : undefined
+              }
+            />
+            <AdminCardBody className="space-y-4">
+              <div className="max-w-xs">
+                <Label className="text-sm font-semibold text-black">Position</Label>
+                <Select
+                  value={selectedPositionKey ?? undefined}
+                  onValueChange={(v) => {
+                    if (positionPending.count > 0) positionPending.reset();
+                    setSelectedPositionKey(v);
+                  }}
+                >
+                  <SelectTrigger className="mt-1 h-8 rounded-none">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {positions.map((p) => (
+                      <SelectItem key={p.position_key} value={p.position_key}>
+                        {p.display_name} <span className="text-slate-400">({p.role_key})</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedPosition && (
+                <PositionModuleAccessPanel
+                  key={selectedPosition.position_key}
+                  positionKey={selectedPosition.position_key}
+                  roleKey={selectedPosition.role_key}
+                  onPendingStateChange={(s) =>
+                    setPositionPending({ count: s.pendingCount, saving: s.saving, save: s.save, reset: s.reset })
+                  }
+                />
+              )}
+            </AdminCardBody>
+          </AdminCard>
+        )}
 
         {/* Search, filter & sort */}
         <AdminCard>
@@ -1525,6 +1694,40 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                       </p>
                       {pendingRole !== null && (
                         <p className="mt-1 text-xs font-medium" style={{ color: BRAND_TEAL }}>Role changed — click Update to save</p>
+                      )}
+                    </div>
+
+                    {/* Staff Position — narrows module access WITHIN the role above.
+                        e.g. an 'admin' role person placed in the 'Admin Assistant'
+                        position no longer gets full admin access; a real, unpositioned
+                        admin is completely unaffected. */}
+                    <div>
+                      <Label className="text-sm font-semibold text-black">Staff Position</Label>
+                      <Select
+                        value={(pendingUserPosition !== undefined ? pendingUserPosition : currentUserPosition) ?? '__none__'}
+                        onValueChange={handlePositionUpdate}
+                      >
+                        <SelectTrigger className="mt-1 h-8 rounded-none">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">No position (full access for this role)</SelectItem>
+                          {positions
+                            .filter((p) => p.role_key === (pendingRole ?? selectedUser.role))
+                            .map((p) => (
+                              <SelectItem key={p.position_key} value={p.position_key}>
+                                {p.display_name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Optional. Restricts this person to what that position can see (Position Access
+                        Defaults, above) instead of everything their role allows. Leave as "No position"
+                        for a normal, unrestricted account.
+                      </p>
+                      {pendingUserPosition !== undefined && (
+                        <p className="mt-1 text-xs font-medium" style={{ color: BRAND_TEAL }}>Position changed — click Update to save</p>
                       )}
                     </div>
 
