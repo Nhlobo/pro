@@ -62,7 +62,7 @@ const ExpertPerformance: React.FC = () => {
 
       const [reportsRes, apptsRes] = await Promise.all([
         supabase.from('expert_reports').select('*').eq('expert_id', profile.expert_id),
-        supabase.from('appointments').select('id, appointment_date').eq('expert_id', profile.expert_id).is('deleted_at', null),
+        supabase.from('external_portal_cases' as any).select('appointment_id, appointment_date').eq('expert_id', profile.expert_id).is('deleted_at', null),
       ]);
 
       const reports = reportsRes.data || [];
