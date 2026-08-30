@@ -23,6 +23,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 import {
   AdminPage,
+  AdminHeader,
   AdminCard,
   AdminCardHeader,
   AdminCardBody,
@@ -55,7 +56,7 @@ const StatsTooltip: React.FC<any> = ({ active, payload, label }) => {
   );
 };
 
-const AssessmentReportsStatistics = () => {
+const AssessmentReportsStatistics = ({ embedded = false }: { embedded?: boolean } = {}) => {
   const [selectedPeriod, setSelectedPeriod] = useState("monthly");
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -765,22 +766,183 @@ const AssessmentReportsStatistics = () => {
 
   const maxExpertAssessments = Math.max(1, ...expertPerformanceData.map((e) => e.assessments));
 
-  return (
-    <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>Assessment Reports & Statistics - Medico-Legal Assessment System</title>
-        <meta name="description" content="Comprehensive reports and statistics for medical assessment performance, completion rates, and expert analytics." />
-        <link rel="canonical" href={canonicalUrl} />
-      </Helmet>
+  // Shared between the standalone page's own sticky header and the Admin
+  // Portal header used when embedded, so the two never drift apart.
+  const liveSyncPill = !isHistoricalView && (
+    <span className="hidden items-center gap-1 text-[10px] font-medium text-slate-400 sm:inline-flex">
+      <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-emerald-500" : "bg-slate-300"}`} />
+      {isConnected ? "Live sync" : "Reconnecting…"}
+    </span>
+  );
 
-      <SystemHeaderNav />
+  const headerActions = (
+    <>
+      {isHistoricalView ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="rounded-none border-black/15"
+          onClick={() => {
+            setIsHistoricalView(false);
+            setCurrentArchive(null);
+          }}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Current
+        </Button>
+      ) : (
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-none border-black/15"
+            onClick={() => {
+              loadRealData();
+              toast({
+                title: "Refreshed",
+                description: "Statistics updated with latest appointment data",
+              });
+            }}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            {isLoading ? "Loading…" : "Refresh"}
+          </Button>
+
+          <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-[130px] rounded-none border-black/15 sm:w-[160px]">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="monthly">Monthly View</SelectItem>
+              <SelectItem value="quarterly">Quarterly View</SelectItem>
+              <SelectItem value="yearly">Yearly View</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {selectedPeriod === "monthly" && (
+            <>
+              <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
+                <SelectTrigger className="w-[110px] rounded-none border-black/15 sm:w-[130px]">
+                  <SelectValue placeholder="Month" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <SelectItem key={i} value={i.toString()}>
+                      {new Date(0, i).toLocaleString("default", { month: "long" })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
+                <SelectTrigger className="w-[85px] rounded-none border-black/15 sm:w-[95px]">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 10 }, (_, i) => {
+                    const year = new Date().getFullYear() - i;
+                    return (
+                      <SelectItem key={year} value={year.toString()}>
+                        {year}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </>
+          )}
+
+          <Button
+            onClick={archiveCurrentData}
+            variant="outline"
+            size="sm"
+            className="rounded-none border-black/15"
+          >
+            <Archive className="mr-2 h-4 w-4" />
+            Archive
+          </Button>
+
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-none border-destructive/30 text-destructive hover:bg-destructive/5"
+                  disabled={isClearingData}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {isClearingData ? "Clearing…" : "Clear Data"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="rounded-none">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Clear Assessment Data</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action will permanently delete all assessment data including appointments, expert reports, and archives.
+                    This action cannot be undone. Are you sure you want to continue?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="rounded-none">Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={clearAssessmentData}
+                    className="rounded-none bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Yes, Clear All Data
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+
+          <Button
+            onClick={generatePDFReport}
+            size="sm"
+            className="rounded-none bg-black text-white hover:bg-black/90"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export Report
+          </Button>
+        </>
+      )}
+
+      {isHistoricalView && currentArchive && (
+        <Button
+          onClick={() => generateHistoricalPDF(currentArchive)}
+          size="sm"
+          className="rounded-none bg-black text-white hover:bg-black/90"
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Download Report
+        </Button>
+      )}
+    </>
+  );
+
+  return (
+    <div className={embedded ? '' : 'min-h-screen bg-background'}>
+      {!embedded && (
+        <Helmet>
+          <title>Assessment Reports & Statistics - Medico-Legal Assessment System</title>
+          <meta name="description" content="Comprehensive reports and statistics for medical assessment performance, completion rates, and expert analytics." />
+          <link rel="canonical" href={canonicalUrl} />
+        </Helmet>
+      )}
+
+      {!embedded && <SystemHeaderNav />}
 
       {/* ------------------------------------------------------------- */}
       {/* Header — same eyebrow/icon/title language as the Admin Portal  */}
       {/* Analytics module (AdminHeader), rebuilt inline here because     */}
       {/* this route renders outside the admin sidebar shell and keeps   */}
       {/* its own action bar (period pickers, archive, export, clear).   */}
+      {/* When embedded inside the Admin Portal, the shared AdminHeader  */}
+      {/* is used instead (below, inside AdminPage) so this doesn't ship */}
+      {/* a second, differently-styled header alongside the real one.   */}
       {/* ------------------------------------------------------------- */}
+      {!embedded && (
       <header className="sticky top-0 z-30 border-b border-black/10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
         <div className="container mx-auto px-4 py-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -793,14 +955,7 @@ const AssessmentReportsStatistics = () => {
                   <span className="text-[11px] font-semibold uppercase tracking-[0.2em]" style={{ color: BRAND_TEAL }}>
                     {isHistoricalView ? "Archived Period" : "Reporting"}
                   </span>
-                  {!isHistoricalView && (
-                    <span className="hidden items-center gap-1 text-[10px] font-medium text-slate-400 sm:inline-flex">
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${isConnected ? "bg-emerald-500" : "bg-slate-300"}`}
-                      />
-                      {isConnected ? "Live sync" : "Reconnecting…"}
-                    </span>
-                  )}
+                  {liveSyncPill}
                 </div>
                 <h1 className="truncate text-xl font-bold text-black sm:text-2xl">
                   {isHistoricalView ? "Historical Assessment Reports" : "Assessment Reports & Statistics"}
@@ -814,154 +969,33 @@ const AssessmentReportsStatistics = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {isHistoricalView ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="rounded-none border-black/15"
-                  onClick={() => {
-                    setIsHistoricalView(false);
-                    setCurrentArchive(null);
-                  }}
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Current
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="rounded-none border-black/15"
-                    onClick={() => {
-                      loadRealData();
-                      toast({
-                        title: "Refreshed",
-                        description: "Statistics updated with latest appointment data",
-                      });
-                    }}
-                    disabled={isLoading}
-                  >
-                    <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-                    {isLoading ? "Loading…" : "Refresh"}
-                  </Button>
-
-                  <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                    <SelectTrigger className="w-[130px] rounded-none border-black/15 sm:w-[160px]">
-                      <SelectValue placeholder="Select period" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="monthly">Monthly View</SelectItem>
-                      <SelectItem value="quarterly">Quarterly View</SelectItem>
-                      <SelectItem value="yearly">Yearly View</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {selectedPeriod === "monthly" && (
-                    <>
-                      <Select value={selectedMonth.toString()} onValueChange={(value) => setSelectedMonth(parseInt(value))}>
-                        <SelectTrigger className="w-[110px] rounded-none border-black/15 sm:w-[130px]">
-                          <SelectValue placeholder="Month" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 12 }, (_, i) => (
-                            <SelectItem key={i} value={i.toString()}>
-                              {new Date(0, i).toLocaleString("default", { month: "long" })}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      <Select value={selectedYear.toString()} onValueChange={(value) => setSelectedYear(parseInt(value))}>
-                        <SelectTrigger className="w-[85px] rounded-none border-black/15 sm:w-[95px]">
-                          <SelectValue placeholder="Year" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from({ length: 10 }, (_, i) => {
-                            const year = new Date().getFullYear() - i;
-                            return (
-                              <SelectItem key={year} value={year.toString()}>
-                                {year}
-                              </SelectItem>
-                            );
-                          })}
-                        </SelectContent>
-                      </Select>
-                    </>
-                  )}
-
-                  <Button
-                    onClick={archiveCurrentData}
-                    variant="outline"
-                    size="sm"
-                    className="rounded-none border-black/15"
-                  >
-                    <Archive className="mr-2 h-4 w-4" />
-                    Archive
-                  </Button>
-
-                  {isAdmin && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-none border-destructive/30 text-destructive hover:bg-destructive/5"
-                          disabled={isClearingData}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          {isClearingData ? "Clearing…" : "Clear Data"}
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="rounded-none">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Clear Assessment Data</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action will permanently delete all assessment data including appointments, expert reports, and archives.
-                            This action cannot be undone. Are you sure you want to continue?
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel className="rounded-none">Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={clearAssessmentData}
-                            className="rounded-none bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Yes, Clear All Data
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
-
-                  <Button
-                    onClick={generatePDFReport}
-                    size="sm"
-                    className="rounded-none bg-black text-white hover:bg-black/90"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Export Report
-                  </Button>
-                </>
-              )}
-
-              {isHistoricalView && currentArchive && (
-                <Button
-                  onClick={() => generateHistoricalPDF(currentArchive)}
-                  size="sm"
-                  className="rounded-none bg-black text-white hover:bg-black/90"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Download Report
-                </Button>
-              )}
+              {headerActions}
             </div>
           </div>
         </div>
       </header>
+      )}
 
-      <main className="container mx-auto px-4 py-8">
+      <main className={embedded ? '' : 'container mx-auto px-4 py-8'}>
         <AdminPage>
+          {embedded && (
+            <AdminHeader
+              eyebrow={
+                <span className="inline-flex items-center gap-2">
+                  {isHistoricalView ? "Archived Period" : "Reporting"}
+                  {liveSyncPill}
+                </span>
+              }
+              title={isHistoricalView ? "Historical Assessment Reports" : "Assessment Reports & Statistics"}
+              description={
+                isHistoricalView
+                  ? "Archived snapshot — read-only view of a past reporting period"
+                  : "Live performance across assessments, experts, and referring attorneys"
+              }
+              icon={BarChart3}
+              actions={<>{headerActions}</>}
+            />
+          )}
           {/* Data source / live-sync banner */}
           {!isHistoricalView && (
             <AdminCard className="animate-fade-in border-l-4" style={{ borderLeftColor: BRAND_TEAL }}>
@@ -977,7 +1011,10 @@ const AssessmentReportsStatistics = () => {
                   </div>
                   <p className="text-sm text-slate-500">
                     This page reflects real-time statistics from appointments created in the{" "}
-                    <Link to="/scheduled-assessment" className="font-medium text-primary hover:underline">
+                    <Link
+                      to={embedded ? "/admin/appointments" : "/scheduled-assessment"}
+                      className="font-medium text-primary hover:underline"
+                    >
                       Schedule Assessment Appointment
                     </Link>{" "}
                     workflow. It updates automatically as new appointments and reports come in — use{" "}
@@ -1415,7 +1452,7 @@ const AssessmentReportsStatistics = () => {
         </AdminPage>
       </main>
 
-      <CompanyFooter />
+      {!embedded && <CompanyFooter />}
     </div>
   );
 };
