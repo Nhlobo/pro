@@ -31,7 +31,7 @@ export const AdminPage: React.FC<{ children: React.ReactNode; className?: string
 
 /** Eyebrow + bold heading, matching the Operations Dashboard / auth pattern. */
 export const AdminHeader: React.FC<{
-  eyebrow?: string;
+  eyebrow?: React.ReactNode;
   title: string;
   description?: string;
   icon?: LucideIcon;
