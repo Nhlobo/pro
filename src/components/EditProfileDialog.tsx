@@ -19,6 +19,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Settings, User, Briefcase, Building, Search, CheckSquare, Filter } from 'lucide-react';
 import SalesConsultantStats from '@/components/SalesConsultantStats';
+import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
 
 interface ReferringAttorney {
   id: string;
@@ -239,7 +240,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
       <DialogContent side="right" className="h-full w-full overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5 text-primary" />
+            <Settings className="h-5 w-5" style={{ color: BRAND_TEAL }} />
             Edit User Profile
           </DialogTitle>
           <DialogDescription>
@@ -266,6 +267,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                 <Label htmlFor="editProfileFirstName" className="text-xs">First Name</Label>
                 <Input
                   id="editProfileFirstName"
+                  className="rounded-none border-black/15"
                   value={form.firstName}
                   onChange={(e) => setForm(prev => ({ ...prev, firstName: e.target.value }))}
                   placeholder="First name"
@@ -275,6 +277,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                 <Label htmlFor="editProfileLastName" className="text-xs">Last Name</Label>
                 <Input
                   id="editProfileLastName"
+                  className="rounded-none border-black/15"
                   value={form.lastName}
                   onChange={(e) => setForm(prev => ({ ...prev, lastName: e.target.value }))}
                   placeholder="Last name"
@@ -288,6 +291,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
             <Input
               id="editProfileEmail"
               type="email"
+              className="rounded-none border-black/15"
               value={form.email}
               onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
               placeholder="user@example.com"
@@ -310,7 +314,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
               <div>
                 <Label className="text-xs">User Type</Label>
                 <Select value={form.userType} onValueChange={(value) => setForm(prev => ({ ...prev, userType: value, position: value !== 'employee' ? '' : prev.position }))}>
-                  <SelectTrigger>
+                  <SelectTrigger className="rounded-none border-black/15">
                     <SelectValue placeholder="Select user type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -323,19 +327,25 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
 
               {form.userType === 'employee' && (
                 <div>
-                  <Label className="text-xs">Position</Label>
+                  <Label className="text-xs">Position (display title)</Label>
                   <Select value={form.position} onValueChange={(value) => setForm(prev => ({ ...prev, position: value }))}>
-                    <SelectTrigger>
+                    <SelectTrigger className="rounded-none border-black/15">
                       <SelectValue placeholder="Select position" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Admin Assistant">Admin Assistant</SelectItem>
-                      <SelectItem value="Medico Legal Manager">Medico Legal Manager</SelectItem>
-                      <SelectItem value="Case Manager">Case Manager</SelectItem>
-                      <SelectItem value="Legal Secretary">Legal Secretary</SelectItem>
+                      <SelectItem value="NEG Case Manager">NEG Case Manager</SelectItem>
+                      <SelectItem value="RAF Case Manager">RAF Case Manager</SelectItem>
+                      <SelectItem value="Finance Officer">Finance Officer</SelectItem>
                       <SelectItem value="Sales Consultant">Sales Consultant</SelectItem>
+                      <SelectItem value="Director">Director</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="mt-1 text-xs text-slate-500">
+                    This is a display title only (shown on their card in the directory). It does not
+                    control what they can see — that's set by System Role and Staff Position in
+                    Manage Access, above the module list.
+                  </p>
                 </div>
               )}
             </div>
@@ -358,7 +368,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                 <Building className="h-4 w-4 text-muted-foreground" />
                 <Label className="text-sm font-semibold">Linked Referring Attorneys</Label>
               </div>
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="rounded-none text-xs">
                 {selectedAttorneyIds.length} of {referringAttorneys.length} selected
               </Badge>
             </div>
@@ -371,7 +381,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
               </div>
               <div className="flex gap-2">
                 <Select value={matterTypeFilter} onValueChange={setMatterTypeFilter}>
-                  <SelectTrigger className="h-8 text-xs">
+                  <SelectTrigger className="h-8 rounded-none border-black/15 text-xs">
                     <SelectValue placeholder="Filter by matter type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -384,9 +394,9 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                 {matterTypeFilter !== 'all' && (
                   <Button
                     type="button"
-                    variant="secondary"
+                    variant="outline"
                     size="sm"
-                    className="h-8 text-xs whitespace-nowrap"
+                    className="h-8 rounded-none border-black/15 text-xs text-black hover:bg-black/5 whitespace-nowrap"
                     onClick={() => handleAutoAllocateByMatter(matterTypeFilter)}
                   >
                     Auto-Link {matterTypeFilter === 'Both' ? 'Both' : matterTypeFilter}
@@ -403,7 +413,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                   placeholder="Search attorneys..."
                   value={attorneySearch}
                   onChange={(e) => setAttorneySearch(e.target.value)}
-                  className="pl-8 h-9"
+                  className="rounded-none border-black/15 pl-8 h-9"
                 />
               </div>
               <Button
@@ -411,7 +421,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={handleSelectAll}
-                className="w-full text-xs"
+                className="w-full rounded-none border-black/15 text-black hover:bg-black/5 text-xs"
               >
                 <CheckSquare className="h-3.5 w-3.5 mr-1.5" />
                 {allSelected ? 'Deselect All' : 'Select All Referring Attorneys'}
@@ -419,7 +429,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
             </div>
 
             {/* Attorney List */}
-            <ScrollArea className="h-48 border rounded-md p-2">
+            <ScrollArea className="h-48 rounded-none border border-black/15 p-2">
               {referringAttorneysLoading ? (
                 <p className="text-xs text-muted-foreground text-center py-4">Loading attorneys...</p>
               ) : filteredAttorneys.length === 0 ? (
@@ -429,8 +439,8 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                   {filteredAttorneys.map((attorney) => (
                     <div
                       key={attorney.id}
-                      className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-muted/50 transition-colors ${
-                        selectedAttorneyIds.includes(attorney.id) ? 'bg-primary/5 border border-primary/20' : 'border border-transparent'
+                      className={`flex items-center gap-2 rounded-none p-2 cursor-pointer hover:bg-black/5 transition-colors ${
+                        selectedAttorneyIds.includes(attorney.id) ? 'border border-black/20 bg-black/[0.03]' : 'border border-transparent'
                       }`}
                       onClick={() => handleToggleAttorney(attorney.id)}
                     >
@@ -443,7 +453,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
                         <div className="flex items-center gap-1.5">
                           <p className="text-xs font-medium truncate">{attorney.name}</p>
                           {(attorneyMatterTypes[attorney.id] || []).map(mt => (
-                            <Badge key={mt} variant="outline" className="text-[10px] px-1 py-0 h-4 shrink-0">
+                            <Badge key={mt} variant="outline" className="h-4 shrink-0 rounded-none px-1 py-0 text-[10px]">
                               {mt === 'Medical Negligence' ? 'Med Neg' : mt}
                             </Badge>
                           ))}
@@ -467,7 +477,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
             <Button
               onClick={() => onOpenChange(false)}
               variant="outline"
-              className="flex-1"
+              className="flex-1 rounded-none border-black/15 text-black hover:bg-black/5"
               disabled={isUpdating}
             >
               Cancel
@@ -475,7 +485,8 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
             <Button
               onClick={handleUpdate}
               disabled={isUpdating}
-              className="flex-1 bg-gradient-to-r from-primary to-secondary text-white"
+              className="flex-1 rounded-none text-white hover:opacity-90"
+              style={{ backgroundColor: BRAND_TEAL }}
             >
               {isUpdating ? 'Updating...' : 'Update Profile'}
             </Button>
