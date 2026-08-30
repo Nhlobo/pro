@@ -203,7 +203,16 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'Workflow',
     icon: Calendar,
     description: 'Scheduling, requests, confirmations',
-    roles: ['admin', 'employee', 'sales_consultant'],
+    // sales_consultant deliberately excluded, same reasoning as the finance
+    // module above: every RLS policy on the appointments table (SELECT,
+    // INSERT, UPDATE) only bypasses for admin/employee or a matching
+    // referring_attorney_id/expert_id — a sales consultant has neither, so
+    // this page has always resolved to an empty schedule with non-functional
+    // New Appointment / checklist / communications controls for that role.
+    // Their real appointment data (their own generated deals, incentive
+    // calculations) comes through the separately-scoped get_consultant_*
+    // RPCs on the Sales Dashboard, not this operational admin page.
+    roles: ['admin', 'employee'],
     permissions: [{ category: 'Appointment Management' }],
   },
   {
