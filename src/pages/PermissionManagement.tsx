@@ -165,6 +165,31 @@ const PermissionManagement: React.FC = () => {
             </div>
           </div>
 
+          {/* NOTE (2026-08-30 access-control audit): the module toggles below
+              write to function_permissions via FunctionPermissionsManager.
+              Since the new access-control system went live
+              (NEW_ACCESS_CONTROL_ENABLED in src/config/newAccessControl.ts),
+              useModuleAccess no longer reads function_permissions for
+              admin/employee/sales_consultant/finance/director — their real
+              module grants live in access_role_assignments /
+              role_module_defaults / user_module_overrides instead, edited
+              from the User Management screen. Changes made here currently
+              have no effect on what those five roles can actually open.
+              Left in place (not removed) pending a decision on whether to
+              retire this screen or repoint it at the new tables. */}
+          <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <strong>Heads up:</strong> module access for Admin, Company Employee, Sales Consultant,
+            Finance, and Director is now managed from{' '}
+            <button
+              type="button"
+              onClick={() => navigate('/user-management')}
+              className="underline underline-offset-2 hover:text-amber-950"
+            >
+              User Management
+            </button>
+            . Changes made on this screen no longer affect what those roles can access.
+          </div>
+
           {/* Main Content - Split Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[calc(100vh-200px)]">
             {/* Users List - Compact */}
