@@ -109,9 +109,11 @@ const AttorneyAgreements: React.FC = () => {
   const fetchAgreements = async () => {
     setLoading(true);
     try {
-      // Fetch AOD documents (could be long-term or short-term based on duration)
+      // Reads from the external-portal mirror table, not aod_documents
+      // directly (kept in sync by trigger). Same visibility rule as
+      // before — firm-scope portal accounts only.
       const { data: aodData } = await supabase
-        .from('aod_documents')
+        .from('external_portal_agreements' as any)
         .select('*')
         .order('created_at', { ascending: false });
 
