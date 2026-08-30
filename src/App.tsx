@@ -141,6 +141,7 @@ const AdminDocumentVault = lazy(() => import("./pages/admin/AdminDocumentVault")
 const AdminFinance = lazy(() => import("./pages/admin/AdminFinance"));
 const AdminExpertPaymentPlanner = lazy(() => import("./pages/admin/AdminExpertPaymentPlanner"));
 const AdminAppointmentEngine = lazy(() => import("./pages/admin/AdminAppointmentEngine"));
+const AdminAssessmentReportsStatistics = lazy(() => import("./pages/admin/AdminAssessmentReportsStatistics"));
 const MyProfile = lazy(() => import("./pages/admin/MyProfile"));
 const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
 const AdminIAM = lazy(() => import("./pages/admin/AdminIAM"));
@@ -349,6 +350,7 @@ const App = () => (
                 <Route path="/admin/finance" element={<AdminPortalRoute><AdminFinance /></AdminPortalRoute>} />
                 <Route path="/admin/expert-payment-planner" element={<AdminPortalRoute><AdminExpertPaymentPlanner /></AdminPortalRoute>} />
                 <Route path="/admin/appointments" element={<AdminPortalRoute><AdminAppointmentEngine /></AdminPortalRoute>} />
+                <Route path="/admin/assessment-reports-statistics" element={<AdminPortalRoute><AdminAssessmentReportsStatistics /></AdminPortalRoute>} />
                 <Route path="/admin/analytics" element={<AdminPortalRoute><AdminAnalytics /></AdminPortalRoute>} />
                 <Route path="/admin/iam" element={<AdminPortalRoute><AdminIAM /></AdminPortalRoute>} />
                 <Route path="/admin/system-control" element={<AdminPortalRoute><AdminSystemControl /></AdminPortalRoute>} />
