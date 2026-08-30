@@ -72,7 +72,7 @@ export const useAttorneyDashboardStats = () => {
         { data: documentsData },
       ] = await Promise.all([
         supabase
-          .from('appointments')
+          .from('external_portal_cases' as any)
           .select('*', { count: 'exact', head: true })
           .is('deleted_at', null),
         supabase
@@ -98,17 +98,16 @@ export const useAttorneyDashboardStats = () => {
           .select('*', { count: 'exact', head: true })
           .eq('status', 'pending'),
         supabase
-          .from('appointments')
-          .select('id')
+          .from('external_portal_cases' as any)
+          .select('appointment_id')
           .is('deleted_at', null),
         supabase
-          .from('documents')
-          .select('appointment_id')
-          .not('appointment_id', 'is', null),
+          .from('external_portal_case_documents' as any)
+          .select('appointment_id'),
       ]);
 
-      const appointmentIdsWithDocs = new Set(documentsData?.map(d => d.appointment_id) || []);
-      const missingDocsCount = appointmentsData?.filter(a => !appointmentIdsWithDocs.has(a.id)).length || 0;
+      const appointmentIdsWithDocs = new Set((documentsData as any[] | null)?.map(d => d.appointment_id) || []);
+      const missingDocsCount = (appointmentsData as any[] | null)?.filter(a => !appointmentIdsWithDocs.has(a.appointment_id)).length || 0;
 
       const actionsNeeded = (pendingConfirmations || 0) + missingDocsCount;
 
@@ -132,55 +131,53 @@ export const useAttorneyDashboardStats = () => {
       // the right place for a preview cap, not here, where every
       // other consumer needs the true, complete list.
       //
-      // The report file itself comes from `documents` (document_type =
-      // 'Expert Report'), NOT `report_versions` — report_versions has a
-      // schema but is never written to by any code path in this app;
-      // the real file an expert submits (ExpertCaseDetail.tsx) is
-      // inserted straight into `documents`. RLS (Phase 27) already
-      // filters this embed down to only reports that are both
-      // is_visible_to_attorney and past staff review, so an empty
-      // result here correctly means "not available to you yet",
-      // not "query is broken".
+      // Case list comes from the external-portal mirror table instead
+      // of appointments directly — claimant/expert identity is already
+      // denormalized there, so expert_reports and documents are the
+      // only separate lookups needed (both keyed by appointment_id,
+      // stitched client-side rather than via a Supabase embed since
+      // the mirror table has no FK relationship configured for that
+      // syntax). approval_status was selected here before but never
+      // actually used in the mapping below, so it's dropped rather
+      // than added to the mirror.
       const { data: casesData } = await supabase
-        .from('appointments')
+        .from('external_portal_cases' as any)
         .select(`
-          id,
-          appointment_date,
-          case_status,
-          claimants(first_name, last_name, auto_id),
-          medical_experts(expert_type),
-          expert_reports(report_status, report_submitted_date, created_at),
-          documents(id, file_name, file_path, document_type, approval_status, created_at)
+          appointment_id, appointment_date, case_status,
+          claimant_first_name, claimant_last_name, claimant_auto_id, expert_type
         `)
         .is('deleted_at', null)
-        .order('appointment_date', { ascending: false });
+        .order('appointment_date', { ascending: false }) as { data: any[] | null };
+
+      const liveApptIds = (casesData || []).map(c => c.appointment_id);
+
+      const [{ data: reportsData }, { data: docsData }] = await Promise.all([
+        liveApptIds.length
+          ? supabase.from('expert_reports').select('appointment_id, report_status, report_submitted_date, created_at').in('appointment_id', liveApptIds)
+          : Promise.resolve({ data: [] as any[] }),
+        liveApptIds.length
+          ? supabase.from('external_portal_case_documents' as any).select('appointment_id, document_id, file_name, file_path, document_type, created_at').in('appointment_id', liveApptIds).eq('document_type', 'Expert Report')
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
 
       const processedCases: LiveCaseStatus[] = (casesData || []).map(appointment => {
-        const claimant = Array.isArray(appointment.claimants) 
-          ? appointment.claimants[0] 
-          : appointment.claimants;
-        const expert = Array.isArray(appointment.medical_experts) 
-          ? appointment.medical_experts[0] 
-          : appointment.medical_experts;
-        const report = Array.isArray(appointment.expert_reports) 
-          ? appointment.expert_reports[0] 
-          : appointment.expert_reports;
+        const claimant = { first_name: appointment.claimant_first_name, last_name: appointment.claimant_last_name, auto_id: appointment.claimant_auto_id };
+        const expert = { expert_type: appointment.expert_type };
+        const report = (reportsData || []).find((r: any) => r.appointment_id === appointment.appointment_id);
 
-        // The actual report file lives in `documents` (document_type =
-        // 'Expert Report'), not the orphaned report_versions table —
-        // nothing in this codebase ever writes a report_versions row.
-        // RLS (Phase 27) already excludes documents still pending staff
-        // approval or explicitly hidden from the attorney, so whatever
-        // comes back here is genuinely available to download. Mapped
-        // into the same {file_name, file_path, version_number,
-        // created_at} shape AttorneyReports.tsx already expects —
-        // version_number is synthesized from upload order since these
-        // rows were never actually versioned.
-        const reportDocs = (Array.isArray(appointment.documents) ? appointment.documents : [])
-          .filter((d: any) => d.document_type === 'Expert Report')
+        // The actual report file lives in `documents` (mirrored here as
+        // external_portal_case_documents, document_type = 'Expert
+        // Report'), not the orphaned report_versions table — nothing in
+        // this codebase ever writes a report_versions row. Mapped into
+        // the same {file_name, file_path, version_number, created_at}
+        // shape AttorneyReports.tsx already expects — version_number is
+        // synthesized from upload order since these rows were never
+        // actually versioned.
+        const reportDocs = (docsData || [])
+          .filter((d: any) => d.appointment_id === appointment.appointment_id)
           .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         const reportVersions = reportDocs.map((d: any, idx: number) => ({
-          id: d.id,
+          id: d.document_id,
           file_name: d.file_name,
           file_path: d.file_path,
           version_number: reportDocs.length - idx,
@@ -245,7 +242,7 @@ export const useAttorneyDashboardStats = () => {
         const currentPhase = phases[phaseOrder]?.name || phases[0].name;
 
         return {
-          id: appointment.id,
+          id: appointment.appointment_id,
           claimantName: claimant 
             ? `${claimant.first_name || ''} ${claimant.last_name || ''}`.trim() 
             : 'Unknown',
@@ -259,7 +256,7 @@ export const useAttorneyDashboardStats = () => {
           // was actually reading — it previously read (c as any).appointmentId,
           // a field that never existed on this object, so it was always
           // null there regardless of the real appointment id.
-          appointmentId: appointment.id,
+          appointmentId: appointment.appointment_id,
           caseStatus: appointment.case_status,
           reportVersions,
         };
