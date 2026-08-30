@@ -174,7 +174,13 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'Workflow',
     icon: RandSign,
     description: 'AOD, debtors, payments, agreements, internal invoices',
-    roles: ['admin', 'employee', 'sales_consultant', 'finance', 'director'],
+    // sales_consultant deliberately excluded: RLS on every table this
+    // page reads (aod_documents, short_term_agreements) already only
+    // bypasses for admin/employee — a sales consultant has never
+    // actually been able to see anything here, just empty tables and
+    // non-functional payment/sync buttons. Removing the nav entry
+    // matches what the database already enforces.
+    roles: ['admin', 'employee', 'finance', 'director'],
     permissions: [{ category: 'Case Management', functionName: 'AOD Management' }],
     // Home base for finance/director — mirrors the sales-dashboard 'core'
     // carve-out above so those roles always have somewhere to land.
