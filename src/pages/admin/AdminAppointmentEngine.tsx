@@ -110,6 +110,27 @@ const AdminAppointmentEngine: React.FC = () => {
   // losing their place in a tab.
   const [isBookingOpen, setIsBookingOpen] = useState(false);
 
+  // Set when the Assessments tab's Edit action opens this same panel for an
+  // existing appointment, instead of the old behaviour of a full-page
+  // redirect to the standalone /new-appointment route. Cleared whenever the
+  // panel closes so a later "New Appointment" click always starts blank.
+  const [editAppointmentId, setEditAppointmentId] = useState<string | null>(null);
+
+  const openNewAppointment = () => {
+    setEditAppointmentId(null);
+    setIsBookingOpen(true);
+  };
+
+  const openEditAppointment = (appointmentId: string) => {
+    setEditAppointmentId(appointmentId);
+    setIsBookingOpen(true);
+  };
+
+  const closeBookingPanel = () => {
+    setIsBookingOpen(false);
+    setEditAppointmentId(null);
+  };
+
   return (
     <AdminPage className="max-w-7xl">
       <AdminHeader
@@ -122,7 +143,7 @@ const AdminAppointmentEngine: React.FC = () => {
             <LiveClock />
             <Button
               className="rounded-none bg-black text-white hover:bg-black/90"
-              onClick={() => setIsBookingOpen(true)}
+              onClick={openNewAppointment}
             >
               <PlusCircle className="mr-2 h-4 w-4" />
               New Appointment
@@ -149,7 +170,11 @@ const AdminAppointmentEngine: React.FC = () => {
             return (
               <TabsContent key={t.value} value={t.value} className="mt-0 focus-visible:outline-none">
                 <Suspense fallback={<TabFallback />}>
-                  <ModuleComponent />
+                  {t.value === 'assessments' ? (
+                    <ScheduledAssessmentModule onEditAppointment={openEditAppointment} />
+                  ) : (
+                    <ModuleComponent />
+                  )}
                 </Suspense>
               </TabsContent>
             );
@@ -157,7 +182,7 @@ const AdminAppointmentEngine: React.FC = () => {
         </div>
       </Tabs>
 
-      <Sheet open={isBookingOpen} onOpenChange={setIsBookingOpen}>
+      <Sheet open={isBookingOpen} onOpenChange={(open) => (open ? setIsBookingOpen(true) : closeBookingPanel())}>
         <SheetContent
           side="right"
           className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-3xl"
@@ -165,13 +190,17 @@ const AdminAppointmentEngine: React.FC = () => {
           <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
             <SheetTitle className="flex items-center gap-2 text-black">
               <PlusCircle className="h-4 w-4" style={{ color: BRAND_TEAL }} />
-              New Appointment
+              {editAppointmentId ? 'Edit Appointment' : 'New Appointment'}
             </SheetTitle>
-            <SheetDescription>Book a new appointment without leaving the schedule.</SheetDescription>
+            <SheetDescription>
+              {editAppointmentId
+                ? 'Update this appointment without leaving the schedule.'
+                : 'Book a new appointment without leaving the schedule.'}
+            </SheetDescription>
           </SheetHeader>
           <div className="flex-1 px-4 py-4 sm:px-6">
             <Suspense fallback={<TabFallback />}>
-              <NewAppointmentModule onCancel={() => setIsBookingOpen(false)} />
+              <NewAppointmentModule onCancel={closeBookingPanel} appointmentId={editAppointmentId ?? undefined} />
             </Suspense>
           </div>
         </SheetContent>
