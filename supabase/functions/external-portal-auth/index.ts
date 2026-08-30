@@ -730,22 +730,35 @@ async function bridgeToSupabaseAuth(supabaseAdmin: any, account: {
     if (match) authUserId = match.id;
   }
 
-  // Refuse to bridge into an identity that already holds an internal
-  // staff role. Every RLS policy in this system treats admin/employee
-  // as "see everything, no scoping" — if this email happens to match
-  // (or was previously used for) an internal staff account, bridging
-  // into it would silently hand the external portal login full
-  // cross-firm visibility into every case, invoice, and document in
-  // the system, not just their own. This is a hard stop, not a
-  // silent downgrade, because an admin/employee row existing here at
-  // all means something upstream (account creation, an email typo)
-  // needs a human to look at it before this person logs in as anyone.
+  // Refuse to bridge into an identity that already holds ANY internal
+  // staff role — admin, employee, sales_consultant, finance, or
+  // director (the full set create-user can provision; see its
+  // validRoles list). Every RLS policy in this system treats
+  // admin/employee as "see everything, no scoping", and even the
+  // narrower staff roles must never be silently overwritten with an
+  // external-portal identity — if this email happens to match (or was
+  // previously used for) an internal staff account, bridging into it
+  // would either hand the external portal login cross-firm visibility,
+  // or (as happened in production 2026-08-29 with a 'finance' account)
+  // silently overwrite that staff member's role/name/user_type with the
+  // external contact's, and get_current_user_role() would then resolve
+  // them as the external role on every subsequent login. This is a hard
+  // stop, not a silent downgrade, because a staff role existing here at
+  // all means something upstream (account creation, an email typo, a
+  // shared inbox) needs a human to look at it before this person logs
+  // in as anyone.
+  //
+  // IMPORTANT: keep this list in sync with the internal staff role set
+  // (currently: create-user/index.ts's validRoles, and the CASE ranking
+  // in get_current_user_role()). A role missing from here is a role
+  // that can be silently hijacked into an external portal identity.
+  const INTERNAL_STAFF_ROLES = ["admin", "employee", "sales_consultant", "finance", "director"];
   if (authUserId) {
     const { data: staffRoles } = await supabaseAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", authUserId)
-      .in("role", ["admin", "employee"]);
+      .in("role", INTERNAL_STAFF_ROLES);
     if (staffRoles && staffRoles.length > 0) {
       throw new Error(
         `Cannot provision external portal session: ${email} is linked to an internal staff account. Contact an administrator.`,
