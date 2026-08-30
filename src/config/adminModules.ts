@@ -66,6 +66,10 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'Core',
     icon: LayoutDashboard,
     description: 'Main admin overview & KPIs',
+    // Director is also granted this live in role_module_defaults (confirmed
+    // 2026-08-30 audit) — documented here so this file stays the accurate
+    // source of truth instead of silently drifting from the DB.
+    roles: ['admin', 'employee', 'director'],
     permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
   },
   {
@@ -156,6 +160,10 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'Workflow',
     icon: BarChart3,
     description: 'Operational reporting dashboards',
+    // Director is also granted this live in role_module_defaults (confirmed
+    // 2026-08-30 audit) — documented here so this file stays the accurate
+    // source of truth instead of silently drifting from the DB.
+    roles: ['admin', 'employee', 'director'],
     permissions: [{ category: 'Analytics & Reporting', functionName: 'System Reports' }],
   },
   {
@@ -308,7 +316,10 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'System',
     icon: Mail,
     description: 'Weekly & monthly consultant performance emails',
-    roles: ['admin'],
+    // Director is also granted this live in role_module_defaults (confirmed
+    // 2026-08-30 audit) — documented here so this file stays the accurate
+    // source of truth instead of silently drifting from the DB.
+    roles: ['admin', 'director'],
     permissions: [{ category: 'User Management', functionName: 'Manage Users' }],
   },
   {
@@ -318,7 +329,10 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'System',
     icon: Mail,
     description: 'Weekly expert payments & assessments booked summary',
-    roles: ['admin'],
+    // Director is also granted this live in role_module_defaults (confirmed
+    // 2026-08-30 audit) — documented here so this file stays the accurate
+    // source of truth instead of silently drifting from the DB.
+    roles: ['admin', 'director'],
     permissions: [{ category: 'User Management', functionName: 'Manage Users' }],
   },
   // Account
@@ -329,7 +343,11 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'Account',
     icon: User,
     description: 'Personal profile & preferences',
-    roles: ['admin', 'employee', 'sales_consultant'],
+    // finance/director are also granted this live in role_module_defaults
+    // (confirmed 2026-08-30 audit) — every role needs a profile page, so
+    // this brings the documented intent in line with reality rather than
+    // leaving it looking unintentional.
+    roles: ['admin', 'employee', 'sales_consultant', 'finance', 'director'],
     permissions: [],
   },
 ];
