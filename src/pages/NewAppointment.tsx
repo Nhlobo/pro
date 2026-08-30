@@ -69,13 +69,31 @@ const NEW_APPOINTMENT_DEFAULTS = {
  * navigating to another route — used by the side-panel host so Cancel just
  * closes the panel (matching the header's X) and leaves the user exactly
  * where they were, instead of routing them away to another page.
+ *
+ * `appointmentId`, when provided, puts the form directly into edit mode for
+ * that appointment — used by the Appointment Engine's side panel so it can
+ * open this form pre-loaded without touching the browser URL. Standalone
+ * usage keeps reading `?appointmentId=` from the URL as before. Either way,
+ * a successful save/update stays in-panel (calling `onCancel`) instead of
+ * navigating to the old standalone `/scheduled-assessment` page when
+ * embedded — that redirect is only correct for the standalone route.
  */
-const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; onCancel?: () => void } = {}) => {
+const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointmentIdProp }: { embedded?: boolean; onCancel?: () => void; appointmentId?: string } = {}) => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/new-appointment';
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const editingAppointmentId = searchParams.get('appointmentId');
+  const editingAppointmentId = appointmentIdProp ?? searchParams.get('appointmentId');
   const isEditMode = !!editingAppointmentId;
+
+  // After a successful create/update: stay in-panel when embedded (closing
+  // via onCancel) instead of navigating to the standalone assessments page.
+  const returnAfterSave = () => {
+    if (embedded) {
+      onCancel?.();
+    } else {
+      navigate('/scheduled-assessment');
+    }
+  };
   
   const [bookingType, setBookingType] = useState("single");
   const [attorneys, setAttorneys] = useState([]);
@@ -790,7 +808,7 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
         toast.success(`${appointmentQueue.length} appointment(s) scheduled successfully! Please send confirmation emails manually.`);
         clearDraft(); // Wipe the draft after successful submit
         setAppointmentQueue([]);
-        navigate('/scheduled-assessment');
+        returnAfterSave();
     } catch (error) {
       console.error('Error creating appointments:', error);
       toast.error(`Failed to schedule appointments: ${error.message || 'Unknown error'}`);
@@ -1018,7 +1036,7 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
         
         // Navigate back with a slight delay to ensure all updates are visible
         setTimeout(() => {
-          navigate('/scheduled-assessment');
+          returnAfterSave();
         }, 500);
       } else {
         // Create new appointment
@@ -1077,7 +1095,7 @@ const NewAppointment = ({ embedded = false, onCancel }: { embedded?: boolean; on
 
         toast.success('Appointment scheduled successfully! Please send confirmation emails manually.');
         clearDraft(); // Wipe draft after successful submit
-        navigate('/scheduled-assessment');
+        returnAfterSave();
       }
     } catch (error) {
       console.error('Error with appointment:', error);
