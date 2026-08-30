@@ -72,8 +72,8 @@ export const useExpertDashboardStats = () => {
 
       const [apptsRes, reportsRes, debtsRes] = await Promise.all([
         supabase
-          .from('appointments')
-          .select(`*, claimants(first_name, last_name, auto_id), referring_attorneys:referring_attorney_id(name), medical_experts:expert_id(practice_address)`)
+          .from('external_portal_cases' as any)
+          .select(`appointment_id, appointment_date, claimant_first_name, claimant_last_name, claimant_auto_id, referring_attorney_name, expert_practice_address`)
           .eq('expert_id', linkedExpertId)
           .is('deleted_at', null)
           .order('appointment_date', { ascending: true }),
@@ -102,7 +102,13 @@ export const useExpertDashboardStats = () => {
       if (debtsRes.error) console.error('[useExpertDashboardStats] expert_payments query failed', debtsRes.error);
 
       const now = new Date();
-      const allAppts = apptsRes.data || [];
+      const allAppts = ((apptsRes.data || []) as any[]).map(a => ({
+        id: a.appointment_id,
+        appointment_date: a.appointment_date,
+        claimants: { first_name: a.claimant_first_name, last_name: a.claimant_last_name, auto_id: a.claimant_auto_id },
+        referring_attorneys: { name: a.referring_attorney_name },
+        medical_experts: { practice_address: a.expert_practice_address },
+      }));
       const allReports = reportsRes.data || [];
 
       const payments = debtsRes.data || [];
