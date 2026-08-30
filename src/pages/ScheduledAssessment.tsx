@@ -186,7 +186,27 @@ const AssessmentPeriodStats = ({
   );
 };
 
-const ScheduledAssessment = () => {
+/**
+ * `embedded` drops the page's own Helmet tags, System Header Nav, and
+ * footer when this view is hosted inside another surface's chrome — i.e.
+ * the Admin Portal's Appointment Engine "Assessments" tab. Standalone
+ * route usage (`/scheduled-assessment`, e.g. the Referring Attorney
+ * portal) is unaffected. Same pattern as NewAppointment's and Referring
+ * Attorney Update's `embedded` prop.
+ *
+ * This also closes a security-hygiene gap: SystemHeaderNav's links
+ * (Dashboard, Report Tracking, Sample Reports, etc.) are gated by the
+ * older, standalone route permission model — not the Admin Portal's
+ * module-based access control. Surfacing them inside the Admin Portal let
+ * staff jump from a properly gated screen into pages that gate access
+ * differently, so they're dropped entirely rather than just visually
+ * hidden.
+ *
+ * `onEditAppointment`, when provided, is used by the Edit action instead of
+ * a full-page redirect to the standalone `/new-appointment` route — the
+ * Admin Portal host opens its own in-panel editor instead.
+ */
+const ScheduledAssessment = ({ embedded = false, onEditAppointment }: { embedded?: boolean; onEditAppointment?: (appointmentId: string) => void } = {}) => {
   const { toast } = useToast();
   const { triggerSync } = useAppointmentSync();
   const [searchTerm, setSearchTerm] = useState("");
@@ -962,6 +982,10 @@ const ScheduledAssessment = () => {
   };
 
   const handleEditClick = (appointmentId: string) => {
+    if (embedded && onEditAppointment) {
+      onEditAppointment(appointmentId);
+      return;
+    }
     window.location.href = `/new-appointment?appointmentId=${appointmentId}`;
   };
 
@@ -1990,14 +2014,16 @@ const ScheduledAssessment = () => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/scheduled-assessment';
 
   return (
-    <div className="min-h-screen bg-background">
-      <Helmet>
-        <title>Scheduled Assessments - Medico-Legal Assessment System</title>
-        <meta name="description" content="View and manage all scheduled medical assessment appointments with download reporting capabilities." />
-        <link rel="canonical" href={canonicalUrl} />
-      </Helmet>
+    <div className={embedded ? '' : 'min-h-screen bg-background'}>
+      {!embedded && (
+        <Helmet>
+          <title>Scheduled Assessments - Medico-Legal Assessment System</title>
+          <meta name="description" content="View and manage all scheduled medical assessment appointments with download reporting capabilities." />
+          <link rel="canonical" href={canonicalUrl} />
+        </Helmet>
+      )}
 
-      <SystemHeaderNav />
+      {!embedded && <SystemHeaderNav />}
 
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 sm:py-6">
@@ -2020,7 +2046,7 @@ const ScheduledAssessment = () => {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-3">
+      <main className={embedded ? '' : 'container mx-auto px-4 py-3'}>
         {/* Statistics Integration Information */}
         <Card className="mb-2 rounded-none border-black/10">
           <CardContent className="p-3">
@@ -2030,7 +2056,10 @@ const ScheduledAssessment = () => {
                 <h3 className="font-semibold text-sm mb-1">Data Feeds Assessment Reports & Statistics</h3>
                 <p className="text-sm text-muted-foreground">
                   All appointments created and managed here automatically appear in the{' '}
-                  <Link to="/assessment-reports-statistics" className="text-primary hover:underline font-medium">
+                  <Link
+                    to={embedded ? '/admin/assessment-reports-statistics' : '/assessment-reports-statistics'}
+                    className="text-primary hover:underline font-medium"
+                  >
                     Assessment Reports & Statistics
                   </Link>{' '}
                   page for comprehensive analysis and reporting.
@@ -2732,7 +2761,7 @@ const ScheduledAssessment = () => {
           </DialogContent>
         </Dialog>
 
-        <CompanyFooter />
+        {!embedded && <CompanyFooter />}
       </div>
     );
   };
