@@ -46,9 +46,9 @@ export type Database = {
       // complete definitions (there may be additional columns not listed
       // here, e.g. timestamps, that no current query happens to select).
       access_role_assignments: {
-        Row: { id: string; user_id: string; role_key: string; assigned_by: string | null; created_at: string; updated_at: string }
-        Insert: { id?: string; user_id: string; role_key: string; assigned_by?: string | null; created_at?: string; updated_at?: string }
-        Update: { id?: string; user_id?: string; role_key?: string; assigned_by?: string | null; created_at?: string; updated_at?: string }
+        Row: { id: string; user_id: string; role_key: string; assigned_by: string | null; assigned_at: string }
+        Insert: { id?: string; user_id: string; role_key: string; assigned_by?: string | null; assigned_at?: string }
+        Update: { id?: string; user_id?: string; role_key?: string; assigned_by?: string | null; assigned_at?: string }
         Relationships: []
       }
       access_modules: {
@@ -5167,7 +5167,7 @@ export type Database = {
         Insert: {
           created_at?: string
           error?: string | null
-          event_type: string
+          event_type?: string
           id?: string
           payload: Json
           response_body?: string | null
