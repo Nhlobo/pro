@@ -218,8 +218,21 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     if (authError || !user) return errorResponse("Invalid authentication", 401);
 
-    const { data: isAdmin } = await supabaseAdmin.rpc("has_role", { _user_id: user.id, _role: "admin" });
-    if (!isAdmin) return errorResponse("Admin privileges required", 403);
+    // Who may create/send an access link: admin, employee, or sales_consultant —
+    // the exact same set already granted this page in src/config/adminModules.ts
+    // ("Create portal accounts and send access links to referring attorneys and
+    // medical experts"). This was previously hard admin-only, which silently
+    // broke the page for the non-admin staff it was built for. Deliberately NOT
+    // extended to other actions — account status changes (pause/expire/delete)
+    // stay admin-only via the separate external_portal_set_account_status
+    // RPC, and that boundary is untouched by this change.
+    const ALLOWED_ROLES = ["admin", "employee", "sales_consultant"];
+    const { data: roleRows } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id);
+    const callerRole = (roleRows ?? []).map((r: { role: string }) => r.role).find((r: string) => ALLOWED_ROLES.includes(r));
+    if (!callerRole) return errorResponse("You do not have permission to manage portal access links", 403);
 
     const body: RequestBody = await req.json();
 
@@ -326,7 +339,7 @@ serve(async (req) => {
       }
 
       await supabaseAdmin.rpc("external_portal_log_audit", {
-        _actor_type: "admin",
+        _actor_type: callerRole,
         _actor_id: user.id,
         _account_id: account.id,
         _action: "access_link_generated",
@@ -353,7 +366,7 @@ serve(async (req) => {
       if (error || !link) return errorResponse("Link not found or already used/revoked");
 
       await supabaseAdmin.rpc("external_portal_log_audit", {
-        _actor_type: "admin",
+        _actor_type: callerRole,
         _actor_id: user.id,
         _account_id: link.account_id,
         _action: "access_link_revoked",
