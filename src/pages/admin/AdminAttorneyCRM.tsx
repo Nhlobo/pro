@@ -369,7 +369,7 @@ const AdminAttorneyCRM: React.FC = () => {
       />
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <AdminTabList sticky columns={7}>
+        <AdminTabList sticky columns={isSales ? 5 : 7}>
           <AdminTabTrigger value="sales-dashboard" label="Sales Dashboard" icon={BarChart3} center />
           <AdminTabTrigger
             value="pitchlog"
@@ -379,8 +379,18 @@ const AdminAttorneyCRM: React.FC = () => {
             center
           />
           <AdminTabTrigger value="overview" label="CRM Overview" icon={Building2} center />
-          <AdminTabTrigger value="new-claimant" label="New Claimant" icon={UserPlus} center />
-          <AdminTabTrigger value="all-claimants" label="All Claimants" icon={List} center />
+          {/* New Claimant / All Claimants: RLS on claimants only bypasses
+              for admin/employee (see "Users can create/view claimants
+              based on role"), and sales consultants carry only the
+              sales_consultant role — never employee. These two tabs
+              have only ever been a dead end for them: New Claimant
+              fails on submit with a permission error, All Claimants
+              always renders empty. Hidden rather than fixed, since
+              claimant case management isn't part of this role's job
+              (relationship-building with attorneys is — see
+              "All Attorneys" below, which they do have real access to). */}
+          {!isSales && <AdminTabTrigger value="new-claimant" label="New Claimant" icon={UserPlus} center />}
+          {!isSales && <AdminTabTrigger value="all-claimants" label="All Claimants" icon={List} center />}
           <AdminTabTrigger value="new-attorney" label="New Attorney" icon={UserPlus} center />
           <AdminTabTrigger value="all-attorneys" label="All Attorneys" icon={Users} center />
         </AdminTabList>
@@ -402,17 +412,21 @@ const AdminAttorneyCRM: React.FC = () => {
             </Suspense>
           </TabsContent>
 
-          <TabsContent value="new-claimant" className="mt-0 focus-visible:outline-none">
-            <Suspense fallback={<TabFallback />}>
-              <ClaimantFormModule />
-            </Suspense>
-          </TabsContent>
+          {!isSales && (
+            <TabsContent value="new-claimant" className="mt-0 focus-visible:outline-none">
+              <Suspense fallback={<TabFallback />}>
+                <ClaimantFormModule />
+              </Suspense>
+            </TabsContent>
+          )}
 
-          <TabsContent value="all-claimants" className="mt-0 focus-visible:outline-none">
-            <Suspense fallback={<TabFallback />}>
-              <ClaimantListModule />
-            </Suspense>
-          </TabsContent>
+          {!isSales && (
+            <TabsContent value="all-claimants" className="mt-0 focus-visible:outline-none">
+              <Suspense fallback={<TabFallback />}>
+                <ClaimantListModule />
+              </Suspense>
+            </TabsContent>
+          )}
 
           <TabsContent value="new-attorney" className="mt-0 focus-visible:outline-none">
             <Suspense fallback={<TabFallback />}>
