@@ -8,9 +8,12 @@ interface NewAppointmentModuleProps {
   /** Called when the form's Cancel button is used — closes the host panel
    *  instead of navigating away, so the user stays on the Appointment Engine. */
   onCancel?: () => void;
+  /** When set, opens the form directly in edit mode for this appointment
+   *  instead of a blank "new appointment" form. */
+  appointmentId?: string;
 }
 
-const NewAppointmentModule: React.FC<NewAppointmentModuleProps> = ({ onCancel }) => {
+const NewAppointmentModule: React.FC<NewAppointmentModuleProps> = ({ onCancel, appointmentId }) => {
   return (
     <Suspense fallback={
       <div className="space-y-4 p-4">
@@ -18,7 +21,7 @@ const NewAppointmentModule: React.FC<NewAppointmentModuleProps> = ({ onCancel })
         <Skeleton className="h-64 w-full" />
       </div>
     }>
-      <NewAppointmentPage embedded onCancel={onCancel} />
+      <NewAppointmentPage embedded onCancel={onCancel} appointmentId={appointmentId} />
     </Suspense>
   );
 };
