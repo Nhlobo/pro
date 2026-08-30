@@ -109,24 +109,23 @@ const AttorneyPayments: React.FC = () => {
     try {
       // Fetch AOD documents
       const { data: aodData } = await supabase
-        .from('aod_documents')
+        .from('external_portal_agreements' as any)
         .select('*')
         .order('created_at', { ascending: false });
 
       if (aodData) {
-        setAodDocuments(aodData);
+        setAodDocuments(aodData as any);
 
-        // Fetch payments for these AODs
-        const aodIds = aodData.map(d => d.id);
+        const aodIds = (aodData as any[]).map(d => d.id);
         if (aodIds.length > 0) {
           const { data: paymentData } = await supabase
-            .from('aod_payments')
+            .from('external_portal_agreement_payments' as any)
             .select('*')
             .in('aod_document_id', aodIds)
             .order('payment_date', { ascending: false });
 
           if (paymentData) {
-            setPayments(paymentData);
+            setPayments(paymentData as any);
           }
         }
       }
