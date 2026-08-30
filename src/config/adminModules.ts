@@ -201,6 +201,20 @@ export const ADMIN_MODULES: AdminModule[] = [
     permissions: [{ category: 'Appointment Management' }],
   },
   {
+    key: 'assessment-reports',
+    title: 'Assessment Reports & Statistics',
+    href: '/admin/assessment-reports-statistics',
+    group: 'Workflow',
+    icon: BarChart3,
+    description: 'Assessment performance, completion rates & expert analytics',
+    // Same bucket as Reporting System below — one "System Reports" grant
+    // covers both, since this is effectively that module's assessment-
+    // focused view. Director gets it per their reporting needs; it isn't
+    // their 'core' page since Finance & Payments already is.
+    roles: ['admin', 'employee', 'director'],
+    permissions: [{ category: 'Analytics & Reporting', functionName: 'System Reports' }],
+  },
+  {
     key: 'email',
     title: 'Email History',
     href: '/email-queue',
