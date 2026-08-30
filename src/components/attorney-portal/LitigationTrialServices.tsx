@@ -104,7 +104,7 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('litigation_service_requests' as any)
+        .from('external_portal_litigation_requests' as any)
         .select('*')
         .order('requested_at', { ascending: false });
       if (!error && data) {
