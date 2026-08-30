@@ -169,6 +169,7 @@ const ExternalPortalAccounts: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-slate-500">{formatDateTimeShort(a.created_at)}</TableCell>
                       <TableCell>
+                        {isAdminUser ? (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none">
@@ -191,19 +192,26 @@ const ExternalPortalAccounts: React.FC = () => {
                                 <XCircle className="mr-2 h-4 w-4" /> Mark Expired
                               </DropdownMenuItem>
                             )}
-                            {isAdminUser && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-destructive focus:text-destructive"
-                                  onClick={() => setStatus.mutate({ accountId: a.id, status: 'deleted' })}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" /> Move to Recycle Bin
-                                </DropdownMenuItem>
-                              </>
-                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setStatus.mutate({ accountId: a.id, status: 'deleted' })}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" /> Move to Recycle Bin
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
+                        ) : (
+                          // Status changes (active/paused/expired) and deletion are
+                          // enforced admin-only inside the external_portal_set_
+                          // account_status RPC regardless of what the UI shows, so
+                          // there is nothing functional to offer a non-admin here —
+                          // showing the menu with buttons that always fail server-side
+                          // would just be confusing. Employees/sales consultants can
+                          // still create new accounts via "New Portal Account" above;
+                          // ask an admin to change an existing account's status.
+                          <span className="text-xs text-slate-300">—</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
