@@ -78,22 +78,16 @@ export const ADMIN_MODULES: AdminModule[] = [
     href: '/admin/attorney-crm',
     group: 'Core',
     icon: Users,
-    description: 'Referring attorney directory & pipeline',
-    roles: ['admin', 'employee', 'sales_consultant'],
-    permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
-  },
-  {
-    key: 'sales-dashboard',
-    title: 'Sales Dashboard',
-    href: '/admin/sales-dashboard',
-    group: 'Core',
-    icon: BarChart3,
-    description: 'Personal targets, incentives & deal tracking for sales consultants',
+    description: 'Referring attorney directory & pipeline (includes the Sales Dashboard tab)',
     roles: ['admin', 'employee', 'sales_consultant'],
     permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
     // A sales consultant's home base — always reachable so they're never
     // locked out of the portal entirely, even with every other module
-    // revoked.
+    // revoked. This used to belong to a standalone 'sales-dashboard'
+    // module/route, but that page was a full duplicate of the "Sales
+    // Dashboard" tab that already lives inside this same page (see
+    // AdminAttorneyCRM.tsx) — removed 2026-08-31 so there is exactly one
+    // page, matching every other module here.
     core: ['sales_consultant'],
   },
   {
