@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { Helmet } from "react-helmet-async";
 import { z } from "zod";
@@ -26,10 +25,10 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
-import { CheckCircle, User, MapPin, ArrowLeft, Upload, FileText, Shield, Plus } from "lucide-react";
+import { CheckCircle, User, MapPin, Upload, FileText, Shield, Plus } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Link } from "react-router-dom";
 import { generateExpertCode } from "@/utils/idGenerators";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 
@@ -546,32 +545,22 @@ const MedicalExpertForm = () => {
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <Button variant="outline" asChild>
-            <Link to="/" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
-        </div>
+      <DashboardStickyHeader
+        title={isEditMode ? "Edit Medical Expert" : "Medical Expert Form"}
+        subtitle={
+          isEditMode
+            ? "Update expert information and details for administrative control."
+            : "Register medical experts with their specializations and details for internal management."
+        }
+        actions={
+          <Badge variant="outline" className="hidden border-white/30 bg-white/10 text-white sm:flex">
+            <Shield className="h-4 w-4 mr-1" />
+            Internal Control
+          </Badge>
+        }
+      />
 
-        <header className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
-                {isEditMode ? 'Edit Medical Expert' : 'Medical Expert Form'}
-                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                  <Shield className="h-4 w-4 mr-1" />
-                  Internal Control
-                </Badge>
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                {isEditMode ? 'Update expert information and details for administrative control.' : 'Register medical experts with their specializations and details for internal management.'}
-              </p>
-            </div>
-          </div>
-        </header>
+      <main className="container mx-auto px-4 py-8">
 
         {/* Bulk Upload Section */}
         <Card className="mb-6 border-primary/20 bg-primary/5">
