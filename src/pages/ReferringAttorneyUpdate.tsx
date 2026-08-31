@@ -259,8 +259,8 @@ const ReferringAttorneyUpdate = ({ embedded = false }: { embedded?: boolean } = 
       {!embedded && (
         <DashboardStickyHeader
           title="Assessment Update"
-          backHref="/admin"
-          backLabel="Admin"
+          backHref="/dashboard"
+          backLabel="Dashboard"
           actions={
             <div className="flex flex-wrap items-center gap-2">
               {selectedRows.size > 0 && (
