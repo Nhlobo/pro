@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   CalendarIcon,
-  ArrowLeft,
   AlertTriangle,
   UserSquare2,
   Stethoscope,
@@ -18,6 +17,7 @@ import {
   ListChecks,
   X,
 } from "lucide-react";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -1242,17 +1242,11 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
       )}
 
       {!embedded && (
-        <header className="border-b border-black/10 bg-white">
-          <div className="container mx-auto flex items-center gap-4 px-4 py-6">
-            <Button variant="outline" size="sm" className="rounded-none border-black/15 hover:bg-black/5" asChild>
-              <Link to="/scheduled-assessment">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Scheduled Assessments
-              </Link>
-            </Button>
-            <h1 className="text-2xl font-bold text-black">{isEditMode ? 'Edit Appointment' : 'Schedule New Appointment'}</h1>
-          </div>
-        </header>
+        <DashboardStickyHeader
+          title={isEditMode ? "Edit Appointment" : "Schedule New Appointment"}
+          backHref="/scheduled-assessment"
+          backLabel="Scheduled Assessments"
+        />
       )}
 
       <main className={embedded ? '' : 'container mx-auto px-4 py-8'}>
