@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Clock, Search, Download, Filter, TrendingUp, Users, FileText, AlertTriangle } from "lucide-react";
+import { Clock, Search, Download, Filter, TrendingUp, Users, FileText, AlertTriangle } from "lucide-react";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
@@ -504,25 +505,23 @@ const ReferringAttorneyDebtorsControl = () => {
         <meta name="description" content="Manage referring attorney debts linked to scheduled assessments, AOD agreements, and short-term payments." />
       </Helmet>
 
+      <DashboardStickyHeader
+        title="Debtors Control"
+        subtitle="Manage referring attorney debts — linked to Scheduled Assessments, AOD Agreements & Short-Term Agreements"
+        actions={
+          <Button
+            size="sm"
+            onClick={handleDownloadFullReport}
+            className="gap-1 bg-white text-[#0F7A9C] hover:bg-white/90"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Download Full Report</span>
+          </Button>
+        }
+      />
+
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <Button variant="ghost" onClick={() => navigate("/")} className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Dashboard
-          </Button>
-
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">Debtors Control</h1>
-              <p className="text-muted-foreground">
-                Manage referring attorney debts — linked to Scheduled Assessments, AOD Agreements & Short-Term Agreements
-              </p>
-            </div>
-            <Button onClick={handleDownloadFullReport} className="gap-2">
-              <Download className="h-4 w-4" /> Download Full Report
-            </Button>
-          </div>
-
-          {/* Search and Filter */}
           <div className="mt-6 flex flex-wrap gap-4 items-center">
             <div className="max-w-md relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
