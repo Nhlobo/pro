@@ -1,7 +1,7 @@
 import React, { useEffect, useState, Suspense, lazy } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Plus, Search, Download, Trash2, Pencil } from "lucide-react";
+import { Plus, Search, Download, Trash2, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 import { AdminPagination, AdminEmptyState } from "@/components/admin/ui/AdminUI";
 import { cn } from "@/lib/utils";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 
 const ClaimantFormModule = lazy(() => import("@/components/admin/ClaimantFormModule"));
 
@@ -283,15 +284,7 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/claimant-list';
 
   const toolbar = (
-    <div className={embedded ? "flex flex-wrap items-center justify-end gap-2" : "mb-6 flex items-center justify-between"}>
-      {!embedded && (
-        <Button variant="outline" asChild>
-          <Link to="/" className="flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Link>
-        </Button>
-      )}
+    <div className={embedded ? "flex flex-wrap items-center justify-end gap-2" : "mb-6 flex items-center justify-end"}>
       <div className="flex flex-wrap items-center gap-2">
         {selectedClaimants.size > 0 && (
           <Button
@@ -548,6 +541,11 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
         <meta name="description" content="View and manage all claimants in the medico-legal system. Search, filter, and export claimant data." />
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
+
+      <DashboardStickyHeader
+        title="Claimant List"
+        subtitle="Search, filter, and export claimant data."
+      />
 
       <main className="container mx-auto px-4 py-8">
         {toolbar}
