@@ -20,6 +20,13 @@ import { toast } from 'sonner';
 import { Settings, User, Briefcase, Building, Search, CheckSquare, Filter } from 'lucide-react';
 import SalesConsultantStats from '@/components/SalesConsultantStats';
 import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
+import {
+  ROLE_LABELS as ROLE_DISPLAY_NAMES,
+  fetchStaffPositions,
+  positionsForRole,
+  defaultPositionForRole,
+  type StaffPositionRow,
+} from '@/lib/rolePosition';
 
 interface ReferringAttorney {
   id: string;
@@ -27,20 +34,6 @@ interface ReferringAttorney {
   code: string;
   contact_person?: string;
 }
-
-// Single source of truth for how each real System Role should be
-// displayed — used both in the header subtitle and the read-only Role
-// field below. Covers all 5 internal roles plus the 2 external portal
-// roles, so nobody ever falls through to a generic "User" label again.
-const ROLE_DISPLAY_NAMES: Record<string, string> = {
-  admin: 'Administrator',
-  employee: 'Company Employee',
-  sales_consultant: 'Sales Consultant',
-  finance: 'Finance',
-  director: 'Director',
-  referring_attorney: 'Referring Attorney',
-  medical_expert: 'Medical Expert',
-};
 
 interface EditProfileDialogProps {
   open: boolean;
@@ -70,6 +63,16 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
   const [matterTypeFilter, setMatterTypeFilter] = useState<string>('all');
   const [attorneyMatterTypes, setAttorneyMatterTypes] = useState<Record<string, string[]>>({});
   const [isUpdating, setIsUpdating] = useState(false);
+  // Staff positions (staff_positions) — the same role↔position source of
+  // truth Manage Access uses (src/lib/rolePosition.ts). The "Position"
+  // field below used to offer all 6 positions regardless of the person's
+  // System Role, so e.g. a Sales Consultant could be labeled "Director".
+  // It's now restricted to whatever role_key matches user.role.
+  const [staffPositions, setStaffPositions] = useState<StaffPositionRow[]>([]);
+
+  useEffect(() => {
+    fetchStaffPositions().then(setStaffPositions);
+  }, []);
 
   useEffect(() => {
     if (user && open) {
@@ -86,6 +89,23 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
       fetchAttorneyMatterTypes();
     }
   }, [user, open]);
+
+  // Positions valid for this person's actual System Role. When their
+  // current `position` value isn't one of them (stale/invalid, e.g. a
+  // leftover "Medical Legal Manager") or is empty, and the role has exactly
+  // one valid position, default to it instead of leaving an invalid or
+  // blank display title in place.
+  const validPositions = user ? positionsForRole(staffPositions, user.role) : [];
+  useEffect(() => {
+    if (!user || !open || staffPositions.length === 0) return;
+    const valid = positionsForRole(staffPositions, user.role);
+    const currentIsValid = valid.some((p) => p.display_name === form.position);
+    if (!currentIsValid) {
+      const only = defaultPositionForRole(staffPositions, user.role);
+      if (only) setForm((prev) => ({ ...prev, position: only.display_name }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, open, staffPositions]);
 
   const fetchAttorneyMatterTypes = async () => {
     try {
@@ -352,23 +372,28 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
 
               <div>
                 <Label className="text-xs">Position (display title)</Label>
-                <Select value={form.position} onValueChange={(value) => setForm(prev => ({ ...prev, position: value }))}>
+                <Select
+                  value={form.position}
+                  onValueChange={(value) => setForm(prev => ({ ...prev, position: value }))}
+                  disabled={validPositions.length === 0}
+                >
                   <SelectTrigger className="rounded-none border-black/15">
-                    <SelectValue placeholder="Select position" />
+                    <SelectValue placeholder={validPositions.length === 0 ? 'No positions defined for this role' : 'Select position'} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Admin Assistant">Admin Assistant</SelectItem>
-                    <SelectItem value="NEG Case Manager">NEG Case Manager</SelectItem>
-                    <SelectItem value="RAF Case Manager">RAF Case Manager</SelectItem>
-                    <SelectItem value="Finance Officer">Finance Officer</SelectItem>
-                    <SelectItem value="Sales Consultant">Sales Consultant</SelectItem>
-                    <SelectItem value="Director">Director</SelectItem>
+                    {/* Restricted to positions valid for this person's System Role
+                        (see Role field above) — the same role↔position rules Manage
+                        Access enforces, so the two screens can't disagree. */}
+                    {validPositions.map((p) => (
+                      <SelectItem key={p.position_key} value={p.display_name}>{p.display_name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <p className="mt-1 text-xs text-slate-500">
                   This is a display title only (shown on their card in the directory). It does not
                   control what they can see — that's set by System Role and Staff Position in
-                  Manage Access, above the module list.
+                  Manage Access, above the module list. Options are limited to positions valid for
+                  their System Role above.
                 </p>
               </div>
             </div>
