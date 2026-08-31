@@ -56,14 +56,29 @@ export const useModuleAccess = () => {
 
     if (NEW_ACCESS_CONTROL_ENABLED) {
       setRowsLoading(true);
-      fetchNewSystemAccess(user.id).then(({ role, fullAccess, modules }) => {
-        if (active) {
-          setNewSystemRole(role);
-          setNewSystemFullAccess(fullAccess);
-          setNewSystemModules(modules);
-          setRowsLoading(false);
-        }
-      });
+      fetchNewSystemAccess(user.id)
+        .then(({ role, fullAccess, modules }) => {
+          if (active) {
+            setNewSystemRole(role);
+            setNewSystemFullAccess(fullAccess);
+            setNewSystemModules(modules);
+            setRowsLoading(false);
+          }
+        })
+        .catch((err) => {
+          // Belt-and-suspenders: fetchNewSystemAccess already fails closed
+          // internally and shouldn't reject, but if it somehow does, still
+          // resolve loading instead of leaving "Loading access…" spinning
+          // forever (see GlobalErrorBoundary for the same philosophy applied
+          // to render errors).
+          console.error('[useModuleAccess] fetchNewSystemAccess rejected:', err);
+          if (active) {
+            setNewSystemRole(null);
+            setNewSystemFullAccess(false);
+            setNewSystemModules({});
+            setRowsLoading(false);
+          }
+        });
       return () => {
         active = false;
       };
@@ -80,12 +95,20 @@ export const useModuleAccess = () => {
     }
 
     setRowsLoading(true);
-    getUserFunctionPermissions(user.id).then((list) => {
-      if (active) {
-        setRows(list as FunctionPermissionRow[]);
-        setRowsLoading(false);
-      }
-    });
+    getUserFunctionPermissions(user.id)
+      .then((list) => {
+        if (active) {
+          setRows(list as FunctionPermissionRow[]);
+          setRowsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error('[useModuleAccess] getUserFunctionPermissions rejected:', err);
+        if (active) {
+          setRows([]);
+          setRowsLoading(false);
+        }
+      });
 
     return () => {
       active = false;
