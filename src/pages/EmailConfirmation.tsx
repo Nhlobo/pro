@@ -1,144 +1,216 @@
-import React, { useMemo, useState } from 'react';
-import { Helmet } from 'react-helmet-async';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
-import { toast } from 'sonner';
-import { Mail, RefreshCw, CheckCircle } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { Resend } from "npm:resend@4.0.0";
 
-const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
+interface EmailAttachment {
+  filename: string;
+  content: string;
+}
 
-// FIXED 2026-08-31: this page previously offered a "Send Magic Login Link"
-// button that would email a passwordless sign-in link to whatever address
-// was in `emailToUse` -- which can come straight from an unauthenticated
-// `?email=` URL query param (see emailToUse below). That meant anyone could
-// load this page with a stranger's email in the URL and get the system to
-// send THEM a login-bypassing link, with zero verification. Removed
-// entirely -- confirming a real email + password remains the only way in.
-// Also restyled to match the actual brand shell used on the Sign In page
-// (Auth.tsx) instead of generic, unbranded shadcn defaults.
+interface EmailOptions {
+  to: string | string[];
+  subject: string;
+  html: string;
+  from?: string;
+  replyTo?: string;
+  cc?: string | string[];
+  attachments?: EmailAttachment[];
+}
 
-const EmailConfirmation: React.FC = () => {
-  const { user, signOut } = useAuth();
-  const location = useLocation();
-  const [isResending, setIsResending] = useState(false);
-  const emailParam = new URLSearchParams(location.search).get('email');
-  const emailToUse = useMemo(() => {
-    const email = user?.email || emailParam || localStorage.getItem('pendingConfirmationEmail') || '';
-    return email.trim().toLowerCase() || undefined;
-  }, [user?.email, emailParam]);
+interface EmailResponse {
+  success: boolean;
+  messageId?: string;
+  error?: string;
+  provider?: string;
+}
 
-  const handleResendConfirmation = async () => {
-    if (!emailToUse) {
-      toast.error('No email found');
-      return;
-    }
-    setIsResending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('resend-user-confirmation', {
-        body: { email: emailToUse, action: 'signup' }
-      });
+const MAX_EMAIL_SIZE_BYTES = 35 * 1024 * 1024;
 
-      if (error) {
-        const errorMessage = String(error.message || '').toLowerCase();
-        if (errorMessage.includes('too many') || errorMessage.includes('limit')) {
-          toast.error('Please wait a minute before requesting another email.');
-        } else if (errorMessage.includes('already') || errorMessage.includes('confirm')) {
-          toast.info('This email is already confirmed — you can sign in directly.');
-        } else {
-          toast.error(error.message || 'Failed to resend confirmation email');
-        }
-      } else if (data?.userStatus === 'confirmed') {
-        toast.info('This email is already confirmed. You can sign in directly.');
-      } else {
-        toast.success('Confirmation email sent! Please check your inbox and spam folder.');
+function estimateAttachmentSize(base64Content: string): number {
+  return base64Content.length;
+}
+
+function batchAttachments(attachments: EmailAttachment[]): EmailAttachment[][] {
+  if (!attachments || attachments.length === 0) return [[]];
+
+  const batches: EmailAttachment[][] = [];
+  let currentBatch: EmailAttachment[] = [];
+  let currentSize = 0;
+
+  for (const att of attachments) {
+    const attSize = estimateAttachmentSize(att.content);
+
+    if (attSize >= MAX_EMAIL_SIZE_BYTES) {
+      if (currentBatch.length > 0) {
+        batches.push(currentBatch);
+        currentBatch = [];
+        currentSize = 0;
       }
-    } catch (error) {
-      toast.error('An error occurred. Please try again.');
-    } finally {
-      setIsResending(false);
+      batches.push([att]);
+      continue;
     }
-  };
 
-  const handleSignOut = () => {
-    signOut();
-  };
+    if (currentSize + attSize > MAX_EMAIL_SIZE_BYTES) {
+      batches.push(currentBatch);
+      currentBatch = [att];
+      currentSize = attSize;
+    } else {
+      currentBatch.push(att);
+      currentSize += attSize;
+    }
+  }
 
-  return (
-    <div className="min-h-screen w-full bg-[#F7F5EE] flex items-center justify-center p-4">
-      <Helmet>
-        <title>Check Your Email - Medico-Legal Pro</title>
-      </Helmet>
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
 
-      <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl sm:p-10">
-        <div className="mb-6 flex flex-col items-center gap-3 text-center">
-          <div className="rounded-full bg-gradient-to-br from-[#00BAAD] to-white p-2 ring-2 ring-[#00BAAD]/40 shadow-lg">
-            <img src={logoSrc} alt="Kutlwano & Associate" className="h-14 w-14 object-contain" />
-          </div>
-          <div>
-            <div className="text-lg font-bold text-black">Medico-Legal Pro</div>
-            <div className="text-xs text-slate-500">Kutlwano &amp; Associate</div>
-          </div>
+  return batches.length > 0 ? batches : [[]];
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// FIXED 2026-08-31: rebuilt to be a true clone of the OTP email
+// (external-portal-auth/index.ts otpEmailHtml) -- identical header,
+// identical footer, identical fonts/spacing/sharp corners (no
+// border-radius, matching the rest of the system's UI). Only the middle
+// section differs: a Confirm button + fallback link instead of a 6-digit
+// code. `actionLink` is always generated with redirectTo pointing at
+// APP_ORIGIN (https://medico-legal-pro-71z1.onrender.com), never the
+// retired kamedico-legal.co.za domain -- see create-user/index.ts and
+// resend-user-confirmation/index.ts.
+export function confirmAccountEmailHtml(actionLink: string, fullName?: string): string {
+  const greeting = fullName?.trim()
+    ? `<p style="color: #1f2937; font-size: 14px; margin: 0 0 12px;">Hi ${escapeHtml(fullName.trim())},</p>`
+    : '';
+
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f4f6f7;">
+      <div style="background: #ffffff; border: 1px solid #e5e7eb; overflow: hidden;">
+        <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: #ffffff; padding: 22px 24px; text-align: center;">
+          <h1 style="margin: 0; font-size: 16px; letter-spacing: 0.5px;">KUTLWANO &amp; ASSOCIATES (PTY) LTD</h1>
+          <p style="margin: 4px 0 0; font-size: 11px; opacity: 0.9;">Medico-Legal Service</p>
         </div>
 
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#00BAAD]/10">
-            <Mail className="h-6 w-6 text-[#00BAAD]" />
+        <div style="padding: 28px 28px 8px;">
+          ${greeting}
+          <p style="color: #374151; font-size: 14px; margin: 0 0 20px;">
+            Please confirm your email address to activate your <strong>Medico-Legal Pro</strong> staff account:
+          </p>
+
+          <div style="text-align: center; margin: 24px 0;">
+            <a href="${actionLink}" style="display: inline-block; background: #159baf; color: #ffffff; padding: 14px 32px; text-decoration: none; font-weight: bold; font-size: 14px;">
+              Confirm Email &amp; Sign In
+            </a>
           </div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00BAAD]">Almost there</div>
-          <h1 className="mt-2 text-2xl font-bold text-black">Check Your Email</h1>
-          <p className="mt-2 text-sm text-slate-600">
-            We've sent a confirmation link to <strong className="text-black">{emailToUse}</strong>
+
+          <p style="color: #374151; font-size: 13px; margin: 0 0 4px;">
+            If the button doesn't work, copy and paste this link into your browser:
+          </p>
+          <p style="font-size: 11px; word-break: break-all; color: #159baf; margin: 0 0 20px;">${actionLink}</p>
+          <p style="color: #6b7280; font-size: 12px; margin: 0 0 20px;">
+            If you weren't expecting this email, you can safely ignore it — no changes will be made to your account.
           </p>
         </div>
 
-        <div className="mb-6 space-y-2 text-center">
-          <div className="flex items-center justify-center gap-2 text-sm text-slate-600">
-            <CheckCircle className="h-4 w-4 text-[#00BAAD]" />
-            Click the link in the email to activate your account
-          </div>
-          <p className="text-xs text-slate-400">
-            Don't forget to check your spam folder if you don't see the email.
+        <hr style="margin: 0; border: none; border-top: 1px solid #eee;">
+
+        <div style="padding: 18px 28px 24px;">
+          <p style="font-style: italic; color: #1fb6ce; font-size: 12px; margin: 0 0 10px;">
+            "We touch a file, we change a life, we are Kutlwano and Associate"
           </p>
-        </div>
-
-        <div className="space-y-3">
-          <Button
-            onClick={handleResendConfirmation}
-            disabled={isResending}
-            className="w-full bg-[#00BAAD] text-white hover:bg-[#00a89c]"
-          >
-            {isResending ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Resend Confirmation Email
-              </>
-            )}
-          </Button>
-
-          <Button
-            onClick={handleSignOut}
-            variant="ghost"
-            className="w-full text-slate-600 hover:text-black"
-          >
-            Sign Out
-          </Button>
-        </div>
-
-        <div className="mt-6 text-center">
-          <p className="text-xs text-slate-400">
-            Having trouble? Contact your administrator for assistance.
+          <p style="font-size: 10px; color: #999; margin: 0;">
+            This is an automated security email. Please do not reply directly to this message.
           </p>
         </div>
       </div>
+      <p style="text-align: center; font-size: 10px; color: #9ca3af; margin: 14px 0 0;">
+        Kutlwano &amp; Associates (Pty) Ltd | Registration: 2016/461385/07
+      </p>
     </div>
-  );
-};
+  `;
+}
 
-export default EmailConfirmation;
+export async function sendEmail(options: EmailOptions): Promise<EmailResponse> {
+  try {
+    const resendApiKey = Deno.env.get("RESEND_API_KEY");
+
+    if (!resendApiKey) {
+      console.error("Missing Resend API key");
+      return { success: false, error: "Resend API key is not configured", provider: "resend" };
+    }
+
+    const resend = new Resend(resendApiKey);
+    const fromEmail = options.from || "Kutlwano & Associate <noreply@kamedico-legal.co.za>";
+    const recipients = Array.isArray(options.to) ? options.to : [options.to];
+    const ccRecipients = options.cc ? (Array.isArray(options.cc) ? options.cc : [options.cc]) : undefined;
+
+    const attachments = options.attachments || [];
+    const batches = batchAttachments(attachments);
+    const needsSplit = batches.length > 1;
+
+    if (needsSplit) {
+      console.log(`Attachments exceed size limit. Splitting into ${batches.length} emails.`);
+    }
+
+    let lastMessageId = '';
+
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+      const batch = batches[batchIndex];
+      const isFollowUp = batchIndex > 0;
+
+      const subject = isFollowUp
+        ? `${options.subject} (Attachments ${batchIndex + 1}/${batches.length})`
+        : options.subject;
+
+      const html = isFollowUp
+        ? `<div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #1fb6ce 0%, #159baf 100%); color: white; padding: 15px 20px; text-align: center; margin-bottom: 20px;">
+              <h2 style="margin: 0; font-size: 14px;">KUTLWANO & ASSOCIATES (PTY) LTD</h2>
+              <p style="margin: 4px 0 0; font-size: 10px;">Medico-Legal Service</p>
+            </div>
+            <p style="color: #374151; font-size: 12px;">This is a follow-up email containing additional document attachments (Part ${batchIndex + 1} of ${batches.length}) for the previous correspondence.</p>
+            <p style="color: #374151; font-size: 12px;">📎 ${batch.length} document(s) attached.</p>
+            <p style="color: #6b7280; font-size: 10px; margin-top: 20px; font-style: italic;">This is an automated email. Please do not reply directly to this message.</p>
+          </div>`
+        : options.html;
+
+      console.log(`Sending email batch ${batchIndex + 1}/${batches.length} to: ${recipients.join(", ")}${ccRecipients ? ` (CC: ${ccRecipients.join(", ")})` : ''} with ${batch.length} attachment(s)`);
+
+      const defaultReplyTo = "info@kamedico-legal.co.za";
+      const replyToAddress = options.replyTo || defaultReplyTo;
+
+      const { data, error } = await resend.emails.send({
+        from: fromEmail,
+        to: recipients,
+        subject,
+        html,
+        reply_to: replyToAddress,
+        headers: {
+          "List-Unsubscribe": `<mailto:${defaultReplyTo}?subject=Unsubscribe>`,
+          "X-Entity-Ref-ID": crypto.randomUUID(),
+        },
+        ...(ccRecipients && ccRecipients.length > 0 && { cc: ccRecipients }),
+        ...(batch.length > 0 && { attachments: batch })
+      });
+
+      if (error) {
+        console.error(`Resend API error on batch ${batchIndex + 1}:`, error);
+        return { success: false, error: `Resend API error: ${error.message}`, provider: "resend" };
+      }
+
+      lastMessageId = data?.id || '';
+      console.log(`Email batch ${batchIndex + 1} sent successfully. Message ID: ${lastMessageId}`);
+    }
+
+    return { success: true, messageId: lastMessageId, provider: "resend" };
+
+  } catch (error: any) {
+    console.error("Resend email error:", error);
+    console.error("Error details:", { message: error.message, stack: error.stack, name: error.name });
+    return { success: false, error: error.message || "Failed to send email via Resend", provider: "resend" };
+  }
+}
