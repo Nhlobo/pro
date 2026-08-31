@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect, useMemo } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, Download, FileText, Calendar, User, Building, Search, Send } from "lucide-react";
+import { Download, FileText, Calendar, User, Building, Search, Send } from "lucide-react";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -224,26 +224,14 @@ const ClaimantReports = () => {
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
-      <header className="relative overflow-hidden border-b">
-        <div className="pointer-events-none absolute inset-0 opacity-70 blur-3xl bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.25),transparent_60%)]" />
-        <div className="container mx-auto px-4 py-10">
-          <div className="relative">
-            <Link to={isReferringAttorney() ? "/" : "/"} className="inline-block mb-4">
-              <Button variant="outline" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Back to Dashboard
-              </Button>
-            </Link>
-            <h1 className="text-3xl md:text-4xl font-bold">Claimant Progress Report</h1>
-            <p className="text-muted-foreground mt-2 max-w-2xl">
-              {isReferringAttorney() ? 
-                "Track progress of your claimant assessment reports and expert evaluations" :
-                "Monitor progress of claimant assessment reports and expert evaluations"
-              }
-            </p>
-          </div>
-        </div>
-      </header>
+      <DashboardStickyHeader
+        title="Claimant Progress Report"
+        subtitle={
+          isReferringAttorney()
+            ? "Track progress of your claimant assessment reports and expert evaluations"
+            : "Monitor progress of claimant assessment reports and expert evaluations"
+        }
+      />
 
       <main className="container mx-auto px-4 py-6">
         {/* Filters Section */}
