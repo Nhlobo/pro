@@ -17,6 +17,7 @@ import CompanyFooter from "@/components/CompanyFooter";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 
 type ChecklistEntry = {
   appointment_id: string;
@@ -389,32 +390,35 @@ const AppointmentChecklist: React.FC = () => {
       <Helmet>
         <title>Appointment Checklist | KA Medico-Legal</title>
       </Helmet>
+      <DashboardStickyHeader
+        title="Appointment Checklist"
+        subtitle="Daily grouped checklist for claimant assessments"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={fetchChecklist}
+              disabled={loading}
+              className="gap-1 border border-white/30 bg-white/10 px-2 text-white hover:bg-white/20 hover:text-white sm:px-3"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+            <Button
+              size="sm"
+              onClick={downloadPDF}
+              disabled={dayGroups.length === 0}
+              className="gap-1 bg-white text-[#0F7A9C] hover:bg-white/90"
+            >
+              <Download className="h-4 w-4" />
+              <span className="hidden sm:inline">Download PDF</span>
+            </Button>
+          </div>
+        }
+      />
       <div className="min-h-screen bg-background">
         <div className="container mx-auto px-4 py-6 max-w-7xl space-y-6">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-                  <ClipboardCheck className="h-6 w-6 sm:h-7 sm:w-7 text-primary shrink-0" />
-                  <span className="truncate">Appointment Checklist</span>
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Daily grouped checklist for claimant assessments
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Button variant="outline" size="sm" onClick={fetchChecklist} disabled={loading} className="flex-1 sm:flex-none">
-                <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
-              <Button size="sm" onClick={downloadPDF} disabled={dayGroups.length === 0} className="gradient-teal border flex-1 sm:flex-none">
-                <Download className="h-4 w-4 mr-1" />
-                Download PDF
-              </Button>
-            </div>
-          </div>
 
           {/* Filters */}
           <Card className="bg-gradient-card border-border/50">
