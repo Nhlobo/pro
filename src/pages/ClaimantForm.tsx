@@ -17,6 +17,7 @@ import { generateClaimantId } from "@/utils/idGenerators";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 
 const schema = z.object({
   first_name: z.string()
@@ -451,15 +452,17 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-8 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Create Claimant</h1>
-            <p className="text-muted-foreground mt-2">Capture claimant details and link to the referring attorney.</p>
-          </div>
-          <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} className="mt-2" />
-        </div>
-      </header>
+      <DashboardStickyHeader
+        title="Create Claimant"
+        subtitle="Capture claimant details and link to the referring attorney."
+        actions={
+          <DraftStatusIndicator
+            status={saveStatus}
+            lastSavedAt={lastSavedAt}
+            className="hidden text-white/90 sm:flex [&_svg]:text-white/90"
+          />
+        }
+      />
 
       <main className="container mx-auto px-4 py-6">
         {formCard}
