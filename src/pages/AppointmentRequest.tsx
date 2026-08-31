@@ -3,8 +3,9 @@ import { Helmet } from "react-helmet-async";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, Calendar, Send } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Calendar, Send } from "lucide-react";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import {
   Form,
   FormField,
@@ -400,19 +401,7 @@ const AppointmentRequest = () => {
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/dashboard">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Link>
-            </Button>
-            <h1 className="text-2xl font-bold">Request Appointment</h1>
-          </div>
-        </div>
-      </header>
+      <DashboardStickyHeader title="Request Appointment" />
 
       <main className="container mx-auto px-4 py-8">
         <Card className="max-w-3xl mx-auto">
