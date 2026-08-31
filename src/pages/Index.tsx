@@ -50,12 +50,17 @@ const Index = () => {
     }
   }, [loading, admin, referringAttorney, navigate]);
 
-  // Sales consultants get their own module inside the same Admin Portal
-  // shell (sidebar + header) that admin/employee users use, rather than
-  // landing on this generic dashboard first and having to click through.
+  // Sales consultants land on Attorney CRM — the same shared page
+  // admin/employee use — inside the same Admin Portal shell (sidebar +
+  // header), rather than landing on this generic dashboard first and
+  // having to click through. This used to point at a standalone Sales
+  // Dashboard page/route, but that was a duplicate of the "Sales
+  // Dashboard" tab that already lives inside Attorney CRM (removed
+  // 2026-08-31); Attorney CRM opens on that same tab by default, so the
+  // landing experience is unchanged.
   useEffect(() => {
     if (!loading && salesConsultant) {
-      navigate("/admin/sales-dashboard", { replace: true });
+      navigate("/admin/attorney-crm", { replace: true });
     }
   }, [loading, salesConsultant, navigate]);
 
@@ -130,7 +135,7 @@ const Index = () => {
   }
 
   // Same treatment for sales consultants — being redirected to
-  // /admin/sales-dashboard by the effect above.
+  // /admin/attorney-crm by the effect above.
   if (salesConsultant) {
     return <BrandedPageLoader message="Loading…" />;
   }
