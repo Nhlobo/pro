@@ -20,7 +20,7 @@ import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import CompanyFooter from "@/components/CompanyFooter";
-import SystemHeaderNav from "@/components/dashboard/SystemHeaderNav";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
 import { BulkAppointmentUpload } from "@/components/BulkAppointmentUpload";
 import { BulkAppointmentEmailDialog } from "@/components/BulkAppointmentEmailDialog";
@@ -2023,28 +2023,58 @@ const ScheduledAssessment = ({ embedded = false, onEditAppointment }: { embedded
         </Helmet>
       )}
 
-      {!embedded && <SystemHeaderNav />}
-
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-4 sm:py-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4 min-w-0">
-              <h1 className="truncate text-xl font-bold sm:text-2xl">Scheduled Assessments</h1>
-            </div>
+      {!embedded && (
+        <DashboardStickyHeader
+          title="Scheduled Assessments"
+          actions={
             <div className="flex flex-wrap items-center gap-2">
               <BulkAppointmentUpload onUploadComplete={() => triggerSync()} />
-              <Button variant="outline" onClick={() => refetch()} className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => refetch()}
+                className="gap-1 border border-white/30 bg-white/10 px-2 text-white hover:bg-white/20 hover:text-white sm:px-3"
+              >
                 <RefreshCw className="h-4 w-4" />
-                Refresh
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
-              <Button onClick={handleDownloadReport} className="gradient-teal flex items-center gap-2 border">
+              <Button
+                size="sm"
+                onClick={handleDownloadReport}
+                className="gap-1 bg-white text-[#0F7A9C] hover:bg-white/90"
+              >
                 <Download className="h-4 w-4" />
-                <span className="truncate">Download {reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report</span>
+                <span className="hidden truncate sm:inline">
+                  Download {reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report
+                </span>
               </Button>
             </div>
-          </div>
+          }
+        />
+      )}
+
+      {embedded && (
+        <div className="flex flex-wrap items-center justify-end gap-2 border-b border-black/10 bg-white px-4 py-3">
+          <BulkAppointmentUpload onUploadComplete={() => triggerSync()} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            className="gap-1 rounded-none border-black/15 text-black hover:bg-black/5"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleDownloadReport}
+            className="gap-1 bg-kutlwano-teal text-white hover:bg-kutlwano-teal/90"
+          >
+            <Download className="h-4 w-4" />
+            Download {reportPeriod.charAt(0).toUpperCase() + reportPeriod.slice(1)} Report
+          </Button>
         </div>
-      </header>
+      )}
 
       <main className={embedded ? '' : 'container mx-auto px-4 py-3'}>
         {/* Statistics Integration Information */}
