@@ -6,8 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Download, RefreshCw, Filter, Mail, Users } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Download, RefreshCw, Filter, Mail, Users } from "lucide-react";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -257,41 +257,45 @@ const ReferringAttorneyUpdate = ({ embedded = false }: { embedded?: boolean } = 
       )}
 
       {!embedded && (
-        <header className="border-b">
-          <div className="container mx-auto px-4 py-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-4">
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/admin"><ArrowLeft className="h-4 w-4 mr-2" />Back</Link>
-                </Button>
-                <h1 className="text-xl font-bold sm:text-2xl">Assessment Update</h1>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {selectedRows.size > 0 && (
-                  <Button
-                    variant="default"
-                    onClick={openBulkDialog}
-                    className="gap-2"
-                  >
-                    <Users className="h-4 w-4" />
-                    Send Bulk ({selectedRows.size})
-                  </Button>
-                )}
-                <Button 
-                  variant="outline" 
-                  onClick={handleManualRefresh}
-                  disabled={refreshing}
+        <DashboardStickyHeader
+          title="Assessment Update"
+          backHref="/admin"
+          backLabel="Admin"
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              {selectedRows.size > 0 && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={openBulkDialog}
+                  className="gap-1"
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                  {refreshing ? 'Refreshing...' : 'Refresh Data'}
+                  <Users className="h-4 w-4" />
+                  <span className="hidden sm:inline">Send Bulk ({selectedRows.size})</span>
+                  <span className="sm:hidden">({selectedRows.size})</span>
                 </Button>
-                <Button onClick={handleDownloadReport} className="gradient-teal border">
-                  <Download className="h-4 w-4 mr-2" />Download
-                </Button>
-              </div>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleManualRefresh}
+                disabled={refreshing}
+                className="gap-1 border border-white/30 bg-white/10 px-2 text-white hover:bg-white/20 hover:text-white sm:px-3"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh Data'}</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleDownloadReport}
+                className="gap-1 bg-white text-[#0F7A9C] hover:bg-white/90"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Download</span>
+              </Button>
             </div>
-          </div>
-        </header>
+          }
+        />
       )}
 
       {/* Embedded mode still needs its own action row — the module tab has
