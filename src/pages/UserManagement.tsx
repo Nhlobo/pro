@@ -990,6 +990,11 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                     <SelectItem value="all">All Roles</SelectItem>
                     <SelectItem value="admin">Administrator</SelectItem>
                     <SelectItem value="employee">Company Employee</SelectItem>
+                    <SelectItem value="sales_consultant">Sales Consultant</SelectItem>
+                    <SelectItem value="finance">Finance</SelectItem>
+                    <SelectItem value="director">Director</SelectItem>
+                    <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
+                    <SelectItem value="medical_expert">Medical Expert</SelectItem>
                     <SelectItem value="user">User</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1002,7 +1007,9 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                     <SelectItem value="all">All Types</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="employee">Employee</SelectItem>
+                    <SelectItem value="user">Sales/Finance/Director (User)</SelectItem>
                     <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
+                    <SelectItem value="external_portal">External Portal</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1519,8 +1526,13 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                   <div>
                     <Label>User Type</Label>
                     <div className="mt-1 border border-black/10 bg-black/[0.02] p-2 text-sm text-slate-500">
-                      Company Employee
+                      {newUserForm.role === 'admin' ? 'Admin'
+                        : newUserForm.role === 'employee' ? 'Company Employee'
+                        : 'User (Sales Consultant / Finance / Director)'}
                     </div>
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      Set automatically from the System Role below — not editable directly.
+                    </p>
                   </div>
 
                   <div>
@@ -1544,7 +1556,19 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
 
                   <div>
                     <Label>System Role</Label>
-                    <Select value={newUserForm.role} onValueChange={(value) => setNewUserForm(prev => ({ ...prev, role: value }))}>
+                    <Select
+                      value={newUserForm.role}
+                      onValueChange={(value) => setNewUserForm(prev => ({
+                        ...prev,
+                        role: value,
+                        // Keep user_type in lockstep with the chosen role — this
+                        // used to be a hardcoded 'employee' regardless of role,
+                        // which silently mis-tagged every Sales Consultant,
+                        // Finance, and Director account created through this
+                        // form (the exact bug that broke worksof26/worksof27).
+                        userType: value === 'admin' ? 'admin' : value === 'employee' ? 'employee' : 'user',
+                      }))}
+                    >
                       <SelectTrigger className="mt-1 rounded-none">
                         <SelectValue placeholder="Select role" />
                       </SelectTrigger>
