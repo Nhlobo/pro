@@ -214,7 +214,7 @@ const AppointmentsPerformanceCard: React.FC<{
             ) : (
               <p className="text-[11px] text-slate-500">
                 No {CURRENT_YEAR} appointments target has been set yet.{' '}
-                <Link to="/sales-dashboard" className="font-medium underline" style={{ color: BRAND_TEAL }}>
+                <Link to="/admin/attorney-crm" className="font-medium underline" style={{ color: BRAND_TEAL }}>
                   Set a target
                 </Link>
               </p>
