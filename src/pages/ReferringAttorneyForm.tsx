@@ -3,11 +3,12 @@ import { Helmet } from "react-helmet-async";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, Download } from "lucide-react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Upload, Download } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { DraftStatusIndicator } from "@/components/DraftStatusIndicator";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 
 import {
   Form,
@@ -485,19 +486,21 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
 
   const pageHeading = (
     <>
-      <header className={embedded ? "mb-4 flex flex-wrap items-start justify-between gap-3" : "mb-6 flex flex-wrap items-start justify-between gap-3"}>
-        <div>
-          <h1 className={embedded ? "text-base font-semibold text-black" : "text-2xl md:text-3xl font-bold"}>
-            {isEditing ? 'Edit Referring Attorney' : embedded ? 'New Referring Attorney' : 'Referring Attorney Form'}
-          </h1>
-          <p className={embedded ? "text-xs text-slate-500 mt-1" : "text-muted-foreground mt-1"}>
-            {isEditing ? 'Update referring attorney details and matter types.' : 'Enter referring attorney details and the type of matters handled.'}
-          </p>
-        </div>
-        {!isEditing && (
-          <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} className="mt-2" />
-        )}
-      </header>
+      {embedded && (
+        <header className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-base font-semibold text-black">
+              {isEditing ? 'Edit Referring Attorney' : 'New Referring Attorney'}
+            </h1>
+            <p className="text-xs text-slate-500 mt-1">
+              {isEditing ? 'Update referring attorney details and matter types.' : 'Enter referring attorney details and the type of matters handled.'}
+            </p>
+          </div>
+          {!isEditing && (
+            <DraftStatusIndicator status={saveStatus} lastSavedAt={lastSavedAt} className="mt-2" />
+          )}
+        </header>
+      )}
 
       {isLoadingData ? (
         <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
@@ -799,15 +802,25 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
+      <DashboardStickyHeader
+        title={isEditing ? "Edit Referring Attorney" : "Referring Attorney Form"}
+        subtitle={
+          isEditing
+            ? "Update referring attorney details and matter types."
+            : "Enter referring attorney details and the type of matters handled."
+        }
+        actions={
+          !isEditing && (
+            <DraftStatusIndicator
+              status={saveStatus}
+              lastSavedAt={lastSavedAt}
+              className="hidden text-white/90 sm:flex [&_svg]:text-white/90"
+            />
+          )
+        }
+      />
+
       <main className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <Button variant="outline" asChild>
-            <Link to="/" className="flex items-center gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
-        </div>
         {pageHeading}
       </main>
       <CompanyFooter />
