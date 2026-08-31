@@ -38,7 +38,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatDateTimeShort } from '@/utils/dateTime';
 import EmployeeNotificationSettings from '@/components/EmployeeNotificationSettings';
 import NewSystemModuleAccessPanel from '@/components/NewSystemModuleAccessPanel';
-import PositionModuleAccessPanel from '@/components/PositionModuleAccessPanel';
 import { EmailConfigurationAlert } from '@/components/EmailConfigurationAlert';
 import EditProfileDialog from '@/components/EditProfileDialog';
 import {
@@ -53,21 +52,29 @@ import {
   AdminLoadingState,
   BRAND_TEAL,
 } from '@/components/admin/ui/AdminUI';
+import {
+  ROLE_LABELS,
+  roleLabel,
+  fetchStaffPositions,
+  positionsForRole,
+  defaultPositionForRole,
+} from '@/lib/rolePosition';
 
 /** Flat, rounded-none active/inactive treatment shared with every other admin screen. */
 const flatToggle =
   'rounded-none border-black/15 text-black hover:bg-black/5 data-[state=on]:bg-black data-[state=on]:text-white';
 
-const USER_TYPE_LABEL: Record<string, string> = {
-  admin: 'Administrator',
-  employee: 'Company Employee',
-  referring_attorney: 'Referring Attorney',
-};
-
-const USER_TYPE_TONE: Record<string, 'teal' | 'success' | 'neutral'> = {
+// System Role is the single source of truth for what a person is shown as
+// here (see src/lib/rolePosition.ts) -- "Referring Attorney" is deliberately
+// absent: that's an External Portal identity, not an internal staff role,
+// and getAllUsers() already excludes external_portal accounts from this
+// list entirely.
+const ROLE_TONE: Record<string, 'teal' | 'success' | 'neutral'> = {
   admin: 'teal',
   employee: 'success',
-  referring_attorney: 'neutral',
+  sales_consultant: 'neutral',
+  finance: 'neutral',
+  director: 'neutral',
 };
 
 interface UserManagementProps {
@@ -104,43 +111,22 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
     save: async () => true,
     reset: () => {},
   });
-  // Position Access Defaults card — separate from the per-user modal above.
-  // This edits position_module_overrides, which sets the baseline for
-  // EVERYONE in that position (e.g. all Admin Assistants), not one person.
+  // Staff positions (staff_positions) -- the shared role↔position source of
+  // truth. Used to (a) restrict the Staff Position picker below to whatever
+  // is valid for the selected System Role, and (b) show each person's
+  // position in the table. The old per-position "Position Access Defaults"
+  // card that used to live on this page has been removed (Administrator
+  // module access is already managed via System Role + Manage Access; see
+  // PermissionManagement for role-level defaults) but the position list
+  // itself is still needed for the per-user picker, so the fetch stays.
   const [positions, setPositions] = useState<{ position_key: string; role_key: string; display_name: string }[]>([]);
-  const [selectedPositionKey, setSelectedPositionKey] = useState<string | null>(null);
-  const [positionPending, setPositionPending] = useState<{ count: number; saving: boolean; save: () => Promise<boolean>; reset: () => void }>({
-    count: 0,
-    saving: false,
-    save: async () => true,
-    reset: () => {},
-  });
+  // Per-user staff position, bulk-loaded alongside the user list so the
+  // table can show it directly instead of only on-demand in Manage Access.
+  const [staffPositionByUser, setStaffPositionByUser] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
-    supabase
-      .from('staff_positions')
-      .select('position_key, role_key, display_name')
-      .eq('is_active', true)
-      .order('display_name')
-      .then(({ data }) => {
-        setPositions(data ?? []);
-        if (!selectedPositionKey && data && data.length > 0) {
-          setSelectedPositionKey(data[0].position_key);
-        }
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchStaffPositions().then(setPositions);
   }, []);
-
-  const selectedPosition = positions.find((p) => p.position_key === selectedPositionKey) ?? null;
-
-  const handleSavePositionDefaults = async () => {
-    const success = await positionPending.save();
-    if (success) {
-      toast.success(`Module access updated for ${selectedPosition?.display_name ?? 'this position'}`);
-    } else {
-      toast.error('Failed to update position module access');
-    }
-  };
 
   const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -194,6 +180,19 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
   const fetchUsers = async () => {
     const allUsers = await getAllUsers();
     setUsers(allUsers);
+
+    // Bulk-load each person's Staff Position so the table can show it
+    // (previously only fetched on-demand when opening Manage Access for a
+    // single user).
+    const { data: staffProfiles } = await supabase
+      .from('staff_access_profiles')
+      .select('user_id, position_key, is_active')
+      .in('user_id', allUsers.map((u) => u.id));
+    const byUser: Record<string, string | null> = {};
+    (staffProfiles ?? []).forEach((sp) => {
+      byUser[sp.user_id] = sp.is_active ? sp.position_key ?? null : null;
+    });
+    setStaffPositionByUser(byUser);
   };
 
   const handleUserSelect = async (user: UserProfile) => {
@@ -217,13 +216,23 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
     setPendingRole(newRole);
     setSelectedUser({ ...selectedUser, role: newRole });
     // A position only makes sense under the role it belongs to (see
-    // role_position_rules) — changing role clears whatever position was
+    // role_position_rules / staff_positions, the shared source of truth in
+    // src/lib/rolePosition.ts) — changing role clears whatever position was
     // staged or on file so an admin can't accidentally leave a stale,
     // invalid role/position pairing.
     const effectivePosition = pendingUserPosition !== undefined ? pendingUserPosition : currentUserPosition;
-    if (effectivePosition) {
-      const stillValid = positions.some((p) => p.position_key === effectivePosition && p.role_key === newRole);
-      if (!stillValid) setPendingUserPosition(null);
+    const stillValid = !!effectivePosition && positions.some((p) => p.position_key === effectivePosition && p.role_key === newRole);
+    if (effectivePosition && !stillValid) {
+      // When the new role has exactly one valid position (Sales Consultant,
+      // Finance, Director), select it automatically instead of dropping
+      // back to "no position" — there's no ambiguity to ask the admin
+      // about. Roles with more than one valid position (Admin, Employee)
+      // still require an explicit choice.
+      const only = defaultPositionForRole(positions, newRole);
+      setPendingUserPosition(only ? only.position_key : null);
+    } else if (!effectivePosition) {
+      const only = defaultPositionForRole(positions, newRole);
+      if (only) setPendingUserPosition(only.position_key);
     }
   };
 
@@ -395,9 +404,19 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
 
   const hasActiveFilters = searchTerm || filterRole !== 'all' || filterUserType !== 'all' || filterStatus !== 'all' || sortBy !== 'name' || sortOrder !== 'asc';
 
-  const adminCount = users.filter(u => u.user_type === 'admin').length;
-  const employeeCount = users.filter(u => u.user_type === 'employee').length;
-  const attorneyCount = users.filter(u => u.user_type === 'referring_attorney').length;
+  // Sourced from `role` — the real System Role column that Manage Access
+  // writes to and route authorization reads from — not the legacy
+  // `user_type` bucket, which only ever distinguished admin/employee/"user"
+  // and can't tell a Sales Consultant from a Director. getAllUsers() already
+  // excludes External Portal accounts, so Referring Attorney/Medical Expert
+  // never factor into these counts; there is no internal-role card for them.
+  const adminCount = users.filter(u => u.role === 'admin').length;
+  const employeeCount = users.filter(u => u.role === 'employee').length;
+  // Everyone else with a recognized internal role: Sales Consultant,
+  // Finance, Director. Computed as a remainder (rather than hardcoding
+  // three more role checks) so a newly added internal role is still
+  // counted here instead of silently falling through.
+  const otherStaffCount = users.filter(u => u.role && u.role !== 'admin' && u.role !== 'employee' && u.role !== 'referring_attorney' && u.role !== 'medical_expert').length;
   const inactiveCount = users.filter(u => !u.is_active).length;
 
   const hasPermission = (permissionName: string): boolean => {
@@ -879,84 +898,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
           onDismiss={() => setShowEmailConfigAlert(false)}
         />
 
-        {/* Directory at a glance — the numbers a manager checks first, before drilling into any single record. */}
+        {/* Directory at a glance — the numbers a manager checks first, before drilling into any single record.
+            All four counted cards are computed from `role`/`is_active` on the exact same `users` array rendered
+            below, so they can never disagree with what's shown in the list. */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           <AdminStatCard label="Total Users" value={users.length} icon={Users} />
           <AdminStatCard label="Administrators" value={adminCount} icon={ShieldCheck} />
           <AdminStatCard label="Company Employees" value={employeeCount} icon={UserCheck} />
-          <AdminStatCard label="Referring Attorneys" value={attorneyCount} icon={Briefcase} />
+          <AdminStatCard label="Other Staff" value={otherStaffCount} icon={Briefcase} />
           <AdminStatCard label="Inactive Staff" value={inactiveCount} icon={UserX} />
         </div>
-
-        {/* Position Access Defaults — sets the module baseline for everyone in a
-            given staff position (e.g. Admin Assistant, RAF Case Manager), separate
-            from any one person's individual override below. */}
-        {positions.length > 0 && (
-          <AdminCard>
-            <AdminCardHeader
-              icon={Briefcase}
-              title="Position Access Defaults"
-              description="What a staff position can see by default, within what its role already allows. A person's own individual override (set on their profile below) still wins over this."
-              actions={
-                positionPending.count > 0 ? (
-                  <div className="flex items-center gap-2">
-                    <AdminPill tone="neutral">{positionPending.count} unsaved</AdminPill>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="rounded-none border-black/15 text-black hover:bg-black/5"
-                      onClick={() => positionPending.reset()}
-                    >
-                      Discard
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="rounded-none text-white hover:opacity-90"
-                      style={{ backgroundColor: BRAND_TEAL }}
-                      disabled={positionPending.saving}
-                      onClick={handleSavePositionDefaults}
-                    >
-                      {positionPending.saving ? 'Saving…' : 'Save'}
-                    </Button>
-                  </div>
-                ) : undefined
-              }
-            />
-            <AdminCardBody className="space-y-4">
-              <div className="max-w-xs">
-                <Label className="text-sm font-semibold text-black">Position</Label>
-                <Select
-                  value={selectedPositionKey ?? undefined}
-                  onValueChange={(v) => {
-                    if (positionPending.count > 0) positionPending.reset();
-                    setSelectedPositionKey(v);
-                  }}
-                >
-                  <SelectTrigger className="mt-1 h-8 rounded-none">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {positions.map((p) => (
-                      <SelectItem key={p.position_key} value={p.position_key}>
-                        {p.display_name} <span className="text-slate-400">({p.role_key})</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {selectedPosition && (
-                <PositionModuleAccessPanel
-                  key={selectedPosition.position_key}
-                  positionKey={selectedPosition.position_key}
-                  roleKey={selectedPosition.role_key}
-                  onPendingStateChange={(s) =>
-                    setPositionPending({ count: s.pendingCount, saving: s.saving, save: s.save, reset: s.reset })
-                  }
-                />
-              )}
-            </AdminCardBody>
-          </AdminCard>
-        )}
 
         {/* Search, filter & sort */}
         <AdminCard>
@@ -988,15 +939,16 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                 <Select value={filterRole} onValueChange={setFilterRole}>
                   <SelectTrigger className="mt-1 rounded-none"><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    {/* Referring Attorney / Medical Expert removed: those are External Portal
+                        identities, not internal System Roles, and never appear on this page
+                        (getAllUsers() excludes external_portal accounts). The old "User" entry
+                        was a stray copy of a user_type value — no one's `role` is ever "user". */}
                     <SelectItem value="all">All Roles</SelectItem>
                     <SelectItem value="admin">Administrator</SelectItem>
                     <SelectItem value="employee">Company Employee</SelectItem>
                     <SelectItem value="sales_consultant">Sales Consultant</SelectItem>
                     <SelectItem value="finance">Finance</SelectItem>
                     <SelectItem value="director">Director</SelectItem>
-                    <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
-                    <SelectItem value="medical_expert">Medical Expert</SelectItem>
-                    <SelectItem value="user">User</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1109,8 +1061,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                   <TableHeader>
                     <TableRow className="border-black/10 hover:bg-transparent">
                       <TableHead>User</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Role</TableHead>
+                      <TableHead>System Role</TableHead>
+                      <TableHead>Staff Position</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -1129,20 +1081,21 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium text-black">
                                 {user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : 'No Name Set'}
-                                {user.user_type === 'employee' && user.position && (
-                                  <span className="font-normal text-slate-400"> · {user.position}</span>
-                                )}
                               </p>
                               <p className="truncate text-xs text-slate-500">{user.email}</p>
                             </div>
                           </div>
                         </TableCell>
                         <TableCell>
-                          <AdminPill tone={USER_TYPE_TONE[user.user_type] || 'neutral'}>
-                            {USER_TYPE_LABEL[user.user_type] || user.user_type || 'User'}
+                          <AdminPill tone={ROLE_TONE[user.role ?? ''] || 'neutral'}>
+                            {roleLabel(user.role)}
                           </AdminPill>
                         </TableCell>
-                        <TableCell className="text-sm capitalize text-slate-600">{(user.role || 'user').replace(/_/g, ' ')}</TableCell>
+                        <TableCell className="text-sm text-slate-600">
+                          {staffPositionByUser[user.id]
+                            ? positions.find((p) => p.position_key === staffPositionByUser[user.id])?.display_name ?? staffPositionByUser[user.id]
+                            : <span className="text-slate-400">No position set</span>}
+                        </TableCell>
                         <TableCell>
                           <AdminPill tone={user.is_active ? 'success' : 'destructive'}>
                             {user.is_active ? 'Active' : 'Inactive'}
@@ -1236,8 +1189,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                         <p className="text-[10px] font-semibold uppercase tracking-wide text-destructive">Inactive</p>
                       )}
                     </div>
-                    <AdminPill tone={USER_TYPE_TONE[user.user_type] || 'neutral'} className="shrink-0">
-                      {USER_TYPE_LABEL[user.user_type] || user.user_type || 'User'}
+                    <AdminPill tone={ROLE_TONE[user.role ?? ''] || 'neutral'} className="shrink-0">
+                      {roleLabel(user.role)}
                     </AdminPill>
                     <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
                   </button>
@@ -1268,15 +1221,19 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      <AdminPill tone={USER_TYPE_TONE[user.user_type] || 'neutral'}>
-                        {USER_TYPE_LABEL[user.user_type] || user.user_type || 'User'}
+                      <AdminPill tone={ROLE_TONE[user.role ?? ''] || 'neutral'}>
+                        {roleLabel(user.role)}
                       </AdminPill>
                       {!user.is_active && <AdminPill tone="destructive">Inactive</AdminPill>}
                     </div>
                   </div>
 
-                  {user.user_type === 'employee' && user.position && (
-                    <p className="text-xs text-slate-500">{user.position}</p>
+                  {staffPositionByUser[user.id] ? (
+                    <p className="text-xs text-slate-500">
+                      {positions.find((p) => p.position_key === staffPositionByUser[user.id])?.display_name ?? staffPositionByUser[user.id]}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-400">No position set</p>
                   )}
 
                   <div className="mt-auto grid grid-cols-2 gap-2 border-t border-black/10 pt-3">
