@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
-import { ArrowLeft, FileText, CheckCircle, AlertCircle, Clock, AlertTriangle, Loader2, Activity, UserCheck, RefreshCw, Download, Eye, X, Scale, Shield } from "lucide-react";
+import { FileText, CheckCircle, AlertCircle, Clock, AlertTriangle, Loader2, Activity, UserCheck, RefreshCw, Download, Eye, X, Scale, Shield } from "lucide-react";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -1025,23 +1026,10 @@ const DocumentProofreading = () => {
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
-      <header className="relative overflow-hidden border-b">
-        <div className="pointer-events-none absolute inset-0 opacity-70 blur-3xl bg-[radial-gradient(ellipse_at_top,hsl(var(--primary)/0.25),transparent_60%)]" />
-        <div className="container mx-auto px-4 py-10">
-          <div className="relative">
-            <Link to="/" className="inline-block mb-4">
-              <Button variant="outline" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Back to Dashboard
-              </Button>
-            </Link>
-            <h1 className="text-3xl md:text-4xl font-bold">Document Proofreading & Analysis</h1>
-            <p className="text-muted-foreground mt-2 max-w-2xl">
-              AI-powered proofreading and medical negligence analysis for medico-legal reports with automated checks and expert recommendations.
-            </p>
-          </div>
-        </div>
-      </header>
+      <DashboardStickyHeader
+        title="Document Proofreading & Analysis"
+        subtitle="AI-powered proofreading and medical negligence analysis with automated checks and expert recommendations."
+      />
 
       <main className="container mx-auto px-4 py-6">
         <div className="max-w-6xl mx-auto space-y-6">
