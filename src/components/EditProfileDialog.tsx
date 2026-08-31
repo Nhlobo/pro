@@ -28,6 +28,20 @@ interface ReferringAttorney {
   contact_person?: string;
 }
 
+// Single source of truth for how each real System Role should be
+// displayed — used both in the header subtitle and the read-only Role
+// field below. Covers all 5 internal roles plus the 2 external portal
+// roles, so nobody ever falls through to a generic "User" label again.
+const ROLE_DISPLAY_NAMES: Record<string, string> = {
+  admin: 'Administrator',
+  employee: 'Company Employee',
+  sales_consultant: 'Sales Consultant',
+  finance: 'Finance',
+  director: 'Director',
+  referring_attorney: 'Referring Attorney',
+  medical_expert: 'Medical Expert',
+};
+
 interface EditProfileDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -50,7 +64,6 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
     lastName: '',
     email: '',
     position: '',
-    userType: '',
   });
   const [selectedAttorneyIds, setSelectedAttorneyIds] = useState<string[]>([]);
   const [attorneySearch, setAttorneySearch] = useState('');
@@ -65,7 +78,6 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
         lastName: user.last_name || '',
         email: user.email || '',
         position: user.position || '',
-        userType: user.user_type || 'employee',
       });
       setAttorneySearch('');
       setMatterTypeFilter('all');
@@ -175,6 +187,9 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
     setIsUpdating(true);
     try {
       // Update profile fields
+      // NOTE: user_type is intentionally NOT written here anymore -- see
+      // the Role & Position section below for why. Only fields this
+      // dialog actually lets someone edit are updated.
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
@@ -182,7 +197,6 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
           last_name: form.lastName.trim() || null,
           email: form.email.trim() || null,
           position: form.position || null,
-          user_type: form.userType || null,
           // Keep referring_attorney_id for backward compat — set to first selected or null
           referring_attorney_id: selectedAttorneyIds.length > 0 ? selectedAttorneyIds[0] : null,
         })
@@ -248,10 +262,13 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
               ? `${user.first_name} ${user.last_name}` 
               : user.email}
             {' - '}
-            {user.user_type === 'admin' ? 'Administrator' : 
-             user.user_type === 'employee' ? 'Company Employee' :
-             user.user_type === 'referring_attorney' ? 'Referring Attorney' : 
-             'User'}
+            {/* FIXED 2026-08-31: was reading user.user_type (a legacy,
+                independently-editable display field that had drifted out of
+                sync for several accounts) and only recognized 3 of the 5
+                real roles, so Sales Consultant/Finance/Director staff all
+                showed up as generic "User" here. Now reads the real,
+                always-correct role from user.role instead. */}
+            {ROLE_DISPLAY_NAMES[user.role ?? ''] ?? 'User'}
           </DialogDescription>
         </DialogHeader>
 
@@ -312,42 +329,48 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
 
             <div className="space-y-3">
               <div>
-                <Label className="text-xs">User Type</Label>
-                <Select value={form.userType} onValueChange={(value) => setForm(prev => ({ ...prev, userType: value, position: value !== 'employee' ? '' : prev.position }))}>
-                  <SelectTrigger className="rounded-none border-black/15">
-                    <SelectValue placeholder="Select user type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Administrator</SelectItem>
-                    <SelectItem value="employee">Company Employee</SelectItem>
-                    <SelectItem value="referring_attorney">Referring Attorney</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs">Role</Label>
+                {/* FIXED 2026-08-31: this used to be an independently-editable
+                    "User Type" dropdown that only offered Administrator,
+                    Company Employee, and Referring Attorney -- Sales
+                    Consultant, Finance, and Director were never options,
+                    so those accounts could never be labeled correctly here.
+                    It also wrote straight to profiles.user_type, completely
+                    separate from the real role (user_roles /
+                    access_role_assignments) set in "System Role" above in
+                    Manage Access -- exactly the kind of two-sources-of-truth
+                    drift that broke several staff accounts earlier. Role is
+                    now shown read-only, always correct, sourced from the
+                    same place access control actually reads from. */}
+                <div className="mt-1 flex h-9 items-center border border-black/15 bg-black/[0.02] px-3 text-sm text-slate-700">
+                  {ROLE_DISPLAY_NAMES[user.role ?? ''] ?? 'User'}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  To change this person's role, use <strong>System Role</strong> in Manage Access instead.
+                </p>
               </div>
 
-              {form.userType === 'employee' && (
-                <div>
-                  <Label className="text-xs">Position (display title)</Label>
-                  <Select value={form.position} onValueChange={(value) => setForm(prev => ({ ...prev, position: value }))}>
-                    <SelectTrigger className="rounded-none border-black/15">
-                      <SelectValue placeholder="Select position" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Admin Assistant">Admin Assistant</SelectItem>
-                      <SelectItem value="NEG Case Manager">NEG Case Manager</SelectItem>
-                      <SelectItem value="RAF Case Manager">RAF Case Manager</SelectItem>
-                      <SelectItem value="Finance Officer">Finance Officer</SelectItem>
-                      <SelectItem value="Sales Consultant">Sales Consultant</SelectItem>
-                      <SelectItem value="Director">Director</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="mt-1 text-xs text-slate-500">
-                    This is a display title only (shown on their card in the directory). It does not
-                    control what they can see — that's set by System Role and Staff Position in
-                    Manage Access, above the module list.
-                  </p>
-                </div>
-              )}
+              <div>
+                <Label className="text-xs">Position (display title)</Label>
+                <Select value={form.position} onValueChange={(value) => setForm(prev => ({ ...prev, position: value }))}>
+                  <SelectTrigger className="rounded-none border-black/15">
+                    <SelectValue placeholder="Select position" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Admin Assistant">Admin Assistant</SelectItem>
+                    <SelectItem value="NEG Case Manager">NEG Case Manager</SelectItem>
+                    <SelectItem value="RAF Case Manager">RAF Case Manager</SelectItem>
+                    <SelectItem value="Finance Officer">Finance Officer</SelectItem>
+                    <SelectItem value="Sales Consultant">Sales Consultant</SelectItem>
+                    <SelectItem value="Director">Director</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-slate-500">
+                  This is a display title only (shown on their card in the directory). It does not
+                  control what they can see — that's set by System Role and Staff Position in
+                  Manage Access, above the module list.
+                </p>
+              </div>
             </div>
           </div>
 
