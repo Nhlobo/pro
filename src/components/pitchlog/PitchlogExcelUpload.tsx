@@ -7,9 +7,10 @@ import * as XLSX from 'xlsx';
 
 interface Props {
   onUpload: (rows: Record<string, string>[]) => void;
+  buttonClassName?: string;
 }
 
-const PitchlogExcelUpload: React.FC<Props> = ({ onUpload }) => {
+const PitchlogExcelUpload: React.FC<Props> = ({ onUpload, buttonClassName = "bg-white/10 text-white border-white/20 hover:bg-white/20" }) => {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -79,7 +80,7 @@ const PitchlogExcelUpload: React.FC<Props> = ({ onUpload }) => {
   return (
     <>
       <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleFile} />
-      <Button size="sm" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20" onClick={() => fileRef.current?.click()}>
+      <Button size="sm" variant="outline" className={buttonClassName} onClick={() => fileRef.current?.click()}>
         <Upload className="h-4 w-4 mr-2" />Upload Planned Pitches (.xlsx)
       </Button>
     </>
