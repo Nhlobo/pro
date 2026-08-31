@@ -19,6 +19,7 @@ import StrikeTracker from '@/components/sales/StrikeTracker';
 import TeamTargetsCard from '@/components/sales/TeamTargetsCard';
 import { RandSign } from "@/components/icons/RandSign";
 import { AdminCard, AdminCardBody, AdminPill, BRAND_TEAL } from '@/components/admin/ui/AdminUI';
+import SalesConsultantPitchActivity from '@/components/sales/SalesConsultantPitchActivity';
 
 const SECTION_KEYS = ['teamTargets', 'incentiveStructure', 'strikeTracker'] as const;
 type SectionKey = typeof SECTION_KEYS[number];
@@ -604,6 +605,22 @@ const SalesDashboard: React.FC<SalesDashboardProps> = ({ embedded = false }) => 
               footer={<p className="text-[11px] text-slate-500">{viewStrikes.length === 0 ? 'Good standing' : `${viewStrikes.length} warning(s) active`}</p>}
             />
           </div>
+
+          {/* Pitching Activity — pitch-status breakdown, province spread and
+              recent closed deals, matched by name against Attorney Pitchlog.
+              Distinct from the Deals Closed/Earnings cards above, which come
+              from the incentive/payout side of things. */}
+          {(() => {
+            const [pitchFirstName, ...pitchLastNameParts] = (viewingConsultant.name || '').trim().split(/\s+/);
+            const pitchLastName = pitchLastNameParts.join(' ');
+            return (
+              <SalesConsultantPitchActivity
+                firstName={pitchFirstName}
+                lastName={pitchLastName || undefined}
+                viewerLabel={admin ? viewingConsultant.name : 'you'}
+              />
+            );
+          })()}
 
           {/* Earnings Breakdown Card */}
           <AdminCard>
