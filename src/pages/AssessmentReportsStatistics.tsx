@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import CompanyFooter from "@/components/CompanyFooter";
-import SystemHeaderNav from "@/components/dashboard/SystemHeaderNav";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
@@ -931,7 +930,9 @@ const AssessmentReportsStatistics = ({ embedded = false }: { embedded?: boolean 
         </Helmet>
       )}
 
-      {!embedded && <SystemHeaderNav />}
+      {/* SystemHeaderNav previously rendered here too, stacking a second,
+          differently-styled header above the one below — removed so this
+          page has exactly one header, like every other page. */}
 
       {/* ------------------------------------------------------------- */}
       {/* Header — same eyebrow/icon/title language as the Admin Portal  */}
@@ -969,6 +970,12 @@ const AssessmentReportsStatistics = ({ embedded = false }: { embedded?: boolean 
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" className="rounded-none border-black/15" asChild>
+                <Link to="/dashboard">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Dashboard
+                </Link>
+              </Button>
               {headerActions}
             </div>
           </div>
