@@ -8,12 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Search, FileText, CheckCircle, XCircle, Clock, Calendar, Edit2, ExternalLink, Mail, Trash2 } from "lucide-react";
+import { Search, FileText, CheckCircle, XCircle, Clock, Calendar, Edit2, ExternalLink, Mail, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAppointmentRequests } from "@/hooks/useAppointmentRequests";
 import { format } from "date-fns";
 import CompanyFooter from "@/components/CompanyFooter";
 import { NotificationBadge } from "@/components/NotificationBadge";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import { useAppointmentNotifications } from "@/hooks/useAppointmentNotifications";
 import { AppointmentRequestEmailDialog } from "@/components/AppointmentRequestEmailDialog";
 
@@ -148,24 +149,10 @@ const AppointmentRequestDashboard = () => {
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Link>
-              </Button>
-              <h1 className="text-2xl font-bold">Appointment Request Dashboard</h1>
-            </div>
-            <div className="flex items-center gap-2">
-              <NotificationBadge />
-            </div>
-          </div>
-        </div>
-      </header>
+      <DashboardStickyHeader
+        title="Appointment Request Dashboard"
+        actions={<NotificationBadge />}
+      />
 
       <main className="container mx-auto px-4 py-8">
         <Card>
