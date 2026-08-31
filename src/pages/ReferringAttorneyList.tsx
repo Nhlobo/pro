@@ -8,9 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { SecureDataDisplay } from "@/components/SecureDataDisplay";
-import { ArrowLeft, Search, Building2, Pencil, Trash2, Calendar, Plus } from "lucide-react";
+import { Search, Building2, Pencil, Trash2, Calendar, Plus } from "lucide-react";
 import { format } from "date-fns";
-import { Link } from "react-router-dom";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -579,25 +579,20 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
         <link rel="canonical" href={canonicalUrl} />
       </Helmet>
 
-      <header className="border-b">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Link>
-              </Button>
-              <h1 className="text-2xl font-bold">Referring Attorney List</h1>
-            </div>
-            <Button className="flex items-center gap-2" onClick={() => setIsAddOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Add New Attorney
-            </Button>
-          </div>
-        </div>
-      </header>
+      <DashboardStickyHeader
+        title="Referring Attorney List"
+        subtitle="Manage referring attorneys with their contact details, roles, and matter types."
+        actions={
+          <Button
+            size="sm"
+            className="shrink-0 gap-1 bg-white text-[#0F7A9C] hover:bg-white/90"
+            onClick={() => setIsAddOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add New Attorney</span>
+          </Button>
+        }
+      />
 
       <main className="container mx-auto px-4 py-8">
         {directoryCard}
