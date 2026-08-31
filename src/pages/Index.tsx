@@ -13,7 +13,7 @@ import SalesConsultantStats from "@/components/SalesConsultantStats";
 import CompanyFooter from "@/components/CompanyFooter";
 import DashboardStatsGrid from "@/components/dashboard/DashboardStatsGrid";
 import RecentActivityCard from "@/components/dashboard/RecentActivityCard";
-import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import WelcomeSection from "@/components/dashboard/WelcomeSection";
 import DashboardMenus from "@/components/dashboard/DashboardMenus";
 import QuickActionsCard from "@/components/dashboard/QuickActionsCard";
@@ -168,11 +168,9 @@ const Index = () => {
           <meta name="description" content="Comprehensive medico-legal assessment management system for attorneys, medical experts, and case tracking." />
         </Helmet>
 
-        <DashboardHeader
-          user={user ?? null}
-          profile={userProfile}
-          onRefresh={handleRefresh}
-          refreshing={refreshing}
+        <DashboardStickyHeader
+          title={salesConsultant ? "Sales Dashboard" : "Dashboard"}
+          showBack={false}
           onSignOut={signOut}
         />
 
