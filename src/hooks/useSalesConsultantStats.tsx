@@ -1,0 +1,240 @@
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { format, subMonths } from 'date-fns';
+
+export interface SalesConsultantPitchStats {
+  totalPitches: number;
+  totalClosed: number;
+  thisMonthClosed: number;
+  lastMonthClosed: number;
+  attributed: number;
+  pitched: number;
+  rePitched: number;
+  followedUp: number;
+  interested: number;
+  conversionRate: string;
+  practiceBreakdown: Record<string, number>;
+  provinceBreakdown: Record<string, number>;
+  recentDeals: { firmName: string; date: string | null; practiceArea: string | null }[];
+}
+
+const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * Live pitching-activity + deal-closed stats for one sales consultant,
+ * matched by name against attorney_pitchlog / sales_consultants / live
+ * appointments. Shared by SalesConsultantStats (the compact card used in
+ * EditProfileDialog when an admin edits someone else's profile) and
+ * SalesConsultantPitchActivity (the full dashboard section a sales
+ * consultant sees on their own Attorney CRM / Sales Dashboard tab) so the
+ * two presentations never drift out of sync with each other.
+ */
+export const useSalesConsultantStats = (firstName: string, lastName?: string) => {
+  const consultantName = firstName?.trim();
+
+  // Fetch pitchlog entries for this consultant
+  const { data: pitchlogEntries = [], isLoading: loadingPitchlog } = useQuery({
+    queryKey: ['sales-consultant-pitchlog', consultantName],
+    queryFn: async () => {
+      if (!consultantName) return [];
+      const { data, error } = await supabase
+        .from('attorney_pitchlog')
+        .select('id, pitch_status, deal_closed, deal_closed_date, month_year, law_firm_name, practice_area, province, matched_referring_attorney_id, created_at')
+        .ilike('sales_person', `%${consultantName}%`);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!consultantName,
+  });
+
+  // Fetch referring attorneys for matching
+  const { data: referringAttorneys = [] } = useQuery({
+    queryKey: ['referring-attorneys-for-consultant-stats'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('referring_attorneys')
+        .select('id, name');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!consultantName,
+  });
+
+  // Fetch sales_consultants to find this consultant's ID by name
+  const { data: salesConsultants = [] } = useQuery({
+    queryKey: ['sales-consultants-for-stats'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sales_consultants')
+        .select('id, name');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!consultantName,
+  });
+
+  const matchedConsultantId = React.useMemo(() => {
+    if (!consultantName) return null;
+    const fullTarget = normalise(consultantName + (lastName ? ' ' + lastName : ''));
+    const targetFirst = normalise(consultantName);
+    const targetLast = lastName ? normalise(lastName) : '';
+
+    // 1) Exact full-name match
+    let match = salesConsultants.find(c => normalise(c.name) === fullTarget);
+    // 2) First + last token both present
+    if (!match && targetLast) {
+      match = salesConsultants.find(c => {
+        const n = normalise(c.name);
+        return n.includes(targetFirst) && n.includes(targetLast);
+      });
+    }
+    // 3) First-name only match (only if unique)
+    if (!match) {
+      const firstMatches = salesConsultants.filter(c => {
+        const n = normalise(c.name);
+        return n.startsWith(targetFirst) || n.includes(targetFirst);
+      });
+      if (firstMatches.length === 1) match = firstMatches[0];
+    }
+    return match?.id || null;
+  }, [consultantName, lastName, salesConsultants]);
+
+  // Fetch live appointments attributed to this consultant (deals closed)
+  // Combines two sources:
+  //  (a) appointments.sales_consultant_id = matched consultant id
+  //  (b) appointments linked to referring attorneys that this consultant has pitched & closed in attorney_pitchlog
+  const { data: appointmentStats = [] } = useQuery({
+    queryKey: ['appointment-stats-for-consultant-stats', matchedConsultantId, consultantName, lastName],
+    queryFn: async () => {
+      if (!consultantName) return [];
+
+      // (a) Direct attribution by sales_consultant_id
+      let directRows: any[] = [];
+      if (matchedConsultantId) {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('id, referring_attorney_id, appointment_date, matter_type, sales_consultant_id')
+          .is('deleted_at', null)
+          .eq('sales_consultant_id', matchedConsultantId);
+        if (error) throw error;
+        directRows = data || [];
+      }
+
+      // (b) Indirect attribution via attorney_pitchlog closed deals (matches by sales_person name)
+      const firstTok = consultantName.trim();
+      const lastTok = lastName?.trim();
+      let pitchQuery = supabase
+        .from('attorney_pitchlog')
+        .select('matched_referring_attorney_id, sales_person, deal_closed')
+        .eq('deal_closed', true)
+        .not('matched_referring_attorney_id', 'is', null);
+      // Match either "First" or "First Last" entries
+      pitchQuery = pitchQuery.or(
+        `sales_person.ilike.%${firstTok}%${lastTok ? `,sales_person.ilike.%${lastTok}%` : ''}`
+      );
+      const { data: pitchRows, error: pitchErr } = await pitchQuery;
+      if (pitchErr) throw pitchErr;
+
+      const attorneyIds = Array.from(
+        new Set((pitchRows || []).map((p: any) => p.matched_referring_attorney_id).filter(Boolean))
+      );
+
+      let indirectRows: any[] = [];
+      if (attorneyIds.length > 0) {
+        const { data, error } = await supabase
+          .from('appointments')
+          .select('id, referring_attorney_id, appointment_date, matter_type, sales_consultant_id')
+          .is('deleted_at', null)
+          .in('referring_attorney_id', attorneyIds);
+        if (error) throw error;
+        indirectRows = data || [];
+      }
+
+      // Merge & dedupe by appointment id
+      const map = new Map<string, any>();
+      [...directRows, ...indirectRows].forEach((r) => map.set(r.id, r));
+      return Array.from(map.values());
+    },
+    enabled: !!consultantName,
+  });
+
+  const isLoading = loadingPitchlog;
+
+  const stats: SalesConsultantPitchStats | null = React.useMemo(() => {
+    if (!consultantName) return null;
+    if (pitchlogEntries.length === 0 && appointmentStats.length === 0) return null;
+
+    const all = pitchlogEntries;
+    const now = new Date();
+    const currentMonth = format(now, 'yyyy-MM');
+    const lastMonth = format(subMonths(now, 1), 'yyyy-MM');
+
+    // LIVE deals = scheduled appointments attributed to this sales consultant
+    const totalClosed = appointmentStats.length;
+    const thisMonthClosed = appointmentStats.filter(a => {
+      if (!a.appointment_date) return false;
+      return format(new Date(a.appointment_date), 'yyyy-MM') === currentMonth;
+    }).length;
+    const lastMonthClosed = appointmentStats.filter(a => {
+      if (!a.appointment_date) return false;
+      return format(new Date(a.appointment_date), 'yyyy-MM') === lastMonth;
+    }).length;
+
+    // Build a lookup of RA name by id
+    const raById = new Map(referringAttorneys.map(r => [r.id, r.name]));
+
+    // Recent closed deals (last 5) — from live appointments
+    const recentDeals = [...appointmentStats]
+      .sort((a, b) => (b.appointment_date || '').localeCompare(a.appointment_date || ''))
+      .slice(0, 5)
+      .map(a => ({
+        firmName: raById.get(a.referring_attorney_id) || 'Unknown firm',
+        date: a.appointment_date,
+        practiceArea: a.matter_type || null,
+      }));
+
+    // Practice area breakdown from live appointments
+    const practiceBreakdown: Record<string, number> = {};
+    appointmentStats.forEach(a => {
+      const area = a.matter_type || 'Unknown';
+      practiceBreakdown[area] = (practiceBreakdown[area] || 0) + 1;
+    });
+
+    // Pitchlog-derived metrics (activity, not deals)
+    const totalPitches = all.length;
+    const attributed = all.filter(e => e.matched_referring_attorney_id).length;
+    const pitched = all.filter(e => e.pitch_status === 'Pitched').length;
+    const rePitched = all.filter(e => e.pitch_status === 'Re-pitched').length;
+    const followedUp = all.filter(e => e.pitch_status === 'Followed Up').length;
+    const interested = all.filter(e => e.pitch_status === 'Interested').length;
+    const conversionRate = totalPitches > 0 ? ((totalClosed / totalPitches) * 100).toFixed(1) : '0';
+
+    // Province breakdown of all pitches
+    const provinceBreakdown: Record<string, number> = {};
+    all.forEach(entry => {
+      const province = entry.province || 'Unknown';
+      provinceBreakdown[province] = (provinceBreakdown[province] || 0) + 1;
+    });
+
+    return {
+      totalPitches,
+      totalClosed,
+      thisMonthClosed,
+      lastMonthClosed,
+      attributed,
+      pitched,
+      rePitched,
+      followedUp,
+      interested,
+      conversionRate,
+      practiceBreakdown,
+      provinceBreakdown,
+      recentDeals,
+    };
+  }, [consultantName, pitchlogEntries, referringAttorneys, appointmentStats]);
+
+  return { consultantName, stats, isLoading };
+};
+
+export default useSalesConsultantStats;
