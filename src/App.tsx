@@ -99,7 +99,6 @@ const EmailQueue = lazy(() => import("./pages/EmailQueue"));
 const WorkflowAutomation = lazy(() => import("./pages/WorkflowAutomation"));
 const AttorneyPitchlog = lazy(() => import("./pages/AttorneyPitchlog"));
 const AttorneyReferralIntelligence = lazy(() => import("./pages/AttorneyReferralIntelligence"));
-const SalesDashboard = lazy(() => import("./pages/SalesDashboard"));
 const CaseAccess = lazy(() => import("./pages/CaseAccess"));
 const ExpertCaseAccess = lazy(() => import("./pages/ExpertCaseAccess"));
 
@@ -338,7 +337,11 @@ const App = () => (
                 <Route path="/admin" element={<AdminPortalRoute><AdminOperationsDashboard /></AdminPortalRoute>} />
                 <Route path="/admin/attorney-crm" element={<AdminPortalRoute><AdminAttorneyCRM /></AdminPortalRoute>} />
                 <Route path="/admin/litigation-requests" element={<AdminPortalRoute><AdminLitigationRequests /></AdminPortalRoute>} />
-                <Route path="/admin/sales-dashboard" element={<AdminPortalRoute><SalesDashboard embedded /></AdminPortalRoute>} />
+                {/* Old standalone Sales Dashboard page — was a full duplicate of the
+                    "Sales Dashboard" tab that already lives inside Attorney CRM
+                    (see AdminAttorneyCRM.tsx). Redirect any old bookmarks/links
+                    there instead of rendering a second copy of the same page. */}
+                <Route path="/admin/sales-dashboard" element={<Navigate to="/admin/attorney-crm" replace />} />
                 <Route path="/admin/experts" element={<AdminPortalRoute><AdminExpertNetwork /></AdminPortalRoute>} />
                 <Route path="/admin/find-experts" element={<AdminPortalRoute><AdminFindExperts /></AdminPortalRoute>} />
                 
@@ -430,10 +433,10 @@ const App = () => (
                 <Route path="/attorney-referral-intelligence" element={<ProtectedRoute><PermissionProtectedRoute permission={["admin_only", "view_analytics"]}><AttorneyReferralIntelligence /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Sales Incentive Routes — now lives inside the Admin Portal shell at
-                    /admin/sales-dashboard (same sidebar/header as every other admin
+                    /admin/attorney-crm's "Sales Dashboard" tab (same sidebar/header as every other admin
                     module). This path is kept as a redirect so old bookmarks/links
                     keep working. */}
-                <Route path="/sales-dashboard" element={<Navigate to="/admin/sales-dashboard" replace />} />
+                <Route path="/sales-dashboard" element={<Navigate to="/admin/attorney-crm" replace />} />
 
                 {/* National Availability Heatmap — accessible to all authenticated users (incl. sales consultants & non-consultants) */}
                 <Route path="/availability-heatmap" element={<ProtectedRoute><div className="min-h-screen bg-background"><div className="container mx-auto p-4 md:p-6"><AdminHeatmap /></div></div></ProtectedRoute>} />
