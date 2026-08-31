@@ -8,7 +8,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarChart3, Target, Users } from "lucide-react";
 import CompanyFooter from "@/components/CompanyFooter";
+import SalesConsultantStats from "@/components/SalesConsultantStats";
 import DashboardStatsGrid from "@/components/dashboard/DashboardStatsGrid";
 import RecentActivityCard from "@/components/dashboard/RecentActivityCard";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -49,20 +51,6 @@ const Index = () => {
       navigate("/admin", { replace: true });
     }
   }, [loading, admin, referringAttorney, navigate]);
-
-  // Sales consultants land on Attorney CRM — the same shared page
-  // admin/employee use — inside the same Admin Portal shell (sidebar +
-  // header), rather than landing on this generic dashboard first and
-  // having to click through. This used to point at a standalone Sales
-  // Dashboard page/route, but that was a duplicate of the "Sales
-  // Dashboard" tab that already lives inside Attorney CRM (removed
-  // 2026-08-31); Attorney CRM opens on that same tab by default, so the
-  // landing experience is unchanged.
-  useEffect(() => {
-    if (!loading && salesConsultant) {
-      navigate("/admin/attorney-crm", { replace: true });
-    }
-  }, [loading, salesConsultant, navigate]);
 
   // Finance and Director roles land on the Finance & Payments module inside
   // the Admin Portal shell — same treatment as sales consultants above, so
@@ -134,12 +122,6 @@ const Index = () => {
     return <BrandedPageLoader message="Loading…" />;
   }
 
-  // Same treatment for sales consultants — being redirected to
-  // /admin/attorney-crm by the effect above.
-  if (salesConsultant) {
-    return <BrandedPageLoader message="Loading…" />;
-  }
-
   // Same treatment for finance/director — being redirected to
   // /admin/finance by the effect above.
   if (finance || director) {
@@ -198,16 +180,48 @@ const Index = () => {
           <div className="container mx-auto px-4 py-8 space-y-8">
             <WelcomeSection onRefresh={handleRefresh} refreshing={refreshing} />
 
-            <DashboardStatsGrid stats={stats} loading={statsLoading} />
+            {salesConsultant && userProfile?.first_name && (
+              <Card className="bg-gradient-card border-border/50 shadow-soft">
+                <CardHeader>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-lg">
+                        <Target className="h-5 w-5 text-primary" />
+                        Welcome back, {userProfile.first_name}!
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        Your personal sales performance — Deals Closed are pulled live from Scheduled Assessment
+                        Appointments and stay in sync with the Sales Dashboard and Attorney Pitchlog.
+                      </CardDescription>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" onClick={() => navigate("/sales-dashboard")} className="gap-1">
+                        <BarChart3 className="h-4 w-4" /> My Sales Dashboard
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => navigate("/attorney-pitchlog")} className="gap-1">
+                        <Users className="h-4 w-4" /> Attorney Pitchlog
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <SalesConsultantStats firstName={userProfile.first_name} lastName={userProfile.last_name} />
+                </CardContent>
+              </Card>
+            )}
+
+            {!salesConsultant && <DashboardStatsGrid stats={stats} loading={statsLoading} />}
 
             <DashboardMenus />
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <WorkflowAlertsCard />
-              <QuickActionsCard />
-              <RecentActivityCard />
-              <HelpSupportCard />
-            </div>
+            {!salesConsultant && (
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <WorkflowAlertsCard />
+                <QuickActionsCard />
+                <RecentActivityCard />
+                <HelpSupportCard />
+              </div>
+            )}
           </div>
         </div>
 
