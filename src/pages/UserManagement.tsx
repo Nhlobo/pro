@@ -159,7 +159,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
   const [displayPassword, setDisplayPassword] = useState<string>("");
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordAction, setPasswordAction] = useState<string>("");
-  const [createdUserSummary, setCreatedUserSummary] = useState<{ firstName: string; lastName: string; email: string; position: string; userType: string } | null>(null);
+  const [createdUserSummary, setCreatedUserSummary] = useState<{ firstName: string; lastName: string; email: string; position: string; userType: string; role: string } | null>(null);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [userToEditProfile, setUserToEditProfile] = useState<UserProfile | null>(null);
   
@@ -487,6 +487,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
           email: newUserForm.email,
           position: newUserForm.position,
           userType: newUserForm.userType,
+          role: newUserForm.role,
         });
         
         // Show the password to admin
@@ -1959,9 +1960,12 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
                       <span className="font-medium text-black">{createdUserSummary.position || 'Not set'}</span>
                       <span className="text-slate-500">System Role:</span>
                       <span className="font-medium text-black">
-                        {createdUserSummary.position === 'Sales Consultant' 
-                          ? 'Sales Consultant' 
-                          : 'Employee (Full Access)'}
+                        {createdUserSummary.role === 'admin' ? 'Administrator (Full Access)'
+                          : createdUserSummary.role === 'employee' ? 'Employee (Full Access)'
+                          : createdUserSummary.role === 'sales_consultant' ? 'Sales Consultant'
+                          : createdUserSummary.role === 'finance' ? 'Finance'
+                          : createdUserSummary.role === 'director' ? 'Director'
+                          : createdUserSummary.role}
                       </span>
                     </div>
                   </div>
