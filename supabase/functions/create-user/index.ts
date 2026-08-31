@@ -1,12 +1,18 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { sendEmail } from '../_shared/email.ts'
+import { sendEmail, confirmAccountEmailHtml } from '../_shared/email.ts'
 import { withErrorHandler } from "../_shared/errors.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+// The new system's own deployed origin (see resend-user-confirmation/index.ts,
+// external-portal-admin-links/index.ts and send-appointment-confirmation/index.ts
+// for the same constant) — every auth email link must point here, never at
+// the retired kamedico-legal.co.za site.
+const APP_ORIGIN = 'https://medico-legal-pro-71z1.onrender.com';
 
 serve(withErrorHandler(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -39,7 +45,7 @@ serve(withErrorHandler(async (req) => {
 
     // Verify authentication
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
-    
+
     if (authError || !user) {
       console.error('Auth error:', authError)
       return new Response(
@@ -62,7 +68,7 @@ serve(withErrorHandler(async (req) => {
 
     // Parse and validate request body
     const requestBody = await req.json();
-    
+
     // Basic validation
     if (!requestBody.email || !requestBody.password || !requestBody.firstName || !requestBody.lastName) {
       return new Response(
@@ -89,14 +95,14 @@ serve(withErrorHandler(async (req) => {
     }
 
     // Validate role — restricted to the 5 canonical internal roles.
-    // referring_attorney/medical_expert are NOT valid here: those are
-    // exclusively for the separate external_portal_accounts system
-    // (bridged via the external-portal-auth function), confirmed several
-    // rounds ago to still be actively used by the old system's own
-    // /auth login for real external users -- an internal-staff creation
-    // flow must never be able to produce an account holding either
-    // value. 'user' is likewise not a real role (it's the code's
-    // fallback for "no role assigned"), so it's excluded too.
+    // FIXED 2026-08-31: this list had drifted to
+    // ['admin','employee','referring_attorney','user','sales_consultant']
+    // on the deployed function, silently blocking Finance and Director
+    // account creation with a 400 error while the frontend correctly
+    // offered both as choices. referring_attorney/medical_expert are NOT
+    // valid here: those are exclusively for the separate
+    // external_portal_accounts system. 'user' is likewise not a real role
+    // (it's the fallback for "no role assigned"), so it's excluded too.
     const validRoles = ['admin', 'employee', 'sales_consultant', 'finance', 'director'];
     const role = requestBody.role;
     if (!role || !validRoles.includes(role)) {
@@ -110,7 +116,10 @@ serve(withErrorHandler(async (req) => {
 
     console.log('Creating user with email:', email)
 
-    const origin = 'https://kamedico-legal.co.za';
+    // This must point at THIS app (the new system), not the old
+    // kamedico-legal.co.za site — the confirmation link the new user
+    // clicks needs to land them back here, already authenticated.
+    const origin = APP_ORIGIN;
     const normalizedEmail = email.trim().toLowerCase();
 
     // Reject a REAL duplicate up front with a clear message, before ever
@@ -131,14 +140,12 @@ serve(withErrorHandler(async (req) => {
 
     // Look up (paginated) whether an Auth account already exists for this
     // email with NO matching profile. This happens when a previous
-    // create-user call created the Auth account but a later step (profile
-    // insert, role grant, etc.) failed -- nothing rolled the Auth account
-    // back, so it lingers forever: invisible in User Management (which
-    // only reads `profiles`), yet auth.admin.createUser() will reject any
-    // future attempt at the same email as "already registered". That
-    // combination -- "looks free, but creation says it's taken" -- is
-    // exactly the bug this block exists to self-heal instead of leaving
-    // an admin to hunt for it manually in the Auth dashboard every time.
+    // create-user call created the Auth account but a later step failed --
+    // nothing rolled the Auth account back, so it lingers forever: invisible
+    // in User Management (which only reads `profiles`), yet
+    // auth.admin.createUser() will reject any future attempt at the same
+    // email as "already registered". Self-heal it instead of leaving an
+    // admin to hunt for it manually in the Auth dashboard.
     let orphanedAuthUserId: string | null = null;
     {
       const maxPages = 20; // 20 x 1000 = up to 20,000 accounts scanned
@@ -214,7 +221,7 @@ serve(withErrorHandler(async (req) => {
           redirectTo: `${origin}/`
         }
       });
-      
+
       if (emailError || !linkData?.properties?.action_link) {
         console.error('Error generating confirmation email link:', emailError);
       } else {
@@ -222,21 +229,7 @@ serve(withErrorHandler(async (req) => {
         const emailResult = await sendEmail({
           to: email,
           subject: 'Confirm your email - Medico-Legal Pro',
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 24px; color: #1f2937;">
-              <div style="text-align:center; border-bottom: 1px solid #e5e7eb; padding-bottom: 18px; margin-bottom: 24px;">
-                <h1 style="margin:0; color:#0f172a; font-size:24px;">Confirm Your Email</h1>
-                <p style="margin:8px 0 0; color:#64748b;">Medico-Legal Pro</p>
-              </div>
-              <p>Please click the button below to confirm your email address and activate your account.</p>
-              <div style="text-align:center; margin: 32px 0;">
-                <a href="${actionLink}" style="background-color:#0ea5e9; color:#ffffff; padding: 13px 28px; text-decoration:none; border-radius:6px; display:inline-block; font-weight:bold;">Confirm Email</a>
-              </div>
-              <p style="font-size:13px; color:#64748b;">If the button does not work, copy and paste this link into your browser:</p>
-              <p style="font-size:12px; word-break:break-all; color:#0284c7;">${actionLink}</p>
-              <p style="font-size:12px; color:#94a3b8; margin-top:28px;">If you did not request this email, you can safely ignore it.</p>
-            </div>
-          `
+          html: confirmAccountEmailHtml(actionLink)
         });
 
         if (!emailResult.success) {
@@ -281,10 +274,8 @@ serve(withErrorHandler(async (req) => {
     }
     console.log('Profile created successfully')
 
-    // Grant role in user_roles table (legacy/old-system source of truth
-    // — kept in sync deliberately, same discipline established over the
-    // last several rounds after finding profiles.role/user_roles drift
-    // on multiple real accounts)
+    // Grant role in user_roles table (legacy/old-system source of truth --
+    // controls login/redirect via get_current_user_role()).
     const { error: roleError } = await supabaseAdmin
       .from('user_roles')
       .insert({
@@ -298,12 +289,17 @@ serve(withErrorHandler(async (req) => {
     }
 
     // Grant the SAME role in the new system's own access_role_assignments
-    // table. This is a separate, additive write -- it does not read from
-    // or depend on user_roles/profiles in any way, and a failure here
-    // does not roll back the account creation above (the account still
-    // works for the old system either way; an admin can always assign
-    // the new-system role afterward via Manage Access if this insert
-    // happens to fail).
+    // table. FIXED 2026-08-31: this insert was completely missing from the
+    // deployed function -- EVERY user created through "Add User" got a
+    // working login (user_roles) but no row here, so the page-access
+    // gating (useModuleAccess) treated them as not a recognized staff
+    // member for ANY page: infinite loading spinner, no dashboard. This is
+    // the exact bug fixed by hand for worksof26@gmail.com and
+    // worksof27@gmail.com earlier -- now every future account gets it
+    // automatically. This is a separate, additive write -- it does not
+    // read from or depend on user_roles/profiles, and a failure here does
+    // not roll back the account creation above (an admin can always assign
+    // the new-system role afterward via Manage Access if this insert fails).
     const { error: newSystemRoleError } = await supabaseAdmin
       .from('access_role_assignments')
       .insert({
@@ -319,7 +315,7 @@ serve(withErrorHandler(async (req) => {
     // Grant permissions
     if (role !== 'admin' && permissions && Array.isArray(permissions)) {
       console.log('Granting permissions:', permissions)
-      
+
       for (const permission of permissions) {
         const { error: permError } = await supabaseAdmin
           .from('user_permissions')
@@ -329,7 +325,7 @@ serve(withErrorHandler(async (req) => {
             granted: true,
             granted_by: user.id
           })
-        
+
         if (permError) {
           console.error(`Error granting permission ${permission}:`, permError)
         }
@@ -339,8 +335,8 @@ serve(withErrorHandler(async (req) => {
     console.log('User creation completed successfully')
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         user: {
           id: newUser.user.id,
           email: newUser.user.email
