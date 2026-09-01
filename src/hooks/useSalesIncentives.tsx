@@ -164,7 +164,13 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
 
   const enrichStrikeHistory = async (history: ConsultantStrikeHistory[]) => {
     const actorIds = Array.from(new Set(history.map(h => h.performed_by).filter(Boolean))) as string[];
-    if (actorIds.length === 0) return history;
+    if (actorIds.length === 0) {
+      return history.map(item => ({
+        ...item,
+        performed_by_name: item.performed_by ? 'Admin user' : 'System (automated)',
+        performed_by_email: null,
+      }));
+    }
 
     const { data: profiles } = await supabase
       .from('profiles')
@@ -177,7 +183,7 @@ export const useSalesIncentives = (selectedPayoutDate?: Date) => {
       const name = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
       return {
         ...item,
-        performed_by_name: name || profile?.email || 'Admin user',
+        performed_by_name: name || profile?.email || (item.performed_by ? 'Admin user' : 'System (automated)'),
         performed_by_email: profile?.email || null,
       };
     });
