@@ -24,11 +24,9 @@ const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
 /**
  * Live pitching-activity + deal-closed stats for one sales consultant,
  * matched by name against attorney_pitchlog / sales_consultants / live
- * appointments. Shared by SalesConsultantStats (the compact card used in
- * EditProfileDialog when an admin edits someone else's profile) and
- * SalesConsultantPitchActivity (the full dashboard section a sales
- * consultant sees on their own Attorney CRM / Sales Dashboard tab) so the
- * two presentations never drift out of sync with each other.
+ * appointments. Used by SalesConsultantStats — on Index.tsx (the sales
+ * consultant's own home screen) and inside EditProfileDialog when an admin
+ * edits someone else's profile.
  */
 export const useSalesConsultantStats = (firstName: string, lastName?: string) => {
   const consultantName = firstName?.trim();
