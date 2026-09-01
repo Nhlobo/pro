@@ -516,6 +516,7 @@ export const useSecureAssessments = () => {
               await supabase.from('attorney_pitchlog').insert({
                 law_firm_name: raDetails?.name || currentAssessment.referring_attorney,
                 sales_person: consultantName,
+                consultant_id: salesConsultantId,
                 contact_person: raDetails?.contact_person || currentAssessment.referring_attorney,
                 province: raDetails?.province || 'Unknown',
                 email: raDetails?.email || null,
