@@ -19,6 +19,7 @@ import IncentiveTable from '@/components/sales/IncentiveTable';
 import IncentiveRules from '@/components/sales/IncentiveRules';
 import StrikeTracker from '@/components/sales/StrikeTracker';
 import TeamTargetsCard from '@/components/sales/TeamTargetsCard';
+import SalesConsultantPitchActivity from '@/components/sales/SalesConsultantPitchActivity';
 
 import { RandSign } from "@/components/icons/RandSign";
 const SECTION_KEYS = ['teamTargets', 'incentiveStructure', 'strikeTracker'] as const;
@@ -108,6 +109,8 @@ const SalesDashboard: React.FC = () => {
     ? calculateIncentive(totalAppts, viewingConsultant.type as 'internal' | 'external', rafAppts, mednegAppts)
     : { raf: 0, medneg: 0, total: 0, label: 'None', rafRate: 0, mednegRate: 0 };
   const viewingTarget = viewingConsultant ? getTargetForConsultant(viewingConsultant) : salesTarget;
+  const [viewingFirstName, ...viewingLastNameParts] = (viewingConsultant?.name || '').trim().split(/\s+/);
+  const viewingLastName = viewingLastNameParts.join(' ');
   const progressPct = viewingTarget > 0 ? Math.min(100, (totalAppts / viewingTarget) * 100) : 0;
   const payoutUnlocked = totalAppts >= payoutEligibilityTarget;
 
@@ -549,6 +552,14 @@ const SalesDashboard: React.FC = () => {
               </CardContent>
             </Card>
           </div>
+
+          {viewingFirstName && (
+            <SalesConsultantPitchActivity
+              firstName={viewingFirstName}
+              lastName={viewingLastName || undefined}
+              viewerLabel={admin ? viewingConsultant.name : 'you'}
+            />
+          )}
 
           {/* Earnings Breakdown Card */}
           <Card>
