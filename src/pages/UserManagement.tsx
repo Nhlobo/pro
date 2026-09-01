@@ -283,6 +283,41 @@ const UserManagement: React.FC<UserManagementProps> = ({ embedded = false }) => 
             toast.error('Role updated, but the new access-control assignment failed to sync — check Manage Access.');
           }
         }
+
+        // Keep sales_consultants in sync with the role change too.
+        // useSalesIncentives looks the logged-in person up by
+        // sales_consultants.user_id — without this, promoting someone to
+        // Sales Consultant here left them with a working login but an
+        // empty Sales Dashboard (no target, no appointment count, no
+        // incentive/payout), same underlying gap as create-user for brand
+        // new accounts. Symmetrically, moving someone OUT of Sales
+        // Consultant deactivates their row instead of leaving a stale
+        // active consultant in team targets/payout reports.
+        if (pendingRole === 'sales_consultant') {
+          const { error: salesConsultantError } = await supabase
+            .from('sales_consultants')
+            .upsert(
+              {
+                user_id: selectedUser.id,
+                name: `${selectedUser.first_name ?? ''} ${selectedUser.last_name ?? ''}`.trim() || selectedUser.email || 'Sales Consultant',
+                type: 'internal',
+                is_active: true,
+              },
+              { onConflict: 'user_id' }
+            );
+          if (salesConsultantError) {
+            console.error('Error syncing sales_consultants row:', salesConsultantError);
+            toast.error('Role updated, but the Sales Dashboard record failed to sync — check manually.');
+          }
+        } else {
+          const { error: deactivateError } = await supabase
+            .from('sales_consultants')
+            .update({ is_active: false })
+            .eq('user_id', selectedUser.id);
+          if (deactivateError) {
+            console.error('Error deactivating sales_consultants row:', deactivateError);
+          }
+        }
       }
 
       if (pendingUserPosition !== undefined) {
