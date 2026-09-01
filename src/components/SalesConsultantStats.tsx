@@ -10,11 +10,12 @@ interface SalesConsultantStatsProps {
   lastName?: string;
 }
 
-// Data-fetching logic lives in useSalesConsultantStats (shared with
-// SalesConsultantPitchActivity, the new-system-styled version of this same
-// view used on the Attorney CRM / Sales Dashboard tab) — this component is
-// presentation only, kept exactly as it rendered before, since it's still
-// used inside EditProfileDialog when an admin edits someone else's profile.
+// Data-fetching logic lives in useSalesConsultantStats. This is the only
+// live consumer of that hook, used on Index.tsx (the sales consultant's own
+// home screen) and inside EditProfileDialog when an admin edits someone
+// else's profile. (A second, "new-system-styled" component that supposedly
+// shared this hook, SalesConsultantPitchActivity, was never actually
+// wired up anywhere — removed 2026-09-01.)
 const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, lastName }) => {
   const { consultantName, stats, isLoading } = useSalesConsultantStats(firstName, lastName);
 
