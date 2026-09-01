@@ -23,6 +23,7 @@ import {
   TrendingUp, FileCheck, Loader2, Scale, CreditCard, Stethoscope,
 } from 'lucide-react';
 import { LitigationTrialServices } from '@/components/attorney-portal/LitigationTrialServices';
+import RequestServiceDialog, { ServiceRequestType } from '@/components/attorney-portal/RequestServiceDialog';
 import { format, differenceInDays } from 'date-fns';
 import { formatExpertType } from '@/utils/expertTypeMapping';
 import jsPDF from 'jspdf';
@@ -83,6 +84,11 @@ const AttorneyMyCases: React.FC = () => {
   // Case detail dialog
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedCase, setSelectedCase] = useState<any>(null);
+  // Addendum / Affidavit / Joint Minute / Appointment requests against the
+  // currently-open case (see RequestServiceDialog.tsx)
+  const [serviceRequestDialogOpen, setServiceRequestDialogOpen] = useState(false);
+  const [serviceRequestType, setServiceRequestType] = useState<ServiceRequestType | null>(null);
+  const documentsAnchorRef = React.useRef<HTMLDivElement>(null);
   const [caseExpertReports, setCaseExpertReports] = useState<any[]>([]);
   const [caseFinancials, setCaseFinancials] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -911,6 +917,46 @@ const AttorneyMyCases: React.FC = () => {
 
               <Separator />
 
+              {/* Actions */}
+              <div>
+                <h3 className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-black">
+                  <Send className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Actions
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" className="rounded-none" onClick={() => {
+                    setServiceRequestType('appointment');
+                    setServiceRequestDialogOpen(true);
+                  }}>
+                    <Plus className="h-4 w-4 mr-1" /> Request Appointment
+                  </Button>
+                  <Button size="sm" variant="outline" className="rounded-none" onClick={() => {
+                    setServiceRequestType('addendum');
+                    setServiceRequestDialogOpen(true);
+                  }}>
+                    <FileText className="h-4 w-4 mr-1" /> Request Addendum
+                  </Button>
+                  <Button size="sm" variant="outline" className="rounded-none" onClick={() => {
+                    setServiceRequestType('affidavit');
+                    setServiceRequestDialogOpen(true);
+                  }}>
+                    <FileCheck className="h-4 w-4 mr-1" /> Request Affidavit
+                  </Button>
+                  <Button size="sm" variant="outline" className="rounded-none" onClick={() => {
+                    setServiceRequestType('joint_minutes');
+                    setServiceRequestDialogOpen(true);
+                  }}>
+                    <FileText className="h-4 w-4 mr-1" /> Request Joint Minute
+                  </Button>
+                  <Button size="sm" variant="outline" className="rounded-none" onClick={() => {
+                    documentsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }}>
+                    <FolderOpen className="h-4 w-4 mr-1" /> View Supporting Documents
+                  </Button>
+                </div>
+              </div>
+
+              <Separator />
+
               {/* C. Reports Section */}
               <div>
                 <h3 className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-black">
@@ -967,7 +1013,7 @@ const AttorneyMyCases: React.FC = () => {
               <Separator />
 
               {/* D. Documents */}
-              <div>
+              <div ref={documentsAnchorRef}>
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-black">
                     <FolderOpen className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Documents
@@ -1060,6 +1106,16 @@ const AttorneyMyCases: React.FC = () => {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+
+      {/* Addendum / Affidavit / Joint Minute / Appointment Request Dialog */}
+      <RequestServiceDialog
+        open={serviceRequestDialogOpen}
+        onOpenChange={setServiceRequestDialogOpen}
+        serviceType={serviceRequestType}
+        mode="authenticated"
+        claimantName={selectedCase?.claimantName || ''}
+        caseReference={selectedCase?.id}
+      />
 
       {/* New Referral Dialog */}
       <Sheet open={referralDialogOpen} onOpenChange={setReferralDialogOpen}>
