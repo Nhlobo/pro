@@ -3352,7 +3352,7 @@ export type Database = {
           notes: string | null
           referring_attorney_id: string | null
           requested_at: string
-          requested_by: string
+          requested_by: string | null
           service_type: string
           status: string
           trial_date: string | null
@@ -3368,7 +3368,7 @@ export type Database = {
           notes?: string | null
           referring_attorney_id?: string | null
           requested_at?: string
-          requested_by: string
+          requested_by?: string | null
           service_type: string
           status?: string
           trial_date?: string | null
@@ -3384,7 +3384,7 @@ export type Database = {
           notes?: string | null
           referring_attorney_id?: string | null
           requested_at?: string
-          requested_by?: string
+          requested_by?: string | null
           service_type?: string
           status?: string
           trial_date?: string | null
