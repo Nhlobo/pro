@@ -981,6 +981,7 @@ const CaseAccess: React.FC = () => {
         open={serviceRequestDialogOpen}
         onOpenChange={setServiceRequestDialogOpen}
         serviceType={serviceRequestType}
+        mode="guest"
         accessCode={accessCode}
         claimantName={selectedCase?.claimant_name || ''}
         caseReference={selectedCase?.id}
