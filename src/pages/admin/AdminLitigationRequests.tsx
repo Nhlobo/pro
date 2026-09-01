@@ -76,6 +76,14 @@ const SERVICE_TYPE_LABELS: Record<string, string> = {
   quantum_calculation: 'Quantum Calculation',
   expert_availability: 'Expert Availability for Trial',
   case_consultation: 'Case Consultation',
+  trial_coordination: 'Expert Trial Coordination',
+  court_formatting: 'Court-Ready Report Formatting',
+  // Submitted from the Case Access Portal's Case Details actions (see
+  // src/components/attorney-portal/RequestServiceDialog.tsx) — these used
+  // to be wrongly routed through appointment_requests.
+  addendum: 'Addendum',
+  affidavit: 'Affidavit',
+  joint_minutes: 'Joint Minute',
 };
 
 const STATUS_OPTIONS = [
