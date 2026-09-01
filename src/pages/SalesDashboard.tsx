@@ -19,7 +19,6 @@ import IncentiveTable from '@/components/sales/IncentiveTable';
 import IncentiveRules from '@/components/sales/IncentiveRules';
 import StrikeTracker from '@/components/sales/StrikeTracker';
 import TeamTargetsCard from '@/components/sales/TeamTargetsCard';
-import SalesConsultantPitchActivity from '@/components/sales/SalesConsultantPitchActivity';
 
 import { RandSign } from "@/components/icons/RandSign";
 const SECTION_KEYS = ['teamTargets', 'incentiveStructure', 'strikeTracker'] as const;
@@ -109,8 +108,6 @@ const SalesDashboard: React.FC = () => {
     ? calculateIncentive(totalAppts, viewingConsultant.type as 'internal' | 'external', rafAppts, mednegAppts)
     : { raf: 0, medneg: 0, total: 0, label: 'None', rafRate: 0, mednegRate: 0 };
   const viewingTarget = viewingConsultant ? getTargetForConsultant(viewingConsultant) : salesTarget;
-  const [viewingFirstName, ...viewingLastNameParts] = (viewingConsultant?.name || '').trim().split(/\s+/);
-  const viewingLastName = viewingLastNameParts.join(' ');
   const progressPct = viewingTarget > 0 ? Math.min(100, (totalAppts / viewingTarget) * 100) : 0;
   const payoutUnlocked = totalAppts >= payoutEligibilityTarget;
 
@@ -553,14 +550,6 @@ const SalesDashboard: React.FC = () => {
             </Card>
           </div>
 
-          {viewingFirstName && (
-            <SalesConsultantPitchActivity
-              firstName={viewingFirstName}
-              lastName={viewingLastName || undefined}
-              viewerLabel={admin ? viewingConsultant.name : 'you'}
-            />
-          )}
-
           {/* Earnings Breakdown Card */}
           <Card>
             <CardContent className="pt-6">
@@ -681,7 +670,7 @@ const SalesDashboard: React.FC = () => {
                       </span>
                     </div>
                     <div className="mt-2 grid gap-1 text-xs text-muted-foreground md:grid-cols-2">
-                      <p>Performed by: <span className="font-medium text-foreground">{item.performed_by_name || 'Admin user'}</span></p>
+                      <p>Performed by: <span className="font-medium text-foreground">{item.performed_by_name || 'System (automated)'}</span></p>
                       <p>Payout: <span className="font-medium text-foreground">{item.payout_month && item.payout_year ? `${new Date(item.payout_year, item.payout_month - 1).toLocaleString('en-ZA', { month: 'long' })} ${item.payout_year}` : 'Not linked'}</span></p>
                     </div>
                     {item.reason && <p className="mt-2 text-sm text-foreground break-words">{item.reason}</p>}
