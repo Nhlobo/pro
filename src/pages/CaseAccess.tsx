@@ -29,6 +29,7 @@ import ProfileRequestAppointment from '@/components/attorney-profile/ProfileRequ
 import ProfileAttorneyDetails from '@/components/attorney-profile/ProfileAttorneyDetails';
 import CaseAccessClaimantView from '@/components/attorney-portal/CaseAccessClaimantView';
 import SupportingDocumentsView from '@/components/attorney-portal/SupportingDocumentsView';
+import RequestServiceDialog, { ServiceRequestType } from '@/components/attorney-portal/RequestServiceDialog';
 
 interface CaseData {
   id: string;
@@ -194,6 +195,12 @@ const CaseAccess: React.FC = () => {
   // Case detail dialog
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedCase, setSelectedCase] = useState<CaseData | null>(null);
+  // Addendum / Affidavit / Joint Minute — these are case-management service
+  // requests (public.litigation_service_requests), not new expert bookings,
+  // so they get their own dialog instead of reusing the appointment request
+  // form / appointment_requests table.
+  const [serviceRequestDialogOpen, setServiceRequestDialogOpen] = useState(false);
+  const [serviceRequestType, setServiceRequestType] = useState<ServiceRequestType | null>(null);
 
   // Reports download dialog (per-appointment)
   const [reportsDialogOpen, setReportsDialogOpen] = useState(false);
@@ -933,19 +940,22 @@ const CaseAccess: React.FC = () => {
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setDetailDialogOpen(false);
-                    navigateToTabForClaimant('request', selectedCase.claimant_name, 'Addendum (Post-Report)', 'Addendum', selectedCase.matter_type || '');
+                    setServiceRequestType('addendum');
+                    setServiceRequestDialogOpen(true);
                   }}>
                     <FileSignature className="h-4 w-4 mr-1" /> Request Addendum
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setDetailDialogOpen(false);
-                    navigateToTabForClaimant('request', selectedCase.claimant_name, 'Affidavits', 'Affidavit', selectedCase.matter_type || '');
+                    setServiceRequestType('affidavit');
+                    setServiceRequestDialogOpen(true);
                   }}>
                     <Stamp className="h-4 w-4 mr-1" /> Request Affidavit
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setDetailDialogOpen(false);
-                    navigateToTabForClaimant('request', selectedCase.claimant_name, 'Joint Minutes (Post-Report)', 'Joint Minute', selectedCase.matter_type || '');
+                    setServiceRequestType('joint_minutes');
+                    setServiceRequestDialogOpen(true);
                   }}>
                     <FileSignature className="h-4 w-4 mr-1" /> Request Joint Minute
                   </Button>
@@ -965,6 +975,16 @@ const CaseAccess: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ══════ Addendum / Affidavit / Joint Minute Request Dialog ══════ */}
+      <RequestServiceDialog
+        open={serviceRequestDialogOpen}
+        onOpenChange={setServiceRequestDialogOpen}
+        serviceType={serviceRequestType}
+        accessCode={accessCode}
+        claimantName={selectedCase?.claimant_name || ''}
+        caseReference={selectedCase?.id}
+      />
 
       {/* ══════ Reports Download Dialog ══════ */}
       <Dialog open={reportsDialogOpen} onOpenChange={setReportsDialogOpen}>
