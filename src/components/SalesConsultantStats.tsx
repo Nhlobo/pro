@@ -70,9 +70,9 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
       </div>
 
       {/* Monthly Comparison */}
-      <div className="flex items-center gap-3 text-xs">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         <div className="flex items-center gap-1">
-          <Calendar className="h-3 w-3 text-muted-foreground" />
+          <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
           <span className="text-muted-foreground">This month:</span>
           <span className="font-semibold">{stats.thisMonthClosed} deals</span>
         </div>
@@ -81,7 +81,7 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
           <span className="font-semibold">{stats.lastMonthClosed} deals</span>
         </div>
         {stats.thisMonthClosed > stats.lastMonthClosed && (
-          <TrendingUp className="h-3 w-3 text-emerald-600" />
+          <TrendingUp className="h-3 w-3 text-emerald-600 shrink-0" />
         )}
       </div>
 
