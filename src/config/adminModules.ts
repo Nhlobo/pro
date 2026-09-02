@@ -301,14 +301,15 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'System',
     icon: KeyRound,
     description: 'Create portal accounts and send access links to referring attorneys and medical experts',
-    // Deliberately narrower than 'external-portal' above: employees and
-    // consultants get exactly the two screens that replace what the old
-    // Attorney CRM "Portal Links" tab used to do (create access, send the
-    // link) — not sessions, OTP internals, login history, audit logs,
-    // the recycle bin, or settings, which stay admin-only. Admins keep
-    // using the 'external-portal' entry above for the full module; this
-    // is additive, not a replacement, so admin's nav is unchanged.
-    roles: ['employee', 'sales_consultant'],
+    // Deliberately narrower than 'external-portal' above: employees get
+    // exactly the two screens that replace what the old Attorney CRM
+    // "Portal Links" tab used to do (create access, send the link) — not
+    // sessions, OTP internals, login history, audit logs, the recycle
+    // bin, or settings, which stay admin-only. Employee-only, not sales
+    // consultants — admins keep using the 'external-portal' entry above
+    // for the full module; this is additive, not a replacement, so
+    // admin's nav is unchanged.
+    roles: ['employee'],
     permissions: [{ category: 'User Management' }],
     // The old Attorney CRM "Portal Links" tab this replaces was really two
     // screens (create account, send link) that live at two different
