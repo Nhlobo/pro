@@ -705,7 +705,7 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
                   )}
                 />
 
-                <div className="md:col-span-2 flex gap-3 justify-end">
+                <div className="md:col-span-2 flex flex-wrap gap-3 justify-end">
                   <Button type="submit" disabled={isSubmitting}>
                     {isSubmitting ? (isEditing ? "Updating..." : "Saving...") : (isEditing ? "Update Attorney" : "Save")}
                   </Button>
@@ -760,7 +760,7 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-3">
+                  <div className="flex flex-wrap justify-end gap-3">
                     <Button
                       type="button"
                       variant="secondary"
