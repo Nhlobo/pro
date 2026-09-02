@@ -117,13 +117,15 @@ export function useUpdateExternalPortalAccountScope() {
 
   return useMutation({
     mutationFn: async (input: { accountId: string; scope: ExternalPortalAccountScope }) => {
-      const { error } = await supabase
-        .from('external_portal_accounts' as any)
-        .update({
-          account_scope: input.scope,
-          assigned_attorney_contact_id: input.scope === 'firm' ? null : undefined,
-        })
-        .eq('id', input.accountId);
+      // Goes through the external_portal_update_account_scope RPC
+      // rather than a direct table update — the accounts table has no
+      // blanket employee UPDATE grant (only a narrow admin/employee RPC
+      // per mutated column-set), so status/deleted_at etc. stay
+      // reachable only via external_portal_set_account_status.
+      const { error } = await supabase.rpc('external_portal_update_account_scope' as any, {
+        _account_id: input.accountId,
+        _scope: input.scope,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -147,10 +149,13 @@ export function useUpdateExternalPortalAccountContact() {
 
   return useMutation({
     mutationFn: async (input: { accountId: string; contactId: string | null }) => {
-      const { error } = await supabase
-        .from('external_portal_accounts' as any)
-        .update({ assigned_attorney_contact_id: input.contactId })
-        .eq('id', input.accountId);
+      // Same rationale as useUpdateExternalPortalAccountScope — RPC,
+      // not a direct table update, to keep the accounts table's
+      // employee access column-scoped.
+      const { error } = await supabase.rpc('external_portal_update_account_contact' as any, {
+        _account_id: input.accountId,
+        _contact_id: input.contactId,
+      });
       if (error) throw error;
 
       // The account's bridged profile (if it's ever logged in before)
