@@ -10,94 +10,150 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.4"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
-      trusted_devices: {
-        Row: { id: string; user_id: string; credential_id: string; public_key: string; sign_count: number; transports: string[]; device_label: string; user_agent: string | null; platform: string | null; last_used_at: string | null; revoked_at: string | null; revoked_by: string | null; revoked_reason: string | null; created_at: string; updated_at: string }
-        Insert: { id?: string; user_id: string; credential_id: string; public_key: string; sign_count?: number; transports?: string[]; device_label?: string; user_agent?: string | null; platform?: string | null; last_used_at?: string | null; revoked_at?: string | null; revoked_by?: string | null; revoked_reason?: string | null; created_at?: string; updated_at?: string }
-        Update: { id?: string; user_id?: string; credential_id?: string; public_key?: string; sign_count?: number; transports?: string[]; device_label?: string; user_agent?: string | null; platform?: string | null; last_used_at?: string | null; revoked_at?: string | null; revoked_by?: string | null; revoked_reason?: string | null; created_at?: string; updated_at?: string }
-        Relationships: []
-      }
-      trusted_device_events: {
-        Row: { id: string; device_id: string | null; user_id: string; event_type: string; user_agent: string | null; metadata: Json; created_at: string }
-        Insert: { id?: string; device_id?: string | null; user_id: string; event_type: string; user_agent?: string | null; metadata?: Json; created_at?: string }
-        Update: { id?: string; device_id?: string | null; user_id?: string; event_type?: string; user_agent?: string | null; metadata?: Json; created_at?: string }
-        Relationships: []
-      }
-      trusted_device_challenges: {
-        Row: { id: string; user_id: string; purpose: string; challenge: string; expires_at: string; created_at: string }
-        Insert: { id?: string; user_id: string; purpose: string; challenge: string; expires_at: string; created_at?: string }
-        Update: { id?: string; user_id?: string; purpose?: string; challenge?: string; expires_at?: string; created_at?: string }
-        Relationships: []
-      }
-      // --- New access-control system (Phase 4) -----------------------
-      // access_role_assignments / role_module_defaults / user_module_overrides
-      // / access_modules were added directly against the live database and
-      // never had a migration file committed to this repo, so `supabase gen
-      // types` had never picked them up — every query against them failed
-      // typecheck even though the tables are real and in active use (see
-      // src/lib/newAccessControlQuery.ts, src/components/NewSystemModuleAccessPanel.tsx,
-      // src/pages/UserManagement.tsx, supabase/functions/create-user).
-      // These four entries were added by hand to match the columns those
-      // call sites actually read/write. Regenerate from the live schema
-      // (`supabase gen types typescript`) to replace this with the real,
-      // complete definitions (there may be additional columns not listed
-      // here, e.g. timestamps, that no current query happens to select).
-      access_role_assignments: {
-        Row: { id: string; user_id: string; role_key: string; assigned_by: string | null; assigned_at: string }
-        Insert: { id?: string; user_id: string; role_key: string; assigned_by?: string | null; assigned_at?: string }
-        Update: { id?: string; user_id?: string; role_key?: string; assigned_by?: string | null; assigned_at?: string }
+      access_audit_log: {
+        Row: {
+          action_type: string
+          changed_at: string
+          changed_by: string
+          changed_table: string
+          id: string
+          new_value: Json | null
+          old_value: Json | null
+          record_id: string | null
+          source: string
+          target_user_id: string | null
+        }
+        Insert: {
+          action_type: string
+          changed_at?: string
+          changed_by: string
+          changed_table: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          record_id?: string | null
+          source?: string
+          target_user_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          changed_at?: string
+          changed_by?: string
+          changed_table?: string
+          id?: string
+          new_value?: Json | null
+          old_value?: Json | null
+          record_id?: string | null
+          source?: string
+          target_user_id?: string | null
+        }
         Relationships: []
       }
       access_modules: {
-        Row: { module_key: string; title: string; description: string | null; group_name: string | null }
-        Insert: { module_key: string; title: string; description?: string | null; group_name?: string | null }
-        Update: { module_key?: string; title?: string; description?: string | null; group_name?: string | null }
+        Row: {
+          description: string | null
+          group_name: string | null
+          is_active: boolean
+          module_key: string
+          route_path: string
+          title: string
+        }
+        Insert: {
+          description?: string | null
+          group_name?: string | null
+          is_active?: boolean
+          module_key: string
+          route_path: string
+          title: string
+        }
+        Update: {
+          description?: string | null
+          group_name?: string | null
+          is_active?: boolean
+          module_key?: string
+          route_path?: string
+          title?: string
+        }
         Relationships: []
       }
-      role_module_defaults: {
-        Row: { role_key: string; module_key: string; is_eligible: boolean; is_default_on: boolean }
-        Insert: { role_key: string; module_key: string; is_eligible?: boolean; is_default_on?: boolean }
-        Update: { role_key?: string; module_key?: string; is_eligible?: boolean; is_default_on?: boolean }
+      access_role_assignments: {
+        Row: {
+          assigned_at: string
+          assigned_by: string
+          id: string
+          role_key: string
+          user_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by: string
+          id?: string
+          role_key: string
+          user_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string
+          id?: string
+          role_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_role_assignments_role_key_fkey"
+            columns: ["role_key"]
+            isOneToOne: false
+            referencedRelation: "access_roles"
+            referencedColumns: ["role_key"]
+          },
+        ]
+      }
+      access_roles: {
+        Row: {
+          display_name: string
+          role_key: string
+        }
+        Insert: {
+          display_name: string
+          role_key: string
+        }
+        Update: {
+          display_name?: string
+          role_key?: string
+        }
         Relationships: []
       }
-      user_module_overrides: {
-        Row: { user_id: string; module_key: string; granted: boolean; granted_by: string | null; created_at: string; updated_at: string }
-        Insert: { user_id: string; module_key: string; granted: boolean; granted_by?: string | null; created_at?: string; updated_at?: string }
-        Update: { user_id?: string; module_key?: string; granted?: boolean; granted_by?: string | null; created_at?: string; updated_at?: string }
+      access_session_versions: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          force_reauth: boolean
+          reason: string | null
+          user_id: string
+          version: number
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          force_reauth?: boolean
+          reason?: string | null
+          user_id: string
+          version?: number
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          force_reauth?: boolean
+          reason?: string | null
+          user_id?: string
+          version?: number
+        }
         Relationships: []
       }
-      // --- Position-based module access (staff_positions / role_position_rules /
-      // staff_access_profiles / position_module_overrides) -- same situation as the
-      // block above: real tables, no committed migration, added by hand to match
-      // what src/lib/newAccessControlQuery.ts and the IAM position editors read/write.
-      staff_positions: {
-        Row: { position_key: string; role_key: string; display_name: string; description: string | null; is_active: boolean; created_at: string; updated_at: string }
-        Insert: { position_key: string; role_key: string; display_name: string; description?: string | null; is_active?: boolean; created_at?: string; updated_at?: string }
-        Update: { position_key?: string; role_key?: string; display_name?: string; description?: string | null; is_active?: boolean; created_at?: string; updated_at?: string }
-        Relationships: []
-      }
-      role_position_rules: {
-        Row: { role_key: string; position_key: string; is_allowed: boolean; created_at: string }
-        Insert: { role_key: string; position_key: string; is_allowed?: boolean; created_at?: string }
-        Update: { role_key?: string; position_key?: string; is_allowed?: boolean; created_at?: string }
-        Relationships: []
-      }
-      staff_access_profiles: {
-        Row: { user_id: string; role_key: string; position_key: string | null; is_active: boolean; created_at: string; updated_at: string; updated_by: string | null }
-        Insert: { user_id: string; role_key: string; position_key?: string | null; is_active?: boolean; created_at?: string; updated_at?: string; updated_by?: string | null }
-        Update: { user_id?: string; role_key?: string; position_key?: string | null; is_active?: boolean; created_at?: string; updated_at?: string; updated_by?: string | null }
-        Relationships: []
-      }
-      position_module_overrides: {
-        Row: { position_key: string; module_key: string; granted: boolean; reason: string | null; granted_by: string | null; granted_at: string }
-        Insert: { position_key: string; module_key: string; granted: boolean; reason?: string | null; granted_by?: string | null; granted_at?: string }
-        Update: { position_key?: string; module_key?: string; granted?: boolean; reason?: string | null; granted_by?: string | null; granted_at?: string }
-        Relationships: []
-      }
-      // -----------------------------------------------------------------
       account_activations: {
         Row: {
           consumed_at: string | null
@@ -523,6 +579,13 @@ export type Database = {
             foreignKeyName: "appointment_archives_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "access_compatibility_raw"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "appointment_archives_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -590,6 +653,51 @@ export type Database = {
             foreignKeyName: "appointment_checklist_appointment_id_fkey"
             columns: ["appointment_id"]
             isOneToOne: true
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appointment_reclassification_log: {
+        Row: {
+          appointment_id: string
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_case_status: string
+          note: string | null
+          previous_case_status: string | null
+        }
+        Insert: {
+          appointment_id: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_case_status: string
+          note?: string | null
+          previous_case_status?: string | null
+        }
+        Update: {
+          appointment_id?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_case_status?: string
+          note?: string | null
+          previous_case_status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_reclassification_log_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_reclassification_log_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
             referencedRelation: "deleted_appointments_view"
             referencedColumns: ["id"]
           },
@@ -759,6 +867,7 @@ export type Database = {
           agreement_duration_months: number | null
           appointment_date: string
           assessment_code: string | null
+          assigned_attorney_contact_id: string | null
           case_status: string | null
           claimant_id: string
           created_at: string
@@ -779,6 +888,7 @@ export type Database = {
           reclassification_note: string | null
           referring_attorney: string
           referring_attorney_id: string
+          sageone_transaction_id: string | null
           sales_consultant_id: string | null
           service_fee: number | null
           updated_at: string
@@ -787,6 +897,7 @@ export type Database = {
           agreement_duration_months?: number | null
           appointment_date: string
           assessment_code?: string | null
+          assigned_attorney_contact_id?: string | null
           case_status?: string | null
           claimant_id: string
           created_at?: string
@@ -807,6 +918,7 @@ export type Database = {
           reclassification_note?: string | null
           referring_attorney: string
           referring_attorney_id: string
+          sageone_transaction_id?: string | null
           sales_consultant_id?: string | null
           service_fee?: number | null
           updated_at?: string
@@ -815,6 +927,7 @@ export type Database = {
           agreement_duration_months?: number | null
           appointment_date?: string
           assessment_code?: string | null
+          assigned_attorney_contact_id?: string | null
           case_status?: string | null
           claimant_id?: string
           created_at?: string
@@ -835,11 +948,19 @@ export type Database = {
           reclassification_note?: string | null
           referring_attorney?: string
           referring_attorney_id?: string
+          sageone_transaction_id?: string | null
           sales_consultant_id?: string | null
           service_fee?: number | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "appointments_assigned_attorney_contact_id_fkey"
+            columns: ["assigned_attorney_contact_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorney_contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "appointments_claimant_id_fkey"
             columns: ["claimant_id"]
@@ -869,119 +990,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      appointment_reclassification_log: {
-        Row: {
-          appointment_id: string
-          changed_at: string
-          changed_by: string | null
-          id: string
-          new_case_status: string
-          note: string | null
-          previous_case_status: string | null
-        }
-        Insert: {
-          appointment_id: string
-          changed_at?: string
-          changed_by?: string | null
-          id?: string
-          new_case_status: string
-          note?: string | null
-          previous_case_status?: string | null
-        }
-        Update: {
-          appointment_id?: string
-          changed_at?: string
-          changed_by?: string | null
-          id?: string
-          new_case_status?: string
-          note?: string | null
-          previous_case_status?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "appointment_reclassification_log_appointment_id_fkey"
-            columns: ["appointment_id"]
-            isOneToOne: false
-            referencedRelation: "appointments"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      weekly_operations_reports: {
-        Row: {
-          assessments_booked_count: number
-          created_at: string
-          delivery_error: string | null
-          delivery_status: string
-          generated_by: string | null
-          generated_for_role: string | null
-          generated_for_user_id: string | null
-          id: string
-          is_combined: boolean
-          payments_count: number
-          payments_total: number
-          period_end: string
-          period_start: string
-          period_type: string
-          province_deals_closed: Json
-          recipients: string[]
-          report_html: string | null
-          sent_at: string | null
-          submitted_reports_count: number
-          top_expert_bookings_count: number
-          top_expert_name: string | null
-          top_expert_province: string | null
-        }
-        Insert: {
-          assessments_booked_count?: number
-          created_at?: string
-          delivery_error?: string | null
-          delivery_status?: string
-          generated_by?: string | null
-          generated_for_role?: string | null
-          generated_for_user_id?: string | null
-          id?: string
-          is_combined?: boolean
-          payments_count?: number
-          payments_total?: number
-          period_end: string
-          period_start: string
-          period_type?: string
-          province_deals_closed?: Json
-          recipients?: string[]
-          report_html?: string | null
-          sent_at?: string | null
-          submitted_reports_count?: number
-          top_expert_bookings_count?: number
-          top_expert_name?: string | null
-          top_expert_province?: string | null
-        }
-        Update: {
-          assessments_booked_count?: number
-          created_at?: string
-          delivery_error?: string | null
-          delivery_status?: string
-          generated_by?: string | null
-          generated_for_role?: string | null
-          generated_for_user_id?: string | null
-          id?: string
-          is_combined?: boolean
-          payments_count?: number
-          payments_total?: number
-          period_end?: string
-          period_start?: string
-          period_type?: string
-          province_deals_closed?: Json
-          recipients?: string[]
-          report_html?: string | null
-          sent_at?: string | null
-          submitted_reports_count?: number
-          top_expert_bookings_count?: number
-          top_expert_name?: string | null
-          top_expert_province?: string | null
-        }
-        Relationships: []
       }
       assessment_report_archives: {
         Row: {
@@ -1139,6 +1147,7 @@ export type Database = {
           attorney_type: string
           comment: string | null
           comment_2: string | null
+          consultant_id: string | null
           contact_person: string
           created_at: string | null
           created_by: string | null
@@ -1163,6 +1172,7 @@ export type Database = {
           attorney_type: string
           comment?: string | null
           comment_2?: string | null
+          consultant_id?: string | null
           contact_person: string
           created_at?: string | null
           created_by?: string | null
@@ -1187,6 +1197,7 @@ export type Database = {
           attorney_type?: string
           comment?: string | null
           comment_2?: string | null
+          consultant_id?: string | null
           contact_person?: string
           created_at?: string | null
           created_by?: string | null
@@ -1207,7 +1218,15 @@ export type Database = {
           telephone?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "attorney_pitchlog_consultant_id_fkey"
+            columns: ["consultant_id"]
+            isOneToOne: false
+            referencedRelation: "sales_consultants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       attorneys: {
         Row: {
@@ -2062,6 +2081,13 @@ export type Database = {
             foreignKeyName: "documents_uploaded_by_fkey"
             columns: ["uploaded_by"]
             isOneToOne: false
+            referencedRelation: "access_compatibility_raw"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "documents_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2867,6 +2893,65 @@ export type Database = {
           },
         ]
       }
+      expert_private_sessions: {
+        Row: {
+          client_name: string | null
+          created_at: string
+          created_by: string | null
+          end_time: string | null
+          expert_id: string
+          fee: number | null
+          id: string
+          location: string | null
+          notes: string | null
+          paid: boolean
+          session_date: string
+          start_time: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_time?: string | null
+          expert_id: string
+          fee?: number | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          paid?: boolean
+          session_date: string
+          start_time?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_time?: string | null
+          expert_id?: string
+          fee?: number | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          paid?: boolean
+          session_date?: string
+          start_time?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_private_sessions_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expert_reports: {
         Row: {
           appointment_id: string | null
@@ -2946,6 +3031,1004 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      external_portal_access_links: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          id: string
+          ip_address: string | null
+          revoked_at: string | null
+          revoked_reason: string | null
+          sent_to_email: string | null
+          status: Database["public"]["Enums"]["external_portal_link_status"]
+          token_hash: string
+          used_at: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          id?: string
+          ip_address?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          sent_to_email?: string | null
+          status?: Database["public"]["Enums"]["external_portal_link_status"]
+          token_hash: string
+          used_at?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          sent_to_email?: string | null
+          status?: Database["public"]["Enums"]["external_portal_link_status"]
+          token_hash?: string
+          used_at?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_portal_access_links_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "external_portal_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_portal_account_access: {
+        Row: {
+          created_at: string
+          external_account_id: string
+          firm_scope: string | null
+          id: string
+          portal_viewer_ref_id: string
+          portal_viewer_type: string
+        }
+        Insert: {
+          created_at?: string
+          external_account_id: string
+          firm_scope?: string | null
+          id?: string
+          portal_viewer_ref_id: string
+          portal_viewer_type: string
+        }
+        Update: {
+          created_at?: string
+          external_account_id?: string
+          firm_scope?: string | null
+          id?: string
+          portal_viewer_ref_id?: string
+          portal_viewer_type?: string
+        }
+        Relationships: []
+      }
+      external_portal_account_emails: {
+        Row: {
+          account_id: string
+          created_at: string
+          created_by: string | null
+          email: string
+          id: string
+          is_current: boolean
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          created_by?: string | null
+          email: string
+          id?: string
+          is_current?: boolean
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          id?: string
+          is_current?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_portal_account_emails_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "external_portal_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_portal_accounts: {
+        Row: {
+          account_scope:
+            | Database["public"]["Enums"]["external_portal_account_scope"]
+            | null
+          assigned_attorney_contact_id: string | null
+          auth_user_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          email: string
+          expired_at: string | null
+          expired_reason: string | null
+          full_name: string
+          id: string
+          last_login_at: string | null
+          last_login_ip: string | null
+          medical_expert_id: string | null
+          notes: string | null
+          paused_at: string | null
+          paused_reason: string | null
+          phone: string | null
+          portal_type: Database["public"]["Enums"]["external_portal_type"]
+          referring_attorney_id: string | null
+          registered_at: string | null
+          status: Database["public"]["Enums"]["external_portal_account_status"]
+          updated_at: string
+        }
+        Insert: {
+          account_scope?:
+            | Database["public"]["Enums"]["external_portal_account_scope"]
+            | null
+          assigned_attorney_contact_id?: string | null
+          auth_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          email: string
+          expired_at?: string | null
+          expired_reason?: string | null
+          full_name: string
+          id?: string
+          last_login_at?: string | null
+          last_login_ip?: string | null
+          medical_expert_id?: string | null
+          notes?: string | null
+          paused_at?: string | null
+          paused_reason?: string | null
+          phone?: string | null
+          portal_type: Database["public"]["Enums"]["external_portal_type"]
+          referring_attorney_id?: string | null
+          registered_at?: string | null
+          status?: Database["public"]["Enums"]["external_portal_account_status"]
+          updated_at?: string
+        }
+        Update: {
+          account_scope?:
+            | Database["public"]["Enums"]["external_portal_account_scope"]
+            | null
+          assigned_attorney_contact_id?: string | null
+          auth_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
+          email?: string
+          expired_at?: string | null
+          expired_reason?: string | null
+          full_name?: string
+          id?: string
+          last_login_at?: string | null
+          last_login_ip?: string | null
+          medical_expert_id?: string | null
+          notes?: string | null
+          paused_at?: string | null
+          paused_reason?: string | null
+          phone?: string | null
+          portal_type?: Database["public"]["Enums"]["external_portal_type"]
+          referring_attorney_id?: string | null
+          registered_at?: string | null
+          status?: Database["public"]["Enums"]["external_portal_account_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_portal_accounts_assigned_attorney_contact_id_fkey"
+            columns: ["assigned_attorney_contact_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorney_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_accounts_medical_expert_id_fkey"
+            columns: ["medical_expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_accounts_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_portal_agreement_payments: {
+        Row: {
+          aod_document_id: string | null
+          id: string
+          payment_amount: number | null
+          payment_date: string | null
+          payment_notes: string | null
+          payment_type: string | null
+        }
+        Insert: {
+          aod_document_id?: string | null
+          id: string
+          payment_amount?: number | null
+          payment_date?: string | null
+          payment_notes?: string | null
+          payment_type?: string | null
+        }
+        Update: {
+          aod_document_id?: string | null
+          id?: string
+          payment_amount?: number | null
+          payment_date?: string | null
+          payment_notes?: string | null
+          payment_type?: string | null
+        }
+        Relationships: []
+      }
+      external_portal_agreements: {
+        Row: {
+          contract_end_date: string | null
+          contract_start_date: string | null
+          created_at: string | null
+          deposit_amount: number | null
+          document_url: string | null
+          file_name: string | null
+          id: string
+          next_payment_date: string | null
+          payment_status: string | null
+          referring_attorney_id: string | null
+          total_contract_value: number | null
+          total_reports_agreed: number | null
+        }
+        Insert: {
+          contract_end_date?: string | null
+          contract_start_date?: string | null
+          created_at?: string | null
+          deposit_amount?: number | null
+          document_url?: string | null
+          file_name?: string | null
+          id: string
+          next_payment_date?: string | null
+          payment_status?: string | null
+          referring_attorney_id?: string | null
+          total_contract_value?: number | null
+          total_reports_agreed?: number | null
+        }
+        Update: {
+          contract_end_date?: string | null
+          contract_start_date?: string | null
+          created_at?: string | null
+          deposit_amount?: number | null
+          document_url?: string | null
+          file_name?: string | null
+          id?: string
+          next_payment_date?: string | null
+          payment_status?: string | null
+          referring_attorney_id?: string | null
+          total_contract_value?: number | null
+          total_reports_agreed?: number | null
+        }
+        Relationships: []
+      }
+      external_portal_audit_logs: {
+        Row: {
+          account_id: string | null
+          action: string
+          actor_id: string | null
+          actor_type: string
+          details: Json
+          id: string
+          ip_address: string | null
+          occurred_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          action: string
+          actor_id?: string | null
+          actor_type?: string
+          details?: Json
+          id?: string
+          ip_address?: string | null
+          occurred_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          action?: string
+          actor_id?: string | null
+          actor_type?: string
+          details?: Json
+          id?: string
+          ip_address?: string | null
+          occurred_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_portal_audit_logs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "external_portal_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_portal_case_documents: {
+        Row: {
+          appointment_id: string
+          created_at: string
+          document_id: string
+          document_type: string | null
+          file_name: string
+          file_path: string
+          id: string
+          is_visible_to_attorney: boolean
+          is_visible_to_expert: boolean
+          upload_date: string | null
+          upload_time: string | null
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string
+          document_id: string
+          document_type?: string | null
+          file_name: string
+          file_path: string
+          id?: string
+          is_visible_to_attorney?: boolean
+          is_visible_to_expert?: boolean
+          upload_date?: string | null
+          upload_time?: string | null
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string
+          document_id?: string
+          document_type?: string | null
+          file_name?: string
+          file_path?: string
+          id?: string
+          is_visible_to_attorney?: boolean
+          is_visible_to_expert?: boolean
+          upload_date?: string | null
+          upload_time?: string | null
+        }
+        Relationships: []
+      }
+      external_portal_case_events: {
+        Row: {
+          appointment_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          phase_name: string
+          phase_order: number | null
+          started_at: string | null
+          status: string | null
+          timeline_id: string | null
+        }
+        Insert: {
+          appointment_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          phase_name: string
+          phase_order?: number | null
+          started_at?: string | null
+          status?: string | null
+          timeline_id?: string | null
+        }
+        Update: {
+          appointment_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          phase_name?: string
+          phase_order?: number | null
+          started_at?: string | null
+          status?: string | null
+          timeline_id?: string | null
+        }
+        Relationships: []
+      }
+      external_portal_case_links: {
+        Row: {
+          account_id: string
+          appointment_id: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          revoked_at: string | null
+        }
+        Insert: {
+          account_id: string
+          appointment_id: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          revoked_at?: string | null
+        }
+        Update: {
+          account_id?: string
+          appointment_id?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_portal_case_links_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "external_portal_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_case_links_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_case_links_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_portal_case_messages: {
+        Row: {
+          account_id: string
+          appointment_id: string
+          body: string
+          created_at: string
+          id: string
+          read_by_admin_at: string | null
+          read_by_external_at: string | null
+          sender_staff_id: string | null
+          sender_type: string
+        }
+        Insert: {
+          account_id: string
+          appointment_id: string
+          body: string
+          created_at?: string
+          id?: string
+          read_by_admin_at?: string | null
+          read_by_external_at?: string | null
+          sender_staff_id?: string | null
+          sender_type: string
+        }
+        Update: {
+          account_id?: string
+          appointment_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          read_by_admin_at?: string | null
+          read_by_external_at?: string | null
+          sender_staff_id?: string | null
+          sender_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_portal_case_messages_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "external_portal_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_case_messages_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_case_messages_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_portal_cases: {
+        Row: {
+          appointment_date: string | null
+          appointment_id: string
+          assessment_code: string | null
+          assigned_attorney_contact_id: string | null
+          case_status: string | null
+          claimant_auto_id: string | null
+          claimant_contact_number: string | null
+          claimant_first_name: string | null
+          claimant_id: string | null
+          claimant_last_name: string | null
+          created_at: string
+          deleted_at: string | null
+          deposit_amount: number | null
+          expert_first_name: string | null
+          expert_id: string | null
+          expert_last_name: string | null
+          expert_practice_address: string | null
+          expert_type: string | null
+          id: string
+          matter_type: string | null
+          payment_date: string | null
+          payment_status: string | null
+          referring_attorney_contact_person: string | null
+          referring_attorney_email: string | null
+          referring_attorney_id: string | null
+          referring_attorney_name: string | null
+          referring_attorney_phone: string | null
+          service_fee: number | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_date?: string | null
+          appointment_id: string
+          assessment_code?: string | null
+          assigned_attorney_contact_id?: string | null
+          case_status?: string | null
+          claimant_auto_id?: string | null
+          claimant_contact_number?: string | null
+          claimant_first_name?: string | null
+          claimant_id?: string | null
+          claimant_last_name?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          deposit_amount?: number | null
+          expert_first_name?: string | null
+          expert_id?: string | null
+          expert_last_name?: string | null
+          expert_practice_address?: string | null
+          expert_type?: string | null
+          id?: string
+          matter_type?: string | null
+          payment_date?: string | null
+          payment_status?: string | null
+          referring_attorney_contact_person?: string | null
+          referring_attorney_email?: string | null
+          referring_attorney_id?: string | null
+          referring_attorney_name?: string | null
+          referring_attorney_phone?: string | null
+          service_fee?: number | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string | null
+          appointment_id?: string
+          assessment_code?: string | null
+          assigned_attorney_contact_id?: string | null
+          case_status?: string | null
+          claimant_auto_id?: string | null
+          claimant_contact_number?: string | null
+          claimant_first_name?: string | null
+          claimant_id?: string | null
+          claimant_last_name?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          deposit_amount?: number | null
+          expert_first_name?: string | null
+          expert_id?: string | null
+          expert_last_name?: string | null
+          expert_practice_address?: string | null
+          expert_type?: string | null
+          id?: string
+          matter_type?: string | null
+          payment_date?: string | null
+          payment_status?: string | null
+          referring_attorney_contact_person?: string | null
+          referring_attorney_email?: string | null
+          referring_attorney_id?: string | null
+          referring_attorney_name?: string | null
+          referring_attorney_phone?: string | null
+          service_fee?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_portal_cases_assigned_attorney_contact_id_fkey"
+            columns: ["assigned_attorney_contact_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorney_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_cases_claimant_id_fkey"
+            columns: ["claimant_id"]
+            isOneToOne: false
+            referencedRelation: "claimants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_cases_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_cases_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_portal_litigation_requests: {
+        Row: {
+          case_reference: string | null
+          claimant_name: string | null
+          completed_at: string | null
+          description: string | null
+          id: string
+          referring_attorney_id: string | null
+          requested_at: string | null
+          requested_by: string | null
+          service_type: string | null
+          status: string | null
+          urgency: string | null
+        }
+        Insert: {
+          case_reference?: string | null
+          claimant_name?: string | null
+          completed_at?: string | null
+          description?: string | null
+          id: string
+          referring_attorney_id?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
+          service_type?: string | null
+          status?: string | null
+          urgency?: string | null
+        }
+        Update: {
+          case_reference?: string | null
+          claimant_name?: string | null
+          completed_at?: string | null
+          description?: string | null
+          id?: string
+          referring_attorney_id?: string | null
+          requested_at?: string | null
+          requested_by?: string | null
+          service_type?: string | null
+          status?: string | null
+          urgency?: string | null
+        }
+        Relationships: []
+      }
+      external_portal_login_history: {
+        Row: {
+          account_id: string | null
+          email_attempted: string | null
+          event_type: string
+          failure_reason: string | null
+          id: string
+          ip_address: string | null
+          occurred_at: string
+          success: boolean
+          user_agent: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          email_attempted?: string | null
+          event_type: string
+          failure_reason?: string | null
+          id?: string
+          ip_address?: string | null
+          occurred_at?: string
+          success?: boolean
+          user_agent?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          email_attempted?: string | null
+          event_type?: string
+          failure_reason?: string | null
+          id?: string
+          ip_address?: string | null
+          occurred_at?: string
+          success?: boolean
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_portal_login_history_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "external_portal_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_portal_messages: {
+        Row: {
+          account_id: string
+          appointment_id: string | null
+          body: string
+          created_at: string
+          id: string
+          read_by_external_at: string | null
+          read_by_staff_at: string | null
+          sender_name: string
+          sender_type: string
+          sender_user_id: string | null
+        }
+        Insert: {
+          account_id: string
+          appointment_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          read_by_external_at?: string | null
+          read_by_staff_at?: string | null
+          sender_name: string
+          sender_type: string
+          sender_user_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          appointment_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          read_by_external_at?: string | null
+          read_by_staff_at?: string | null
+          sender_name?: string
+          sender_type?: string
+          sender_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_portal_messages_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "external_portal_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_messages_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_messages_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_portal_notifications: {
+        Row: {
+          account_id: string
+          appointment_id: string | null
+          category: string
+          created_at: string
+          id: string
+          message: string
+          read_at: string | null
+          title: string
+        }
+        Insert: {
+          account_id: string
+          appointment_id?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          message: string
+          read_at?: string | null
+          title: string
+        }
+        Update: {
+          account_id?: string
+          appointment_id?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          message?: string
+          read_at?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_portal_notifications_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "external_portal_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_notifications_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_notifications_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_portal_otp_codes: {
+        Row: {
+          access_link_id: string | null
+          account_id: string
+          attempts: number
+          code_hash: string
+          created_at: string
+          destination: string
+          expires_at: string
+          id: string
+          ip_address: string | null
+          max_attempts: number
+          purpose: Database["public"]["Enums"]["external_portal_otp_purpose"]
+          user_agent: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          access_link_id?: string | null
+          account_id: string
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          destination: string
+          expires_at: string
+          id?: string
+          ip_address?: string | null
+          max_attempts?: number
+          purpose: Database["public"]["Enums"]["external_portal_otp_purpose"]
+          user_agent?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          access_link_id?: string | null
+          account_id?: string
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          destination?: string
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          max_attempts?: number
+          purpose?: Database["public"]["Enums"]["external_portal_otp_purpose"]
+          user_agent?: string | null
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_portal_otp_codes_access_link_id_fkey"
+            columns: ["access_link_id"]
+            isOneToOne: false
+            referencedRelation: "external_portal_access_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_portal_otp_codes_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "external_portal_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_portal_sessions: {
+        Row: {
+          account_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          ip_address: string | null
+          last_seen_at: string
+          revoked_at: string | null
+          revoked_reason: string | null
+          session_token_hash: string
+          user_agent: string | null
+        }
+        Insert: {
+          account_id: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          ip_address?: string | null
+          last_seen_at?: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          session_token_hash: string
+          user_agent?: string | null
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          last_seen_at?: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          session_token_hash?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_portal_sessions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "external_portal_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_portal_settings: {
+        Row: {
+          access_link_expiry_hours: number
+          auto_expire_on_all_cases_closed: boolean
+          id: number
+          otp_expiry_minutes: number
+          otp_length: number
+          otp_max_attempts: number
+          session_expiry_hours: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          access_link_expiry_hours?: number
+          auto_expire_on_all_cases_closed?: boolean
+          id?: number
+          otp_expiry_minutes?: number
+          otp_length?: number
+          otp_max_attempts?: number
+          session_expiry_hours?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          access_link_expiry_hours?: number
+          auto_expire_on_all_cases_closed?: boolean
+          id?: number
+          otp_expiry_minutes?: number
+          otp_length?: number
+          otp_max_attempts?: number
+          session_expiry_hours?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       faq_articles: {
         Row: {
@@ -3230,6 +4313,269 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "internal_chat_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_invoice_delivery_queue: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          created_at: string
+          id: string
+          internal_invoice_id: string
+          last_error: string | null
+          processed_at: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          internal_invoice_id: string
+          last_error?: string | null
+          processed_at?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          internal_invoice_id?: string
+          last_error?: string | null
+          processed_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_invoice_delivery_queue_internal_invoice_id_fkey"
+            columns: ["internal_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "internal_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_invoice_email_log: {
+        Row: {
+          created_at: string
+          id: string
+          internal_invoice_id: string
+          recipient_email: string
+          resend_message_id: string | null
+          sent_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          internal_invoice_id: string
+          recipient_email: string
+          resend_message_id?: string | null
+          sent_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          internal_invoice_id?: string
+          recipient_email?: string
+          resend_message_id?: string | null
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_invoice_email_log_internal_invoice_id_fkey"
+            columns: ["internal_invoice_id"]
+            isOneToOne: true
+            referencedRelation: "internal_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_invoice_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_type: string
+          id: string
+          internal_invoice_id: string
+          new_values: Json | null
+          old_values: Json | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_type: string
+          id?: string
+          internal_invoice_id: string
+          new_values?: Json | null
+          old_values?: Json | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_type?: string
+          id?: string
+          internal_invoice_id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_invoice_events_internal_invoice_id_fkey"
+            columns: ["internal_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "internal_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_invoices: {
+        Row: {
+          amount: number
+          appointment_id: string
+          claimant_id: string | null
+          created_at: string
+          due_date: string | null
+          expert_id: string | null
+          id: string
+          invoice_date: string
+          invoice_number: string
+          needs_review_flagged_at: string | null
+          needs_review_reason: string | null
+          reactivated_at: string | null
+          reactivation_count: number
+          referring_attorney_id: string | null
+          status: string
+          total_amount: number
+          updated_at: string
+          vat_amount: number
+          void_reason: string | null
+          voided_at: string | null
+        }
+        Insert: {
+          amount: number
+          appointment_id: string
+          claimant_id?: string | null
+          created_at?: string
+          due_date?: string | null
+          expert_id?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number: string
+          needs_review_flagged_at?: string | null
+          needs_review_reason?: string | null
+          reactivated_at?: string | null
+          reactivation_count?: number
+          referring_attorney_id?: string | null
+          status?: string
+          total_amount: number
+          updated_at?: string
+          vat_amount: number
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Update: {
+          amount?: number
+          appointment_id?: string
+          claimant_id?: string | null
+          created_at?: string
+          due_date?: string | null
+          expert_id?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          needs_review_flagged_at?: string | null
+          needs_review_reason?: string | null
+          reactivated_at?: string | null
+          reactivation_count?: number
+          referring_attorney_id?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string
+          vat_amount?: number
+          void_reason?: string | null
+          voided_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_invoices_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_invoices_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_invoices_claimant_id_fkey"
+            columns: ["claimant_id"]
+            isOneToOne: false
+            referencedRelation: "claimants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_invoices_expert_id_fkey"
+            columns: ["expert_id"]
+            isOneToOne: false
+            referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "internal_invoices_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      internal_sage_queue: {
+        Row: {
+          attempts: number
+          claimed_at: string | null
+          created_at: string
+          id: string
+          internal_invoice_id: string
+          last_error: string | null
+          processed_at: string | null
+          sage_reference: string | null
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          internal_invoice_id: string
+          last_error?: string | null
+          processed_at?: string | null
+          sage_reference?: string | null
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          internal_invoice_id?: string
+          last_error?: string | null
+          processed_at?: string | null
+          sage_reference?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "internal_sage_queue_internal_invoice_id_fkey"
+            columns: ["internal_invoice_id"]
+            isOneToOne: true
+            referencedRelation: "internal_invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -3766,6 +5112,13 @@ export type Database = {
             foreignKeyName: "payment_pop_attachments_uploaded_by_fkey"
             columns: ["uploaded_by"]
             isOneToOne: false
+            referencedRelation: "access_compatibility_raw"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "payment_pop_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -3920,9 +5273,59 @@ export type Database = {
         }
         Relationships: []
       }
+      position_module_overrides: {
+        Row: {
+          granted: boolean
+          granted_at: string
+          granted_by: string | null
+          module_key: string
+          position_key: string
+          reason: string | null
+        }
+        Insert: {
+          granted: boolean
+          granted_at?: string
+          granted_by?: string | null
+          module_key: string
+          position_key: string
+          reason?: string | null
+        }
+        Update: {
+          granted?: boolean
+          granted_at?: string
+          granted_by?: string | null
+          module_key?: string
+          position_key?: string
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_module_overrides_module_key_fkey"
+            columns: ["module_key"]
+            isOneToOne: false
+            referencedRelation: "access_modules"
+            referencedColumns: ["module_key"]
+          },
+          {
+            foreignKeyName: "position_module_overrides_module_key_fkey"
+            columns: ["module_key"]
+            isOneToOne: false
+            referencedRelation: "staff_effective_module_access"
+            referencedColumns: ["module_key"]
+          },
+          {
+            foreignKeyName: "position_module_overrides_position_key_fkey"
+            columns: ["position_key"]
+            isOneToOne: false
+            referencedRelation: "staff_positions"
+            referencedColumns: ["position_key"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           account_status: string
+          attorney_contact_id: string | null
           created_at: string
           current_session_id: string | null
           deactivated_at: string | null
@@ -3935,6 +5338,7 @@ export type Database = {
           force_security_setup: boolean
           id: string
           is_active: boolean
+          is_external_portal_user: boolean
           last_failed_login_at: string | null
           last_login_at: string | null
           last_name: string | null
@@ -3950,6 +5354,7 @@ export type Database = {
         }
         Insert: {
           account_status?: string
+          attorney_contact_id?: string | null
           created_at?: string
           current_session_id?: string | null
           deactivated_at?: string | null
@@ -3962,6 +5367,7 @@ export type Database = {
           force_security_setup?: boolean
           id: string
           is_active?: boolean
+          is_external_portal_user?: boolean
           last_failed_login_at?: string | null
           last_login_at?: string | null
           last_name?: string | null
@@ -3977,6 +5383,7 @@ export type Database = {
         }
         Update: {
           account_status?: string
+          attorney_contact_id?: string | null
           created_at?: string
           current_session_id?: string | null
           deactivated_at?: string | null
@@ -3989,6 +5396,7 @@ export type Database = {
           force_security_setup?: boolean
           id?: string
           is_active?: boolean
+          is_external_portal_user?: boolean
           last_failed_login_at?: string | null
           last_login_at?: string | null
           last_name?: string | null
@@ -4003,6 +5411,13 @@ export type Database = {
           user_type?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_attorney_contact_id_fkey"
+            columns: ["attorney_contact_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorney_contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_expert_id_fkey"
             columns: ["expert_id"]
@@ -4108,6 +5523,53 @@ export type Database = {
           table_name?: string
         }
         Relationships: []
+      }
+      referring_attorney_contacts: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email: string | null
+          full_name: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          phone: string | null
+          referring_attorney_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          phone?: string | null
+          referring_attorney_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          phone?: string | null
+          referring_attorney_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referring_attorney_contacts_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       referring_attorneys: {
         Row: {
@@ -4293,6 +5755,85 @@ export type Database = {
           },
         ]
       }
+      role_module_defaults: {
+        Row: {
+          is_default_on: boolean
+          is_eligible: boolean
+          module_key: string
+          role_key: string
+        }
+        Insert: {
+          is_default_on?: boolean
+          is_eligible?: boolean
+          module_key: string
+          role_key: string
+        }
+        Update: {
+          is_default_on?: boolean
+          is_eligible?: boolean
+          module_key?: string
+          role_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_module_defaults_module_key_fkey"
+            columns: ["module_key"]
+            isOneToOne: false
+            referencedRelation: "access_modules"
+            referencedColumns: ["module_key"]
+          },
+          {
+            foreignKeyName: "role_module_defaults_module_key_fkey"
+            columns: ["module_key"]
+            isOneToOne: false
+            referencedRelation: "staff_effective_module_access"
+            referencedColumns: ["module_key"]
+          },
+          {
+            foreignKeyName: "role_module_defaults_role_key_fkey"
+            columns: ["role_key"]
+            isOneToOne: false
+            referencedRelation: "access_roles"
+            referencedColumns: ["role_key"]
+          },
+        ]
+      }
+      role_position_rules: {
+        Row: {
+          created_at: string
+          is_allowed: boolean
+          position_key: string
+          role_key: string
+        }
+        Insert: {
+          created_at?: string
+          is_allowed?: boolean
+          position_key: string
+          role_key: string
+        }
+        Update: {
+          created_at?: string
+          is_allowed?: boolean
+          position_key?: string
+          role_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_position_rules_position_fk"
+            columns: ["position_key"]
+            isOneToOne: false
+            referencedRelation: "staff_positions"
+            referencedColumns: ["position_key"]
+          },
+          {
+            foreignKeyName: "role_position_rules_role_fk"
+            columns: ["role_key"]
+            isOneToOne: false
+            referencedRelation: "access_roles"
+            referencedColumns: ["role_key"]
+          },
+        ]
+      }
       sa_districts: {
         Row: {
           created_at: string
@@ -4320,6 +5861,71 @@ export type Database = {
           province?: string
           sort_order?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sage_customer_mappings: {
+        Row: {
+          created_at: string
+          id: string
+          referring_attorney_id: string
+          sage_customer_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          referring_attorney_id: string
+          sage_customer_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          referring_attorney_id?: string
+          sage_customer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sage_customer_mappings_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: true
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sageone_invoice_queue: {
+        Row: {
+          appointment_id: string
+          created_at: string
+          error: string | null
+          id: string
+          payload: Json
+          processed_at: string | null
+          sageone_transaction_id: string | null
+          status: string
+        }
+        Insert: {
+          appointment_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          payload: Json
+          processed_at?: string | null
+          sageone_transaction_id?: string | null
+          status?: string
+        }
+        Update: {
+          appointment_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          sageone_transaction_id?: string | null
+          status?: string
         }
         Relationships: []
       }
@@ -4793,7 +6399,98 @@ export type Database = {
           witness2_name?: string | null
           witness2_signature_date?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "short_term_agreements_referring_attorney_id_fkey"
+            columns: ["referring_attorney_id"]
+            isOneToOne: false
+            referencedRelation: "referring_attorneys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_access_profiles: {
+        Row: {
+          created_at: string
+          is_active: boolean
+          position_key: string | null
+          role_key: string
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          is_active?: boolean
+          position_key?: string | null
+          role_key: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          is_active?: boolean
+          position_key?: string | null
+          role_key?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_access_profiles_position_key_fkey"
+            columns: ["position_key"]
+            isOneToOne: false
+            referencedRelation: "staff_positions"
+            referencedColumns: ["position_key"]
+          },
+          {
+            foreignKeyName: "staff_access_profiles_role_key_fkey"
+            columns: ["role_key"]
+            isOneToOne: false
+            referencedRelation: "access_roles"
+            referencedColumns: ["role_key"]
+          },
+        ]
+      }
+      staff_positions: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_name: string
+          is_active: boolean
+          position_key: string
+          role_key: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_name: string
+          is_active?: boolean
+          position_key: string
+          role_key: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          is_active?: boolean
+          position_key?: string
+          role_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_positions_role_fk"
+            columns: ["role_key"]
+            isOneToOne: false
+            referencedRelation: "access_roles"
+            referencedColumns: ["role_key"]
+          },
+        ]
       }
       support_tickets: {
         Row: {
@@ -4959,6 +6656,167 @@ export type Database = {
           },
         ]
       }
+      trusted_device_challenges: {
+        Row: {
+          challenge: string
+          created_at: string
+          expires_at: string
+          id: string
+          purpose: string
+          user_id: string
+        }
+        Insert: {
+          challenge: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          purpose: string
+          user_id: string
+        }
+        Update: {
+          challenge?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          purpose?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trusted_device_events: {
+        Row: {
+          created_at: string
+          device_id: string | null
+          event_type: string
+          id: string
+          metadata: Json
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_id?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_id?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trusted_device_events_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "trusted_devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trusted_devices: {
+        Row: {
+          created_at: string
+          credential_id: string
+          device_label: string
+          id: string
+          ip_address: string | null
+          last_used_at: string | null
+          location_city: string | null
+          location_country: string | null
+          location_region: string | null
+          platform: string | null
+          public_key: string
+          revoked_at: string | null
+          revoked_by: string | null
+          revoked_reason: string | null
+          sign_count: number
+          transports: string[]
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credential_id: string
+          device_label?: string
+          id?: string
+          ip_address?: string | null
+          last_used_at?: string | null
+          location_city?: string | null
+          location_country?: string | null
+          location_region?: string | null
+          platform?: string | null
+          public_key: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          revoked_reason?: string | null
+          sign_count?: number
+          transports?: string[]
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credential_id?: string
+          device_label?: string
+          id?: string
+          ip_address?: string | null
+          last_used_at?: string | null
+          location_city?: string | null
+          location_country?: string | null
+          location_region?: string | null
+          platform?: string | null
+          public_key?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          revoked_reason?: string | null
+          sign_count?: number
+          transports?: string[]
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_action_permissions: {
+        Row: {
+          action_key: string
+          granted: boolean
+          granted_at: string
+          granted_by: string
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          action_key: string
+          granted: boolean
+          granted_at?: string
+          granted_by: string
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          action_key?: string
+          granted?: boolean
+          granted_at?: string
+          granted_by?: string
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_activity_time: {
         Row: {
           activity_key: string
@@ -5018,6 +6876,51 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "referring_attorneys"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_module_overrides: {
+        Row: {
+          granted: boolean
+          granted_at: string
+          granted_by: string
+          id: string
+          module_key: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          granted: boolean
+          granted_at?: string
+          granted_by: string
+          id?: string
+          module_key: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          granted?: boolean
+          granted_at?: string
+          granted_by?: string
+          id?: string
+          module_key?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_module_overrides_module_key_fkey"
+            columns: ["module_key"]
+            isOneToOne: false
+            referencedRelation: "access_modules"
+            referencedColumns: ["module_key"]
+          },
+          {
+            foreignKeyName: "user_module_overrides_module_key_fkey"
+            columns: ["module_key"]
+            isOneToOne: false
+            referencedRelation: "staff_effective_module_access"
+            referencedColumns: ["module_key"]
           },
         ]
       }
@@ -5167,7 +7070,7 @@ export type Database = {
         Insert: {
           created_at?: string
           error?: string | null
-          event_type?: string
+          event_type: string
           id?: string
           payload: Json
           response_body?: string | null
@@ -5194,8 +7097,103 @@ export type Database = {
           },
         ]
       }
+      weekly_operations_reports: {
+        Row: {
+          assessments_booked_count: number
+          created_at: string
+          delivery_error: string | null
+          delivery_status: string
+          generated_by: string | null
+          generated_for_role: string | null
+          generated_for_user_id: string | null
+          id: string
+          is_combined: boolean
+          payments_count: number
+          payments_total: number
+          period_end: string
+          period_start: string
+          period_type: string
+          province_deals_closed: Json
+          recipients: string[]
+          report_html: string | null
+          sent_at: string | null
+          submitted_reports_count: number
+          top_expert_bookings_count: number
+          top_expert_name: string | null
+          top_expert_province: string | null
+        }
+        Insert: {
+          assessments_booked_count?: number
+          created_at?: string
+          delivery_error?: string | null
+          delivery_status?: string
+          generated_by?: string | null
+          generated_for_role?: string | null
+          generated_for_user_id?: string | null
+          id?: string
+          is_combined?: boolean
+          payments_count?: number
+          payments_total?: number
+          period_end: string
+          period_start: string
+          period_type?: string
+          province_deals_closed?: Json
+          recipients?: string[]
+          report_html?: string | null
+          sent_at?: string | null
+          submitted_reports_count?: number
+          top_expert_bookings_count?: number
+          top_expert_name?: string | null
+          top_expert_province?: string | null
+        }
+        Update: {
+          assessments_booked_count?: number
+          created_at?: string
+          delivery_error?: string | null
+          delivery_status?: string
+          generated_by?: string | null
+          generated_for_role?: string | null
+          generated_for_user_id?: string | null
+          id?: string
+          is_combined?: boolean
+          payments_count?: number
+          payments_total?: number
+          period_end?: string
+          period_start?: string
+          period_type?: string
+          province_deals_closed?: Json
+          recipients?: string[]
+          report_html?: string | null
+          sent_at?: string | null
+          submitted_reports_count?: number
+          top_expert_bookings_count?: number
+          top_expert_name?: string | null
+          top_expert_province?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
+      access_compatibility_raw: {
+        Row: {
+          email: string | null
+          legacy_function_permission_rows: Json | null
+          legacy_profiles_role: string | null
+          legacy_user_roles: string | null
+          new_system_module_data: Json | null
+          new_system_role: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_role_assignments_role_key_fkey"
+            columns: ["new_system_role"]
+            isOneToOne: false
+            referencedRelation: "access_roles"
+            referencedColumns: ["role_key"]
+          },
+        ]
+      }
       agreement_payment_status: {
         Row: {
           agreement_type: string | null
@@ -5261,6 +7259,67 @@ export type Database = {
           },
         ]
       }
+      new_staff_access_directory: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          is_active: boolean | null
+          position_display_name: string | null
+          position_key: string | null
+          role_display_name: string | null
+          role_key: string | null
+          updated_at: string | null
+          updated_by: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_access_profiles_position_key_fkey"
+            columns: ["position_key"]
+            isOneToOne: false
+            referencedRelation: "staff_positions"
+            referencedColumns: ["position_key"]
+          },
+          {
+            foreignKeyName: "staff_access_profiles_role_key_fkey"
+            columns: ["role_key"]
+            isOneToOne: false
+            referencedRelation: "access_roles"
+            referencedColumns: ["role_key"]
+          },
+        ]
+      }
+      staff_effective_module_access: {
+        Row: {
+          access_source: string | null
+          description: string | null
+          group_name: string | null
+          has_access: boolean | null
+          module_is_active: boolean | null
+          module_key: string | null
+          position_key: string | null
+          role_key: string | null
+          route_path: string | null
+          title: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_access_profiles_position_key_fkey"
+            columns: ["position_key"]
+            isOneToOne: false
+            referencedRelation: "staff_positions"
+            referencedColumns: ["position_key"]
+          },
+          {
+            foreignKeyName: "staff_access_profiles_role_key_fkey"
+            columns: ["role_key"]
+            isOneToOne: false
+            referencedRelation: "access_roles"
+            referencedColumns: ["role_key"]
+          },
+        ]
+      }
     }
     Functions: {
       admin_issue_consultant_strike: {
@@ -5318,6 +7377,16 @@ export type Database = {
         Args: { p_allocations: Json; p_payment_date: string }
         Returns: Json
       }
+      assign_appointment_attorney_contact: {
+        Args: {
+          p_appointment_id: string
+          p_contact_email?: string
+          p_contact_full_name: string
+          p_contact_phone?: string
+          p_referring_attorney_id: string
+        }
+        Returns: string
+      }
       audit_rls_policies: {
         Args: never
         Returns: {
@@ -5344,6 +7413,10 @@ export type Database = {
         Returns: Json
       }
       calculate_response_rating: { Args: { hours: number }; Returns: string }
+      can_access_payment_pop: {
+        Args: { _record_id: string; _record_type: string }
+        Returns: boolean
+      }
       can_access_pii: {
         Args: { data_type: string; target_user_id: string }
         Returns: boolean
@@ -5355,6 +7428,15 @@ export type Database = {
       can_view_expert_contacts: {
         Args: { expert_id: string }
         Returns: boolean
+      }
+      change_staff_access_role: {
+        Args: {
+          p_position_key: string
+          p_reason?: string
+          p_role_key: string
+          p_target_user_id: string
+        }
+        Returns: Json
       }
       check_admin_by_email: { Args: never; Returns: boolean }
       check_data_retention_compliance: {
@@ -5368,6 +7450,25 @@ export type Database = {
         }[]
       }
       check_user_role: { Args: { required_role: string }; Returns: boolean }
+      claim_internal_invoice_delivery_batch: {
+        Args: { p_limit: number }
+        Returns: {
+          attempts: number
+          claimed_at: string | null
+          created_at: string
+          id: string
+          internal_invoice_id: string
+          last_error: string | null
+          processed_at: string | null
+          status: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "internal_invoice_delivery_queue"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       cleanup_expired_tokens: { Args: never; Returns: number }
       cleanup_old_documents: {
         Args: never
@@ -5379,6 +7480,7 @@ export type Database = {
       }
       cleanup_old_proofreading_history: { Args: never; Returns: number }
       cleanup_read_notifications: { Args: never; Returns: undefined }
+      clear_access_reauth_flag: { Args: never; Returns: boolean }
       clear_assessment_data: { Args: never; Returns: Json }
       clear_medical_experts: { Args: never; Returns: number }
       clear_medical_experts_by_province: {
@@ -5412,6 +7514,79 @@ export type Database = {
         Args: { p_appointment_id: string }
         Returns: boolean
       }
+      external_portal_attorney_contacts_by_usage: {
+        Args: { p_referring_attorney_id: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          is_active: boolean
+          phone: string
+          referring_attorney_id: string
+          usage_count: number
+        }[]
+      }
+      external_portal_auto_expire_stale_accounts: {
+        Args: never
+        Returns: {
+          account_id: string
+        }[]
+      }
+      external_portal_log_audit: {
+        Args: {
+          _account_id: string
+          _action: string
+          _actor_id: string
+          _actor_type: string
+          _details?: Json
+        }
+        Returns: string
+      }
+      external_portal_medical_experts_by_usage: {
+        Args: never
+        Returns: {
+          email: string
+          first_name: string
+          id: string
+          last_name: string
+          usage_count: number
+        }[]
+      }
+      external_portal_permanently_delete_account: {
+        Args: { _account_id: string }
+        Returns: undefined
+      }
+      external_portal_referring_attorneys_by_usage: {
+        Args: never
+        Returns: {
+          contact_person: string
+          email: string
+          id: string
+          name: string
+          usage_count: number
+        }[]
+      }
+      external_portal_revoke_all_sessions: {
+        Args: { _account_id: string; _reason?: string }
+        Returns: number
+      }
+      external_portal_revoke_session: {
+        Args: { _reason?: string; _session_id: string }
+        Returns: undefined
+      }
+      external_portal_set_account_status: {
+        Args: {
+          _account_id: string
+          _new_status: Database["public"]["Enums"]["external_portal_account_status"]
+          _reason?: string
+        }
+        Returns: undefined
+      }
+      external_portal_staff_send_message: {
+        Args: { _account_id: string; _appointment_id: string; _body: string }
+        Returns: string
+      }
+      external_portal_unread_message_count: { Args: never; Returns: number }
       find_duplicate_experts: {
         Args: never
         Returns: {
@@ -5453,6 +7628,15 @@ export type Database = {
       }
       generate_attorney_access_code: { Args: never; Returns: string }
       generate_expert_access_code: { Args: never; Returns: string }
+      get_access_session_state: {
+        Args: never
+        Returns: {
+          changed_at: string
+          force_reauth: boolean
+          user_id: string
+          version: number
+        }[]
+      }
       get_app_roles: { Args: never; Returns: string[] }
       get_claimant_secure: {
         Args: { claimant_id: string }
@@ -5531,22 +7715,48 @@ export type Database = {
           total_appts: number
         }[]
       }
+      get_current_user_attorney_contact: { Args: never; Returns: string }
       get_current_user_expert_id: { Args: never; Returns: string }
+      get_current_user_external_portal_account_id: {
+        Args: never
+        Returns: string
+      }
+      get_current_user_is_active: { Args: never; Returns: boolean }
+      get_current_user_portal_account_scope: {
+        Args: never
+        Returns: Database["public"]["Enums"]["external_portal_account_scope"]
+      }
       get_current_user_referring_attorney: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_current_user_type: { Args: never; Returns: string }
+      get_heatmap_demand_by_province: {
+        Args: never
+        Returns: {
+          demand: number
+          province: string
+        }[]
+      }
+      get_heatmap_experts_by_province: {
+        Args: never
+        Returns: {
+          expert_count: number
+          expert_type: string
+          matter_types: string[]
+          province: string
+        }[]
+      }
       get_heatmap_province_stats: {
         Args: never
         Returns: {
-          province: string
+          both_business: number
+          demand: number
           experts: number
           experts_used: number
-          primary_experts: number
-          demand: number
-          raf_business: number
           med_neg_business: number
-          both_business: number
           other_business: number
+          primary_experts: number
+          province: string
+          raf_business: number
         }[]
       }
       get_internal_chat_users: {
@@ -5702,6 +7912,20 @@ export type Database = {
           years_experience: number
         }[]
       }
+      get_new_staff_access_directory: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          is_active: boolean
+          position_display_name: string
+          position_key: string
+          role_display_name: string
+          role_key: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
       get_quarter_actuals_by_consultant: {
         Args: { p_year: number }
         Returns: {
@@ -5754,6 +7978,18 @@ export type Database = {
           service_fee: number
         }[]
       }
+      get_staff_module_access: {
+        Args: { p_user_id?: string }
+        Returns: {
+          access_source: string
+          description: string
+          group_name: string
+          has_access: boolean
+          module_key: string
+          route_path: string
+          title: string
+        }[]
+      }
       get_user_activity_summary: {
         Args: { _end: string; _start: string; _user_id: string }
         Returns: {
@@ -5794,6 +8030,7 @@ export type Database = {
       is_company_user: { Args: never; Returns: boolean }
       is_internal_user: { Args: { _user_id: string }; Returns: boolean }
       is_main_admin: { Args: never; Returns: boolean }
+      is_new_system_admin: { Args: { check_user_id: string }; Returns: boolean }
       is_primary_admin: { Args: never; Returns: boolean }
       is_referring_attorney: { Args: never; Returns: boolean }
       is_sales_consultant_position: {
@@ -5941,6 +8178,20 @@ export type Database = {
           records_updated: number
         }[]
       }
+      new_access_has_module: {
+        Args: { p_module_key: string; p_user_id: string }
+        Returns: boolean
+      }
+      new_access_is_admin: { Args: { p_user_id: string }; Returns: boolean }
+      new_access_role_position_allowed: {
+        Args: { p_position_key: string; p_role_key: string }
+        Returns: boolean
+      }
+      new_current_user_has_module: {
+        Args: { p_module_key: string }
+        Returns: boolean
+      }
+      normalize_province: { Args: { raw: string }; Returns: string }
       process_edit_request: {
         Args: {
           p_admin_notes?: string
@@ -5950,6 +8201,16 @@ export type Database = {
         Returns: boolean
       }
       purge_expired_trusted_devices: { Args: never; Returns: undefined }
+      reconcile_internal_invoices: {
+        Args: { p_dry_run?: boolean }
+        Returns: {
+          action: string
+          appointment_id: string
+          current_service_fee: number
+          matched_invoice_id: string
+          matched_invoice_total: number
+        }[]
+      }
       record_auth_event: {
         Args: {
           _browser: string
@@ -5985,11 +8246,49 @@ export type Database = {
       restore_appointment: { Args: { appointment_id: string }; Returns: Json }
       revoke_access_token: { Args: { p_token: string }; Returns: boolean }
       run_security_audit: { Args: never; Returns: Json }
+      search_pitchlog_firm_suggestions: {
+        Args: { p_search: string }
+        Returns: {
+          contact_person: string
+          email: string
+          law_firm_name: string
+          province: string
+          telephone: string
+        }[]
+      }
+      send_appointment_reminders: { Args: never; Returns: undefined }
+      send_missing_document_reminders: { Args: never; Returns: undefined }
+      snapshot_monthly_performance: {
+        Args: { p_run_date?: string }
+        Returns: {
+          consultant_id: string
+          created_at: string
+          id: string
+          incentive_earned: number | null
+          medneg_appts: number
+          medneg_incentive_earned: number | null
+          month: number
+          raf_appts: number
+          raf_incentive_earned: number | null
+          target_met: boolean | null
+          total_appts: number
+          updated_at: string
+          warning_issued: boolean | null
+          year: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "monthly_performance"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       soft_delete_appointment: {
         Args: { appointment_id: string }
         Returns: undefined
       }
       sync_existing_appointment_requests: { Args: never; Returns: undefined }
+      sync_external_portal_snapshots: { Args: never; Returns: undefined }
       test_function_permissions_upsert: { Args: never; Returns: Json }
       update_user_profile: {
         Args: {
@@ -5997,6 +8296,10 @@ export type Database = {
           last_name_param?: string
           user_id_param: string
         }
+        Returns: boolean
+      }
+      user_can_view_case_document: {
+        Args: { p_file_path: string }
         Returns: boolean
       }
       user_has_function_permission: {
@@ -6062,6 +8365,15 @@ export type Database = {
       epp_payment_status: "unpaid" | "partial" | "paid" | "overdue"
       epp_priority: "low" | "normal" | "high" | "urgent"
       epp_report_status: "pending" | "in_progress" | "completed" | "released"
+      external_portal_account_scope: "firm" | "individual"
+      external_portal_account_status:
+        | "active"
+        | "paused"
+        | "expired"
+        | "deleted"
+      external_portal_link_status: "pending" | "used" | "expired" | "revoked"
+      external_portal_otp_purpose: "registration" | "login"
+      external_portal_type: "attorney" | "expert"
       fee_review_status: "pending" | "approved" | "rejected"
       matter_type: "mva" | "med_neg" | "both"
     }
@@ -6206,6 +8518,16 @@ export const Constants = {
       epp_payment_status: ["unpaid", "partial", "paid", "overdue"],
       epp_priority: ["low", "normal", "high", "urgent"],
       epp_report_status: ["pending", "in_progress", "completed", "released"],
+      external_portal_account_scope: ["firm", "individual"],
+      external_portal_account_status: [
+        "active",
+        "paused",
+        "expired",
+        "deleted",
+      ],
+      external_portal_link_status: ["pending", "used", "expired", "revoked"],
+      external_portal_otp_purpose: ["registration", "login"],
+      external_portal_type: ["attorney", "expert"],
       fee_review_status: ["pending", "approved", "rejected"],
       matter_type: ["mva", "med_neg", "both"],
     },
