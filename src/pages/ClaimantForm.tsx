@@ -406,7 +406,7 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }
               </Button>
             </div>
 
-             <div className="flex items-center gap-3">
+             <div className="flex flex-wrap items-center gap-3">
                <Button type="submit" disabled={loading} className={embedded ? "rounded-none bg-black hover:bg-black/90" : ""}>{loading ? "Saving..." : "Save Claimant"}</Button>
                {embedded ? (
                  <p className="text-xs text-muted-foreground">
@@ -432,7 +432,7 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }
   if (embedded) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-black">New Claimant</h2>
             <p className="text-xs text-slate-500">Capture claimant details and link to the referring attorney.</p>
