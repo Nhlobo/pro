@@ -27,9 +27,9 @@ const DashboardMenus = () => (
     <PermissionGuard permission="manage_claimants" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-kutlwano-blue text-white border-kutlwano-blue hover:bg-kutlwano-blue/90 hover:scale-105 transition-all duration-300 shadow-md">
+          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-kutlwano-blue text-white border-kutlwano-blue hover:bg-kutlwano-blue/90 hover:scale-105 transition-all duration-300 shadow-md">
             <Users className="h-6 w-6 text-white" />
-            <span className="text-sm font-medium">Claimant Management</span>
+            <span className="text-xs sm:text-sm font-medium text-center leading-tight">Claimant Management</span>
             <ChevronDown className="h-4 w-4 text-white/80" />
           </Button>
         </DropdownMenuTrigger>
@@ -47,9 +47,9 @@ const DashboardMenus = () => (
     <PermissionGuard permission="manage_attorneys" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-amber-500 text-white border-amber-500 hover:bg-amber-600 hover:scale-105 transition-all duration-300 shadow-md">
+          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-amber-500 text-white border-amber-500 hover:bg-amber-600 hover:scale-105 transition-all duration-300 shadow-md">
             <UserCheck className="h-6 w-6 text-white" />
-            <span className="text-sm font-medium">Attorney Management</span>
+            <span className="text-xs sm:text-sm font-medium text-center leading-tight">Attorney Management</span>
             <ChevronDown className="h-4 w-4 text-white/80" />
           </Button>
         </DropdownMenuTrigger>
@@ -70,9 +70,9 @@ const DashboardMenus = () => (
     <PermissionGuard permission="manage_experts" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-kutlwano-teal text-white border-kutlwano-teal hover:bg-kutlwano-teal/90 hover:scale-105 transition-all duration-300 shadow-md">
+          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-kutlwano-teal text-white border-kutlwano-teal hover:bg-kutlwano-teal/90 hover:scale-105 transition-all duration-300 shadow-md">
             <Stethoscope className="h-6 w-6 text-white" />
-            <span className="text-sm font-medium">Medical Experts</span>
+            <span className="text-xs sm:text-sm font-medium text-center leading-tight">Medical Experts</span>
             <ChevronDown className="h-4 w-4 text-white/80" />
           </Button>
         </DropdownMenuTrigger>
@@ -93,9 +93,9 @@ const DashboardMenus = () => (
     <PermissionGuard permission="view_reports" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600 hover:scale-105 transition-all duration-300 shadow-md">
+          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600 hover:scale-105 transition-all duration-300 shadow-md">
             <FileText className="h-6 w-6 text-white" />
-            <span className="text-sm font-medium">Assessment & Reports</span>
+            <span className="text-xs sm:text-sm font-medium text-center leading-tight">Assessment & Reports</span>
             <ChevronDown className="h-4 w-4 text-white/80" />
           </Button>
         </DropdownMenuTrigger>
@@ -118,9 +118,9 @@ const DashboardMenus = () => (
     <PermissionGuard permission="manage_appointments" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-violet-500 text-white border-violet-500 hover:bg-violet-600 hover:scale-105 transition-all duration-300 shadow-md">
+          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-violet-500 text-white border-violet-500 hover:bg-violet-600 hover:scale-105 transition-all duration-300 shadow-md">
             <Calendar className="h-6 w-6 text-white" />
-            <span className="text-sm font-medium">Appointments</span>
+            <span className="text-xs sm:text-sm font-medium text-center leading-tight">Appointments</span>
             <ChevronDown className="h-4 w-4 text-white/80" />
           </Button>
         </DropdownMenuTrigger>
@@ -150,9 +150,9 @@ const DashboardMenus = () => (
     <PermissionGuard permission="manage_documents" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-orange-500 text-white border-orange-500 hover:bg-orange-600 hover:scale-105 transition-all duration-300 shadow-md">
+          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-orange-500 text-white border-orange-500 hover:bg-orange-600 hover:scale-105 transition-all duration-300 shadow-md">
             <Upload className="h-6 w-6 text-white" />
-            <span className="text-sm font-medium">Document Management</span>
+            <span className="text-xs sm:text-sm font-medium text-center leading-tight">Document Management</span>
             <ChevronDown className="h-4 w-4 text-white/80" />
           </Button>
         </DropdownMenuTrigger>
@@ -176,9 +176,9 @@ const DashboardMenus = () => (
     <PermissionGuard permission="case_management" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:scale-105 transition-all duration-300 shadow-md">
+          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:scale-105 transition-all duration-300 shadow-md">
             <FileSignature className="h-6 w-6 text-white" />
-            <span className="text-sm font-medium">Case Management</span>
+            <span className="text-xs sm:text-sm font-medium text-center leading-tight">Case Management</span>
             <ChevronDown className="h-4 w-4 text-white/80" />
           </Button>
         </DropdownMenuTrigger>
@@ -206,28 +206,28 @@ const DashboardMenus = () => (
     </PermissionGuard>
 
     <PermissionGuard permission="attorney_pitchlog" showAlert={false}>
-      <Button asChild className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-purple-600 to-indigo-600 text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
+      <Button asChild className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-gradient-to-br from-purple-600 to-indigo-600 text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
         <Link to="/attorney-pitchlog">
           <Target className="h-6 w-6 text-white" />
-          <span className="text-sm font-medium">Attorney Pitchlog</span>
+          <span className="text-xs sm:text-sm font-medium text-center leading-tight">Attorney Pitchlog</span>
         </Link>
       </Button>
     </PermissionGuard>
 
     <PermissionGuard permission="manage_appointments" showAlert={false}>
-      <Button asChild className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-kutlwano-blue to-kutlwano-teal text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
+      <Button asChild className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-gradient-to-br from-kutlwano-blue to-kutlwano-teal text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
         <Link to="/workflow-automation">
           <Zap className="h-6 w-6 text-white" />
-          <span className="text-sm font-medium">Workflow Hub</span>
+          <span className="text-xs sm:text-sm font-medium text-center leading-tight">Workflow Hub</span>
         </Link>
       </Button>
     </PermissionGuard>
 
     <PermissionGuard permission="view_analytics" showAlert={false}>
-      <Button asChild className="h-20 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-emerald-600 to-teal-600 text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
+      <Button asChild className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-gradient-to-br from-emerald-600 to-teal-600 text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
         <Link to="/attorney-referral-intelligence">
           <BarChart3 className="h-6 w-6 text-white" />
-          <span className="text-sm font-medium">Referral Intelligence</span>
+          <span className="text-xs sm:text-sm font-medium text-center leading-tight">Referral Intelligence</span>
         </Link>
       </Button>
     </PermissionGuard>
@@ -235,9 +235,9 @@ const DashboardMenus = () => (
     <PermissionGuard permission="system_admin" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2 bg-red-500 text-white border-red-500 hover:bg-red-600 hover:scale-105 transition-all duration-300 shadow-md">
+          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-red-500 text-white border-red-500 hover:bg-red-600 hover:scale-105 transition-all duration-300 shadow-md">
             <Settings className="h-6 w-6 text-white" />
-            <span className="text-sm font-medium">System Admin</span>
+            <span className="text-xs sm:text-sm font-medium text-center leading-tight">System Admin</span>
             <ChevronDown className="h-4 w-4 text-white/80" />
           </Button>
         </DropdownMenuTrigger>
