@@ -48,18 +48,21 @@ describe("/admin/experts without ?edit= stays in create/default state", () => {
     );
   });
 
-  it("only renders the edit-expert tab when editExpertId is truthy", () => {
-    // If the param is absent, the edit tab should not exist at all.
+  it("only opens the edit panel when editExpertId is truthy", () => {
+    // If the param is absent, the edit panel remains closed.
     expect(adminNetwork).toMatch(
-      /\{\s*editExpertId\s*&&\s*\(/,
+      /<Sheet open=\{!!editExpertId\}/,
     );
   });
 
-  it("clears editExpertId when the active tab is not edit-expert", () => {
-    // Switching away from the edit tab must reset state so a later plain
-    // reload doesn't resurrect a stale id.
+  it("clears editExpertId when the edit panel is closed", () => {
+    // Closing the panel must reset state so a later plain reload doesn't
+    // resurrect a stale id.
     expect(adminNetwork).toMatch(
-      /if\s*\(\s*val\s*!==\s*['"]edit-expert['"]\s*\)\s*setEditExpertId\s*\(\s*null\s*\)/,
+      /const\s+closeEditPanel[\s\S]*setEditExpertId\(null\)/,
+    );
+    expect(adminNetwork).toMatch(
+      /onOpenChange=\{\(open\)\s*=>\s*\{\s*if\s*\(!open\)\s*closeEditPanel\(\);\s*\}\}/,
     );
   });
 

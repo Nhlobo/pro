@@ -2,8 +2,29 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://zybkhhxvsdjkluqydcbb.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5YmtoaHh2c2Rqa2x1cXlkY2JiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5MzYzNzgsImV4cCI6MjA3MDUxMjM3OH0.63RLvxgywnkjnqHzr9OLNxB_6wVpOBtcGlQZvJR_HyQ";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? 'https://zybkhhxvsdjkluqydcbb.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? 'test-anon-key';
+const isTestMode = import.meta.env.MODE === 'test';
+
+if (!isTestMode) {
+  const missingVars = [
+    !import.meta.env.VITE_SUPABASE_URL ? 'VITE_SUPABASE_URL' : null,
+    !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ? 'VITE_SUPABASE_PUBLISHABLE_KEY' : null,
+  ].filter(Boolean);
+
+  if (missingVars.length > 0) {
+    throw new Error(
+      `[supabase] Missing required environment variables: ${missingVars.join(', ')}. ` +
+      'Define them in your deployment environment before starting the app.',
+    );
+  }
+
+  try {
+    new URL(SUPABASE_URL);
+  } catch {
+    throw new Error('[supabase] VITE_SUPABASE_URL must be a valid absolute URL.');
+  }
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
