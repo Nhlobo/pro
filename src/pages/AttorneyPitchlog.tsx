@@ -1,473 +1,399 @@
-import React, { useState, useEffect } from "react";
-import { Helmet } from "react-helmet-async";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Download, RefreshCw, Filter, Mail, Users } from "lucide-react";
-import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
-import CompanyFooter from "@/components/CompanyFooter";
-import { AppointmentEmailPreviewDialog } from "@/components/AppointmentEmailPreviewDialog";
-import { BulkConfirmationPreviewDialog } from "@/components/BulkConfirmationPreviewDialog";
-import { shouldScopeToReferringAttorney } from "@/utils/assessmentUpdateAccess";
-
-type AttorneyUpdateData = {
-  auto_id: string;
-  claimant_name: string;
-  expert_type: string;
-  assessment_date: string;
-  assessment_time: string;
-  location: string;
-  appointment_id: string;
-  claimant_id: string;
-  referring_attorney: string;
-  attorney_email?: string;
-  attorney_phone?: string;
-  matter_type?: string;
-};
+import React, { useMemo, useState } from 'react';
+import { Helmet } from 'react-helmet-async';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import {
+  Plus, Pencil, Trash2, ClipboardList, BarChart3, Building2, AlertTriangle, CheckCircle2, Target, Flame,
+} from 'lucide-react';
+import { format, isPast, isToday } from 'date-fns';
+import DashboardStickyHeader from '@/components/dashboard/DashboardStickyHeader';
+import CompanyFooter from '@/components/CompanyFooter';
+import {
+  AdminPage, AdminHeader, AdminCard, AdminCardHeader, AdminCardBody, AdminStatCard, AdminPill,
+  AdminEmptyState, AdminLoadingState, AdminErrorState, AdminTabList, AdminTabTrigger, AdminSearchInput,
+} from '@/components/admin/ui/AdminUI';
+import { useAttorneyPitchlog, PitchlogEntry, PITCH_STATUSES } from '@/hooks/useAttorneyPitchlog';
+import PitchlogFormSheet from '@/components/sales/PitchlogFormSheet';
 
 /**
- * `embedded` drops the page's own header, Helmet tags, and footer when this
- * view is hosted inside another surface's chrome — e.g. the Appointment
- * Engine's "Assessment Update" tab. Standalone route usage
- * (`/referring-attorney-update`) is unaffected. Same pattern as
- * NewAppointment's `embedded` prop.
+ * `embedded` drops the page's own header/Helmet/footer when hosted inside
+ * another surface's chrome (here, AttorneyPitchlogModule.tsx inside the
+ * Admin Attorney CRM's "Pitchlog" tab). Standalone route usage
+ * (`/attorney-pitchlog`) is unaffected. Same convention as
+ * ReferringAttorneyUpdate's `embedded` prop.
+ *
+ * `defaultTab` lets a caller land directly on the Sales Report tab — used
+ * by AdminAttorneyCRM's "Closed Deals" header action.
  */
-const ReferringAttorneyUpdate = ({ embedded = false }: { embedded?: boolean; defaultTab?: string } = {}) => {
-  const { toast } = useToast();
-  const [updateData, setUpdateData] = useState<AttorneyUpdateData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedAttorney, setSelectedAttorney] = useState<string>('all');
-  const [attorneys, setAttorneys] = useState<{name: string, display: string}[]>([]);
-  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
-  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string>('');
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
-  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+interface AttorneyPitchlogProps {
+  embedded?: boolean;
+  defaultTab?: string;
+}
 
-  // Snapshot the bulk appointment IDs when the dialog opens so refreshes don't affect them
-  const [bulkSnapshotIds, setBulkSnapshotIds] = useState<string[]>([]);
+const statusTone = (status: string): 'neutral' | 'teal' | 'success' | 'warning' | 'destructive' => {
+  switch (status) {
+    case 'Interested': return 'success';
+    case 'Followed Up': return 'teal';
+    case 'Re-pitched': return 'warning';
+    case 'Not Interested': return 'destructive';
+    default: return 'neutral';
+  }
+};
 
-  const openBulkDialog = () => {
-    setBulkSnapshotIds(Array.from(selectedRows));
-    setBulkDialogOpen(true);
+const AttorneyPitchlog: React.FC<AttorneyPitchlogProps> = ({ embedded = false, defaultTab }) => {
+  const {
+    entries, loading, error, saving, referringAttorneys,
+    consultant, allConsultants, admin,
+    refetch, addEntry, updateEntry, deleteEntry,
+  } = useAttorneyPitchlog();
+
+  const [tab, setTab] = useState(defaultTab === 'sales-report' ? 'sales-report' : 'pitch-log');
+  React.useEffect(() => {
+    if (defaultTab) setTab(defaultTab);
+  }, [defaultTab]);
+
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [consultantFilter, setConsultantFilter] = useState('all');
+
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<PitchlogEntry | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PitchlogEntry | null>(null);
+
+  const openAdd = () => { setEditingEntry(null); setSheetOpen(true); };
+  const openEdit = (entry: PitchlogEntry) => { setEditingEntry(entry); setSheetOpen(true); };
+
+  const handleSave = async (id: string | null, input: Parameters<typeof addEntry>[0]) =>
+    id ? updateEntry(id, input) : addEntry(input);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    await deleteEntry(deleteTarget.id);
+    setDeleteTarget(null);
   };
 
-  // Manual refresh function — skips when a dialog is open
-  const handleManualRefresh = async () => {
-    if (previewDialogOpen || bulkDialogOpen) return;
-    setRefreshing(true);
-    try {
-      await fetchUpdateData();
-      toast({
-        title: "Data Refreshed",
-        description: "The assessment data has been updated successfully.",
-      });
-    } catch (error) {
-      toast({
-        title: "Refresh Failed",
-        description: "Failed to refresh the data. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    // Don't refresh data while a dialog is open
-    if (previewDialogOpen || bulkDialogOpen) return;
-    fetchUpdateData();
-  }, [selectedAttorney]);
-
-  const fetchUpdateData = async () => {
-    try {
-      setLoading(true);
-      
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('referring_attorney_id, role, user_type, position')
-        .eq('id', (await supabase.auth.getUser()).data.user?.id)
-        .single();
-
-      // Internal admin staff (admins, employees, Medico Legal Manager, Case Manager)
-      // must always see ALL assessment updates — never filter by referring_attorney_id.
-      const scopeToAttorney = shouldScopeToReferringAttorney(profile);
-
-      // Default to 3 months of data: previous month + current month + 1 month ahead
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 2, 0, 23, 59, 59).toISOString();
-
-      let query = supabase
-        .from('appointments')
-        .select(`
-          id,
-          appointment_date,
-          referring_attorney,
-          matter_type,
-          claimant_id,
-          expert_id
-        `)
-        .gte('appointment_date', startOfMonth)
-        .lte('appointment_date', endOfMonth)
-        .order('appointment_date', { ascending: false });
-
-      // System admins / internal staff see all data; only true referring attorneys are scoped
-      if (scopeToAttorney && profile?.referring_attorney_id) {
-        query = query.eq('referring_attorney_id', profile.referring_attorney_id);
-      }
-
-      if (selectedAttorney !== 'all') {
-        query = query.eq('referring_attorney', selectedAttorney);
-      }
-
-      const { data: appointments, error } = await query;
-      if (error) throw error;
-
-      // Fetch claimants and experts separately
-      const claimantIds = [...new Set(appointments?.map(a => a.claimant_id).filter(Boolean))];
-      const expertIds = [...new Set(appointments?.map(a => a.expert_id).filter(Boolean))];
-
-      const [{ data: claimants }, { data: experts }] = await Promise.all([
-        supabase.from('claimants').select('id, auto_id, first_name, last_name').in('id', claimantIds),
-        supabase.from('medical_experts').select('id, expert_type, practice_address').in('id', expertIds)
-      ]);
-
-      // Get unique attorney names and fetch their profile information
-      const uniqueAttorneyNames = [...new Set(appointments?.map(apt => apt.referring_attorney).filter(Boolean) || [])];
-      
-      // Fetch attorney profiles to get detailed information
-      let attorneyQuery = supabase
-        .from('profiles')
-        .select(`
-          first_name,
-          last_name,
-          role,
-          position,
-          law_firms!inner (
-            name
-          )
-        `)
-        .eq('role', 'referring_attorney');
-
-      // System admins / internal staff see all attorneys; only referring attorneys are scoped
-      if (scopeToAttorney && profile?.referring_attorney_id) {
-        attorneyQuery = attorneyQuery.eq('referring_attorney_id', profile.referring_attorney_id);
-      }
-
-      const { data: attorneyProfiles } = await attorneyQuery;
-
-      // Create enhanced attorney display list
-      const enhancedAttorneys = uniqueAttorneyNames.map(attorneyName => {
-        // Try to match with profile data
-        const matchedProfile = attorneyProfiles?.find(p => {
-          const fullName = `${p.first_name || ''} ${p.last_name || ''}`.trim();
-          return fullName === attorneyName || attorneyName.includes(p.first_name || '') || attorneyName.includes(p.last_name || '');
-        });
-
-        if (matchedProfile) {
-          const lawFirm = (matchedProfile.law_firms as any)?.name || '';
-          const position = matchedProfile.position || 'Attorney';
-          return {
-            name: attorneyName,
-            display: `${matchedProfile.first_name} ${matchedProfile.last_name} - ${position}${lawFirm ? ` at ${lawFirm}` : ''}`
-          };
-        }
-        
-        return {
-          name: attorneyName,
-          display: `${attorneyName} - Attorney`
-        };
-      });
-
-      setAttorneys(enhancedAttorneys);
-
-      const processedData: AttorneyUpdateData[] = appointments?.map(appointment => {
-        const appointmentDate = new Date(appointment.appointment_date);
-        const claimant = claimants?.find(c => c.id === appointment.claimant_id);
-        const expert = experts?.find(e => e.id === appointment.expert_id);
-        
-        return {
-          auto_id: claimant?.auto_id || 'N/A',
-          claimant_name: `${claimant?.first_name || ''} ${claimant?.last_name || ''}`.trim(),
-          expert_type: expert?.expert_type || 'Not specified',
-          assessment_date: format(appointmentDate, 'dd/MM/yyyy'),
-          assessment_time: format(appointmentDate, 'HH:mm'),
-          location: expert?.practice_address || 'Location TBD',
-          appointment_id: appointment.id,
-          claimant_id: claimant?.id || '',
-          referring_attorney: appointment.referring_attorney || 'Unknown',
-          matter_type: appointment.matter_type || 'Not specified'
-        };
-      }) || [];
-
-      setUpdateData(processedData);
-    } catch (error) {
-      console.error('Error fetching update data:', error);
-      toast({ title: "Error", description: "Failed to fetch update data. Please try again.", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSendConfirmation = (appointmentId: string) => {
-    setSelectedAppointmentId(appointmentId);
-    setPreviewDialogOpen(true);
-  };
-
-  const handleEmailSent = () => {
-    toast({
-      title: "Success",
-      description: "Appointment confirmation emails sent successfully",
+  const filteredEntries = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return entries.filter(e => {
+      if (statusFilter !== 'all' && e.pitch_status !== statusFilter) return false;
+      if (admin && consultantFilter !== 'all' && e.consultant_id !== consultantFilter) return false;
+      if (!q) return true;
+      return (
+        e.law_firm_name?.toLowerCase().includes(q) ||
+        e.contact_person?.toLowerCase().includes(q) ||
+        e.province?.toLowerCase().includes(q)
+      );
     });
-  };
+  }, [entries, search, statusFilter, consultantFilter, admin]);
 
-  const handleDownloadReport = () => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head><title>Referring Attorney Update Report</title></head>
-          <body>
-            <h1>Referring Attorney Update Report</h1>
-            <p>Generated on: ${format(new Date(), 'PPP')}</p>
-            <p>Total: ${updateData.length} appointments</p>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-    }
-  };
+  const stats = useMemo(() => {
+    const totalPitches = entries.length;
+    const pitched = entries.filter(e => e.pitch_status === 'Pitched').length;
+    const rePitched = entries.filter(e => e.pitch_status === 'Re-pitched').length;
+    const followedUp = entries.filter(e => e.pitch_status === 'Followed Up').length;
+    const interested = entries.filter(e => e.pitch_status === 'Interested').length;
+    const closed = entries.filter(e => e.deal_closed).length;
+    const overdueFollowUps = entries.filter(e => e.follow_up_date && !e.deal_closed && isPast(new Date(e.follow_up_date)) && !isToday(new Date(e.follow_up_date))).length;
+    const conversionRate = totalPitches > 0 ? ((closed / totalPitches) * 100).toFixed(1) : '0';
+
+    const provinceBreakdown: Record<string, number> = {};
+    const practiceBreakdown: Record<string, number> = {};
+    entries.forEach(e => {
+      provinceBreakdown[e.province || 'Unknown'] = (provinceBreakdown[e.province || 'Unknown'] || 0) + 1;
+      practiceBreakdown[e.practice_area || 'Unknown'] = (practiceBreakdown[e.practice_area || 'Unknown'] || 0) + 1;
+    });
+
+    const closedDeals = entries
+      .filter(e => e.deal_closed)
+      .sort((a, b) => (b.deal_closed_date || '').localeCompare(a.deal_closed_date || ''));
+
+    return { totalPitches, pitched, rePitched, followedUp, interested, closed, overdueFollowUps, conversionRate, provinceBreakdown, practiceBreakdown, closedDeals };
+  }, [entries]);
+
+  const consultantName = (id: string | null) => allConsultants.find(c => c.id === id)?.name || '—';
 
   return (
     <div className={embedded ? '' : 'min-h-screen bg-background'}>
       {!embedded && (
         <Helmet>
-          <title>Assessment Update - Medico-Legal Assessment System</title>
-          <meta name="description" content="Real-time updates on scheduled assessments." />
+          <title>Attorney Pitchlog - Medico-Legal Assessment System</title>
+          <meta name="description" content="Track attorney pitches, follow-ups and conversions." />
         </Helmet>
       )}
 
       {!embedded && (
         <DashboardStickyHeader
-          title="Assessment Update"
+          title="Attorney Pitchlog"
           backHref="/dashboard"
           backLabel="Dashboard"
           actions={
-            <div className="flex flex-wrap items-center gap-2">
-              {selectedRows.size > 0 && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={openBulkDialog}
-                  className="gap-1"
-                >
-                  <Users className="h-4 w-4" />
-                  <span className="hidden sm:inline">Send Bulk ({selectedRows.size})</span>
-                  <span className="sm:hidden">({selectedRows.size})</span>
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleManualRefresh}
-                disabled={refreshing}
-                className="gap-1 border border-white/30 bg-white/10 px-2 text-white hover:bg-white/20 hover:text-white sm:px-3"
-              >
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh Data'}</span>
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleDownloadReport}
-                className="gap-1 bg-white text-[#0F7A9C] hover:bg-white/90"
-              >
-                <Download className="h-4 w-4" />
-                <span className="hidden sm:inline">Download</span>
-              </Button>
-            </div>
+            <Button
+              size="sm"
+              onClick={openAdd}
+              className="gap-1 bg-white text-[#0F7A9C] hover:bg-white/90"
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Log Pitch</span>
+            </Button>
           }
         />
       )}
 
-      {/* Embedded mode still needs its own action row — the module tab has
-          no other place to put Refresh/Download/Bulk-send — just without
-          the duplicate title/back button that the Appointment Engine's
-          header already provides. */}
-      {embedded && (
-        <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
-          {selectedRows.size > 0 && (
-            <Button variant="default" onClick={openBulkDialog} className="gap-2">
-              <Users className="h-4 w-4" />
-              Send Bulk ({selectedRows.size})
-            </Button>
-          )}
-          <Button variant="outline" onClick={handleManualRefresh} disabled={refreshing}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh Data'}
-          </Button>
-          <Button onClick={handleDownloadReport} className="gradient-teal border">
-            <Download className="h-4 w-4 mr-2" />Download
-          </Button>
-        </div>
-      )}
-
       <main className={embedded ? '' : 'container mx-auto px-4 py-8'}>
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filter by Referring Attorney
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Select value={selectedAttorney} onValueChange={setSelectedAttorney}>
-              <SelectTrigger className="w-full bg-background">
-                <SelectValue placeholder="Select an attorney..." />
-              </SelectTrigger>
-              <SelectContent className="bg-background border shadow-md z-50">
-                <SelectItem value="all" className="font-medium">
-                  All Referring Attorneys
-                </SelectItem>
-                {attorneys.map(attorney => (
-                  <SelectItem key={attorney.name} value={attorney.name} className="py-3">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-foreground">{attorney.display}</span>
-                      <span className="text-xs text-muted-foreground">Click to filter appointments</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Scheduled Assessments - Attorney Session Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="text-center py-8">Loading...</div>
-            ) : (
-              <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                 <TableRow>
-                     <TableHead className="w-10">
-                       <Checkbox
-                         checked={updateData.length > 0 && selectedRows.size === updateData.length}
-                         onCheckedChange={(checked) => {
-                           if (checked) {
-                             setSelectedRows(new Set(updateData.map(r => r.appointment_id)));
-                           } else {
-                             setSelectedRows(new Set());
-                           }
-                         }}
-                       />
-                     </TableHead>
-                     <TableHead>Auto ID</TableHead>
-                     <TableHead>Referring Attorney</TableHead>
-                     <TableHead>Claimant Name</TableHead>
-                     <TableHead>Matter Type</TableHead>
-                     <TableHead>Expert Type</TableHead>
-                     <TableHead>Assessment Date</TableHead>
-                     <TableHead>Session Time</TableHead>
-                     <TableHead>Location</TableHead>
-                     <TableHead>Actions</TableHead>
-                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {updateData.map((row, index) => (
-                    <TableRow key={index}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedRows.has(row.appointment_id)}
-                          onCheckedChange={(checked) => {
-                            const next = new Set(selectedRows);
-                            if (checked) { next.add(row.appointment_id); } else { next.delete(row.appointment_id); }
-                            setSelectedRows(next);
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{row.auto_id}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium text-primary">
-                          {row.referring_attorney}
-                        </div>
-                      </TableCell>
-                      <TableCell>{row.claimant_name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{row.matter_type}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="default">{row.expert_type}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{row.assessment_date}</div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-mono text-sm bg-muted px-2 py-1 rounded">
-                          {row.assessment_time}
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-xs">
-                        <div className="text-sm text-muted-foreground truncate">
-                          {row.location}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleSendConfirmation(row.appointment_id)}
-                          className="gap-2"
-                        >
-                          <Mail className="h-4 w-4" />
-                          Send Confirmation
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+        <AdminPage>
+          {embedded ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-black">Attorney Pitchlog</h2>
+                <p className="text-xs text-slate-500">Track pitches, follow-ups and conversions.</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <Button size="sm" className="gap-1 rounded-none" onClick={openAdd}>
+                <Plus className="h-4 w-4" /> Log Pitch
+              </Button>
+            </div>
+          ) : (
+            <AdminHeader
+              eyebrow="Sales"
+              title="Attorney Pitchlog"
+              description="Track attorney pitches, follow-ups and conversions"
+              icon={ClipboardList}
+            />
+          )}
+
+          <Tabs value={tab} onValueChange={setTab}>
+            <AdminTabList>
+              <AdminTabTrigger value="pitch-log" label="Pitch Log" icon={ClipboardList} badge={stats.overdueFollowUps || undefined} />
+              <AdminTabTrigger value="sales-report" label="Sales Report" icon={BarChart3} />
+            </AdminTabList>
+
+            <div className="mt-4 space-y-4">
+              <TabsContent value="pitch-log" className="mt-0 space-y-4 focus-visible:outline-none">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <AdminStatCard label="Pitched" value={stats.pitched} icon={ClipboardList} />
+                  <AdminStatCard label="Re-pitched" value={stats.rePitched} icon={Flame} />
+                  <AdminStatCard label="Followed Up" value={stats.followedUp} icon={Target} />
+                  <AdminStatCard label="Interested" value={stats.interested} icon={CheckCircle2} />
+                  <AdminStatCard
+                    label="Overdue Follow-ups"
+                    value={stats.overdueFollowUps}
+                    icon={AlertTriangle}
+                    hint={stats.overdueFollowUps > 0 ? 'Needs attention' : 'All caught up'}
+                  />
+                </div>
+
+                <AdminCard>
+                  <AdminCardHeader
+                    title="Pitch Log"
+                    description={`${filteredEntries.length} of ${entries.length} pitches`}
+                    actions={
+                      <Button size="sm" className="gap-1 rounded-none" onClick={openAdd}>
+                        <Plus className="h-4 w-4" /> Log Pitch
+                      </Button>
+                    }
+                  />
+                  <AdminCardBody className="space-y-3">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <AdminSearchInput value={search} onChange={setSearch} placeholder="Search firm, contact, province…" className="flex-1" />
+                      <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-full sm:w-[180px] rounded-none"><SelectValue placeholder="All statuses" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All statuses</SelectItem>
+                          {PITCH_STATUSES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      {admin && (
+                        <Select value={consultantFilter} onValueChange={setConsultantFilter}>
+                          <SelectTrigger className="w-full sm:w-[200px] rounded-none"><SelectValue placeholder="All consultants" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All consultants</SelectItem>
+                            {allConsultants.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </AdminCardBody>
+
+                  {loading ? (
+                    <AdminLoadingState label="Loading pitch log…" />
+                  ) : error ? (
+                    <AdminErrorState message={error} onRetry={refetch} />
+                  ) : filteredEntries.length === 0 ? (
+                    <AdminEmptyState
+                      icon={Building2}
+                      title={entries.length === 0 ? 'No pitches logged yet' : 'No pitches match your filters'}
+                      description={entries.length === 0 ? 'Log your first attorney pitch to start tracking it here.' : undefined}
+                      action={entries.length === 0 ? (
+                        <Button size="sm" className="rounded-none mt-2" onClick={openAdd}>
+                          <Plus className="h-4 w-4 mr-1" /> Log Pitch
+                        </Button>
+                      ) : undefined}
+                    />
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-black/[0.03] hover:bg-black/[0.03]">
+                            <TableHead className="text-xs font-semibold text-black">Firm</TableHead>
+                            <TableHead className="text-xs font-semibold text-black">Contact</TableHead>
+                            <TableHead className="text-xs font-semibold text-black">Province</TableHead>
+                            <TableHead className="text-xs font-semibold text-black">Area</TableHead>
+                            <TableHead className="text-xs font-semibold text-black">Status</TableHead>
+                            <TableHead className="text-xs font-semibold text-black">Follow-up</TableHead>
+                            {admin && <TableHead className="text-xs font-semibold text-black">Consultant</TableHead>}
+                            <TableHead className="text-xs font-semibold w-20"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {filteredEntries.map(entry => {
+                            const overdue = entry.follow_up_date && !entry.deal_closed && isPast(new Date(entry.follow_up_date)) && !isToday(new Date(entry.follow_up_date));
+                            return (
+                              <TableRow key={entry.id}>
+                                <TableCell className="text-sm font-medium">
+                                  {entry.law_firm_name}
+                                  {entry.deal_closed && <AdminPill tone="success" className="ml-2">Closed</AdminPill>}
+                                </TableCell>
+                                <TableCell className="text-sm">{entry.contact_person}</TableCell>
+                                <TableCell className="text-sm">{entry.province}</TableCell>
+                                <TableCell className="text-sm">{entry.practice_area}</TableCell>
+                                <TableCell><AdminPill tone={statusTone(entry.pitch_status)}>{entry.pitch_status}</AdminPill></TableCell>
+                                <TableCell className="text-sm">
+                                  {entry.follow_up_date ? (
+                                    <span className={overdue ? 'text-destructive font-medium' : ''}>
+                                      {format(new Date(entry.follow_up_date), 'd MMM yyyy')}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400">—</span>
+                                  )}
+                                </TableCell>
+                                {admin && <TableCell className="text-sm">{consultantName(entry.consultant_id)}</TableCell>}
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => openEdit(entry)}>
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(entry)}>
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </AdminCard>
+              </TabsContent>
+
+              <TabsContent value="sales-report" className="mt-0 space-y-4 focus-visible:outline-none">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <AdminStatCard label="Total Pitches" value={stats.totalPitches} icon={ClipboardList} />
+                  <AdminStatCard label="Deals Closed" value={stats.closed} icon={CheckCircle2} />
+                  <AdminStatCard label="Conversion Rate" value={`${stats.conversionRate}%`} icon={Target} />
+                  <AdminStatCard label="Overdue Follow-ups" value={stats.overdueFollowUps} icon={AlertTriangle} />
+                </div>
+
+                <AdminCard>
+                  <AdminCardHeader title="Province Breakdown" />
+                  <AdminCardBody>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {Object.entries(stats.provinceBreakdown).sort(([, a], [, b]) => b - a).map(([province, count]) => (
+                        <div key={province} className="flex items-center justify-between border border-black/10 p-2.5">
+                          <span className="text-sm text-black truncate">{province}</span>
+                          <AdminPill tone="teal">{count}</AdminPill>
+                        </div>
+                      ))}
+                    </div>
+                  </AdminCardBody>
+                </AdminCard>
+
+                <AdminCard>
+                  <AdminCardHeader title="Practice Area Breakdown" />
+                  <AdminCardBody>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(stats.practiceBreakdown).sort(([, a], [, b]) => b - a).map(([area, count]) => (
+                        <div key={area} className="flex items-center justify-between border border-black/10 p-2.5">
+                          <span className="text-sm text-black truncate">{area}</span>
+                          <AdminPill tone="teal">{count}</AdminPill>
+                        </div>
+                      ))}
+                    </div>
+                  </AdminCardBody>
+                </AdminCard>
+
+                <AdminCard>
+                  <AdminCardHeader title="Closed Deals" description={`${stats.closedDeals.length} closed`} />
+                  <AdminCardBody className="p-0">
+                    {stats.closedDeals.length === 0 ? (
+                      <AdminEmptyState icon={CheckCircle2} title="No closed deals yet" />
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="bg-black/[0.03] hover:bg-black/[0.03]">
+                              <TableHead className="text-xs font-semibold text-black">Closed</TableHead>
+                              <TableHead className="text-xs font-semibold text-black">Firm</TableHead>
+                              <TableHead className="text-xs font-semibold text-black">Area</TableHead>
+                              {admin && <TableHead className="text-xs font-semibold text-black">Consultant</TableHead>}
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {stats.closedDeals.map(deal => (
+                              <TableRow key={deal.id}>
+                                <TableCell className="text-sm">{deal.deal_closed_date ? format(new Date(deal.deal_closed_date), 'd MMM yyyy') : '—'}</TableCell>
+                                <TableCell className="text-sm font-medium">{deal.law_firm_name}</TableCell>
+                                <TableCell className="text-sm">{deal.practice_area}</TableCell>
+                                {admin && <TableCell className="text-sm">{consultantName(deal.consultant_id)}</TableCell>}
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </AdminCardBody>
+                </AdminCard>
+              </TabsContent>
+            </div>
+          </Tabs>
+        </AdminPage>
       </main>
 
-      <AppointmentEmailPreviewDialog
-        isOpen={previewDialogOpen}
-        onClose={() => setPreviewDialogOpen(false)}
-        appointmentId={selectedAppointmentId}
-        onConfirmSend={handleEmailSent}
-      />
-
-      <BulkConfirmationPreviewDialog
-        isOpen={bulkDialogOpen}
-        onClose={() => setBulkDialogOpen(false)}
-        appointmentIds={bulkSnapshotIds}
-        onConfirmSend={() => {
-          setSelectedRows(new Set());
-          setBulkSnapshotIds([]);
-          handleEmailSent();
-        }}
-      />
-
       {!embedded && <CompanyFooter />}
+
+      <PitchlogFormSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        editingEntry={editingEntry}
+        saving={saving}
+        onSave={handleSave}
+        referringAttorneys={referringAttorneys}
+        isAdmin={admin}
+        ownConsultant={consultant}
+        allConsultants={allConsultants}
+      />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this pitch entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && `This will permanently remove the pitch record for ${deleteTarget.law_firm_name}. This cannot be undone.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-none">Cancel</AlertDialogCancel>
+            <AlertDialogAction className="rounded-none bg-destructive hover:bg-destructive/90" onClick={handleConfirmDelete}>
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
 
-export default ReferringAttorneyUpdate;
+export default AttorneyPitchlog;
