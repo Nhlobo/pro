@@ -65,7 +65,14 @@ type DayGroup = {
   claimants: GroupedClaimant[];
 };
 
-const AppointmentChecklist: React.FC = () => {
+/**
+ * `embedded` drops the page's own Helmet tags, System Header Nav, and
+ * footer so the page can be mounted inside the Admin Appointment Engine's
+ * "Checklist" tab without stacking a second, redundant page header under
+ * the Admin Portal's own header — mirrors ScheduledAssessment's
+ * `embedded` prop.
+ */
+const AppointmentChecklist: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const [entries, setEntries] = useState<ChecklistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -387,38 +394,67 @@ const AppointmentChecklist: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Appointment Checklist | KA Medico-Legal</title>
-      </Helmet>
-      <DashboardStickyHeader
-        title="Appointment Checklist"
-        subtitle="Daily grouped checklist for claimant assessments"
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={fetchChecklist}
-              disabled={loading}
-              className="gap-1 border border-white/30 bg-white/10 px-2 text-white hover:bg-white/20 hover:text-white sm:px-3"
-            >
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <Button
-              size="sm"
-              onClick={downloadPDF}
-              disabled={dayGroups.length === 0}
-              className="gap-1 bg-white text-[#0F7A9C] hover:bg-white/90"
-            >
-              <Download className="h-4 w-4" />
-              <span className="hidden sm:inline">Download PDF</span>
-            </Button>
-          </div>
-        }
-      />
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-6 max-w-7xl space-y-6">
+      {!embedded && (
+        <Helmet>
+          <title>Appointment Checklist | KA Medico-Legal</title>
+        </Helmet>
+      )}
+      {!embedded && (
+        <DashboardStickyHeader
+          title="Appointment Checklist"
+          subtitle="Daily grouped checklist for claimant assessments"
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={fetchChecklist}
+                disabled={loading}
+                className="gap-1 border border-white/30 bg-white/10 px-2 text-white hover:bg-white/20 hover:text-white sm:px-3"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+              <Button
+                size="sm"
+                onClick={downloadPDF}
+                disabled={dayGroups.length === 0}
+                className="gap-1 bg-white text-[#0F7A9C] hover:bg-white/90"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">Download PDF</span>
+              </Button>
+            </div>
+          }
+        />
+      )}
+
+      {embedded && (
+        <div className="flex flex-wrap items-center justify-end gap-2 border-b border-black/10 bg-white px-4 py-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchChecklist}
+            disabled={loading}
+            className="gap-1 rounded-none border-black/15 text-black hover:bg-black/5"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button
+            size="sm"
+            onClick={downloadPDF}
+            disabled={dayGroups.length === 0}
+            className="gap-1 bg-kutlwano-teal text-white hover:bg-kutlwano-teal/90"
+          >
+            <Download className="h-4 w-4" />
+            Download PDF
+          </Button>
+        </div>
+      )}
+
+      <div className={embedded ? '' : 'min-h-screen bg-background'}>
+        <div className={embedded ? 'space-y-6 p-4' : 'container mx-auto px-4 py-6 max-w-7xl space-y-6'}>
 
           {/* Filters */}
           <Card className="bg-gradient-card border-border/50">
@@ -660,7 +696,7 @@ const AppointmentChecklist: React.FC = () => {
             ))
           )}
         </div>
-        <CompanyFooter />
+        {!embedded && <CompanyFooter />}
       </div>
     </>
   );
