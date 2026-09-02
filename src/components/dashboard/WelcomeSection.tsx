@@ -8,9 +8,9 @@ interface Props {
 
 const WelcomeSection = ({ onRefresh, refreshing }: Props) => (
   <div className="text-center space-y-4">
-    <div className="inline-flex items-center space-x-2 bg-gradient-card px-4 py-2 rounded-full border border-border/50">
-      <Clock className="h-4 w-4 text-kutlwano-blue" />
-      <span className="text-sm text-muted-foreground">
+    <div className="inline-flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-border/50 bg-gradient-card px-3 py-2 sm:px-4">
+      <Clock className="h-4 w-4 shrink-0 text-kutlwano-blue" />
+      <span className="text-xs text-muted-foreground sm:text-sm">
         Last updated:{" "}
         {new Date().toLocaleDateString("en-US", {
           weekday: "long",
@@ -20,20 +20,20 @@ const WelcomeSection = ({ onRefresh, refreshing }: Props) => (
         })}
       </span>
     </div>
-    <div className="flex items-center justify-center gap-3">
-      <h2 className="text-4xl font-bold text-foreground">Medico-Legal System</h2>
+    <div className="flex flex-wrap items-center justify-center gap-3">
+      <h2 className="text-2xl font-bold text-foreground break-words sm:text-3xl md:text-4xl">Medico-Legal System</h2>
       <Button
         size="sm"
         variant="outline"
         onClick={onRefresh}
         disabled={refreshing}
-        className="flex items-center gap-2"
+        className="flex shrink-0 items-center gap-2"
       >
         <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
         Refresh
       </Button>
     </div>
-    <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+    <p className="text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto px-2">
       Comprehensive medico-legal assessment management dashboard with real-time insights
     </p>
     <div className="w-24 h-1 bg-gradient-primary mx-auto rounded-full"></div>
