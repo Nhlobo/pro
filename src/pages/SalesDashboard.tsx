@@ -9,8 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, Users, ChevronDown, ChevronUp, CalendarIcon, History, MapPin, Home } from "lucide-react";
-import { Link } from 'react-router-dom';
+import { TrendingUp, Award, AlertTriangle, Eye, EyeOff, Briefcase, Users, ChevronDown, ChevronUp, CalendarIcon, History } from "lucide-react";
 import { useSalesIncentives, SalesConsultant, ConsultantStrike, getTargetForConsultant, formatDateOnlyForDisplay } from '@/hooks/useSalesIncentives';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/hooks/use-toast';
@@ -223,19 +222,7 @@ const SalesDashboard: React.FC = () => {
             }
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm" className="h-9 gap-2">
-            <Link to="/">
-              <Home className="h-4 w-4" />
-              Home
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm" className="h-9 gap-2">
-            <Link to="/availability-heatmap">
-              <MapPin className="h-4 w-4" />
-              Availability Heatmap
-            </Link>
-          </Button>
+        <div className="flex flex-wrap items-center gap-2">
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className={cn("h-9 justify-start gap-2 text-left font-normal", !selectedPayoutDate && "text-muted-foreground")}>
