@@ -24,7 +24,10 @@ interface MeritReportGeneratorProps {
   sections: MeritReportSections;
   fileName: string;
   meritOpinion: {
-    opinion: 'possible_negligence' | 'no_clear_negligence';
+    // 'defer' — client spec section 6. Must render distinctly from both
+    // outcomes, on screen and in the generated PDF, since this PDF is a
+    // document that can be filed/shared.
+    opinion: 'possible_negligence' | 'no_clear_negligence' | 'defer';
     confidence: 'low' | 'medium' | 'high';
     summary: string;
   };
@@ -34,6 +37,18 @@ interface MeritReportGeneratorProps {
     requiresExpertConfirmation: boolean;
   };
 }
+
+const OPINION_LABELS: Record<string, string> = {
+  possible_negligence: 'PRELIMINARY OPINION: POSSIBLE NEGLIGENCE IDENTIFIED',
+  no_clear_negligence: 'PRELIMINARY OPINION: NO CLEAR NEGLIGENCE IDENTIFIED AT THIS STAGE',
+  defer: 'PRELIMINARY OPINION: DEFERRED — INSUFFICIENT INFORMATION FOR AN ASSESSMENT',
+};
+
+const OPINION_BADGE_LABELS: Record<string, string> = {
+  possible_negligence: '⚠️ POSSIBLE NEGLIGENCE IDENTIFIED',
+  no_clear_negligence: '✓ NO CLEAR NEGLIGENCE IDENTIFIED',
+  defer: '⏸ ASSESSMENT DEFERRED',
+};
 
 const sectionLabels: Record<keyof MeritReportSections, string> = {
   backgroundAndHistory: "1. Background & Medical History",
@@ -131,11 +146,12 @@ export const MeritReportGenerator: React.FC<MeritReportGeneratorProps> = ({
     currentY += 5;
 
     // Merit Opinion Summary
-    const opinionColor: [number, number, number] = meritOpinion.opinion === 'possible_negligence' ? [180, 0, 0] : [0, 100, 0];
+    const opinionColor: [number, number, number] =
+      meritOpinion.opinion === 'possible_negligence' ? [180, 0, 0]
+      : meritOpinion.opinion === 'defer' ? [180, 130, 0]
+      : [0, 100, 0];
     addText(
-      meritOpinion.opinion === 'possible_negligence' 
-        ? 'PRELIMINARY OPINION: POSSIBLE NEGLIGENCE IDENTIFIED'
-        : 'PRELIMINARY OPINION: NO CLEAR NEGLIGENCE IDENTIFIED AT THIS STAGE',
+      OPINION_LABELS[meritOpinion.opinion] || OPINION_LABELS.no_clear_negligence,
       11,
       true,
       opinionColor
@@ -196,12 +212,10 @@ export const MeritReportGenerator: React.FC<MeritReportGeneratorProps> = ({
         <div className="p-4 rounded-lg bg-muted/50 border">
           <div className="flex items-center gap-3 mb-2">
             <Badge 
-              variant={meritOpinion.opinion === 'possible_negligence' ? 'destructive' : 'secondary'}
-              className="text-sm py-1"
+              variant={meritOpinion.opinion === 'possible_negligence' ? 'destructive' : meritOpinion.opinion === 'defer' ? 'outline' : 'secondary'}
+              className={`text-sm py-1 ${meritOpinion.opinion === 'defer' ? 'bg-amber-100 text-amber-800 border-amber-300' : ''}`}
             >
-              {meritOpinion.opinion === 'possible_negligence' 
-                ? '⚠️ POSSIBLE NEGLIGENCE IDENTIFIED'
-                : '✓ NO CLEAR NEGLIGENCE IDENTIFIED'}
+              {OPINION_BADGE_LABELS[meritOpinion.opinion] || OPINION_BADGE_LABELS.no_clear_negligence}
             </Badge>
             <Badge variant="outline">
               Confidence: {meritOpinion.confidence}
