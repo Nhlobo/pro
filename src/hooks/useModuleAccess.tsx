@@ -119,9 +119,12 @@ export const useModuleAccess = () => {
   const canAccessModule = (mod: AdminModule): boolean => {
     // A module marked hideFromAdmin (a narrower, role-scoped duplicate of
     // an admin-only module) opts out of the full-access bypass below in
-    // both branches — admin never sees it, regardless of access-control
-    // system.
-    if (mod.hideFromAdmin && isAdmin()) return false;
+    // both branches. NOTE: this must check the literal 'admin' role, not
+    // isAdmin() — isAdmin() is true for BOTH 'admin' and 'employee'
+    // (see usePermissions: "Check if user is admin or employee (both have
+    // full system access)"), so using it here would hide the module from
+    // employees too, not just admins.
+    if (mod.hideFromAdmin && userRole === 'admin') return false;
 
     if (NEW_ACCESS_CONTROL_ENABLED) {
       if (newSystemFullAccess) return true;
@@ -135,15 +138,10 @@ export const useModuleAccess = () => {
   };
 
   const canAccessPath = (pathname: string): boolean => {
-    // hideFromAdmin modules can share a route (or a route prefix) with a
-    // broader module admins DO own — e.g. 'external-portal-access''s
-    // '/admin/external-portal/accounts' sits inside 'external-portal''s
-    // own tab strip. findModuleForPath picks the most specific href
-    // match, which would otherwise resolve admins straight to the
-    // hidden module and get blocked by it. Exclude hideFromAdmin
-    // modules for admins so matching falls through to the broader
-    // module that actually owns the route for them.
-    const candidateModules = isAdmin() ? ADMIN_MODULES.filter((m) => !m.hideFromAdmin) : ADMIN_MODULES;
+    // Same literal-'admin' distinction as canAccessModule above — filter
+    // by role string, not isAdmin(), or employees get excluded from this
+    // route-resolution step too.
+    const candidateModules = userRole === 'admin' ? ADMIN_MODULES.filter((m) => !m.hideFromAdmin) : ADMIN_MODULES;
     const mod = findModuleForPath(candidateModules, pathname);
     // A path with no matching module (nothing in ADMIN_MODULES claims it)
     // is treated as admin-only.
