@@ -510,10 +510,10 @@ const AppointmentChecklist: React.FC<{ embedded?: boolean }> = ({ embedded = fal
             dayGroups.map((dg) => (
               <Card key={dg.date} className="bg-gradient-card border-border/50">
                 <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    {getDateLabel(dg.date)}
-                    <Badge variant="secondary" className="ml-2">{dg.claimants.length} claimant(s)</Badge>
+                  <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
+                    <Calendar className="h-5 w-5 text-primary shrink-0" />
+                    <span className="break-words">{getDateLabel(dg.date)}</span>
+                    <Badge variant="secondary" className="ml-0 sm:ml-2">{dg.claimants.length} claimant(s)</Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
