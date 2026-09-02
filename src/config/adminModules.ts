@@ -16,6 +16,7 @@ import {
   MapPin,
   HeadsetIcon,
   FileText,
+  FileSignature,
   BarChart3,
   FolderLock,
   Calendar,
@@ -214,6 +215,18 @@ export const ADMIN_MODULES: AdminModule[] = [
     // Their real appointment data (their own generated deals, incentive
     // calculations) comes through the separately-scoped get_consultant_*
     // RPCs on the Sales Dashboard, not this operational admin page.
+    roles: ['admin', 'employee'],
+    permissions: [{ category: 'Appointment Management' }],
+  },
+  {
+    key: 'litigation-requests',
+    title: 'Litigation Service Requests',
+    href: '/admin/litigation-requests',
+    group: 'Workflow',
+    icon: FileSignature,
+    description: 'Addendum, Affidavit, Joint Minute and related litigation service requests from referring attorneys',
+    // Mirrors the 'appointments' module's role grants above — same staff
+    // who action appointment requests action these.
     roles: ['admin', 'employee'],
     permissions: [{ category: 'Appointment Management' }],
   },
