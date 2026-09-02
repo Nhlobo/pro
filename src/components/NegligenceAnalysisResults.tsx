@@ -12,7 +12,9 @@ import {
   Calendar,
   Scale,
   UserCheck,
-  AlertCircle
+  AlertCircle,
+  HelpCircle,
+  FileWarning
 } from "lucide-react";
 
 interface NegligenceIndicator {
@@ -44,7 +46,10 @@ interface ExpertRecommendation {
 interface NegligenceAnalysisResultsProps {
   result: {
     meritOpinion?: {
-      opinion: 'possible_negligence' | 'no_clear_negligence';
+      // 'defer' — client spec section 6: the available records are
+      // insufficient to provide a useful preliminary assessment. This is
+      // NOT the same as "no clear negligence" and must be shown distinctly.
+      opinion: 'possible_negligence' | 'no_clear_negligence' | 'defer';
       confidence: 'low' | 'medium' | 'high';
       summary: string;
       keyFactors?: string[];
@@ -57,6 +62,14 @@ interface NegligenceAnalysisResultsProps {
     keyEvidence: any[];
     expertRecommendations: ExpertRecommendation[];
     factsSummary?: string;
+    // What's missing from the records, populated only for a 'defer' outcome
+    // caused by lack of relevant content (client spec section 6 examples:
+    // missing hospital records, operative notes, imaging, etc.)
+    missingInformation?: string[];
+    // Documents that produced very little extractable text and likely
+    // could not be reliably read (client spec section 3 — handwriting /
+    // poor scans). Never treated as "nothing relevant found".
+    extractionWarnings?: { fileName: string; extractedLength: number; note: string }[];
   };
 }
 
@@ -101,21 +114,27 @@ export const NegligenceAnalysisResults: React.FC<NegligenceAnalysisResultsProps>
       {/* Merit Opinion Banner */}
       {result.meritOpinion && (
         <Card className={`border-2 ${
-          result.meritOpinion.opinion === 'possible_negligence' 
-            ? 'border-red-500 bg-red-50 dark:bg-red-950/20' 
+          result.meritOpinion.opinion === 'possible_negligence'
+            ? 'border-red-500 bg-red-50 dark:bg-red-950/20'
+            : result.meritOpinion.opinion === 'defer'
+            ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/20'
             : 'border-green-500 bg-green-50 dark:bg-green-950/20'
         }`}>
           <CardContent className="p-6">
             <div className="flex items-start gap-4">
               {result.meritOpinion.opinion === 'possible_negligence' ? (
                 <AlertTriangle className="h-10 w-10 text-red-600 shrink-0" />
+              ) : result.meritOpinion.opinion === 'defer' ? (
+                <HelpCircle className="h-10 w-10 text-amber-600 shrink-0" />
               ) : (
                 <CheckCircle className="h-10 w-10 text-green-600 shrink-0" />
               )}
               <div className="flex-1">
                 <h3 className="text-xl font-bold mb-2">
-                  {result.meritOpinion.opinion === 'possible_negligence' 
+                  {result.meritOpinion.opinion === 'possible_negligence'
                     ? '⚠️ POSSIBLE NEGLIGENCE IDENTIFIED'
+                    : result.meritOpinion.opinion === 'defer'
+                    ? '⏸ ASSESSMENT DEFERRED — INSUFFICIENT INFORMATION'
                     : '✓ NO CLEAR NEGLIGENCE IDENTIFIED AT THIS STAGE'}
                 </h3>
                 <p className="text-sm text-muted-foreground mb-3">{result.meritOpinion.summary}</p>
@@ -123,13 +142,17 @@ export const NegligenceAnalysisResults: React.FC<NegligenceAnalysisResultsProps>
                   <Badge variant="outline">
                     Confidence: {result.meritOpinion.confidence.toUpperCase()}
                   </Badge>
-                  <Badge variant={getSeverityColor(result.overallSeverity)}>
-                    Severity: {result.overallSeverity.toUpperCase()}
-                  </Badge>
+                  {result.meritOpinion.opinion !== 'defer' && (
+                    <Badge variant={getSeverityColor(result.overallSeverity)}>
+                      Severity: {result.overallSeverity.toUpperCase()}
+                    </Badge>
+                  )}
                 </div>
                 {result.meritOpinion.keyFactors && result.meritOpinion.keyFactors.length > 0 && (
                   <div className="mt-4">
-                    <p className="text-sm font-semibold mb-2">Key Factors:</p>
+                    <p className="text-sm font-semibold mb-2">
+                      {result.meritOpinion.opinion === 'defer' ? 'Why this was deferred:' : 'Key Factors:'}
+                    </p>
                     <ul className="text-sm space-y-1">
                       {result.meritOpinion.keyFactors.slice(0, 5).map((factor, idx) => (
                         <li key={idx} className="flex items-start gap-2">
@@ -147,6 +170,53 @@ export const NegligenceAnalysisResults: React.FC<NegligenceAnalysisResultsProps>
                 <strong>Note:</strong> This is a preliminary medico-legal screening opinion only, not a final expert opinion.
               </p>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Extraction warnings — documents that likely could not be reliably
+          read (blank, handwritten, or poor-quality scan). Shown prominently
+          so a reviewer never mistakes "nothing found" for "nothing there". */}
+      {result.extractionWarnings && result.extractionWarnings.length > 0 && (
+        <Card className="border-amber-400 bg-amber-50 dark:bg-amber-950/10">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-200">
+              <FileWarning className="h-5 w-5" />
+              Documents That May Not Have Been Reliably Read
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {result.extractionWarnings.map((w, idx) => (
+                <li key={idx} className="text-sm">
+                  <span className="font-medium">{w.fileName}</span>
+                  <span className="text-muted-foreground"> — {w.note}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Missing information — client spec section 6, only populated on a
+          content-based 'defer' outcome. */}
+      {result.missingInformation && result.missingInformation.length > 0 && (
+        <Card className="border-amber-400 bg-amber-50 dark:bg-amber-950/10">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-200">
+              <AlertCircle className="h-5 w-5" />
+              Records Not Found — Consider Requesting
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1">
+              {result.missingInformation.map((item, idx) => (
+                <li key={idx} className="text-sm flex items-start gap-2">
+                  <span className="text-muted-foreground">•</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       )}
