@@ -1,9 +1,39 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { CheckCircle, TrendingUp, BarChart3, Calendar, MapPin } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CheckCircle, TrendingUp, BarChart3, Calendar, MapPin, Target } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSalesConsultantStats } from '@/hooks/useSalesConsultantStats';
+
+/**
+ * Metric tile matching the same "bg-gradient-card / icon-in-box / text-3xl"
+ * language as DashboardStatsGrid's StatCard — the tile pattern every other
+ * role sees on this exact page (Index.tsx). Kept local rather than reusing
+ * DashboardStatsGrid's StatCard directly since that component's props are
+ * shaped around its own fixed 6-metric spec list, not a reusable export.
+ */
+const MetricTile: React.FC<{
+  title: string;
+  value: React.ReactNode;
+  hint: string;
+  Icon: typeof CheckCircle;
+  iconBg: string;
+  iconText: string;
+  valueText: string;
+}> = ({ title, value, hint, Icon, iconBg, iconText, valueText }) => (
+  <Card className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300 hover:scale-105 group">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 px-4 pt-4">
+      <CardTitle className="text-xs font-medium text-foreground">{title}</CardTitle>
+      <div className={`p-1.5 ${iconBg} rounded-lg transition-colors duration-300`}>
+        <Icon className={`h-4 w-4 ${iconText}`} />
+      </div>
+    </CardHeader>
+    <CardContent className="px-4 pb-4">
+      <div className={`text-3xl font-bold ${valueText} mb-1`}>{value}</div>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+    </CardContent>
+  </Card>
+);
 
 interface SalesConsultantStatsProps {
   firstName: string;
@@ -39,25 +69,34 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-3 gap-2">
-        <Card className="border-border/50">
-          <CardContent className="p-2 text-center">
-            <p className="text-lg font-bold text-emerald-600">{stats.totalClosed}</p>
-            <p className="text-[10px] text-muted-foreground">Closed Deals</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-2 text-center">
-            <p className="text-lg font-bold text-primary">{stats.totalPitches}</p>
-            <p className="text-[10px] text-muted-foreground">Total Pitches</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="p-2 text-center">
-            <p className="text-lg font-bold text-amber-600">{stats.conversionRate}%</p>
-            <p className="text-[10px] text-muted-foreground">Conversion</p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <MetricTile
+          title="Closed Deals"
+          value={stats.totalClosed}
+          hint="All-time closed"
+          Icon={CheckCircle}
+          iconBg="bg-success/10 group-hover:bg-success/20"
+          iconText="text-success"
+          valueText="text-success"
+        />
+        <MetricTile
+          title="Total Pitches"
+          value={stats.totalPitches}
+          hint="All-time pitched"
+          Icon={Target}
+          iconBg="bg-kutlwano-blue/10 group-hover:bg-kutlwano-blue/20"
+          iconText="text-kutlwano-blue"
+          valueText="text-kutlwano-blue"
+        />
+        <MetricTile
+          title="Conversion"
+          value={`${stats.conversionRate}%`}
+          hint="Closed / pitched"
+          Icon={TrendingUp}
+          iconBg="bg-warning/10 group-hover:bg-warning/20"
+          iconText="text-warning"
+          valueText="text-warning"
+        />
       </div>
 
       {/* Activity Breakdown */}
@@ -106,13 +145,16 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-semibold">Province Pitched</span>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {Object.entries(stats.provinceBreakdown)
               .sort(([, a], [, b]) => b - a)
               .map(([province, count]) => (
-                <Card key={province} className="border-border/50">
-                  <CardContent className="p-3 flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground truncate mr-2">{province}</span>
+                <Card
+                  key={province}
+                  className="bg-gradient-card border-border/50 shadow-soft hover:shadow-elegant transition-all duration-300"
+                >
+                  <CardContent className="p-3 flex items-center justify-between gap-2">
+                    <span className="text-sm font-medium text-foreground truncate">{province}</span>
                     <Badge className="bg-primary text-primary-foreground text-xs shrink-0">
                       {count}
                     </Badge>
@@ -129,9 +171,9 @@ const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, 
           <p className="text-[10px] font-medium text-muted-foreground">Recent Closed Deals</p>
           <div className="space-y-1 max-h-28 overflow-y-auto">
             {stats.recentDeals.map((deal, idx) => (
-              <div key={idx} className="flex items-center justify-between text-[11px] p-1.5 rounded bg-muted/30">
+              <div key={idx} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[11px] p-2 rounded bg-muted/30">
                 <div className="flex items-center gap-1.5 min-w-0">
-                  <CheckCircle className="h-3 w-3 text-emerald-600 shrink-0" />
+                  <CheckCircle className="h-3 w-3 text-success shrink-0" />
                   <span className="truncate font-medium">{deal.firmName}</span>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
