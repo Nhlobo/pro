@@ -137,6 +137,12 @@ const DashboardMenus = () => (
           <DropdownMenuItem asChild>
             <Link to="/appointment-checklist" className="flex items-center w-full hover:bg-violet-500/10">Appointment Checklist</Link>
           </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/admin/litigation-requests" className="flex items-center w-full hover:bg-violet-500/10">
+              <FileSignature className="h-4 w-4 mr-2" />
+              Litigation Service Requests
+            </Link>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </PermissionGuard>
