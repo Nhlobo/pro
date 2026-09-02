@@ -56,6 +56,15 @@ export interface AdminModule {
    * sub-routes (e.g. a paired screen that doesn't nest under href).
    */
   aliasPaths?: string[];
+  /**
+   * Hide this module from admins even though admin/full-access roles
+   * normally bypass the `roles` gate entirely (useModuleAccess). For a
+   * module that exists only as a narrower, role-scoped duplicate of
+   * another admin-only module (e.g. 'external-portal-access' next to
+   * 'external-portal') — admins already have the full module, so the
+   * narrower one is nav clutter, not something admins need to see.
+   */
+  hideFromAdmin?: boolean;
 }
 
 export const ADMIN_MODULES: AdminModule[] = [
@@ -305,6 +314,11 @@ export const ADMIN_MODULES: AdminModule[] = [
     // screens (create account, send link) that live at two different
     // routes — both belong to the same grant.
     aliasPaths: ['/admin/external-portal/links'],
+    // Admins already have the full 'external-portal' module above; without
+    // this they'd also see this narrower employee/sales_consultant-scoped
+    // duplicate in their own sidebar, since admin normally bypasses the
+    // `roles` gate entirely (see useModuleAccess.canAccessModule).
+    hideFromAdmin: true,
   },
   {
     key: 'system-control',
