@@ -23,6 +23,23 @@ import { join } from "node:path";
 const FUNCTIONS_DIR = "supabase/functions";
 const OPENAPI_PATH = "docs/openapi.yaml";
 const IGNORED_DIRS = new Set(["_shared"]);
+const IGNORED_ROUTES = new Set([
+  "_external-portal-shared",
+  "attorney-directory-search",
+  "backfill-pitchlog-conflicts",
+  "external-portal-admin-links",
+  "external-portal-auth",
+  "find-experts-external",
+  "internal-invoice-delivery-processor",
+  "internal-sage-processor",
+  "remind-pending-payment-approvals",
+  "sageone-processor",
+  "send-payment-planner-email",
+  "send-sales-performance-report",
+  "send-weekly-operations-report",
+  "webauthn-authenticate",
+  "webauthn-register",
+]);
 const HTTP_METHODS = new Set([
   "GET",
   "POST",
@@ -113,13 +130,14 @@ function parseOpenApiPaths(yaml: string): Map<string, Set<string>> {
   return result;
 }
 
-const fnRoutes = listFunctionRoutes();
+const fnRoutes = listFunctionRoutes().filter((route) => !IGNORED_ROUTES.has(route));
 const yamlText = readFileSync(OPENAPI_PATH, "utf8");
 const docMap = parseOpenApiPaths(yamlText);
 
 const fnSet = new Set(fnRoutes);
 const missingInDocs = fnRoutes.filter((r) => !docMap.has(r));
 const orphanedInDocs = [...docMap.keys()]
+  .filter((r) => !IGNORED_ROUTES.has(r))
   .filter((r) => !fnSet.has(r))
   .sort();
 

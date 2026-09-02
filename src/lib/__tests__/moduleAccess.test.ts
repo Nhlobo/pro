@@ -98,10 +98,10 @@ describe('moduleMatchesPath / findModuleForPath', () => {
 });
 
 describe('real ADMIN_MODULES sanity checks', () => {
-  it('sales-dashboard and finance are the only core modules, for the expected roles', () => {
+  it('attorney-crm and finance are the only core modules, for the expected roles', () => {
     const core = ADMIN_MODULES.filter((m) => m.core && m.core.length > 0);
     const byKey = Object.fromEntries(core.map((m) => [m.key, m.core]));
-    expect(byKey['sales-dashboard']).toEqual(['sales_consultant']);
+    expect(byKey['attorney-crm']).toEqual(['sales_consultant']);
     expect(byKey['finance']).toEqual(['finance', 'director']);
   });
 

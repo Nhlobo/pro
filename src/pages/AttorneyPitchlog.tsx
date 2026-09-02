@@ -38,7 +38,7 @@ type AttorneyUpdateData = {
  * (`/referring-attorney-update`) is unaffected. Same pattern as
  * NewAppointment's `embedded` prop.
  */
-const ReferringAttorneyUpdate = ({ embedded = false }: { embedded?: boolean } = {}) => {
+const ReferringAttorneyUpdate = ({ embedded = false }: { embedded?: boolean; defaultTab?: string } = {}) => {
   const { toast } = useToast();
   const [updateData, setUpdateData] = useState<AttorneyUpdateData[]>([]);
   const [loading, setLoading] = useState(true);

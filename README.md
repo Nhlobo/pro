@@ -61,6 +61,49 @@ npx vitest run
 The app reads Supabase config from `.env` (publishable anon key only — service
 role keys live in Supabase Edge Function secrets).
 
+### Production readiness verification
+
+Run this verification sequence before deploying:
+
+```sh
+npm install --legacy-peer-deps
+npx tsc -p tsconfig.app.json --noEmit
+npx tsc -p tsconfig.node.json --noEmit
+npm run lint
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co \
+VITE_SUPABASE_PUBLISHABLE_KEY=<anon-publishable-key> \
+npm run build
+npm run test
+```
+
+What was fixed in the production-readiness pass:
+
+- TypeScript typing errors in:
+  - `src/components/admin/AttorneyPitchlogModule.tsx` / `src/pages/AttorneyPitchlog.tsx` prop contract alignment
+  - `src/hooks/externalPortal/useExternalPortalCaseLinks.ts` Supabase row casting
+  - `src/pages/attorney-portal/AttorneyAgreements.tsx` external portal agreement row typing
+- Startup safety in `src/integrations/supabase/client.ts`:
+  - required env validation for `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`
+  - clear fail-fast error messages for missing/invalid production config
+
+Required frontend environment variables (production):
+
+- `VITE_SUPABASE_URL` — your Supabase project URL (absolute URL)
+- `VITE_SUPABASE_PUBLISHABLE_KEY` — your Supabase anon/publishable key
+
+Production build/start:
+
+```sh
+# Build static assets
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co \
+VITE_SUPABASE_PUBLISHABLE_KEY=<anon-publishable-key> \
+npm run build
+
+# Serve dist/ using your runtime (examples):
+npm run preview
+# or docker compose up --build
+```
+
 ## Project structure
 
 ```

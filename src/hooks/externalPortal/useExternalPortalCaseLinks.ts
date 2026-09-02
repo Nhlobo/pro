@@ -47,11 +47,8 @@ export function useExternalPortalLinkableCases(account: ExternalPortalAccount | 
       if (apptError) throw apptError;
       if (linkError) throw linkError;
 
-      const linkedSet = new Set(
-        ((links || []) as { appointment_id: string; revoked_at: string | null }[])
-          .filter((l) => !l.revoked_at)
-          .map((l) => l.appointment_id)
-      );
+      const linkRows = (links ?? []) as unknown as Array<{ appointment_id: string; revoked_at: string | null }>;
+      const linkedSet = new Set(linkRows.filter((l) => !l.revoked_at).map((l) => l.appointment_id));
 
       return (appointments || []).map((appt) => {
         const claimant = Array.isArray(appt.claimants) ? appt.claimants[0] : appt.claimants;

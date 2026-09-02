@@ -46,6 +46,19 @@ interface Agreement {
   type: 'short-term' | 'long-term';
 }
 
+interface ExternalPortalAgreementRow {
+  id: string;
+  file_name: string;
+  total_contract_value: number | null;
+  deposit_amount: number | null;
+  total_reports_agreed: number | null;
+  contract_start_date: string | null;
+  contract_end_date: string | null;
+  payment_status: string | null;
+  created_at: string;
+  document_url: string;
+}
+
 type AgreementsTab = 'all' | 'short-term' | 'long-term';
 
 const PAYMENT_STATUS_TONE: Record<string, PortalPillTone> = {
@@ -118,7 +131,8 @@ const AttorneyAgreements: React.FC = () => {
         .order('created_at', { ascending: false });
 
       if (aodData) {
-        const processedAgreements: Agreement[] = aodData.map(doc => {
+        const rows = aodData as unknown as ExternalPortalAgreementRow[];
+        const processedAgreements: Agreement[] = rows.map(doc => {
           // Determine if short-term (<=6 months) or long-term
           let type: 'short-term' | 'long-term' = 'long-term';
           if (doc.contract_start_date && doc.contract_end_date) {

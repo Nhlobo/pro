@@ -45,14 +45,14 @@ describe("/admin/experts?edit= deep-link preloads the same expert", () => {
     expect(adminNetwork).toMatch(/searchParams\.get\(\s*['"]edit['"]\s*\)/);
   });
 
-  it("syncs ?edit into editExpertId state and switches to the edit tab", () => {
-    // The effect must promote the URL id and select the edit-expert tab.
+  it("syncs ?edit into editExpertId state", () => {
+    // The effect must promote the URL id into state.
     expect(adminNetwork).toMatch(
-      /useEffect\(\s*\(\)\s*=>\s*\{[\s\S]*?searchParams\.get\(\s*['"]edit['"]\s*\)[\s\S]*?setEditExpertId\([\s\S]*?setActiveTab\(\s*['"]edit-expert['"]\s*\)[\s\S]*?\}\s*,\s*\[\s*searchParams[\s\S]*?\]\s*\)/,
+      /useEffect\(\s*\(\)\s*=>\s*\{[\s\S]*?searchParams\.get\(\s*['"]edit['"]\s*\)[\s\S]*?setEditExpertId\([\s\S]*?\}\s*,\s*\[\s*searchParams[\s\S]*?\]\s*\)/,
     );
   });
 
-  it("renders the edit tab with key={editExpertId} so each id mounts a fresh form", () => {
+  it("renders the edit panel form with key={editExpertId} so each id mounts a fresh form", () => {
     expect(adminNetwork).toMatch(
       /<ExpertFormModule[\s\S]*?key=\{\s*editExpertId\s*\}[\s\S]*?editExpertId=\{\s*editExpertId\s*\}/,
     );

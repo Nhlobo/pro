@@ -23,10 +23,11 @@ describe("Admin experts: create + list refresh", () => {
   const formModule = read("src/components/admin/ExpertFormModule.tsx");
   const formPage = read("src/pages/MedicalExpertFormPage.tsx");
 
-  it("exposes a New Expert tab that renders the form without an editExpertId", () => {
-    expect(adminPage).toMatch(/value="new-expert"/);
+  it("exposes a New Expert action that opens a panel rendering the create form", () => {
+    expect(adminPage).toMatch(/setIsNewExpertOpen\(true\)/);
+    expect(adminPage).toMatch(/<Sheet open=\{isNewExpertOpen\} onOpenChange=\{setIsNewExpertOpen\}>/);
     expect(adminPage).toMatch(
-      /<TabsContent value="new-expert"[\s\S]*?<ExpertFormModule\s*\/>/,
+      /<ExpertFormModule[\s\S]*onSaved=\{\(\)\s*=>\s*\{\s*setIsNewExpertOpen\(false\);\s*refetchExperts\(\);\s*\}\}/,
     );
   });
 
@@ -56,16 +57,16 @@ describe("Admin experts: create + list refresh", () => {
       /addEventListener\(\s*['"]medical-expert-updated['"]/,
     );
     // Handler invokes refetchExperts which calls the secure RPC
-    expect(adminPage).toMatch(/refetchExperts\s*=\s*async/);
+    expect(adminPage).toMatch(/const\s+refetchExperts\s*=\s*useCallback\(\s*async/);
     expect(adminPage).toMatch(
-      /refetchExperts[\s\S]{0,200}rpc\(['"]get_medical_experts_secure['"]\)/,
+      /refetchExperts[\s\S]{0,500}rpc\(['"]get_medical_experts_secure['"]\)/,
     );
   });
 
-  it("onSaved from the edit tab also refreshes the experts list", () => {
-    // The onSaved callback wired in AdminExpertNetwork re-runs the same RPC
+  it("onSaved from the edit panel also refreshes the experts list", () => {
+    // The onSaved callback closes the panel then re-runs the same refetch path.
     expect(adminPage).toMatch(
-      /onSaved=\{[\s\S]*?rpc\(['"]get_medical_experts_secure['"]\)/,
+      /onSaved=\{\(\)\s*=>\s*\{\s*closeEditPanel\(\);\s*refetchExperts\(\);\s*\}\}/,
     );
   });
 
