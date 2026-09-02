@@ -60,10 +60,7 @@ export const AddAttorneyDialog = ({ open, onOpenChange, onAttorneyAdded }: AddAt
       return;
     }
     const { data } = await supabase
-      .from('attorney_pitchlog')
-      .select('law_firm_name, contact_person, email, telephone, province')
-      .ilike('law_firm_name', `%${firmName}%`)
-      .limit(5);
+      .rpc('search_pitchlog_firm_suggestions', { p_search: firmName });
     setPitchlogSuggestions(data || []);
   }, []);
 
