@@ -433,7 +433,12 @@ const AdminLitigationRequests: React.FC = () => {
       toast({ title: 'Updated', description: 'Litigation service request updated.' });
 
       if (changes.status && existing && changes.status !== existing.status) {
-        void notifyRequesterOfStatusChange(existing, existing.status, changes.status, changes.notes);
+        void notifyRequesterOfStatusChange(
+          existing,
+          existing.status,
+          changes.status,
+          changes.notes ?? changes.cancellation_reason ?? undefined,
+        );
       }
       if (changes.assigned_to && existing && changes.assigned_to !== existing.assigned_to) {
         void notifyAssignee(existing, changes.assigned_to);
