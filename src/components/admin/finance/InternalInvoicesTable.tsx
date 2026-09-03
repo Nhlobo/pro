@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
-import { FileText, Mail, Receipt } from 'lucide-react';
+import { FileText, Mail, Receipt, PauseCircle, RotateCcw } from 'lucide-react';
+import { toast } from 'sonner';
 import {
   AdminCard,
   AdminCardHeader,
@@ -141,6 +142,93 @@ function deliveryStatusLabel(status: InvoiceListItem['deliveryStatus']): string 
     default:
       return 'Not queued';
   }
+}
+
+// Toggle for public.system_settings.internal_invoice_sending_paused —
+// the flag internal-invoice-delivery-processor checks before claiming
+// any batch/single_test work (never affects on-demand PDF viewing).
+// null = not loaded yet (button hidden); true/false = actual DB state,
+// kept in sync via realtime so a pause/restore from another tab or
+// staff member is reflected here too.
+function InvoiceSendingPauseControl() {
+  const [paused, setPaused] = useState<boolean | null>(null);
+  const [toggling, setToggling] = useState(false);
+
+  const fetchState = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('system_settings')
+      .select('setting_value')
+      .eq('setting_key', 'internal_invoice_sending_paused')
+      .maybeSingle();
+    if (error) {
+      console.error('[InvoiceSendingPauseControl] failed to load pause state', error);
+      return;
+    }
+    setPaused(data?.setting_value === true);
+  }, []);
+
+  useEffect(() => {
+    fetchState();
+    const channel = supabase
+      .channel('internal-invoice-pause-flag')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'system_settings',
+          filter: 'setting_key=eq.internal_invoice_sending_paused',
+        },
+        (payload) => setPaused((payload.new as { setting_value?: unknown })?.setting_value === true),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchState]);
+
+  const toggle = async () => {
+    if (paused === null || toggling) return;
+    setToggling(true);
+    const nextPaused = !paused;
+    const { data: userData } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from('system_settings')
+      .update({
+        setting_value: nextPaused,
+        updated_by: userData?.user?.id ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('setting_key', 'internal_invoice_sending_paused');
+    setToggling(false);
+    if (error) {
+      toast.error(`Could not update invoice sending state: ${error.message}`);
+      return;
+    }
+    setPaused(nextPaused);
+    toast.success(nextPaused ? 'Internal invoice sending paused.' : 'Internal invoice sending restored.');
+  };
+
+  if (paused === null) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={toggling}
+      className={`flex h-9 items-center gap-1.5 rounded-none border px-3 text-xs font-medium text-white transition-colors disabled:opacity-60 ${
+        paused ? 'border-rose-700 bg-rose-600 hover:bg-rose-700' : 'gradient-teal'
+      }`}
+      title={
+        paused
+          ? 'Invoice sending is paused — click to restore'
+          : 'Invoice sending is active — click to pause'
+      }
+    >
+      {paused ? <RotateCcw className="h-3.5 w-3.5" /> : <PauseCircle className="h-3.5 w-3.5" />}
+      {paused ? 'Restore Sending Internal Invoices' : 'Pause Internal Invoice Sending'}
+    </button>
+  );
 }
 
 export default function InternalInvoicesTable() {
@@ -329,6 +417,7 @@ export default function InternalInvoicesTable() {
             ? `${filteredItems.length} invoice${filteredItems.length === 1 ? '' : 's'}`
             : `${filteredItems.length} ${deliveryStatusLabel(deliveryStatusFilter as InvoiceListItem['deliveryStatus']).toLowerCase()} invoice${filteredItems.length === 1 ? '' : 's'} — showing "${deliveryStatusLabel(deliveryStatusFilter as InvoiceListItem['deliveryStatus'])}" only`
         }
+        actions={<InvoiceSendingPauseControl />}
       />
 
       <AdminCardBody className="flex flex-col gap-3 border-b border-black/10 sm:flex-row sm:items-center">
