@@ -460,6 +460,35 @@ async function resolveAuthorizedStaffUser(authHeader: string): Promise<{ id: str
   return { id: user.id };
 }
 
+/**
+ * Reads the internal-invoice-sending pause flag from
+ * public.system_settings (setting_key='internal_invoice_sending_paused',
+ * a plain JSON boolean). Toggled from the Internal Invoices admin tab's
+ * "Restore/Pause Invoice Sending" button (Finance/Director/Admin roles).
+ *
+ * Fails CLOSED: if the read itself errors, sending is treated as
+ * paused rather than risk emailing while the real flag value can't be
+ * confirmed. If the row hasn't been seeded yet, defaults to active
+ * (false) — same behavior as before this flag existed.
+ */
+async function isInvoiceSendingPaused(): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("system_settings")
+    .select("setting_value")
+    .eq("setting_key", "internal_invoice_sending_paused")
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      "internal-invoice-delivery-processor: failed to read pause flag, treating sending as paused:",
+      error.message,
+    );
+    return true;
+  }
+  if (!data) return false;
+  return data.setting_value === true;
+}
+
 async function recordFailure(row: QueueRow, message: string): Promise<void> {
   const nextAttempts = row.attempts + 1;
   const nextStatus = nextAttempts >= MAX_ATTEMPTS ? "failed" : "pending";
@@ -700,7 +729,7 @@ async function generateInvoicePdf(invoice: InvoiceRow, attorney: ReferringAttorn
   page.drawText(`Reg. No: ${COMPANY_INFO.registrationNumber}`, { x: headerTextX, y: topY - 16, size: 8.5, font, color: GRAY });
   page.drawText(COMPANY_INFO.address, { x: headerTextX, y: topY - 28, size: 8.5, font, color: GRAY });
 
-  rightAlignedText("TAX INVOICE", topY, 22, boldFont, TEAL);
+  rightAlignedText("COPY", topY, 22, boldFont, TEAL);
   rightAlignedText(`Invoice # ${invoice.invoice_number}`, topY - 20, 9.5, font, GRAY);
   rightAlignedText(`Date: ${invoice.invoice_date}`, topY - 33, 9.5, font, GRAY);
   if (invoice.due_date) {
@@ -963,6 +992,26 @@ serve(
       );
     }
     // --- end on-demand PDF mode --------------------------------------
+
+    // --- PAUSE CHECK ---------------------------------------------------
+    // Applies to single_test and the default batch mode below — both
+    // actually send email. get_pdf (above) is read-only and unaffected.
+    if (await isInvoiceSendingPaused()) {
+      return new Response(
+        JSON.stringify({
+          paused: true,
+          claimed: 0,
+          sent: 0,
+          alreadySent: 0,
+          failed: 0,
+          outcomes: [],
+          message:
+            "Internal invoice sending is currently paused (system_settings.internal_invoice_sending_paused = true). Restore it from the Internal Invoices admin tab.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    // --- end pause check -------------------------------------------
 
     // --- SINGLE-RECORD TEST MODE ----------------------------------
     if (body.mode === "single_test") {
