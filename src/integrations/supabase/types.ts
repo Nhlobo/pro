@@ -4699,6 +4699,9 @@ export type Database = {
       }
       litigation_service_requests: {
         Row: {
+          assigned_at: string | null
+          assigned_to: string | null
+          cancellation_reason: string | null
           case_reference: string | null
           claimant_name: string
           completed_at: string | null
@@ -4719,6 +4722,9 @@ export type Database = {
           urgency: string
         }
         Insert: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          cancellation_reason?: string | null
           case_reference?: string | null
           claimant_name: string
           completed_at?: string | null
@@ -4739,6 +4745,9 @@ export type Database = {
           urgency?: string
         }
         Update: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          cancellation_reason?: string | null
           case_reference?: string | null
           claimant_name?: string
           completed_at?: string | null
