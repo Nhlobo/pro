@@ -12,7 +12,7 @@ import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetT
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Scale, FileText, Users, BookOpen, Gavel, FileCheck,
-  Plus, Clock, CheckCircle2, AlertCircle, Loader2, Send
+  Plus, Clock, CheckCircle2, AlertCircle, Loader2, Send, Download
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -27,7 +27,15 @@ interface ServiceRequest {
   requested_at: string;
   completed_at: string | null;
   notes: string | null;
+  response_document_path: string | null;
+  response_document_name: string | null;
 }
+
+// Storage bucket the admin side uploads response documents to
+// (AdminLitigationRequests.tsx) — RLS on the bucket already scopes
+// downloads to the requester / their referring attorney, same rule as
+// the row itself.
+const DOCUMENTS_BUCKET = 'litigation-service-documents';
 
 const SERVICE_TYPES = [
   {
@@ -131,6 +139,20 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
   useEffect(() => {
     fetchRequests();
   }, [fetchRequests]);
+
+  const handleDownloadResponse = async (req: ServiceRequest) => {
+    if (!req.response_document_path) return;
+    try {
+      const { data, error } = await supabase.storage
+        .from(DOCUMENTS_BUCKET)
+        .createSignedUrl(req.response_document_path, 300);
+      if (error || !data?.signedUrl) throw error || new Error('No signed URL returned');
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error('Error downloading response document:', err);
+      toast({ title: 'Error', description: 'Could not open the document.', variant: 'destructive' });
+    }
+  };
 
   const handleOpenRequest = (serviceType: string) => {
     setFormData(prev => ({ ...prev, serviceType }));
@@ -303,6 +325,17 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
                           Requested: {format(new Date(req.requested_at), 'dd MMM yyyy HH:mm')}
                           {req.completed_at && <> • Completed: {format(new Date(req.completed_at), 'dd MMM yyyy')}</>}
                         </p>
+                        {req.response_document_path && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="mt-1.5 h-7 gap-1.5 px-2 text-xs text-primary"
+                            onClick={() => handleDownloadResponse(req)}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            {req.response_document_name || 'Download document'}
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );
