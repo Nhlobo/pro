@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
@@ -19,8 +18,7 @@ import EditClaimantDialog from "@/components/EditClaimantDialog";
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { addBrandingToPDF, addBrandingFooter, getStyledTableOptions } from "@/utils/pdfBranding";
-import { AdminPagination, AdminEmptyState } from "@/components/admin/ui/AdminUI";
-import { cn } from "@/lib/utils";
+import { AdminPagination, AdminEmptyState, AdminCard, AdminCardHeader, AdminCardBody, AdminPill } from "@/components/admin/ui/AdminUI";
 import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 
 const ClaimantFormModule = lazy(() => import("@/components/admin/ClaimantFormModule"));
@@ -284,23 +282,23 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/claimant-list';
 
   const toolbar = (
-    <div className={embedded ? "flex flex-wrap items-center justify-end gap-2" : "mb-6 flex items-center justify-end"}>
+    <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
       <div className="flex flex-wrap items-center gap-2">
         {selectedClaimants.size > 0 && (
           <Button
             variant="destructive"
-            size={embedded ? "sm" : "default"}
+            size="sm"
             onClick={handleDeleteSelected}
             disabled={isDeleting}
-            className={embedded ? "rounded-none" : ""}
+            className="rounded-none"
           >
             <Trash2 className="mr-2 h-4 w-4" />
             Delete ({selectedClaimants.size})
           </Button>
         )}
         <Button
-          size={embedded ? "sm" : "default"}
-          className={cn("flex items-center gap-2", embedded && "rounded-none bg-black hover:bg-black/90")}
+          size="sm"
+          className="flex items-center gap-2 rounded-none bg-black hover:bg-black/90"
           onClick={() => setIsAddOpen(true)}
         >
           <Plus className="h-4 w-4" />
@@ -308,10 +306,10 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
         </Button>
         <Button
           variant="outline"
-          size={embedded ? "sm" : "default"}
+          size="sm"
           onClick={handleExportPDF}
           disabled={isExporting}
-          className={embedded ? "flex items-center gap-2 rounded-none border-black/15" : "flex items-center gap-2"}
+          className="flex items-center gap-2 rounded-none border-black/15"
         >
           <Download className="h-4 w-4" />
           {isExporting ? "Exporting..." : "Export PDF"}
@@ -321,33 +319,33 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
   );
 
   const listCard = (
-    <Card className={embedded ? "rounded-none border-black/10 shadow-none" : "bg-gradient-card border-border/50 shadow-soft"}>
-      <CardHeader className={embedded ? "border-b border-black/10" : ""}>
-        <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <span>Claimants ({filteredClaimants.length})</span>
+    <AdminCard>
+      <AdminCardHeader
+        title={`Claimants (${filteredClaimants.length})`}
+        actions={
           <div className="relative w-full sm:w-72">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <Input
               placeholder="Search claimants..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className={embedded ? "rounded-none border-black/15 pl-9" : "pl-9"}
+              className="rounded-none border-black/15 pl-9"
             />
           </div>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className={embedded ? "p-0" : undefined}>
+        }
+      />
+      <AdminCardBody className="p-0">
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="text-muted-foreground">Loading claimants...</div>
+            <div className="text-slate-500">Loading claimants...</div>
           </div>
         ) : filteredClaimants.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">
+            <p className="text-slate-500">
               {searchTerm ? "No claimants found matching your search." : "No claimants found."}
             </p>
             {!searchTerm && (
-              <Button asChild className={embedded ? "mt-4 rounded-none bg-black hover:bg-black/90" : "mt-4"}>
+              <Button asChild className="mt-4 rounded-none bg-black hover:bg-black/90">
                 <Link to="/claimant">Add First Claimant</Link>
               </Button>
             )}
@@ -370,7 +368,7 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
                         {claimant.first_name} {claimant.last_name}
                       </span>
                     </div>
-                    <Badge variant="outline" className="shrink-0 font-mono text-[10px]">{claimant.auto_id}</Badge>
+                    <AdminPill className="shrink-0 font-mono">{claimant.auto_id}</AdminPill>
                   </div>
                   <div className="space-y-1 text-xs text-slate-500">
                     <div className="truncate">
@@ -387,7 +385,7 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
                     </div>
                   </div>
                   <div className="flex items-center justify-between border-t border-black/5 pt-2.5">
-                    <Badge variant="default">Active</Badge>
+                    <AdminPill tone="success">Active</AdminPill>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -414,20 +412,20 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="bg-black/[0.03] hover:bg-black/[0.03]">
                   <TableHead className="w-12">
                     <Checkbox
                       checked={selectedClaimants.size === filteredClaimants.length && filteredClaimants.length > 0}
                       onCheckedChange={handleSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Auto ID</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Contact Number</TableHead>
-                  <TableHead>Referring Attorney</TableHead>
-                  <TableHead>Date Added</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-16">Actions</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Auto ID</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Name</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Contact Number</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Referring Attorney</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Date Added</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Status</TableHead>
+                  <TableHead className="text-xs font-semibold w-16">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -440,26 +438,26 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
                       />
                     </TableCell>
                     <TableCell className="font-mono text-sm">
-                      <Badge variant="outline">{claimant.auto_id}</Badge>
+                      <AdminPill>{claimant.auto_id}</AdminPill>
                     </TableCell>
-                    <TableCell className="font-medium">
+                    <TableCell className="font-medium text-sm">
                       {claimant.first_name} {claimant.last_name}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-sm">
                       {claimant.contact_number || (
-                        <span className="text-muted-foreground">N/A</span>
+                        <span className="text-slate-400">N/A</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-sm">
                       {claimant.referring_attorneys?.name || (
-                        <span className="text-muted-foreground">N/A</span>
+                        <span className="text-slate-400">N/A</span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-sm">
                       {format(new Date(claimant.created_at), "dd/MM/yyyy")}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="default">Active</Badge>
+                      <AdminPill tone="success">Active</AdminPill>
                     </TableCell>
                     <TableCell>
                       <Button
@@ -477,8 +475,8 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
             </Table>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </AdminCardBody>
+    </AdminCard>
   );
 
   const editDialog = (
