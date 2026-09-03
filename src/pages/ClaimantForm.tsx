@@ -265,7 +265,7 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/claimant';
 
   const formCard = (
-    <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
+    <Card className={embedded ? "rounded-none border-black/10 shadow-none" : "bg-gradient-card border-border/50 shadow-soft"}>
       <CardContent className="p-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 max-w-2xl">
