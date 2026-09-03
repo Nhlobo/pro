@@ -72,6 +72,17 @@ const SERVICE_TYPES = [
   },
 ];
 
+// Requests submitted from Case Actions (src/components/attorney-portal/
+// RequestServiceDialog.tsx) land in the same litigation_service_requests
+// table and show up in the list below, but use service_type values this
+// component's own SERVICE_TYPES cards don't define — without this, they
+// rendered with the raw value ("addendum") instead of a real label.
+const CASE_ACTIONS_LABELS: Record<string, string> = {
+  addendum: 'Addendum',
+  affidavit: 'Affidavit',
+  joint_minutes: 'Joint Minute',
+};
+
 const URGENCY_OPTIONS = [
   { value: 'standard', label: 'Standard (5-7 business days)' },
   { value: 'urgent', label: 'Urgent (2-3 business days)' },
@@ -275,7 +286,9 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-sm">{serviceInfo?.label || req.service_type}</span>
+                          <span className="font-semibold text-sm">
+                            {serviceInfo?.label || CASE_ACTIONS_LABELS[req.service_type] || req.service_type}
+                          </span>
                           {getStatusBadge(req.status)}
                           {getUrgencyBadge(req.urgency)}
                         </div>
