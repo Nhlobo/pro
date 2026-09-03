@@ -9,7 +9,7 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { AdminCard, AdminCardBody } from "@/components/admin/ui/AdminUI";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -265,8 +265,8 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/claimant';
 
   const formCard = (
-    <Card className={embedded ? "rounded-none border-black/10 shadow-none" : "bg-gradient-card border-border/50 shadow-soft"}>
-      <CardContent className="p-6">
+    <AdminCard>
+      <AdminCardBody className="p-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 max-w-2xl">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -282,7 +282,7 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }
                         {...field} 
                         maxLength={100}
                         disabled={isEditMode} // Prevent name changes in edit mode
-                        className={embedded ? "rounded-none border-black/15" : ""}
+                        className="rounded-none border-black/15"
                       />
                     </FormControl>
                     <FormMessage />
@@ -307,7 +307,7 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }
                         {...field} 
                         maxLength={100}
                         disabled={isEditMode} // Prevent name changes in edit mode
-                        className={embedded ? "rounded-none border-black/15" : ""}
+                        className="rounded-none border-black/15"
                       />
                     </FormControl>
                     <FormMessage />
@@ -332,7 +332,7 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }
                       placeholder="e.g. 012 345 6789" 
                       {...field} 
                       maxLength={20}
-                      className={embedded ? "rounded-none border-black/15" : ""}
+                      className="rounded-none border-black/15"
                     />
                   </FormControl>
                   <FormMessage />
@@ -352,7 +352,7 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }
                        value={field.value}
                        disabled={isEditMode} // Prevent changing attorney in edit mode
                      >
-                       <SelectTrigger className={embedded ? "z-50 rounded-none border-black/15" : "z-50"}>
+                       <SelectTrigger className="z-50 rounded-none border-black/15">
                          <SelectValue placeholder="Select a referring attorney" />
                        </SelectTrigger>
                        <SelectContent className="z-[60] bg-background border shadow-lg">
@@ -395,29 +395,29 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }
                   <FormItem>
                     <FormLabel>Auto ID</FormLabel>
                     <FormControl>
-                      <Input readOnly placeholder="Generate from name" {...field} className={embedded ? "rounded-none border-black/15" : ""} />
+                      <Input readOnly placeholder="Generate from name" {...field} className="rounded-none border-black/15" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="button" variant="secondary" onClick={onGenerateId} className={embedded ? "rounded-none" : ""}>
+              <Button type="button" variant="secondary" onClick={onGenerateId} className="rounded-none">
                 Generate ID
               </Button>
             </div>
 
              <div className="flex flex-wrap items-center gap-3">
-               <Button type="submit" disabled={loading} className={embedded ? "rounded-none bg-black hover:bg-black/90" : ""}>{loading ? "Saving..." : "Save Claimant"}</Button>
+               <Button type="submit" disabled={loading} className="rounded-none bg-black hover:bg-black/90">{loading ? "Saving..." : "Save Claimant"}</Button>
                {embedded ? (
                  <p className="text-xs text-muted-foreground">
                    Saved claimants appear immediately in the "All Claimants" tab.
                  </p>
                ) : (
                  <>
-                   <Button asChild variant="outline">
+                   <Button asChild variant="outline" className="rounded-none">
                      <Link to="/claimant-list">View Claimant List</Link>
                    </Button>
-                   <Button asChild variant="outline">
+                   <Button asChild variant="outline" className="rounded-none">
                      <Link to="/">Back to Dashboard</Link>
                    </Button>
                  </>
@@ -425,8 +425,8 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }
              </div>
           </form>
         </Form>
-      </CardContent>
-    </Card>
+      </AdminCardBody>
+    </AdminCard>
   );
 
   if (embedded) {
