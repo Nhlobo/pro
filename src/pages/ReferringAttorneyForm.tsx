@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { AdminCard, AdminCardBody } from "@/components/admin/ui/AdminUI";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -503,23 +503,23 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
       )}
 
       {isLoadingData ? (
-        <Card className={embedded ? "rounded-none border-black/10 shadow-none" : "bg-gradient-card border-border/50 shadow-soft"}>
-          <CardContent className="p-12 text-center">
-            <p className="text-muted-foreground">Loading attorney data...</p>
-          </CardContent>
-        </Card>
+        <AdminCard>
+          <AdminCardBody className="p-12 text-center">
+            <p className="text-slate-500">Loading attorney data...</p>
+          </AdminCardBody>
+        </AdminCard>
       ) : (
         <Tabs defaultValue="single" className="w-full">
           {!isEditing && (
-            <TabsList className={embedded ? "grid w-full max-w-md grid-cols-2 rounded-none border border-black/10 bg-white p-1" : "grid w-full max-w-md grid-cols-2"}>
-              <TabsTrigger value="single" className={embedded ? "rounded-none data-[state=active]:bg-black data-[state=active]:text-white" : ""}>Single Entry</TabsTrigger>
-              <TabsTrigger value="bulk" className={embedded ? "rounded-none data-[state=active]:bg-black data-[state=active]:text-white" : ""}>Bulk Upload</TabsTrigger>
+            <TabsList className="grid w-full max-w-md grid-cols-2 rounded-none border border-black/10 bg-white p-1">
+              <TabsTrigger value="single" className="rounded-none data-[state=active]:bg-black data-[state=active]:text-white">Single Entry</TabsTrigger>
+              <TabsTrigger value="bulk" className="rounded-none data-[state=active]:bg-black data-[state=active]:text-white">Bulk Upload</TabsTrigger>
             </TabsList>
           )}
 
         <TabsContent value="single">
-          <Card className={embedded ? "rounded-none border-black/10 shadow-none" : "bg-gradient-card border-border/50 shadow-soft"}>
-              <CardContent className="p-6">
+          <AdminCard>
+              <AdminCardBody className="p-6">
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 md:grid-cols-2">
                 <FormField
@@ -706,48 +706,48 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
                 />
 
                 <div className="md:col-span-2 flex flex-wrap gap-3 justify-end">
-                  <Button type="submit" disabled={isSubmitting}>
+                  <Button type="submit" disabled={isSubmitting} className="rounded-none bg-black hover:bg-black/90">
                     {isSubmitting ? (isEditing ? "Updating..." : "Saving...") : (isEditing ? "Update Attorney" : "Save")}
                   </Button>
-                  <Button type="button" variant="secondary" onClick={() => form.reset()}>
+                  <Button type="button" variant="secondary" className="rounded-none" onClick={() => form.reset()}>
                     Reset
                   </Button>
                 </div>
               </form>
             </Form>
-          </CardContent>
-        </Card>
+          </AdminCardBody>
+        </AdminCard>
           </TabsContent>
 
           {!isEditing && (
             <TabsContent value="bulk">
-            <Card className={embedded ? "rounded-none border-black/10 shadow-none" : "bg-gradient-card border-border/50 shadow-soft"}>
-              <CardContent className="p-6">
+            <AdminCard>
+              <AdminCardBody className="p-6">
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-lg font-semibold mb-2">Bulk Upload Instructions</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
+                    <h3 className="text-lg font-semibold mb-2 text-black">Bulk Upload Instructions</h3>
+                    <p className="text-sm text-slate-500 mb-4">
                       Upload an Excel file with the following columns: Referring Attorney Name, Contact Person, Email, Telephone, Province
                     </p>
                     <Button
                       type="button"
                       variant="outline"
                       onClick={downloadTemplate}
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 rounded-none border-black/15"
                     >
                       <Download className="h-4 w-4" />
                       Download Template
                     </Button>
                   </div>
 
-                  <div className="border-2 border-dashed border-border rounded-lg p-8">
+                  <div className="border-2 border-dashed border-black/15 p-8">
                     <div className="flex flex-col items-center justify-center gap-4">
-                      <Upload className="h-12 w-12 text-muted-foreground" />
+                      <Upload className="h-12 w-12 text-slate-400" />
                       <div className="text-center">
-                        <p className="text-sm font-medium">
+                        <p className="text-sm font-medium text-black">
                           {bulkFile ? bulkFile.name : "Select Excel file"}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-slate-500 mt-1">
                           .xlsx or .xls files only
                         </p>
                       </div>
@@ -755,7 +755,7 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
                         type="file"
                         accept=".xlsx,.xls"
                         onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
-                        className="max-w-xs"
+                        className="max-w-xs rounded-none border-black/15"
                       />
                     </div>
                   </div>
@@ -764,6 +764,7 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
                     <Button
                       type="button"
                       variant="secondary"
+                      className="rounded-none"
                       onClick={() => setBulkFile(null)}
                       disabled={!bulkFile || isBulkUploading}
                     >
@@ -771,6 +772,7 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
                     </Button>
                     <Button
                       type="button"
+                      className="rounded-none bg-black hover:bg-black/90"
                       onClick={handleBulkUpload}
                       disabled={!bulkFile || isBulkUploading}
                     >
@@ -778,8 +780,8 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
                     </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </AdminCardBody>
+            </AdminCard>
           </TabsContent>
           )}
           </Tabs>
