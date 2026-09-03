@@ -1,5 +1,5 @@
 // src/pages/admin/AdminLitigationRequests.tsx
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -18,6 +18,10 @@ import {
   User,
   Building2,
   CalendarClock,
+  Check,
+  Paperclip,
+  Download,
+  X,
 } from 'lucide-react';
 import {
   AdminPage,
@@ -105,6 +109,17 @@ interface RequesterProfile {
   email: string | null;
 }
 
+// UI/design pass only — litigation_service_requests has no file column yet
+// (confirmed against the live schema), so this is not persisted anywhere:
+// not to Supabase, not to any storage bucket. It lives in memory for this
+// browser tab only and is gone on refresh. Wiring a real response-document
+// column + storage bucket + RLS is deliberately deferred, separate work.
+interface LocalAttachment {
+  fileName: string;
+  attachedAt: string;
+  objectUrl: string;
+}
+
 const SERVICE_TYPE_LABELS: Record<string, string> = {
   bundle_preparation: 'Medico-Legal Bundle Preparation',
   report_summary: 'Report Summaries',
@@ -182,6 +197,11 @@ const AdminLitigationRequests: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
+
+  // Local-only attach/download preview — see LocalAttachment above.
+  const [attachments, setAttachments] = useState<Record<string, LocalAttachment>>({});
+  const [attachTargetId, setAttachTargetId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [statusTab, setStatusTab] = useState('all');
   const [serviceTypeFilter, setServiceTypeFilter] = useState('all');
@@ -270,6 +290,70 @@ const AdminLitigationRequests: React.FC = () => {
     }
   };
 
+  // Quick-action shortcut for the common first transition — same
+  // updateRequest call the status dropdown already uses, so this is a
+  // real, saved status change, not part of the local-only preview below.
+  const handleAccept = (id: string) => updateRequest(id, { status: 'in_progress' });
+
+  const handleAttachClick = (id: string) => {
+    setAttachTargetId(id);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const targetId = attachTargetId;
+    if (file && targetId) {
+      setAttachments(prev => {
+        const existing = prev[targetId];
+        if (existing) URL.revokeObjectURL(existing.objectUrl);
+        return {
+          ...prev,
+          [targetId]: {
+            fileName: file.name,
+            attachedAt: new Date().toISOString(),
+            objectUrl: URL.createObjectURL(file),
+          },
+        };
+      });
+      toast({
+        title: 'Attached (preview only)',
+        description: `${file.name} — design preview, not yet saved to the server.`,
+      });
+    }
+    e.target.value = '';
+    setAttachTargetId(null);
+  };
+
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments(prev => {
+      const existing = prev[id];
+      if (!existing) return prev;
+      URL.revokeObjectURL(existing.objectUrl);
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const handleDownload = (id: string) => {
+    const att = attachments[id];
+    if (!att) return;
+    const a = document.createElement('a');
+    a.href = att.objectUrl;
+    a.download = att.fileName;
+    a.click();
+  };
+
+  // Local object URLs hold a browser-memory reference to the picked
+  // file's bytes — revoke them on unmount so they don't leak.
+  useEffect(() => {
+    return () => {
+      Object.values(attachments).forEach(att => URL.revokeObjectURL(att.objectUrl));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const pendingCount = requests.filter(r => r.status === 'pending').length;
   const inProgressCount = requests.filter(r => r.status === 'in_progress').length;
   const completedCount = requests.filter(r => r.status === 'completed').length;
@@ -321,6 +405,13 @@ const AdminLitigationRequests: React.FC = () => {
         title="Litigation Service Requests"
         description="Addendum, affidavit, joint minute, bundle preparation and other trial-support requests submitted by attorneys through the portal"
         icon={Scale}
+      />
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={handleFileSelected}
       />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5 md:gap-4">
@@ -454,6 +545,54 @@ const AdminLitigationRequests: React.FC = () => {
                           </SelectContent>
                         </Select>
                       </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        {r.status === 'pending' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-none gap-1"
+                            disabled={savingId === r.id}
+                            onClick={() => handleAccept(r.id)}
+                          >
+                            <Check className="h-3.5 w-3.5" /> Accept
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-none gap-1"
+                          onClick={() => handleAttachClick(r.id)}
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                          {attachments[r.id] ? 'Replace file' : 'Attach file'}
+                        </Button>
+                        {attachments[r.id] && (
+                          <div className="flex items-center gap-1.5 border border-dashed border-black/20 bg-muted/30 px-2 py-1 text-[11px]">
+                            <span className="max-w-[180px] truncate text-slate-600" title={attachments[r.id].fileName}>
+                              {attachments[r.id].fileName}
+                            </span>
+                            <button
+                              type="button"
+                              title="Download"
+                              className="text-primary hover:text-primary/70"
+                              onClick={() => handleDownload(r.id)}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Remove"
+                              className="text-slate-400 hover:text-destructive"
+                              onClick={() => handleRemoveAttachment(r.id)}
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                            <span className="text-slate-400">· preview only, not saved</span>
+                          </div>
+                        )}
+                      </div>
+
                       <div className="flex items-start gap-2">
                         <Textarea
                           className="min-h-[2.25rem] flex-1 rounded-none border-black/15 text-xs"
