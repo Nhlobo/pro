@@ -321,7 +321,7 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
   );
 
   const listCard = (
-    <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
+    <Card className={embedded ? "rounded-none border-black/10 shadow-none" : "bg-gradient-card border-border/50 shadow-soft"}>
       <CardHeader className={embedded ? "border-b border-black/10" : ""}>
         <CardTitle className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span>Claimants ({filteredClaimants.length})</span>
