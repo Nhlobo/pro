@@ -15,6 +15,7 @@ import {
 import {
   Loader2, Search, MapPin, Stethoscope, ExternalLink, Star, Mail, User,
   ShieldCheck, Phone, Globe, RotateCcw, Clock, Video, ChevronRight, FileText,
+  Users,
 } from 'lucide-react';
 import { useExpertSearch, SA_PROVINCES, InternalExpert, ExternalResult, openExpertDocument } from '@/hooks/useExpertSearch';
 import { useToast } from '@/hooks/use-toast';
@@ -80,6 +81,14 @@ const AdminFindExperts: React.FC = () => {
   // navigating to the admin directory's edit form.
   const [viewExpert, setViewExpert] = useState<InternalExpert | null>(null);
 
+  // Find Expert is one feature with two modes: a search-first "External
+  // Expert" screen (default — nothing about our own directory shows until
+  // a search runs) and an "Internal Experts" screen that reveals the
+  // existing platform directory (Recommended + Platform Experts) exactly
+  // as before. Switching modes never re-fetches or discards data already
+  // loaded — the platform directory is fetched once on mount either way.
+  const [mode, setMode] = useState<'external' | 'internal'>('external');
+
   return (
     <AdminPage className="max-w-7xl">
       <Helmet>
@@ -94,315 +103,359 @@ const AdminFindExperts: React.FC = () => {
         icon={Search}
       />
 
-      {/* Unified search toolbar — quick search + structured filters together, sticky while results scroll */}
-      <AdminCard className="mb-4 lg:sticky lg:top-4 lg:z-10">
-        <AdminCardBody className="space-y-3">
-          <div className="space-y-2">
-            <Label htmlFor="quick-expert-search" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Quick Search
-            </Label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  id="quick-expert-search"
-                  placeholder='e.g. "neurosurgeon expert witness" or "orthopaedic surgeon Gauteng"'
-                  value={quickQuery}
-                  onChange={(e) => setQuickQuery(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') runQuickSearch(); }}
-                  className="rounded-none border-black/15 pl-9"
-                />
+      {mode === 'external' ? (
+        <>
+          {/* External Expert search — default mode. Opens as a clean,
+              search-first landing (no internal cards shown) until a
+              search actually runs; results below use the same card
+              structure as the internal directory. */}
+          <AdminCard className="mb-4">
+            <AdminCardBody
+              className={hasSearchedExternal ? 'space-y-3' : 'flex flex-col items-center gap-4 py-14 text-center'}
+            >
+              {!hasSearchedExternal && (
+                <>
+                  <Globe className="h-8 w-8" style={{ color: BRAND_TEAL }} />
+                  <div>
+                    <h2 className="text-lg font-semibold text-black">Find an External Expert</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Search the wider South African medico-legal expert network — HPCSA and other verified registries.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <div className={hasSearchedExternal ? 'space-y-2' : 'w-full max-w-xl space-y-2'}>
+                {hasSearchedExternal && (
+                  <Label htmlFor="quick-expert-search" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Search
+                  </Label>
+                )}
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      id="quick-expert-search"
+                      placeholder='e.g. "Dentist", "Psychiatrist", "Orthopaedic expert in Gauteng"'
+                      value={quickQuery}
+                      onChange={(e) => setQuickQuery(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') runQuickSearch(); }}
+                      className="rounded-none border-black/15 pl-9"
+                      autoFocus={!hasSearchedExternal}
+                    />
+                  </div>
+                  <Button
+                    className="rounded-none bg-black text-white hover:bg-black/90 shrink-0"
+                    onClick={() => runQuickSearch()}
+                    disabled={isSearching || !quickQuery.trim()}
+                  >
+                    {isSearching && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                    <Search className="mr-1.5 h-3.5 w-3.5" />
+                    Search
+                  </Button>
+                </div>
+
+                {!hasSearchedExternal ? (
+                  <p className="text-xs text-slate-500">
+                    Try a speciality — "Dentist", "Psychiatrist", "Neurologist" — or a location, e.g. "Expert in Johannesburg".
+                  </p>
+                ) : lastParsedQuery ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {lastParsedQuery.profession && <AdminPill tone="teal">Type: {lastParsedQuery.profession}</AdminPill>}
+                    {!lastParsedQuery.profession && lastFreeText && (
+                      <AdminPill tone="teal">Searching for: "{lastFreeText}"</AdminPill>
+                    )}
+                    {lastParsedQuery.province && <AdminPill tone="neutral">Province: {lastParsedQuery.province}</AdminPill>}
+                    {lastParsedQuery.city && <AdminPill tone="neutral">Location: {lastParsedQuery.city}</AdminPill>}
+                  </div>
+                ) : null}
               </div>
-              <Button
-                className="rounded-none bg-black text-white hover:bg-black/90 shrink-0"
-                onClick={() => runQuickSearch()}
-                disabled={isSearching || !quickQuery.trim()}
-              >
-                {isSearching && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                <Search className="mr-1.5 h-3.5 w-3.5" />
-                Search
-              </Button>
-            </div>
-            <p className="text-xs text-slate-500">
-              Searches the platform directory and every external directory (all connected sources) at once. Say the specialty the way you would to a colleague — "expert witness" is understood and ignored.
-            </p>
-          </div>
 
-          <div className="flex flex-wrap items-end gap-3 border-t border-black/10 pt-3">
-            <div className="w-full space-y-1.5 sm:w-40">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Province</Label>
-              <Select value={province} onValueChange={setProvince}>
-                <SelectTrigger className="rounded-none border-black/15"><SelectValue placeholder="All provinces" /></SelectTrigger>
-                <SelectContent>
-                  {SA_PROVINCES.map((p) => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="w-full space-y-1.5 sm:w-40">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">District / City</Label>
-              <Select value={city} onValueChange={setCity} disabled={!province || loadingDistricts}>
-                <SelectTrigger className="rounded-none border-black/15">
-                  <SelectValue placeholder={!province ? 'Pick province first' : loadingDistricts ? 'Loading...' : districts.length ? 'Select district' : 'No districts available'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {districts.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="w-full space-y-1.5 sm:w-56">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Type of Expert</Label>
-              <div className="flex gap-1.5">
-                <Input
-                  placeholder="Search profession…"
-                  value={professionQuery}
-                  onChange={(e) => setProfessionQuery(e.target.value)}
-                  className="rounded-none border-black/15"
-                />
-                <Select value={profession} onValueChange={setProfession}>
-                  <SelectTrigger className="w-9 shrink-0 rounded-none border-black/15 px-2"><SelectValue placeholder="" /></SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    {professionOptions.map((p) => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {profession && <AdminPill tone="teal">{profession}</AdminPill>}
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                className="rounded-none bg-black text-white hover:bg-black/90"
-                onClick={handleSearch}
-                disabled={isSearching}
-              >
-                {isSearching && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                <Search className="mr-1.5 h-3.5 w-3.5" />
-                Search Experts
-              </Button>
               <Button
                 variant="outline"
+                size={hasSearchedExternal ? 'sm' : 'default'}
                 className="rounded-none border-black/15 text-black hover:bg-black/5"
-                onClick={handleReset}
+                onClick={() => setMode('internal')}
               >
-                <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                Reset
+                <Users className="mr-1.5 h-3.5 w-3.5" />
+                Use Our Internal Experts
               </Button>
-            </div>
-          </div>
+            </AdminCardBody>
+          </AdminCard>
 
-          {lastParsedQuery && (
-            <div className="flex flex-wrap gap-1.5 border-t border-black/10 pt-3">
-              {lastParsedQuery.profession && <AdminPill tone="teal">Type: {lastParsedQuery.profession}</AdminPill>}
-              {!lastParsedQuery.profession && lastFreeText && (
-                <AdminPill tone="teal">Searching for: "{lastFreeText}"</AdminPill>
+          {hasSearchedExternal && (
+            <div className="space-y-3">
+              {/* Source toolbar — trusted-only, result limit, registry toggles */}
+              <AdminCard>
+                <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <ShieldCheck className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+                    <span className="font-medium text-black">Trusted registries only</span>
+                    <span className="hidden text-xs text-slate-500 sm:inline">
+                      HPCSA, professional bodies, and verified medico-legal directories
+                    </span>
+                    {externalTotal !== null && (
+                      <AdminPill tone="neutral">
+                        Showing {external.length}{externalTotal > external.length ? ` of ${externalTotal}` : ''}
+                      </AdminPill>
+                    )}
+                    {trustedTotal !== null && (
+                      <AdminPill tone="teal">{trustedTotal} trusted</AdminPill>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Label htmlFor="ext-limit" className="text-slate-500">Show</Label>
+                      <Select
+                        value={String(externalLimit)}
+                        onValueChange={(v) => {
+                          const n = Number(v);
+                          setExternalLimit(n);
+                          if (profession || lastFreeText) runExternalSearch({ limit: n });
+                        }}
+                      >
+                        <SelectTrigger id="ext-limit" className="h-8 w-[88px] rounded-none border-black/15">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[40, 60, 80, 100].map((n) => (
+                            <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-black">
+                      <Switch
+                        checked={includeRecomed}
+                        onCheckedChange={(v) => {
+                          setIncludeRecomed(v);
+                          if (profession || lastFreeText) runExternalSearch({ includeRecomed: v });
+                        }}
+                        aria-label="Include Recomed results"
+                      />
+                      Recomed
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-black">
+                      <Switch
+                        checked={includeMedpages}
+                        onCheckedChange={(v) => {
+                          setIncludeMedpages(v);
+                          if (profession || lastFreeText) runExternalSearch({ includeMedpages: v });
+                        }}
+                        aria-label="Include Medpages results"
+                      />
+                      Medpages
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-500">
+                      <Switch
+                        checked={trustedOnly}
+                        onCheckedChange={(v) => {
+                          setTrustedOnly(v);
+                          if (profession || lastFreeText) runExternalSearch({ trustedOnly: v });
+                        }}
+                        aria-label="Filter to trusted registries only"
+                      />
+                      Trusted only
+                    </label>
+                  </div>
+                </div>
+              </AdminCard>
+
+              {loadingExternal ? (
+                <AdminCard>
+                  <AdminCardBody className="flex flex-col items-center gap-3 py-10 text-center">
+                    <span
+                      className="h-8 w-8 animate-spin rounded-full border-2 border-black/15"
+                      style={{ borderTopColor: BRAND_TEAL }}
+                      aria-hidden="true"
+                    />
+                    <div>
+                      <p className="font-medium text-black">Searching public directories…</p>
+                      <p className="text-sm text-slate-500">
+                        Fetching up to {externalLimit} {trustedOnly ? 'trusted-registry' : 'external'} results for{' '}
+                        <span className="font-medium text-black">{profession || (lastFreeText ? `"${lastFreeText}"` : 'experts')}</span>
+                        {city ? ` in ${city}` : province ? ` in ${province}` : ''}. This can take 10–20 seconds.
+                      </p>
+                    </div>
+                    <div className="h-1 w-full max-w-sm overflow-hidden bg-black/10">
+                      <div className="h-full w-1/3 animate-pulse" style={{ backgroundColor: BRAND_TEAL }} />
+                    </div>
+                  </AdminCardBody>
+                </AdminCard>
+              ) : externalError ? (
+                <AdminCard className="border-destructive/40">
+                  <AdminCardBody className="space-y-3 py-8 text-center">
+                    <p className="font-medium text-destructive">Couldn't load external results</p>
+                    <p className="text-sm text-slate-500">{externalError}</p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-none border-black/15 text-black hover:bg-black/5"
+                      onClick={() => runExternalSearch()}
+                    >
+                      Try again
+                    </Button>
+                  </AdminCardBody>
+                </AdminCard>
+              ) : external.length === 0 ? (
+                <AdminCard>
+                  {trustedOnly ? (
+                    <AdminEmptyState
+                      icon={ShieldCheck}
+                      title="No trusted-registry matches"
+                      description='Try turning off "Trusted registries only", or broaden the location.'
+                    />
+                  ) : (
+                    <AdminEmptyState
+                      icon={Globe}
+                      title="No external results found"
+                      description={`We searched up to ${externalLimit} sources for ${profession || (lastFreeText ? `"${lastFreeText}"` : 'that')}${city ? ` in ${city}` : province ? ` in ${province}` : ''}. Try a broader location, a related profession, or Use Our Internal Experts above.`}
+                    />
+                  )}
+                </AdminCard>
+              ) : (
+                <VirtualizedResults items={external} renderItem={(r) => <ExternalResultCard result={r} />} />
               )}
-              {lastParsedQuery.province && <AdminPill tone="neutral">Province: {lastParsedQuery.province}</AdminPill>}
-              {lastParsedQuery.city && <AdminPill tone="neutral">Location: {lastParsedQuery.city}</AdminPill>}
             </div>
           )}
-        </AdminCardBody>
-      </AdminCard>
+        </>
+      ) : (
+        <>
+          {/* Internal Experts — the platform's own registered directory,
+              unchanged functionality, now reached via the button above
+              instead of being shown immediately. */}
+          <AdminCard className="mb-4 lg:sticky lg:top-4 lg:z-10">
+            <AdminCardBody className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Internal Experts</p>
+                  <p className="text-sm text-slate-500">Browse and filter experts already registered on the platform.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-none border-black/15 text-black hover:bg-black/5 shrink-0"
+                  onClick={() => setMode('external')}
+                >
+                  <Globe className="mr-1.5 h-3.5 w-3.5" />
+                  Find an External Expert
+                </Button>
+              </div>
 
-      {/* Results — full page width now that filters live in the toolbar above */}
-      <div className="space-y-4">
+              <div className="flex flex-wrap items-end gap-3 border-t border-black/10 pt-3">
+                <div className="w-full space-y-1.5 sm:w-40">
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Province</Label>
+                  <Select value={province} onValueChange={setProvince}>
+                    <SelectTrigger className="rounded-none border-black/15"><SelectValue placeholder="All provinces" /></SelectTrigger>
+                    <SelectContent>
+                      {SA_PROVINCES.map((p) => (
+                        <SelectItem key={p} value={p}>{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Recommended */}
-          {recommended.length > 0 && (
+                <div className="w-full space-y-1.5 sm:w-40">
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">District / City</Label>
+                  <Select value={city} onValueChange={setCity} disabled={!province || loadingDistricts}>
+                    <SelectTrigger className="rounded-none border-black/15">
+                      <SelectValue placeholder={!province ? 'Pick province first' : loadingDistricts ? 'Loading...' : districts.length ? 'Select district' : 'No districts available'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {districts.map((d) => (
+                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="w-full space-y-1.5 sm:w-56">
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Type of Expert</Label>
+                  <div className="flex gap-1.5">
+                    <Input
+                      placeholder="Search profession…"
+                      value={professionQuery}
+                      onChange={(e) => setProfessionQuery(e.target.value)}
+                      className="rounded-none border-black/15"
+                    />
+                    <Select value={profession} onValueChange={setProfession}>
+                      <SelectTrigger className="w-9 shrink-0 rounded-none border-black/15 px-2"><SelectValue placeholder="" /></SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        {professionOptions.map((p) => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {profession && <AdminPill tone="teal">{profession}</AdminPill>}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    className="rounded-none bg-black text-white hover:bg-black/90"
+                    onClick={handleSearch}
+                    disabled={isSearching}
+                  >
+                    {isSearching && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                    <Search className="mr-1.5 h-3.5 w-3.5" />
+                    Search Experts
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="rounded-none border-black/15 text-black hover:bg-black/5"
+                    onClick={handleReset}
+                  >
+                    <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                    Reset
+                  </Button>
+                </div>
+              </div>
+            </AdminCardBody>
+          </AdminCard>
+
+          {/* Results */}
+          <div className="space-y-4">
+            {/* Recommended */}
+            {recommended.length > 0 && (
+              <div>
+                <AdminSectionLabel>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Star className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Recommended Experts
+                  </span>
+                </AdminSectionLabel>
+                <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {recommended.map((e) => <ExpertCard key={e.id} expert={e} compact onView={setViewExpert} />)}
+                </div>
+              </div>
+            )}
+
+            {/* Platform Experts */}
             <div>
               <AdminSectionLabel>
                 <span className="inline-flex items-center gap-1.5">
-                  <Star className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Recommended Experts
+                  <Stethoscope className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Platform Experts
+                  {internal.length > 0 && <AdminPill tone="teal">{internal.length}</AdminPill>}
                 </span>
               </AdminSectionLabel>
-              <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {recommended.map((e) => <ExpertCard key={e.id} expert={e} compact onView={setViewExpert} />)}
+              <div className="mt-3">
+                {loadingInternal ? (
+                  <AdminCard><AdminCardBody><LoadingRow label="Searching the platform directory…" /></AdminCardBody></AdminCard>
+                ) : internal.length === 0 ? (
+                  <AdminCard>
+                    <AdminEmptyState
+                      icon={Stethoscope}
+                      title="No matches on the platform yet"
+                      description="No registered experts match these filters. Try adjusting them, or use Find an External Expert above to search HPCSA and other registries."
+                    />
+                  </AdminCard>
+                ) : (
+                  <VirtualizedResults items={internal} renderItem={(e) => <ExpertCard expert={e} onView={setViewExpert} />} />
+                )}
               </div>
-            </div>
-          )}
-
-          {/* Platform Experts — always visible, no tab click required */}
-          <div>
-            <AdminSectionLabel>
-              <span className="inline-flex items-center gap-1.5">
-                <Stethoscope className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> Platform Experts
-                {internal.length > 0 && <AdminPill tone="teal">{internal.length}</AdminPill>}
-              </span>
-            </AdminSectionLabel>
-            <div className="mt-3">
-              {loadingInternal ? (
-                <AdminCard><AdminCardBody><LoadingRow label="Searching the platform directory…" /></AdminCardBody></AdminCard>
-              ) : internal.length === 0 ? (
-                <AdminCard>
-                  <AdminEmptyState
-                    icon={Stethoscope}
-                    title="No matches on the platform yet"
-                    description="No registered experts match these filters. This just means no one on the platform fits — check External Directories below for real matches from HPCSA and other registries."
-                  />
-                </AdminCard>
-              ) : (
-                <VirtualizedResults items={internal} renderItem={(e) => <ExpertCard expert={e} onView={setViewExpert} />} />
-              )}
             </div>
           </div>
-
-          {/* External Directories — always visible, stacked below Platform Experts */}
-          <div>
-            <AdminSectionLabel>
-              <span className="inline-flex items-center gap-1.5">
-                <Globe className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> External Directories
-                {external.length > 0 && <AdminPill tone="teal">{external.length}</AdminPill>}
-              </span>
-            </AdminSectionLabel>
-            <div className="mt-3">
-              <div className="space-y-3">
-                  {/* Toolbar */}
-                  <AdminCard>
-                    <div className="flex flex-col gap-3 p-3 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="flex flex-wrap items-center gap-2 text-sm">
-                        <ShieldCheck className="h-4 w-4" style={{ color: BRAND_TEAL }} />
-                        <span className="font-medium text-black">Trusted registries only</span>
-                        <span className="hidden text-xs text-slate-500 sm:inline">
-                          HPCSA, professional bodies, and verified medico-legal directories
-                        </span>
-                        {externalTotal !== null && (
-                          <AdminPill tone="neutral">
-                            Showing {external.length}{externalTotal > external.length ? ` of ${externalTotal}` : ''}
-                          </AdminPill>
-                        )}
-                        {trustedTotal !== null && (
-                          <AdminPill tone="teal">{trustedTotal} trusted</AdminPill>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-4">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Label htmlFor="ext-limit" className="text-slate-500">Show</Label>
-                          <Select
-                            value={String(externalLimit)}
-                            onValueChange={(v) => {
-                              const n = Number(v);
-                              setExternalLimit(n);
-                              if (profession || lastFreeText) runExternalSearch({ limit: n });
-                            }}
-                          >
-                            <SelectTrigger id="ext-limit" className="h-8 w-[88px] rounded-none border-black/15">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {[40, 60, 80, 100].map((n) => (
-                                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <label className="flex cursor-pointer items-center gap-2 text-sm text-black">
-                          <Switch
-                            checked={includeRecomed}
-                            onCheckedChange={(v) => {
-                              setIncludeRecomed(v);
-                              if (profession || lastFreeText) runExternalSearch({ includeRecomed: v });
-                            }}
-                            aria-label="Include Recomed results"
-                          />
-                          Recomed
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-2 text-sm text-black">
-                          <Switch
-                            checked={includeMedpages}
-                            onCheckedChange={(v) => {
-                              setIncludeMedpages(v);
-                              if (profession || lastFreeText) runExternalSearch({ includeMedpages: v });
-                            }}
-                            aria-label="Include Medpages results"
-                          />
-                          Medpages
-                        </label>
-                        <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-500">
-                          <Switch
-                            checked={trustedOnly}
-                            onCheckedChange={(v) => {
-                              setTrustedOnly(v);
-                              if (profession || lastFreeText) runExternalSearch({ trustedOnly: v });
-                            }}
-                            aria-label="Filter to trusted registries only"
-                          />
-                          Trusted only
-                        </label>
-                      </div>
-                    </div>
-                  </AdminCard>
-
-                  {loadingExternal ? (
-                    <AdminCard>
-                      <AdminCardBody className="flex flex-col items-center gap-3 py-10 text-center">
-                        <span
-                          className="h-8 w-8 animate-spin rounded-full border-2 border-black/15"
-                          style={{ borderTopColor: BRAND_TEAL }}
-                          aria-hidden="true"
-                        />
-                        <div>
-                          <p className="font-medium text-black">Searching public directories…</p>
-                          <p className="text-sm text-slate-500">
-                            Fetching up to {externalLimit} {trustedOnly ? 'trusted-registry' : 'external'} results for{' '}
-                            <span className="font-medium text-black">{profession || (lastFreeText ? `"${lastFreeText}"` : 'experts')}</span>
-                            {city ? ` in ${city}` : province ? ` in ${province}` : ''}. This can take 10–20 seconds.
-                          </p>
-                        </div>
-                        <div className="h-1 w-full max-w-sm overflow-hidden bg-black/10">
-                          <div className="h-full w-1/3 animate-pulse" style={{ backgroundColor: BRAND_TEAL }} />
-                        </div>
-                      </AdminCardBody>
-                    </AdminCard>
-                  ) : externalError ? (
-                    <AdminCard className="border-destructive/40">
-                      <AdminCardBody className="space-y-3 py-8 text-center">
-                        <p className="font-medium text-destructive">Couldn't load external results</p>
-                        <p className="text-sm text-slate-500">{externalError}</p>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="rounded-none border-black/15 text-black hover:bg-black/5"
-                          onClick={() => runExternalSearch()}
-                        >
-                          Try again
-                        </Button>
-                      </AdminCardBody>
-                    </AdminCard>
-                  ) : external.length === 0 ? (
-                    <AdminCard>
-                      {!hasSearchedExternal ? (
-                        <AdminEmptyState
-                          icon={Globe}
-                          title="No external search yet"
-                          description="Run a search with a profession selected to surface results from HPCSA and other public directories."
-                        />
-                      ) : trustedOnly ? (
-                        <AdminEmptyState
-                          icon={ShieldCheck}
-                          title="No trusted-registry matches"
-                          description='Try turning off "Trusted registries only", or broaden the location.'
-                        />
-                      ) : (
-                        <AdminEmptyState
-                          icon={Globe}
-                          title="No external results found"
-                          description={`We searched up to ${externalLimit} sources for ${profession || (lastFreeText ? `"${lastFreeText}"` : 'that')}${city ? ` in ${city}` : province ? ` in ${province}` : ''}. Try a broader location or a related profession.`}
-                        />
-                      )}
-                    </AdminCard>
-                  ) : (
-                    <VirtualizedResults items={external} renderItem={(r) => <ExternalResultCard result={r} />} />
-                  )}
-                </div>
-              </div>
-            </div>
-        </div>
+        </>
+      )}
 
       <ExpertProfileDialog expert={viewExpert} onOpenChange={(open) => { if (!open) setViewExpert(null); }} />
     </AdminPage>
@@ -748,33 +801,35 @@ const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean; onView: 
 });
 ExpertCard.displayName = 'ExpertCard';
 
+/**
+ * Mirrors ExpertCard's structure (header + pill row + body copy + bottom
+ * contact row with a primary action on the right) so external results
+ * read as the same "expert card" the internal directory uses, instead of
+ * a differently-shaped search-result card. Extra data external results
+ * can carry that internal ones don't (multiple emails/phones, multiple
+ * source registries) is folded into an expandable "more" section rather
+ * than changing the card's overall shape.
+ */
 const ExternalResultCard: React.FC<{ result: ExternalResult }> = React.memo(({ result: r }) => {
   const [expanded, setExpanded] = useState(false);
 
   const emails = r.emails ?? [];
   const phones = r.phones ?? [];
-  const websites = r.websites ?? [];
   const sources = r.sources ?? [];
 
-  const CONTACT_PREVIEW = 3;
-  const SOURCE_PREVIEW = 6;
-  const hiddenContactCount =
-    !expanded
-      ? Math.max(0, emails.length - CONTACT_PREVIEW) + Math.max(0, phones.length - CONTACT_PREVIEW) + Math.max(0, websites.length - CONTACT_PREVIEW)
-      : 0;
-  const hiddenSourceCount = !expanded ? Math.max(0, sources.length - SOURCE_PREVIEW) : 0;
-  const hasMore = hiddenContactCount > 0 || hiddenSourceCount > 0 || (r.snippet?.length ?? 0) > 220;
+  const primaryEmail = emails[0];
+  const primaryPhone = phones[0];
+  const extraEmails = emails.slice(1);
+  const extraPhones = phones.slice(1);
+  const extraSources = sources.length > 1 ? sources : [];
 
-  const shownEmails = expanded ? emails : emails.slice(0, CONTACT_PREVIEW);
-  const shownPhones = expanded ? phones : phones.slice(0, CONTACT_PREVIEW);
-  const shownWebsites = expanded ? websites : websites.slice(0, CONTACT_PREVIEW);
-  const shownSources = expanded ? sources : sources.slice(0, SOURCE_PREVIEW);
+  const hasMore = extraEmails.length > 0 || extraPhones.length > 0 || extraSources.length > 0 || (r.snippet?.length ?? 0) > 220;
 
   return (
     <AdminCard className="flex flex-col">
       <AdminCardHeader
-        title={<span className="line-clamp-2">{r.name || r.title}</span>}
-        description={r.name && r.title !== r.name ? <span className="line-clamp-1">{r.title}</span> : undefined}
+        icon={User}
+        title={<span className="truncate">{r.name || r.title}</span>}
         actions={r.trusted ? (
           <AdminPill tone="teal"><ShieldCheck className="h-3 w-3" /> Trusted</AdminPill>
         ) : (
@@ -782,76 +837,71 @@ const ExternalResultCard: React.FC<{ result: ExternalResult }> = React.memo(({ r
         )}
       />
       <AdminCardBody className="flex flex-1 flex-col gap-2 text-sm">
-        <p className={expanded ? 'text-slate-500' : 'line-clamp-3 text-slate-500'}>{r.snippet}</p>
-
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
+          {r.profession && <AdminPill tone="neutral"><Stethoscope className="h-3 w-3" /> {r.profession}</AdminPill>}
+          {(r.province || r.city) && (
+            <AdminPill tone="neutral">
+              <MapPin className="h-3 w-3" /> {r.province}{r.province && r.city ? ` · ${r.city}` : r.city}
+            </AdminPill>
+          )}
           {r.registry_id && <AdminPill tone="teal" className="font-mono">{r.registry_id}</AdminPill>}
-          {r.profession && <AdminPill tone="neutral">{r.profession}</AdminPill>}
-          {r.province && <AdminPill tone="neutral">{r.province}</AdminPill>}
-          {r.city && <AdminPill tone="neutral">{r.city}</AdminPill>}
-          {(r.sources_count ?? 0) > 1 && <AdminPill tone="neutral">{r.sources_count} sources</AdminPill>}
         </div>
 
-        {(emails.length || phones.length || websites.length) ? (
-          <div className="space-y-1 border border-black/10 bg-black/[0.02] p-2">
-            {shownEmails.map((e) => (
-              <a key={e} href={`mailto:${e}`} className="flex items-center gap-2 break-all text-xs text-black hover:underline">
+        <p className={expanded ? 'text-slate-500' : 'line-clamp-3 text-slate-500'}>{r.snippet}</p>
+
+        {expanded && (extraEmails.length > 0 || extraPhones.length > 0 || extraSources.length > 0) && (
+          <div className="space-y-1 border border-black/10 bg-black/[0.02] p-2 text-xs">
+            {extraEmails.map((e) => (
+              <a key={e} href={`mailto:${e}`} className="flex items-center gap-2 break-all text-black hover:underline">
                 <Mail className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} /> {e}
               </a>
             ))}
-            {shownPhones.map((p) => (
-              <a key={p} href={`tel:${p}`} className="flex items-center gap-2 text-xs text-black hover:underline">
+            {extraPhones.map((p) => (
+              <a key={p} href={`tel:${p}`} className="flex items-center gap-2 text-black hover:underline">
                 <Phone className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} /> {p}
               </a>
             ))}
-            {shownWebsites.map((w) => (
-              <a key={w.host} href={w.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs text-black hover:underline">
-                <Globe className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} /> {w.host}
+            {extraSources.map((s) => (
+              <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-slate-500 hover:text-black hover:underline">
+                <ExternalLink className="h-3 w-3 shrink-0" /> {s.host}
               </a>
             ))}
           </div>
-        ) : (
-          <p className="text-xs italic text-slate-400">
-            No contact details detected — open the source for more info.
-          </p>
         )}
 
-        <div className="mt-auto flex flex-col gap-1.5 pt-1">
-          {shownSources.length > 1 ? (
-            <div className="flex flex-wrap gap-x-3 gap-y-1.5">
-              {shownSources.map((s) => (
-                <a
-                  key={s.url}
-                  href={s.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-slate-500 underline hover:text-black"
-                >
-                  {s.host}<ExternalLink className="h-3 w-3" />
-                </a>
-              ))}
-            </div>
-          ) : (
-            <a
-              href={r.source_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-slate-500 underline hover:text-black"
-            >
-              View source <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
+        {!primaryEmail && !primaryPhone && (
+          <p className="text-xs italic text-slate-400">No contact details detected — open the source for more info.</p>
+        )}
 
-          {hasMore && (
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              className="self-start text-xs font-medium underline"
-              style={{ color: BRAND_TEAL }}
-            >
-              {expanded ? 'Show less' : 'Show all details'}
-            </button>
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="self-start text-xs font-medium underline"
+            style={{ color: BRAND_TEAL }}
+          >
+            {expanded ? 'Show less' : 'Show more details'}
+          </button>
+        )}
+
+        {/* Contact row — same shape as ExpertCard: Email / Call on the
+            left, primary action on the right. */}
+        <div className="mt-auto flex flex-wrap gap-2 pt-2">
+          {primaryEmail && (
+            <Button asChild size="sm" variant="outline" className="rounded-none border-black/15 text-black hover:bg-black/5">
+              <a href={`mailto:${primaryEmail}`}><Mail className="mr-1 h-3 w-3" />Email</a>
+            </Button>
           )}
+          {primaryPhone && (
+            <Button asChild size="sm" variant="outline" className="rounded-none border-black/15 text-black hover:bg-black/5">
+              <a href={`tel:${primaryPhone}`}><Phone className="mr-1 h-3 w-3" />Call</a>
+            </Button>
+          )}
+          <Button asChild size="sm" className="ml-auto rounded-none bg-black text-white hover:bg-black/90">
+            <a href={r.source_url} target="_blank" rel="noreferrer">
+              View Source <ExternalLink className="ml-1 h-3 w-3" />
+            </a>
+          </Button>
         </div>
       </AdminCardBody>
     </AdminCard>
