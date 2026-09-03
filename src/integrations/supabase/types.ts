@@ -3692,6 +3692,9 @@ export type Database = {
           referring_attorney_id: string | null
           requested_at: string | null
           requested_by: string | null
+          response_document_name: string | null
+          response_document_path: string | null
+          response_document_uploaded_at: string | null
           service_type: string | null
           status: string | null
           urgency: string | null
@@ -3705,6 +3708,9 @@ export type Database = {
           referring_attorney_id?: string | null
           requested_at?: string | null
           requested_by?: string | null
+          response_document_name?: string | null
+          response_document_path?: string | null
+          response_document_uploaded_at?: string | null
           service_type?: string | null
           status?: string | null
           urgency?: string | null
@@ -3718,6 +3724,9 @@ export type Database = {
           referring_attorney_id?: string | null
           requested_at?: string | null
           requested_by?: string | null
+          response_document_name?: string | null
+          response_document_path?: string | null
+          response_document_uploaded_at?: string | null
           service_type?: string | null
           status?: string | null
           urgency?: string | null
@@ -4699,6 +4708,10 @@ export type Database = {
           referring_attorney_id: string | null
           requested_at: string
           requested_by: string | null
+          response_document_name: string | null
+          response_document_path: string | null
+          response_document_uploaded_at: string | null
+          response_document_uploaded_by: string | null
           service_type: string
           status: string
           trial_date: string | null
@@ -4715,6 +4728,10 @@ export type Database = {
           referring_attorney_id?: string | null
           requested_at?: string
           requested_by?: string | null
+          response_document_name?: string | null
+          response_document_path?: string | null
+          response_document_uploaded_at?: string | null
+          response_document_uploaded_by?: string | null
           service_type: string
           status?: string
           trial_date?: string | null
@@ -4731,6 +4748,10 @@ export type Database = {
           referring_attorney_id?: string | null
           requested_at?: string
           requested_by?: string | null
+          response_document_name?: string | null
+          response_document_path?: string | null
+          response_document_uploaded_at?: string | null
+          response_document_uploaded_by?: string | null
           service_type?: string
           status?: string
           trial_date?: string | null
@@ -4937,54 +4958,100 @@ export type Database = {
       }
       negligence_analysis_history: {
         Row: {
+          ai_opinion: string | null
           analysis_result: Json
+          case_id: string | null
+          claimant_id: string | null
           created_at: string
           evidence_count: number
           file_name: string
           file_size: number | null
           file_type: string
+          final_opinion: string | null
           id: string
           indicator_count: number
           overall_severity: string
           processing_time: number
           recommendation_count: number
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_notes: string | null
           status: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          ai_opinion?: string | null
           analysis_result: Json
+          case_id?: string | null
+          claimant_id?: string | null
           created_at?: string
           evidence_count?: number
           file_name: string
           file_size?: number | null
           file_type: string
+          final_opinion?: string | null
           id?: string
           indicator_count?: number
           overall_severity: string
           processing_time: number
           recommendation_count?: number
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
           status?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          ai_opinion?: string | null
           analysis_result?: Json
+          case_id?: string | null
+          claimant_id?: string | null
           created_at?: string
           evidence_count?: number
           file_name?: string
           file_size?: number | null
           file_type?: string
+          final_opinion?: string | null
           id?: string
           indicator_count?: number
           overall_severity?: string
           processing_time?: number
           recommendation_count?: number
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
           status?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "negligence_analysis_history_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negligence_analysis_history_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "negligence_analysis_history_claimant_id_fkey"
+            columns: ["claimant_id"]
+            isOneToOne: false
+            referencedRelation: "claimants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
@@ -5896,12 +5963,81 @@ export type Database = {
           },
         ]
       }
+      sage_integration_state: {
+        Row: {
+          id: boolean
+          last_error: string | null
+          last_run_at: string | null
+          lease_until: string | null
+          pause_reason: string | null
+          paused: boolean
+          processed_total: number
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          lease_until?: string | null
+          pause_reason?: string | null
+          paused?: boolean
+          processed_total?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          last_error?: string | null
+          last_run_at?: string | null
+          lease_until?: string | null
+          pause_reason?: string | null
+          paused?: boolean
+          processed_total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sage_oauth_tokens: {
+        Row: {
+          access_token: string | null
+          business_id: string | null
+          connected_at: string | null
+          connected_by: string | null
+          expires_at: string | null
+          id: boolean
+          refresh_token: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          business_id?: string | null
+          connected_at?: string | null
+          connected_by?: string | null
+          expires_at?: string | null
+          id?: boolean
+          refresh_token?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          business_id?: string | null
+          connected_at?: string | null
+          connected_by?: string | null
+          expires_at?: string | null
+          id?: boolean
+          refresh_token?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       sageone_invoice_queue: {
         Row: {
           appointment_id: string
+          attempts: number
+          claimed_at: string | null
           created_at: string
           error: string | null
           id: string
+          next_attempt_at: string
           payload: Json
           processed_at: string | null
           sageone_transaction_id: string | null
@@ -5909,9 +6045,12 @@ export type Database = {
         }
         Insert: {
           appointment_id: string
+          attempts?: number
+          claimed_at?: string | null
           created_at?: string
           error?: string | null
           id?: string
+          next_attempt_at?: string
           payload: Json
           processed_at?: string | null
           sageone_transaction_id?: string | null
@@ -5919,9 +6058,12 @@ export type Database = {
         }
         Update: {
           appointment_id?: string
+          attempts?: number
+          claimed_at?: string | null
           created_at?: string
           error?: string | null
           id?: string
+          next_attempt_at?: string
           payload?: Json
           processed_at?: string | null
           sageone_transaction_id?: string | null
@@ -7587,6 +7729,17 @@ export type Database = {
         Returns: string
       }
       external_portal_unread_message_count: { Args: never; Returns: number }
+      external_portal_update_account_contact: {
+        Args: { _account_id: string; _contact_id: string }
+        Returns: undefined
+      }
+      external_portal_update_account_scope: {
+        Args: {
+          _account_id: string
+          _scope: Database["public"]["Enums"]["external_portal_account_scope"]
+        }
+        Returns: undefined
+      }
       find_duplicate_experts: {
         Args: never
         Returns: {
@@ -8391,12 +8544,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -8420,11 +8573,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -8445,11 +8598,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -8470,11 +8623,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -8487,11 +8640,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
