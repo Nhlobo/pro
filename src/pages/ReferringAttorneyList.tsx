@@ -245,7 +245,7 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/referring-attorney-list';
 
   const directoryCard = (
-    <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
+    <Card className={embedded ? "rounded-none border-black/10 shadow-none" : "bg-gradient-card border-border/50 shadow-soft"}>
       <CardHeader className={embedded ? "border-b border-black/10" : ""}>
         <CardTitle className="flex items-center gap-2">
           <Building2 className="h-5 w-5" />
