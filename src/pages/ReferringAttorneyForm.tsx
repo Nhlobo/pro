@@ -503,7 +503,7 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
       )}
 
       {isLoadingData ? (
-        <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
+        <Card className={embedded ? "rounded-none border-black/10 shadow-none" : "bg-gradient-card border-border/50 shadow-soft"}>
           <CardContent className="p-12 text-center">
             <p className="text-muted-foreground">Loading attorney data...</p>
           </CardContent>
@@ -518,7 +518,7 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
           )}
 
         <TabsContent value="single">
-          <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
+          <Card className={embedded ? "rounded-none border-black/10 shadow-none" : "bg-gradient-card border-border/50 shadow-soft"}>
               <CardContent className="p-6">
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6 md:grid-cols-2">
@@ -721,7 +721,7 @@ const ReferringAttorneyForm: React.FC<ReferringAttorneyFormProps> = ({ embedded 
 
           {!isEditing && (
             <TabsContent value="bulk">
-            <Card className={embedded ? "rounded-none border-black/10 shadow-none" : ""}>
+            <Card className={embedded ? "rounded-none border-black/10 shadow-none" : "bg-gradient-card border-border/50 shadow-soft"}>
               <CardContent className="p-6">
                 <div className="space-y-6">
                   <div>
