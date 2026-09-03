@@ -26,7 +26,7 @@ import { useToast } from "@/hooks/use-toast";
 import CompanyFooter from "@/components/CompanyFooter";
 import { deduplicateAttorneys } from "@/utils/deduplicateAttorneys";
 import { usePermissions } from "@/hooks/usePermissions";
-import { AdminPagination, AdminEmptyState } from "@/components/admin/ui/AdminUI";
+import { AdminPagination, AdminEmptyState, AdminCard, AdminCardHeader, AdminCardBody, AdminPill } from "@/components/admin/ui/AdminUI";
 import { cn } from "@/lib/utils";
 
 const ReferringAttorneyFormModule = lazy(() => import("@/components/admin/ReferringAttorneyFormModule"));
@@ -182,13 +182,9 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
     }
   };
 
-  const getRoleBadge = (role: string) => {
-    return (
-      <Badge variant={role === "Plaintiff" ? "default" : "secondary"}>
-        {role}
-      </Badge>
-    );
-  };
+  const getRoleBadge = (role: string) => (
+    <AdminPill tone={role === "Plaintiff" ? "teal" : "neutral"}>{role}</AdminPill>
+  );
 
   const isDuplicateName = (name: string) => {
     return duplicateNames.has(name?.toLowerCase().trim() || '');
@@ -245,23 +241,27 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
   const canonicalUrl = typeof window !== 'undefined' ? window.location.href : 'https://example.com/referring-attorney-list';
 
   const directoryCard = (
-    <Card className={embedded ? "rounded-none border-black/10 shadow-none" : "bg-gradient-card border-border/50 shadow-soft"}>
-      <CardHeader className={embedded ? "border-b border-black/10" : ""}>
-        <CardTitle className="flex items-center gap-2">
-          <Building2 className="h-5 w-5" />
-          Referring Attorneys Directory
-        </CardTitle>
-        <div className="relative max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, contact, code, or province..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className={embedded ? "rounded-none border-black/15 pl-9" : "pl-9"}
-          />
-        </div>
-      </CardHeader>
-      <CardContent className={embedded ? "p-0" : undefined}>
+    <AdminCard>
+      <AdminCardHeader
+        title={
+          <span className="flex items-center gap-2">
+            <Building2 className="h-4 w-4" style={{ color: '#0F7A9C' }} />
+            Referring Attorneys Directory
+          </span>
+        }
+        actions={
+          <div className="relative w-full sm:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              placeholder="Search by name, contact, code, or province..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="rounded-none border-black/15 pl-9"
+            />
+          </div>
+        }
+      />
+      <AdminCardBody className="p-0">
         {embedded ? (
           // Paginated card list — every attorney's details stay fully
           // readable on a phone without a sideways-scrolling 9-column
@@ -363,16 +363,16 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Referring Attorney Name</TableHead>
-                  <TableHead>Contact Person</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Province</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Date Captured</TableHead>
-                  <TableHead>Actions</TableHead>
+                <TableRow className="bg-black/[0.03] hover:bg-black/[0.03]">
+                  <TableHead className="text-xs font-semibold text-black">Code</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Referring Attorney Name</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Contact Person</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Phone</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Email</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Province</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Role</TableHead>
+                  <TableHead className="text-xs font-semibold text-black">Date Captured</TableHead>
+                  <TableHead className="text-xs font-semibold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -462,8 +462,8 @@ const ReferringAttorneyList: React.FC<ReferringAttorneyListProps> = ({ embedded 
             No referring attorneys found. {searchTerm && "Try adjusting your search terms."}
           </div>
         )}
-      </CardContent>
-    </Card>
+      </AdminCardBody>
+    </AdminCard>
   );
 
   const deleteDialog = (
