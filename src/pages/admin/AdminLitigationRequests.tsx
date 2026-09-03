@@ -7,6 +7,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Scale,
   CheckCircle2,
@@ -23,6 +32,8 @@ import {
   Paperclip,
   Download,
   X,
+  UserCog,
+  UserX,
 } from 'lucide-react';
 import {
   AdminPage,
@@ -82,6 +93,18 @@ import {
  * number belongs in Report Management, computed off real
  * appointment/report data — not here.
  *
+ * WORKFLOW FIXES (this pass): the notification/audit/storage plumbing
+ * from the previous pass was verified live in Supabase (columns,
+ * bucket, RLS, triggers and edge functions all exist and are wired
+ * correctly) — nothing there needed fixing. What was still missing was
+ * on this page itself:
+ *  - Cancelling a request now requires a typed reason (`cancellation_reason`
+ *    column) instead of silently flipping status with no explanation for
+ *    the attorney who gets emailed.
+ *  - Requests can now be assigned to a specific staff member
+ *    (`assigned_to`/`assigned_at`), so it's clear who owns a request —
+ *    the assignee is notified via public.notifications on assignment.
+ *
  * PARITY FIXES (this pass): litigation_service_requests had none of the
  * plumbing appointment_requests has as a sibling "request" table —
  * fixed via migration + this file:
@@ -115,6 +138,9 @@ interface LitigationRequest {
   response_document_path: string | null;
   response_document_name: string | null;
   response_document_uploaded_at: string | null;
+  assigned_to: string | null;
+  assigned_at: string | null;
+  cancellation_reason: string | null;
 }
 
 interface ResolvedCase {
@@ -124,6 +150,12 @@ interface ResolvedCase {
 
 interface RequesterProfile {
   name: string | null;
+  email: string | null;
+}
+
+interface StaffMember {
+  id: string;
+  name: string;
   email: string | null;
 }
 
@@ -215,8 +247,18 @@ const AdminLitigationRequests: React.FC = () => {
 
   const [statusTab, setStatusTab] = useState('all');
   const [serviceTypeFilter, setServiceTypeFilter] = useState('all');
+  const [assigneeFilter, setAssigneeFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+
+  // Staff (admin/employee) users a request can be assigned to.
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [assigningId, setAssigningId] = useState<string | null>(null);
+
+  // Cancelling requires a typed reason — captured via this dialog rather
+  // than letting the status Select silently flip straight to "Cancelled".
+  const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
@@ -280,6 +322,35 @@ const AdminLitigationRequests: React.FC = () => {
     fetchRequests();
   }, [fetchRequests]);
 
+  useEffect(() => {
+    const fetchStaff = async () => {
+      try {
+        // profiles.role is readable by any admin/employee (RLS: "Company
+        // users can view relevant profiles"); public.user_roles is NOT —
+        // its SELECT policy only lets an admin see everyone else's row,
+        // so an employee-level viewer would only ever see themselves.
+        // Querying profiles.role avoids that trap.
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, email, role, is_active')
+          .in('role', ['admin', 'employee']);
+        if (profilesError) throw profilesError;
+        const list: StaffMember[] = (profiles || [])
+          .filter((p: any) => p.is_active !== false)
+          .map((p: any) => ({
+            id: p.id,
+            name: [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || p.email || 'Unnamed staff',
+            email: p.email || null,
+          }));
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        setStaff(list);
+      } catch (err) {
+        console.error('Error fetching assignable staff:', err);
+      }
+    };
+    fetchStaff();
+  }, []);
+
   // Emails the referring attorney (and, for authenticated submissions,
   // the requester directly if that address differs) when staff change a
   // request's status. Fire-and-forget from the caller's perspective —
@@ -311,7 +382,43 @@ const AdminLitigationRequests: React.FC = () => {
     [requesters],
   );
 
-  const updateRequest = async (id: string, changes: { status?: string; notes?: string }) => {
+  // Notifies the newly-assigned staff member via public.notifications.
+  // RLS on that table already lets any admin/employee insert a
+  // notification for any user, so this is a direct client-side insert —
+  // no edge function needed. Fire-and-forget, same spirit as
+  // notifyRequesterOfStatusChange: a failure here shouldn't block or
+  // roll back the assignment that already saved.
+  const notifyAssignee = useCallback(
+    async (r: LitigationRequest, assigneeId: string) => {
+      if (assigneeId === user?.id) return; // no need to notify yourself
+      try {
+        const { error: notifyError } = await supabase.from('notifications').insert({
+          user_id: assigneeId,
+          title: 'Litigation service request assigned to you',
+          message: `${SERVICE_TYPE_LABELS[r.service_type] || r.service_type} for ${r.claimant_name} was assigned to you.`,
+          type: 'info',
+          category: 'litigation_service_request',
+          related_record_id: r.id,
+          related_table: 'litigation_service_requests',
+        });
+        if (notifyError) throw notifyError;
+      } catch (err) {
+        console.error('Failed to notify assignee of litigation service request:', err);
+      }
+    },
+    [user?.id],
+  );
+
+  const updateRequest = async (
+    id: string,
+    changes: {
+      status?: string;
+      notes?: string;
+      assigned_to?: string | null;
+      assigned_at?: string | null;
+      cancellation_reason?: string | null;
+    },
+  ) => {
     setSavingId(id);
     try {
       const existing = requests.find(r => r.id === id);
@@ -328,6 +435,9 @@ const AdminLitigationRequests: React.FC = () => {
       if (changes.status && existing && changes.status !== existing.status) {
         void notifyRequesterOfStatusChange(existing, existing.status, changes.status, changes.notes);
       }
+      if (changes.assigned_to && existing && changes.assigned_to !== existing.assigned_to) {
+        void notifyAssignee(existing, changes.assigned_to);
+      }
     } catch (err) {
       console.error('Error updating litigation service request:', err);
       toast({ title: 'Error', description: 'Failed to update request.', variant: 'destructive' });
@@ -339,6 +449,38 @@ const AdminLitigationRequests: React.FC = () => {
   // Quick-action shortcut for the common first transition — same
   // updateRequest call the status dropdown already uses.
   const handleAccept = (id: string) => updateRequest(id, { status: 'in_progress' });
+
+  // The status Select routes here instead of calling updateRequest
+  // directly, so "Cancelled" can be intercepted and "everything else"
+  // can still go straight through.
+  const handleStatusChange = (r: LitigationRequest, newStatus: string) => {
+    if (newStatus === 'cancelled') {
+      setCancelReason('');
+      setCancelTargetId(r.id);
+      return;
+    }
+    // Leaving "Cancelled" for another status clears the old reason —
+    // it no longer describes the request's current state.
+    const changes: { status: string; cancellation_reason?: string | null } = { status: newStatus };
+    if (r.status === 'cancelled') changes.cancellation_reason = null;
+    updateRequest(r.id, changes);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!cancelTargetId || !cancelReason.trim()) return;
+    await updateRequest(cancelTargetId, { status: 'cancelled', cancellation_reason: cancelReason.trim() });
+    setCancelTargetId(null);
+    setCancelReason('');
+  };
+
+  const handleAssigneeChange = (r: LitigationRequest, value: string) => {
+    setAssigningId(r.id);
+    const changes =
+      value === 'unassigned'
+        ? { assigned_to: null, assigned_at: null }
+        : { assigned_to: value, assigned_at: new Date().toISOString() };
+    updateRequest(r.id, changes).finally(() => setAssigningId(null));
+  };
 
   const handleAttachClick = (id: string) => {
     setAttachTargetId(id);
@@ -426,6 +568,15 @@ const AdminLitigationRequests: React.FC = () => {
   const inProgressCount = requests.filter(r => r.status === 'in_progress').length;
   const completedCount = requests.filter(r => r.status === 'completed').length;
   const overdueCount = requests.filter(isOverdue).length;
+  const unassignedOpenCount = requests.filter(r => isOpenStatus(r.status) && !r.assigned_to).length;
+
+  const getStaffName = useCallback(
+    (id: string | null) => {
+      if (!id) return null;
+      return staff.find(s => s.id === id)?.name || requesters[id]?.name || requesters[id]?.email || null;
+    },
+    [staff, requesters],
+  );
 
   const serviceTypeOptions = useMemo(() => {
     const present = Array.from(new Set(requests.map(r => r.service_type)));
@@ -437,6 +588,8 @@ const AdminLitigationRequests: React.FC = () => {
     return requests.filter(r => {
       if (statusTab !== 'all' && r.status !== statusTab) return false;
       if (serviceTypeFilter !== 'all' && r.service_type !== serviceTypeFilter) return false;
+      if (assigneeFilter === 'unassigned' && r.assigned_to) return false;
+      if (assigneeFilter !== 'all' && assigneeFilter !== 'unassigned' && r.assigned_to !== assigneeFilter) return false;
       if (!q) return true;
       const resolved = r.case_reference ? resolvedCases[r.case_reference] : undefined;
       const requester = r.requested_by ? requesters[r.requested_by] : undefined;
@@ -450,17 +603,18 @@ const AdminLitigationRequests: React.FC = () => {
         requester?.email,
         r.description,
         SERVICE_TYPE_LABELS[r.service_type] || r.service_type,
+        getStaffName(r.assigned_to),
       ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [requests, statusTab, serviceTypeFilter, search, resolvedCases, requesters]);
+  }, [requests, statusTab, serviceTypeFilter, assigneeFilter, search, resolvedCases, requesters, getStaffName]);
 
   useEffect(() => {
     setPage(1);
-  }, [statusTab, serviceTypeFilter, search]);
+  }, [statusTab, serviceTypeFilter, assigneeFilter, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const startIndex = (page - 1) * PAGE_SIZE;
@@ -482,11 +636,12 @@ const AdminLitigationRequests: React.FC = () => {
         onChange={handleFileSelected}
       />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5 md:gap-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-6 md:gap-4">
         <AdminStatCard label="Pending" value={pendingCount} icon={AlertCircle} />
         <AdminStatCard label="In Progress" value={inProgressCount} icon={Clock} />
         <AdminStatCard label="Completed" value={completedCount} icon={CheckCircle2} />
         <AdminStatCard label="Overdue" value={overdueCount} icon={Timer} hint="Past its urgency SLA and still open" />
+        <AdminStatCard label="Unassigned" value={unassignedOpenCount} icon={UserX} hint="Open requests with no owner" />
         <AdminStatCard label="Total" value={requests.length} icon={Scale} />
       </div>
 
@@ -523,6 +678,17 @@ const AdminLitigationRequests: React.FC = () => {
                 <SelectItem value="all">All service types</SelectItem>
                 {serviceTypeOptions.map(t => (
                   <SelectItem key={t} value={t}>{SERVICE_TYPE_LABELS[t] || t}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+              <SelectTrigger className="w-full rounded-none border-black/15 sm:w-48"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Anyone assigned</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
+                {user?.id && <SelectItem value={user.id}>Assigned to me</SelectItem>}
+                {staff.filter(s => s.id !== user?.id).map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -568,6 +734,11 @@ const AdminLitigationRequests: React.FC = () => {
                             <UrgencyPill urgency={r.urgency} />
                             <StatusPill status={r.status} />
                             {overdue && <AdminPill tone="destructive"><Timer className="h-3 w-3" />Overdue</AdminPill>}
+                            {r.assigned_to ? (
+                              <AdminPill tone="neutral"><UserCog className="h-3 w-3" />{getStaffName(r.assigned_to) || 'Assigned'}</AdminPill>
+                            ) : isOpenStatus(r.status) ? (
+                              <AdminPill tone="warning"><UserX className="h-3 w-3" />Unassigned</AdminPill>
+                            ) : null}
                           </div>
                           <p className="mt-0.5 text-xs text-slate-500">
                             {SERVICE_TYPE_LABELS[r.service_type] || r.service_type}
@@ -593,6 +764,12 @@ const AdminLitigationRequests: React.FC = () => {
                             )}
                           </p>
                           {r.description && <p className="mt-1 text-xs text-slate-600">{r.description}</p>}
+                          {r.status === 'cancelled' && r.cancellation_reason && (
+                            <p className="mt-1 flex items-start gap-1 text-xs text-destructive">
+                              <Ban className="mt-0.5 h-3 w-3 shrink-0" />
+                              <span>Cancelled: {r.cancellation_reason}</span>
+                            </p>
+                          )}
                           <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-400">
                             <CalendarClock className="h-3 w-3" />
                             Requested {new Date(r.requested_at).toLocaleDateString()}
@@ -600,18 +777,33 @@ const AdminLitigationRequests: React.FC = () => {
                             {r.completed_at && <> • Completed {new Date(r.completed_at).toLocaleDateString()}</>}
                           </p>
                         </div>
-                        <Select
-                          value={r.status}
-                          onValueChange={(v) => updateRequest(r.id, { status: v })}
-                          disabled={savingId === r.id}
-                        >
-                          <SelectTrigger className="w-40 rounded-none border-black/15"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            {STATUS_OPTIONS.map(s => (
-                              <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex flex-col gap-1.5">
+                          <Select
+                            value={r.status}
+                            onValueChange={(v) => handleStatusChange(r, v)}
+                            disabled={savingId === r.id}
+                          >
+                            <SelectTrigger className="w-40 rounded-none border-black/15"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {STATUS_OPTIONS.map(s => (
+                                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={r.assigned_to || 'unassigned'}
+                            onValueChange={(v) => handleAssigneeChange(r, v)}
+                            disabled={assigningId === r.id}
+                          >
+                            <SelectTrigger className="w-40 rounded-none border-black/15 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="unassigned">Unassigned</SelectItem>
+                              {staff.map(s => (
+                                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
@@ -697,6 +889,44 @@ const AdminLitigationRequests: React.FC = () => {
           />
         )}
       </AdminCard>
+
+      <Dialog open={!!cancelTargetId} onOpenChange={(open) => { if (!open) { setCancelTargetId(null); setCancelReason(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel this request?</DialogTitle>
+            <DialogDescription>
+              The requesting attorney will be emailed that this request was cancelled. Add a reason so they know why.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="cancel-reason">Cancellation reason</Label>
+            <Textarea
+              id="cancel-reason"
+              className="min-h-[6rem] rounded-none border-black/15"
+              placeholder="e.g. Duplicate request, claimant withdrew, already covered by an existing report…"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="rounded-none"
+              onClick={() => { setCancelTargetId(null); setCancelReason(''); }}
+            >
+              Back
+            </Button>
+            <Button
+              variant="destructive"
+              className="rounded-none gap-1"
+              disabled={!cancelReason.trim() || savingId === cancelTargetId}
+              onClick={handleCancelConfirm}
+            >
+              <Ban className="h-3.5 w-3.5" /> Cancel Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminPage>
   );
 };
