@@ -1,6 +1,7 @@
 // src/pages/admin/AdminLitigationRequests.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -80,6 +81,20 @@ import {
  * been dropped rather than rebuilt against real data here — that
  * number belongs in Report Management, computed off real
  * appointment/report data — not here.
+ *
+ * PARITY FIXES (this pass): litigation_service_requests had none of the
+ * plumbing appointment_requests has as a sibling "request" table —
+ * fixed via migration + this file:
+ *  - Staff are now notified (public.notifications) the moment a new
+ *    request lands, matching on_new_appointment_request_notify. The
+ *    submit dialog's "Our team has been notified" toast is now true.
+ *  - Every write is now audited (audit_writes_litigation_service_requests),
+ *    matching audit_writes_appointment_requests.
+ *  - The requesting attorney is now emailed when staff change status
+ *    (notify-litigation-request-status-change edge function, mirroring
+ *    notify-attorney-assessment-change) — previously silent.
+ *  - Attach/download is now real Supabase Storage (litigation-service-
+ *    documents bucket), not a browser-memory-only preview.
  */
 
 interface LitigationRequest {
@@ -97,6 +112,9 @@ interface LitigationRequest {
   requested_by: string | null;
   referring_attorney_id: string | null;
   referring_attorneys?: { name: string; email: string | null; code: string } | null;
+  response_document_path: string | null;
+  response_document_name: string | null;
+  response_document_uploaded_at: string | null;
 }
 
 interface ResolvedCase {
@@ -109,16 +127,7 @@ interface RequesterProfile {
   email: string | null;
 }
 
-// UI/design pass only — litigation_service_requests has no file column yet
-// (confirmed against the live schema), so this is not persisted anywhere:
-// not to Supabase, not to any storage bucket. It lives in memory for this
-// browser tab only and is gone on refresh. Wiring a real response-document
-// column + storage bucket + RLS is deliberately deferred, separate work.
-interface LocalAttachment {
-  fileName: string;
-  attachedAt: string;
-  objectUrl: string;
-}
+const DOCUMENTS_BUCKET = 'litigation-service-documents';
 
 const SERVICE_TYPE_LABELS: Record<string, string> = {
   bundle_preparation: 'Medico-Legal Bundle Preparation',
@@ -189,6 +198,7 @@ const isOverdue = (r: LitigationRequest) => {
 };
 
 const AdminLitigationRequests: React.FC = () => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [requests, setRequests] = useState<LitigationRequest[]>([]);
   const [resolvedCases, setResolvedCases] = useState<Record<string, ResolvedCase>>({});
@@ -198,8 +208,8 @@ const AdminLitigationRequests: React.FC = () => {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
 
-  // Local-only attach/download preview — see LocalAttachment above.
-  const [attachments, setAttachments] = useState<Record<string, LocalAttachment>>({});
+  // Real upload/download against the litigation-service-documents bucket.
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [attachTargetId, setAttachTargetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -270,9 +280,41 @@ const AdminLitigationRequests: React.FC = () => {
     fetchRequests();
   }, [fetchRequests]);
 
+  // Emails the referring attorney (and, for authenticated submissions,
+  // the requester directly if that address differs) when staff change a
+  // request's status. Fire-and-forget from the caller's perspective —
+  // a failure here shouldn't block or roll back the status change that
+  // already saved; it's just logged.
+  const notifyRequesterOfStatusChange = useCallback(
+    async (r: LitigationRequest, oldStatus: string, newStatus: string, notes?: string) => {
+      const requester = r.requested_by ? requesters[r.requested_by] : undefined;
+      const email = requester?.email || r.referring_attorneys?.email;
+      if (!email) return; // guest submission with no resolvable email on file
+      const name = requester?.name || r.referring_attorneys?.name || 'there';
+      try {
+        await supabase.functions.invoke('notify-litigation-request-status-change', {
+          body: {
+            requestId: r.id,
+            serviceTypeLabel: SERVICE_TYPE_LABELS[r.service_type] || r.service_type,
+            claimantName: r.claimant_name,
+            oldStatus,
+            newStatus,
+            attorneyName: name,
+            attorneyEmail: email,
+            notes: notes || null,
+          },
+        });
+      } catch (err) {
+        console.error('Failed to send litigation request status change notification:', err);
+      }
+    },
+    [requesters],
+  );
+
   const updateRequest = async (id: string, changes: { status?: string; notes?: string }) => {
     setSavingId(id);
     try {
+      const existing = requests.find(r => r.id === id);
       const payload: Record<string, any> = { ...changes, updated_at: new Date().toISOString() };
       if (changes.status === 'completed') payload.completed_at = new Date().toISOString();
       const { error: updateError } = await supabase
@@ -282,6 +324,10 @@ const AdminLitigationRequests: React.FC = () => {
       if (updateError) throw updateError;
       setRequests(prev => prev.map(r => (r.id === id ? { ...r, ...payload } : r)));
       toast({ title: 'Updated', description: 'Litigation service request updated.' });
+
+      if (changes.status && existing && changes.status !== existing.status) {
+        void notifyRequesterOfStatusChange(existing, existing.status, changes.status, changes.notes);
+      }
     } catch (err) {
       console.error('Error updating litigation service request:', err);
       toast({ title: 'Error', description: 'Failed to update request.', variant: 'destructive' });
@@ -291,8 +337,7 @@ const AdminLitigationRequests: React.FC = () => {
   };
 
   // Quick-action shortcut for the common first transition — same
-  // updateRequest call the status dropdown already uses, so this is a
-  // real, saved status change, not part of the local-only preview below.
+  // updateRequest call the status dropdown already uses.
   const handleAccept = (id: string) => updateRequest(id, { status: 'in_progress' });
 
   const handleAttachClick = (id: string) => {
@@ -300,59 +345,82 @@ const AdminLitigationRequests: React.FC = () => {
     fileInputRef.current?.click();
   };
 
-  const handleFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     const targetId = attachTargetId;
-    if (file && targetId) {
-      setAttachments(prev => {
-        const existing = prev[targetId];
-        if (existing) URL.revokeObjectURL(existing.objectUrl);
-        return {
-          ...prev,
-          [targetId]: {
-            fileName: file.name,
-            attachedAt: new Date().toISOString(),
-            objectUrl: URL.createObjectURL(file),
-          },
-        };
-      });
-      toast({
-        title: 'Attached (preview only)',
-        description: `${file.name} — design preview, not yet saved to the server.`,
-      });
-    }
     e.target.value = '';
     setAttachTargetId(null);
+    if (!file || !targetId) return;
+
+    setUploadingId(targetId);
+    try {
+      const path = `${targetId}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from(DOCUMENTS_BUCKET)
+        .upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+
+      const payload = {
+        response_document_path: path,
+        response_document_name: file.name,
+        response_document_uploaded_at: new Date().toISOString(),
+        response_document_uploaded_by: user?.id || null,
+        updated_at: new Date().toISOString(),
+      };
+      const { error: updateError } = await supabase
+        .from('litigation_service_requests' as any)
+        .update(payload)
+        .eq('id', targetId);
+      if (updateError) throw updateError;
+
+      setRequests(prev => prev.map(r => (r.id === targetId ? { ...r, ...payload } : r)));
+      toast({ title: 'Document attached', description: `${file.name} saved to the request.` });
+    } catch (err) {
+      console.error('Error uploading litigation request document:', err);
+      toast({ title: 'Upload failed', description: 'Could not save the document. Please try again.', variant: 'destructive' });
+    } finally {
+      setUploadingId(null);
+    }
   };
 
-  const handleRemoveAttachment = (id: string) => {
-    setAttachments(prev => {
-      const existing = prev[id];
-      if (!existing) return prev;
-      URL.revokeObjectURL(existing.objectUrl);
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+  const handleRemoveAttachment = async (id: string) => {
+    const existing = requests.find(r => r.id === id);
+    if (!existing?.response_document_path) return;
+    try {
+      await supabase.storage.from(DOCUMENTS_BUCKET).remove([existing.response_document_path]);
+      const payload = {
+        response_document_path: null,
+        response_document_name: null,
+        response_document_uploaded_at: null,
+        response_document_uploaded_by: null,
+        updated_at: new Date().toISOString(),
+      };
+      const { error: updateError } = await supabase
+        .from('litigation_service_requests' as any)
+        .update(payload)
+        .eq('id', id);
+      if (updateError) throw updateError;
+      setRequests(prev => prev.map(r => (r.id === id ? { ...r, ...payload } : r)));
+    } catch (err) {
+      console.error('Error removing litigation request document:', err);
+      toast({ title: 'Error', description: 'Could not remove the document.', variant: 'destructive' });
+    }
   };
 
-  const handleDownload = (id: string) => {
-    const att = attachments[id];
-    if (!att) return;
-    const a = document.createElement('a');
-    a.href = att.objectUrl;
-    a.download = att.fileName;
-    a.click();
+  const handleDownload = async (id: string) => {
+    const existing = requests.find(r => r.id === id);
+    if (!existing?.response_document_path) return;
+    try {
+      const { data, error: signError } = await supabase.storage
+        .from(DOCUMENTS_BUCKET)
+        .createSignedUrl(existing.response_document_path, 300);
+      if (signError || !data?.signedUrl) throw signError || new Error('No signed URL returned');
+      window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      console.error('Error downloading litigation request document:', err);
+      toast({ title: 'Error', description: 'Could not open the document.', variant: 'destructive' });
+    }
   };
-
-  // Local object URLs hold a browser-memory reference to the picked
-  // file's bytes — revoke them on unmount so they don't leak.
-  useEffect(() => {
-    return () => {
-      Object.values(attachments).forEach(att => URL.revokeObjectURL(att.objectUrl));
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const pendingCount = requests.filter(r => r.status === 'pending').length;
   const inProgressCount = requests.filter(r => r.status === 'in_progress').length;
@@ -562,15 +630,16 @@ const AdminLitigationRequests: React.FC = () => {
                           size="sm"
                           variant="outline"
                           className="rounded-none gap-1"
+                          disabled={uploadingId === r.id}
                           onClick={() => handleAttachClick(r.id)}
                         >
                           <Paperclip className="h-3.5 w-3.5" />
-                          {attachments[r.id] ? 'Replace file' : 'Attach file'}
+                          {uploadingId === r.id ? 'Uploading…' : r.response_document_path ? 'Replace file' : 'Attach file'}
                         </Button>
-                        {attachments[r.id] && (
+                        {r.response_document_path && (
                           <div className="flex items-center gap-1.5 border border-dashed border-black/20 bg-muted/30 px-2 py-1 text-[11px]">
-                            <span className="max-w-[180px] truncate text-slate-600" title={attachments[r.id].fileName}>
-                              {attachments[r.id].fileName}
+                            <span className="max-w-[180px] truncate text-slate-600" title={r.response_document_name || undefined}>
+                              {r.response_document_name}
                             </span>
                             <button
                               type="button"
@@ -588,7 +657,6 @@ const AdminLitigationRequests: React.FC = () => {
                             >
                               <X className="h-3.5 w-3.5" />
                             </button>
-                            <span className="text-slate-400">· preview only, not saved</span>
                           </div>
                         )}
                       </div>
