@@ -196,7 +196,7 @@ const Index = () => {
                   }
                 />
                 <AdminCardBody>
-                  <SalesConsultantStats firstName={userProfile.first_name} lastName={userProfile.last_name} />
+                  <SalesConsultantStats userId={user?.id} firstName={userProfile.first_name} lastName={userProfile.last_name} />
                 </AdminCardBody>
               </AdminCard>
             )}
