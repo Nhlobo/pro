@@ -403,7 +403,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({
           {(form.position === 'Sales Consultant' || user?.position === 'Sales Consultant') && (
             <>
               <Separator />
-              <SalesConsultantStats firstName={form.firstName} lastName={form.lastName} />
+              <SalesConsultantStats userId={user?.id} firstName={form.firstName} lastName={form.lastName} />
             </>
           )}
 
