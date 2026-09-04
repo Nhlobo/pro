@@ -22,23 +22,33 @@ import {
 } from "lucide-react";
 import PermissionGuard from "@/components/PermissionGuard";
 
+const BRAND_TEAL = "#00BAAD";
+
+/** Flat, uniform tile — same visual language as AdminCard: white surface,
+ *  hairline border, teal icon accent. Replaces the old per-category
+ *  rainbow-gradient buttons so this grid reads consistently with every
+ *  other screen in the system (Attorney Pitchlog, Sales Dashboard,
+ *  Claimant/Attorney Management, etc). */
+const menuTileClass =
+  "min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-none border border-black/10 bg-white text-black hover:bg-black/[0.03] hover:border-black/25 transition-colors duration-150 shadow-none";
+
 const DashboardMenus = () => (
-  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
+  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
     <PermissionGuard permission="manage_claimants" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-kutlwano-blue text-white border-kutlwano-blue hover:bg-kutlwano-blue/90 hover:scale-105 transition-all duration-300 shadow-md">
-            <Users className="h-6 w-6 text-white" />
+          <Button variant="outline" className={menuTileClass}>
+            <Users className="h-6 w-6" style={{ color: BRAND_TEAL }} />
             <span className="text-xs sm:text-sm font-medium text-center leading-tight">Claimant Management</span>
-            <ChevronDown className="h-4 w-4 text-white/80" />
+            <ChevronDown className="h-4 w-4 text-black/40" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+        <DropdownMenuContent className="w-56 rounded-none border-black/10 bg-white shadow-none">
           <DropdownMenuItem asChild>
-            <Link to="/claimant" className="flex items-center w-full hover:bg-kutlwano-blue/10">Add New Claimant</Link>
+            <Link to="/claimant" className="flex items-center w-full">Add New Claimant</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/claimant-list" className="flex items-center w-full hover:bg-kutlwano-blue/10">View All Claimants</Link>
+            <Link to="/claimant-list" className="flex items-center w-full">View All Claimants</Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -47,21 +57,21 @@ const DashboardMenus = () => (
     <PermissionGuard permission="manage_attorneys" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-amber-500 text-white border-amber-500 hover:bg-amber-600 hover:scale-105 transition-all duration-300 shadow-md">
-            <UserCheck className="h-6 w-6 text-white" />
+          <Button variant="outline" className={menuTileClass}>
+            <UserCheck className="h-6 w-6" style={{ color: BRAND_TEAL }} />
             <span className="text-xs sm:text-sm font-medium text-center leading-tight">Attorney Management</span>
-            <ChevronDown className="h-4 w-4 text-white/80" />
+            <ChevronDown className="h-4 w-4 text-black/40" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+        <DropdownMenuContent className="w-56 rounded-none border-black/10 bg-white shadow-none">
           <DropdownMenuItem asChild>
-            <Link to="/referring-attorney" className="flex items-center w-full hover:bg-kutlwano-gold/10">Add New Attorney</Link>
+            <Link to="/referring-attorney" className="flex items-center w-full">Add New Attorney</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/referring-attorney-list" className="flex items-center w-full hover:bg-kutlwano-gold/10">View All Attorneys</Link>
+            <Link to="/referring-attorney-list" className="flex items-center w-full">View All Attorneys</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/referring-attorney-update" className="flex items-center w-full hover:bg-kutlwano-gold/10">Assessment Update</Link>
+            <Link to="/referring-attorney-update" className="flex items-center w-full">Assessment Update</Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -70,21 +80,21 @@ const DashboardMenus = () => (
     <PermissionGuard permission="manage_experts" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-kutlwano-teal text-white border-kutlwano-teal hover:bg-kutlwano-teal/90 hover:scale-105 transition-all duration-300 shadow-md">
-            <Stethoscope className="h-6 w-6 text-white" />
+          <Button variant="outline" className={menuTileClass}>
+            <Stethoscope className="h-6 w-6" style={{ color: BRAND_TEAL }} />
             <span className="text-xs sm:text-sm font-medium text-center leading-tight">Medical Experts</span>
-            <ChevronDown className="h-4 w-4 text-white/80" />
+            <ChevronDown className="h-4 w-4 text-black/40" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+        <DropdownMenuContent className="w-56 rounded-none border-black/10 bg-white shadow-none">
           <DropdownMenuItem asChild>
-            <Link to="/medical-expert" className="flex items-center w-full hover:bg-kutlwano-teal/10">Add Medical Expert</Link>
+            <Link to="/medical-expert" className="flex items-center w-full">Add Medical Expert</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/medical-expert-directory" className="flex items-center w-full hover:bg-kutlwano-teal/10">Expert Directory</Link>
+            <Link to="/medical-expert-directory" className="flex items-center w-full">Expert Directory</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/expert-credit-control" className="flex items-center w-full hover:bg-kutlwano-teal/10">Credit Control</Link>
+            <Link to="/expert-credit-control" className="flex items-center w-full">Credit Control</Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -93,22 +103,22 @@ const DashboardMenus = () => (
     <PermissionGuard permission="view_reports" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-emerald-500 text-white border-emerald-500 hover:bg-emerald-600 hover:scale-105 transition-all duration-300 shadow-md">
-            <FileText className="h-6 w-6 text-white" />
+          <Button variant="outline" className={menuTileClass}>
+            <FileText className="h-6 w-6" style={{ color: BRAND_TEAL }} />
             <span className="text-xs sm:text-sm font-medium text-center leading-tight">Assessment & Reports</span>
-            <ChevronDown className="h-4 w-4 text-white/80" />
+            <ChevronDown className="h-4 w-4 text-black/40" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+        <DropdownMenuContent className="w-56 rounded-none border-black/10 bg-white shadow-none">
           <DropdownMenuItem asChild>
-            <Link to="/report-tracking" className="flex items-center w-full hover:bg-emerald-500/10">Report Tracking</Link>
+            <Link to="/report-tracking" className="flex items-center w-full">Report Tracking</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/sample-reports" className="flex items-center w-full hover:bg-emerald-500/10">Sample Reports</Link>
+            <Link to="/sample-reports" className="flex items-center w-full">Sample Reports</Link>
           </DropdownMenuItem>
           <PermissionGuard permission="admin_only" showAlert={false}>
             <DropdownMenuItem asChild>
-              <Link to="/assessment-reports-statistics" className="flex items-center w-full hover:bg-emerald-500/10">Assessment Statistics</Link>
+              <Link to="/assessment-reports-statistics" className="flex items-center w-full">Assessment Statistics</Link>
             </DropdownMenuItem>
           </PermissionGuard>
         </DropdownMenuContent>
@@ -118,27 +128,27 @@ const DashboardMenus = () => (
     <PermissionGuard permission="manage_appointments" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-violet-500 text-white border-violet-500 hover:bg-violet-600 hover:scale-105 transition-all duration-300 shadow-md">
-            <Calendar className="h-6 w-6 text-white" />
+          <Button variant="outline" className={menuTileClass}>
+            <Calendar className="h-6 w-6" style={{ color: BRAND_TEAL }} />
             <span className="text-xs sm:text-sm font-medium text-center leading-tight">Appointments</span>
-            <ChevronDown className="h-4 w-4 text-white/80" />
+            <ChevronDown className="h-4 w-4 text-black/40" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+        <DropdownMenuContent className="w-56 rounded-none border-black/10 bg-white shadow-none">
           <DropdownMenuItem asChild>
-            <Link to="/appointment-request-dashboard" className="flex items-center w-full hover:bg-violet-500/10">Request Dashboard</Link>
+            <Link to="/appointment-request-dashboard" className="flex items-center w-full">Request Dashboard</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/scheduled-assessment" className="flex items-center w-full hover:bg-violet-500/10">Scheduled Assessments</Link>
+            <Link to="/scheduled-assessment" className="flex items-center w-full">Scheduled Assessments</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/new-appointment" className="flex items-center w-full hover:bg-violet-500/10">New Appointment</Link>
+            <Link to="/new-appointment" className="flex items-center w-full">New Appointment</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/appointment-checklist" className="flex items-center w-full hover:bg-violet-500/10">Appointment Checklist</Link>
+            <Link to="/appointment-checklist" className="flex items-center w-full">Appointment Checklist</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/admin/litigation-requests" className="flex items-center w-full hover:bg-violet-500/10">
+            <Link to="/admin/litigation-requests" className="flex items-center w-full">
               <FileSignature className="h-4 w-4 mr-2" />
               Litigation Service Requests
             </Link>
@@ -150,21 +160,21 @@ const DashboardMenus = () => (
     <PermissionGuard permission="manage_documents" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-orange-500 text-white border-orange-500 hover:bg-orange-600 hover:scale-105 transition-all duration-300 shadow-md">
-            <Upload className="h-6 w-6 text-white" />
+          <Button variant="outline" className={menuTileClass}>
+            <Upload className="h-6 w-6" style={{ color: BRAND_TEAL }} />
             <span className="text-xs sm:text-sm font-medium text-center leading-tight">Document Management</span>
-            <ChevronDown className="h-4 w-4 text-white/80" />
+            <ChevronDown className="h-4 w-4 text-black/40" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+        <DropdownMenuContent className="w-56 rounded-none border-black/10 bg-white shadow-none">
           <DropdownMenuItem asChild>
-            <Link to="/document-uploading" className="flex items-center w-full hover:bg-orange-500/10">
+            <Link to="/document-uploading" className="flex items-center w-full">
               <Upload className="h-4 w-4 mr-2" />
               Document Upload
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/document-proofreading" className="flex items-center w-full hover:bg-orange-500/10">
+            <Link to="/document-proofreading" className="flex items-center w-full">
               <FileText className="h-4 w-4 mr-2" />
               Document Proofreading
             </Link>
@@ -176,57 +186,57 @@ const DashboardMenus = () => (
     <PermissionGuard permission="case_management" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-blue-500 text-white border-blue-500 hover:bg-blue-600 hover:scale-105 transition-all duration-300 shadow-md">
-            <FileSignature className="h-6 w-6 text-white" />
+          <Button variant="outline" className={menuTileClass}>
+            <FileSignature className="h-6 w-6" style={{ color: BRAND_TEAL }} />
             <span className="text-xs sm:text-sm font-medium text-center leading-tight">Case Management</span>
-            <ChevronDown className="h-4 w-4 text-white/80" />
+            <ChevronDown className="h-4 w-4 text-black/40" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+        <DropdownMenuContent className="w-56 rounded-none border-black/10 bg-white shadow-none">
           <DropdownMenuItem asChild>
-            <Link to="/appointment-request" className="flex items-center w-full hover:bg-blue-500/10">Request Appointment</Link>
+            <Link to="/appointment-request" className="flex items-center w-full">Request Appointment</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/claimant-reports" className="flex items-center w-full hover:bg-blue-500/10">Claimant Progress Report</Link>
+            <Link to="/claimant-reports" className="flex items-center w-full">Claimant Progress Report</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/referring-attorney-update" className="flex items-center w-full hover:bg-blue-500/10">Assessment Update</Link>
+            <Link to="/referring-attorney-update" className="flex items-center w-full">Assessment Update</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/aod-management" className="flex items-center w-full hover:bg-blue-500/10">AOD Management</Link>
+            <Link to="/aod-management" className="flex items-center w-full">AOD Management</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/debtors-control" className="flex items-center w-full hover:bg-blue-500/10">Debtors Control</Link>
+            <Link to="/debtors-control" className="flex items-center w-full">Debtors Control</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/case-management-reports" className="flex items-center w-full hover:bg-blue-500/10">Case Reports</Link>
+            <Link to="/case-management-reports" className="flex items-center w-full">Case Reports</Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </PermissionGuard>
 
     <PermissionGuard permission="attorney_pitchlog" showAlert={false}>
-      <Button asChild className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-gradient-to-br from-purple-600 to-indigo-600 text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
+      <Button asChild variant="outline" className={menuTileClass}>
         <Link to="/attorney-pitchlog">
-          <Target className="h-6 w-6 text-white" />
+          <Target className="h-6 w-6" style={{ color: BRAND_TEAL }} />
           <span className="text-xs sm:text-sm font-medium text-center leading-tight">Attorney Pitchlog</span>
         </Link>
       </Button>
     </PermissionGuard>
 
     <PermissionGuard permission="manage_appointments" showAlert={false}>
-      <Button asChild className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-gradient-to-br from-kutlwano-blue to-kutlwano-teal text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
+      <Button asChild variant="outline" className={menuTileClass}>
         <Link to="/workflow-automation">
-          <Zap className="h-6 w-6 text-white" />
+          <Zap className="h-6 w-6" style={{ color: BRAND_TEAL }} />
           <span className="text-xs sm:text-sm font-medium text-center leading-tight">Workflow Hub</span>
         </Link>
       </Button>
     </PermissionGuard>
 
     <PermissionGuard permission="view_analytics" showAlert={false}>
-      <Button asChild className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-gradient-to-br from-emerald-600 to-teal-600 text-white hover:opacity-90 hover:scale-105 transition-all duration-300 shadow-md">
+      <Button asChild variant="outline" className={menuTileClass}>
         <Link to="/attorney-referral-intelligence">
-          <BarChart3 className="h-6 w-6 text-white" />
+          <BarChart3 className="h-6 w-6" style={{ color: BRAND_TEAL }} />
           <span className="text-xs sm:text-sm font-medium text-center leading-tight">Referral Intelligence</span>
         </Link>
       </Button>
@@ -235,21 +245,21 @@ const DashboardMenus = () => (
     <PermissionGuard permission="system_admin" showAlert={false}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="min-h-20 h-auto flex flex-col items-center justify-center gap-1 px-2 py-3 bg-red-500 text-white border-red-500 hover:bg-red-600 hover:scale-105 transition-all duration-300 shadow-md">
-            <Settings className="h-6 w-6 text-white" />
+          <Button variant="outline" className={menuTileClass}>
+            <Settings className="h-6 w-6" style={{ color: BRAND_TEAL }} />
             <span className="text-xs sm:text-sm font-medium text-center leading-tight">System Admin</span>
-            <ChevronDown className="h-4 w-4 text-white/80" />
+            <ChevronDown className="h-4 w-4 text-black/40" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 bg-card shadow-elegant border-border/50">
+        <DropdownMenuContent className="w-56 rounded-none border-black/10 bg-white shadow-none">
           <DropdownMenuItem asChild>
-            <Link to="/user-management" className="flex items-center w-full hover:bg-red-500/10">User Management</Link>
+            <Link to="/user-management" className="flex items-center w-full">User Management</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/edit-requests" className="flex items-center w-full hover:bg-red-500/10">Edit Requests</Link>
+            <Link to="/edit-requests" className="flex items-center w-full">Edit Requests</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/audit-trail" className="flex items-center w-full hover:bg-red-500/10">Audit Trail</Link>
+            <Link to="/audit-trail" className="flex items-center w-full">Audit Trail</Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
