@@ -111,16 +111,19 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
     const activityEvents = ['mousedown', 'keydown', 'input', 'touchstart'];
     
     const handleActivity = (e: Event) => {
-      // Only lock on meaningful interactions, not passive scrolling
-      // Also ignore events from modals/dialogs that might be closing
+      // Only lock when the user is actually interacting with a form control
+      // (typing, selecting, editing) — not for clicks on buttons, table rows,
+      // links, or general navigation. Previously `e.type === 'keydown' ||
+      // e.type === 'mousedown'` made this check pass for almost any click or
+      // keypress anywhere on the page, so staff who were simply browsing a
+      // list (not editing anything) were treated as "actively working" and
+      // never got realtime refreshes — that's what made syncing look random.
       const target = e.target as HTMLElement;
       if (target && (
         target.tagName === 'INPUT' ||
         target.tagName === 'TEXTAREA' ||
         target.tagName === 'SELECT' ||
-        target.isContentEditable ||
-        e.type === 'keydown' ||
-        e.type === 'mousedown'
+        target.isContentEditable
       )) {
         lockPage();
       }
