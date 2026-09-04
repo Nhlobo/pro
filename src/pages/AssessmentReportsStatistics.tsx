@@ -424,11 +424,6 @@ const AssessmentReportsStatistics = ({ embedded = false }: { embedded?: boolean 
       setHistoricalData(data.archives || []);
     } catch (error) {
       console.error('Error loading historical data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load historical data",
-        variant: "destructive",
-      });
     }
   };
 
