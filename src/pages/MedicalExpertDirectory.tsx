@@ -587,7 +587,7 @@ const MedicalExpertDirectory = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <Link 
-            to="/" 
+            to="/dashboard" 
             className="inline-flex items-center gap-2 text-primary hover:text-primary/80 mb-4"
           >
             <ArrowLeft className="h-4 w-4" />
