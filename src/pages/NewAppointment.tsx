@@ -2028,7 +2028,7 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
                       asChild={!onCancel}
                       onClick={onCancel}
                     >
-                      {onCancel ? 'Cancel' : <Link to="/">Cancel</Link>}
+                      {onCancel ? 'Cancel' : <Link to="/dashboard">Cancel</Link>}
                     </Button>
                   </>
                 ) : (
