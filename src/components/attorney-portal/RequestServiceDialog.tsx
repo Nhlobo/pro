@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -168,16 +168,19 @@ export default function RequestServiceDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Request {label}</DialogTitle>
-          <DialogDescription>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-lg"
+      >
+        <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+          <SheetTitle>Request {label}</SheetTitle>
+          <SheetDescription>
             {claimantName ? `For claimant: ${claimantName}` : 'Please provide details for this request.'}
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <div className="space-y-4">
+        <div className="flex-1 space-y-4 px-4 py-4 sm:px-6">
           {serviceType !== 'appointment' && (
             <div className="space-y-2">
               <Label>Urgency</Label>
@@ -205,7 +208,7 @@ export default function RequestServiceDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <SheetFooter className="border-t border-black/10 px-4 py-4 sm:px-6">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
@@ -213,8 +216,8 @@ export default function RequestServiceDialog({
             {submitting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Send className="h-4 w-4 mr-1" />}
             Submit Request
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }
