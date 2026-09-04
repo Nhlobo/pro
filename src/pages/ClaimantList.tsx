@@ -120,23 +120,27 @@ const ClaimantList: React.FC<ClaimantListProps> = ({ embedded = false }) => {
   useEffect(() => {
     fetchClaimants();
 
-    // Set up real-time subscription for new claimants
+    // Set up real-time subscription for claimant changes (insert, update, delete).
+    // Previously this only listened for INSERT, so editing or deleting a
+    // claimant never refreshed this list for anyone already on the page.
     const channel = supabase
       .channel('claimants-changes')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'claimants'
         },
         (payload) => {
-          console.log('New claimant added:', payload);
-          fetchClaimants(); // Refresh the list when new claimant is added
-          toast({
-            title: "New claimant added",
-            description: `${payload.new.first_name} ${payload.new.last_name} has been added to the list.`,
-          });
+          console.log('Claimant change received:', payload);
+          fetchClaimants(); // Refresh the list on any insert/update/delete
+          if (payload.eventType === 'INSERT' && payload.new) {
+            toast({
+              title: "New claimant added",
+              description: `${payload.new.first_name} ${payload.new.last_name} has been added to the list.`,
+            });
+          }
         }
       )
       .subscribe();
