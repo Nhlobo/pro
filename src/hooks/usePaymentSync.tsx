@@ -141,38 +141,46 @@ export const syncAODPaymentToAppointments = async (
       if (appointments && appointments.length > 0) {
         const paymentPerReport = paymentAmount / reportsCount;
 
-        for (const appointment of appointments) {
-          const currentDeposit = appointment.deposit_amount || 0;
-          const serviceFee = appointment.service_fee || 0;
-          const newDepositAmount = currentDeposit + paymentPerReport;
+        // Fire the appointment + expert_report updates for every affected
+        // appointment concurrently instead of one-at-a-time — each pair is
+        // independent (no shared running total), so there's no correctness
+        // reason to serialize them, and serializing was the main source of
+        // "sync takes a while" on payments that cover several reports.
+        await Promise.all(
+          appointments.map(async (appointment) => {
+            const currentDeposit = appointment.deposit_amount || 0;
+            const serviceFee = appointment.service_fee || 0;
+            const newDepositAmount = currentDeposit + paymentPerReport;
 
-          let newPaymentStatus = 'pending';
-          if (newDepositAmount > 0) {
-            newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
-          }
+            let newPaymentStatus = 'pending';
+            if (newDepositAmount > 0) {
+              newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
+            }
 
-          await supabase
-            .from('appointments')
-            .update({
-              deposit_amount: newDepositAmount,
-              payment_status: newPaymentStatus,
-              payment_date: paymentDate
-            })
-            .eq('id', appointment.id);
+            await Promise.all([
+              supabase
+                .from('appointments')
+                .update({
+                  deposit_amount: newDepositAmount,
+                  payment_status: newPaymentStatus,
+                  payment_date: paymentDate
+                })
+                .eq('id', appointment.id),
+              // Update expert report status
+              supabase
+                .from('expert_reports')
+                .update({
+                  report_status: 'taken_out',
+                  payment_status: 'paid',
+                  payment_date: paymentDate,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('appointment_id', appointment.id),
+            ]);
+          })
+        );
 
-          // Update expert report status
-          await supabase
-            .from('expert_reports')
-            .update({
-              report_status: 'taken_out',
-              payment_status: 'paid',
-              payment_date: paymentDate,
-              updated_at: new Date().toISOString()
-            })
-            .eq('appointment_id', appointment.id);
-
-          results.appointmentsSynced++;
-        }
+        results.appointmentsSynced = appointments.length;
       }
     }
 
@@ -251,38 +259,44 @@ export const syncShortTermPaymentToAppointments = async (
       if (appointments && appointments.length > 0) {
         const paymentPerReport = paymentAmount / reportsCount;
 
-        for (const appointment of appointments) {
-          const currentDeposit = appointment.deposit_amount || 0;
-          const serviceFee = appointment.service_fee || 0;
-          const newDepositAmount = currentDeposit + paymentPerReport;
+        // Same parallelization as the AOD sync path above — these updates
+        // are independent per appointment, so run them concurrently instead
+        // of one-at-a-time.
+        await Promise.all(
+          appointments.map(async (appointment) => {
+            const currentDeposit = appointment.deposit_amount || 0;
+            const serviceFee = appointment.service_fee || 0;
+            const newDepositAmount = currentDeposit + paymentPerReport;
 
-          let newPaymentStatus = 'pending';
-          if (newDepositAmount > 0) {
-            newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
-          }
+            let newPaymentStatus = 'pending';
+            if (newDepositAmount > 0) {
+              newPaymentStatus = newDepositAmount >= serviceFee ? 'full_payment' : 'deposit';
+            }
 
-          await supabase
-            .from('appointments')
-            .update({
-              deposit_amount: newDepositAmount,
-              payment_status: newPaymentStatus,
-              payment_date: paymentDate
-            })
-            .eq('id', appointment.id);
+            await Promise.all([
+              supabase
+                .from('appointments')
+                .update({
+                  deposit_amount: newDepositAmount,
+                  payment_status: newPaymentStatus,
+                  payment_date: paymentDate
+                })
+                .eq('id', appointment.id),
+              // Update expert report status
+              supabase
+                .from('expert_reports')
+                .update({
+                  report_status: 'taken_out',
+                  payment_status: 'paid',
+                  payment_date: paymentDate,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('appointment_id', appointment.id),
+            ]);
+          })
+        );
 
-          // Update expert report status
-          await supabase
-            .from('expert_reports')
-            .update({
-              report_status: 'taken_out',
-              payment_status: 'paid',
-              payment_date: paymentDate,
-              updated_at: new Date().toISOString()
-            })
-            .eq('appointment_id', appointment.id);
-
-          results.appointmentsSynced++;
-        }
+        results.appointmentsSynced = appointments.length;
       }
     } else if (paymentType === 'deposit') {
       // Deposit — update the deposit on the oldest unpaid short-term appointment
@@ -437,7 +451,7 @@ export const recalculateAODFromAppointments = async (
   try {
     const { data: aodDoc } = await supabase
       .from('aod_documents')
-      .select('total_contract_value, deposit_amount, payment_status, last_payment_date, notes, payments_made, linked_appointment_ids')
+      .select('total_contract_value, deposit_amount, payment_status, last_payment_date, notes, payments_made, linked_appointment_ids, discount_amount, total_reports_agreed, reports_released')
       .eq('id', aodDocumentId)
       .single();
 
@@ -474,18 +488,42 @@ export const recalculateAODFromAppointments = async (
     }
 
     const { totalDebt, totalDiscount, totalPaid, paymentStatus, lastPaymentDate } = computeStatusFromAppointments(appts);
+    const newPaymentsMade = Math.max(0, totalPaid - (aodDoc.deposit_amount || 0));
+    const newReportsReleased = appts.filter((a) => a.payment_status === 'full_payment').length;
+    const newLastPaymentDate = lastPaymentDate || aodDoc.last_payment_date;
+
+    // Skip the write entirely when nothing actually changed. This function
+    // runs after every finance-page load (and after every realtime event
+    // it can trigger), so an unconditional update — even one that only
+    // bumps updated_at — turns into an infinite refresh loop: write →
+    // postgres_changes fires → the page's realtime subscription refetches
+    // → this recalculation runs again → write again. A ~0.01 tolerance
+    // absorbs float rounding on the money fields; everything else compares
+    // exactly.
+    const EPS = 0.01;
+    const unchanged =
+      Math.abs(Number(aodDoc.total_contract_value || 0) - totalDebt) <= EPS &&
+      Math.abs(Number(aodDoc.deposit_amount || 0) - totalPaid) <= EPS &&
+      Math.abs(Number(aodDoc.payments_made || 0) - newPaymentsMade) <= EPS &&
+      Math.abs(Number(aodDoc.discount_amount || 0) - totalDiscount) <= EPS &&
+      Number(aodDoc.total_reports_agreed || 0) === appts.length &&
+      Number(aodDoc.reports_released || 0) === newReportsReleased &&
+      (aodDoc.payment_status || null) === (paymentStatus || null) &&
+      (aodDoc.last_payment_date || null) === (newLastPaymentDate || null);
+
+    if (unchanged) return;
 
     await supabase
       .from('aod_documents')
       .update({
         total_contract_value: totalDebt,
         deposit_amount: totalPaid, // treat all confirmed payments as deposit/payments captured
-        payments_made: Math.max(0, totalPaid - (aodDoc.deposit_amount || 0)),
+        payments_made: newPaymentsMade,
         discount_amount: totalDiscount,
         total_reports_agreed: appts.length,
-        reports_released: appts.filter((a) => a.payment_status === 'full_payment').length,
+        reports_released: newReportsReleased,
         payment_status: paymentStatus,
-        last_payment_date: lastPaymentDate || aodDoc.last_payment_date,
+        last_payment_date: newLastPaymentDate,
         updated_at: new Date().toISOString(),
       } as any)
       .eq('id', aodDocumentId);
@@ -502,7 +540,7 @@ export const recalculateShortTermFromAppointments = async (
   try {
     const { data: agreement } = await supabase
       .from('short_term_agreements')
-      .select('total_contract_value, deposit_amount, payments_made, payment_status, notes, linked_appointment_ids')
+      .select('total_contract_value, deposit_amount, payments_made, payment_status, notes, linked_appointment_ids, discount_amount, total_reports_agreed, reports_completed, last_payment_date')
       .eq('id', agreementId)
       .single();
 
@@ -531,16 +569,35 @@ export const recalculateShortTermFromAppointments = async (
     }
 
     const { totalDebt, totalDiscount, totalPaid, paymentStatus, lastPaymentDate } = computeStatusFromAppointments(appts);
+    const newPaymentsMade = Math.max(0, totalPaid - Number(agreement.deposit_amount || 0));
+    const newReportsCompleted = appts.filter((a) => a.payment_status === 'full_payment').length;
+
+    // Same dirty-check as recalculateAODFromAppointments — this runs after
+    // every finance-page load, so writing unconditionally (even just to
+    // bump updated_at) triggers a realtime event that refetches the page,
+    // which runs this again, forever.
+    const EPS = 0.01;
+    const unchanged =
+      Math.abs(Number(agreement.total_contract_value || 0) - totalDebt) <= EPS &&
+      Math.abs(Number(agreement.deposit_amount || 0) - totalPaid) <= EPS &&
+      Math.abs(Number(agreement.payments_made || 0) - newPaymentsMade) <= EPS &&
+      Math.abs(Number(agreement.discount_amount || 0) - totalDiscount) <= EPS &&
+      Number(agreement.total_reports_agreed || 0) === appts.length &&
+      Number(agreement.reports_completed || 0) === newReportsCompleted &&
+      (agreement.payment_status || null) === (paymentStatus || null) &&
+      (agreement.last_payment_date || null) === (lastPaymentDate || null);
+
+    if (unchanged) return;
 
     await supabase
       .from('short_term_agreements')
       .update({
         total_contract_value: totalDebt,
         deposit_amount: totalPaid,
-        payments_made: Math.max(0, totalPaid - Number(agreement.deposit_amount || 0)),
+        payments_made: newPaymentsMade,
         discount_amount: totalDiscount,
         total_reports_agreed: appts.length,
-        reports_completed: appts.filter((a) => a.payment_status === 'full_payment').length,
+        reports_completed: newReportsCompleted,
         payment_status: paymentStatus,
         last_payment_date: lastPaymentDate,
         updated_at: new Date().toISOString(),
