@@ -82,7 +82,10 @@ const ExternalPortalManagementLayout: React.FC<Props> = ({ children, description
           const tab = visibleTabs.find((t) => t.value === v);
           if (tab) navigate(BASE + tab.path);
         }}>
-          <AdminTabList>
+          {/* alwaysScroll: nine tabs (admin) don't fit one row past mobile
+              width — without this the row overflows the page itself
+              instead of scrolling within its own bounds. */}
+          <AdminTabList alwaysScroll>
             {visibleTabs.map((t) => (
               <AdminTabTrigger key={t.value} value={t.value} label={t.label} icon={t.icon} />
             ))}
