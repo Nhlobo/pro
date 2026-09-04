@@ -418,7 +418,7 @@ const ClaimantForm: React.FC<ClaimantFormProps> = ({ embedded = false, onSaved }
                      <Link to="/claimant-list">View Claimant List</Link>
                    </Button>
                    <Button asChild variant="outline" className="rounded-none">
-                     <Link to="/">Back to Dashboard</Link>
+                     <Link to="/dashboard">Back to Dashboard</Link>
                    </Button>
                  </>
                )}
