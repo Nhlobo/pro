@@ -408,13 +408,17 @@ const AssessmentReportsStatistics = ({ embedded = false }: { embedded?: boolean 
 
   const loadHistoricalData = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('archive-assessment-data', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: { period_type: selectedPeriod }
-      });
+      // GET requests can't carry a fetch body — browsers throw
+      // "Request with GET/HEAD method cannot have body" before this even
+      // reaches the network, which is exactly what was surfacing as
+      // "Failed to load historical data" on every load. The function's
+      // GET branch reads period_type from the URL query string anyway
+      // (see supabase/functions/archive-assessment-data), so send it
+      // there instead of in a body.
+      const { data, error } = await supabase.functions.invoke(
+        `archive-assessment-data?period_type=${encodeURIComponent(selectedPeriod)}`,
+        { method: 'GET' }
+      );
 
       if (error) throw error;
       setHistoricalData(data.archives || []);
