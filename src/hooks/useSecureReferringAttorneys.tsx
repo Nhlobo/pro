@@ -23,7 +23,7 @@ export const useSecureReferringAttorneys = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { isPageLocked, isActiveTab } = useAppointmentSync();
+  const { isPageLocked, isActiveTab, lastUpdate } = useAppointmentSync();
   const initialFetchDone = useRef(false);
 
   const fetchReferringAttorneys = async () => {
@@ -88,6 +88,14 @@ export const useSecureReferringAttorneys = () => {
       fetchReferringAttorneys();
     }
   }, [isActiveTab, isPageLocked]);
+
+  useEffect(() => {
+    // Refresh on realtime sync tick (referring_attorneys is now on the sync channel).
+    // fetchReferringAttorneys() already skips the call internally if the page is locked.
+    if (initialFetchDone.current) {
+      fetchReferringAttorneys();
+    }
+  }, [lastUpdate]);
 
   return {
     referringAttorneys,
