@@ -282,6 +282,27 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
           }
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'claimants' },
+        (payload) => {
+          handleRealtimeUpdate('claimants', payload);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'medical_experts' },
+        (payload) => {
+          handleRealtimeUpdate('medical_experts', payload);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'referring_attorneys' },
+        (payload) => {
+          handleRealtimeUpdate('referring_attorneys', payload);
+        }
+      )
       .subscribe((status) => {
         console.log('Realtime subscription status:', status);
         
