@@ -219,12 +219,26 @@ const Auth = () => {
 
     try {
       const redirectTo = `${window.location.origin}/reset-password`;
-      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, { redirectTo });
+      const { data, error } = await supabase.functions.invoke('request-password-reset', {
+        body: { email: cleanEmail, redirectTo },
+      });
       if (error) {
-        setError(error.message);
+        // Edge function returns a JSON envelope with a friendly message
+        // (including for 429 rate-limit responses) — surface that if present.
+        let message = 'Unable to send a reset link right now. Please try again.';
+        const ctx = (error as { context?: Response }).context;
+        if (ctx) {
+          try {
+            const body = await ctx.clone().json();
+            if (body?.error?.message) message = body.error.message;
+          } catch {
+            // non-JSON error body — fall back to the generic message above
+          }
+        }
+        setError(message);
         return;
       }
-      toast({ title: 'Reset link sent', description: 'Check your email for the password reset link.' });
+      toast({ title: 'Reset link sent', description: data?.data?.message ?? 'If an account exists for this address, check your email for the reset link.' });
       setAuthMode('sign-in');
     } catch {
       setError('Unable to send a reset link right now. Please try again.');
