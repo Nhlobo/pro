@@ -36,6 +36,13 @@ const MetricTile: React.FC<{
 );
 
 interface SalesConsultantStatsProps {
+  // Auth user id of the person these stats belong to (i.e. whose
+  // sales_consultants row to look up). This is the reliable identifier —
+  // firstName/lastName are a display fallback only, for the legacy path in
+  // useSalesConsultantStats. See that hook for why this matters: name
+  // matching alone can miss or misattribute data once RLS is scoped by
+  // consultant_id.
+  userId: string | undefined;
   firstName: string;
   lastName?: string;
 }
@@ -46,8 +53,8 @@ interface SalesConsultantStatsProps {
 // else's profile. (A second, "new-system-styled" component that supposedly
 // shared this hook, SalesConsultantPitchActivity, was never actually
 // wired up anywhere — removed 2026-09-01.)
-const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ firstName, lastName }) => {
-  const { consultantName, stats, isLoading } = useSalesConsultantStats(firstName, lastName);
+const SalesConsultantStats: React.FC<SalesConsultantStatsProps> = ({ userId, firstName, lastName }) => {
+  const { consultantName, stats, isLoading } = useSalesConsultantStats(userId, firstName, lastName);
 
   if (!consultantName) return null;
   if (isLoading) {
