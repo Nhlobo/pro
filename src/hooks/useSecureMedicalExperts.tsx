@@ -32,7 +32,7 @@ export const useSecureMedicalExperts = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { isPageLocked, isActiveTab } = useAppointmentSync();
+  const { isPageLocked, isActiveTab, lastUpdate } = useAppointmentSync();
   const initialFetchDone = useRef(false);
 
   const fetchExperts = async (forceRefresh = false) => {
@@ -100,6 +100,14 @@ export const useSecureMedicalExperts = () => {
       fetchExperts();
     }
   }, [isActiveTab, isPageLocked]);
+
+  useEffect(() => {
+    // Refresh on realtime sync tick (medical_experts is now on the sync channel).
+    // fetchExperts() already skips the call internally if the page is locked.
+    if (initialFetchDone.current) {
+      fetchExperts();
+    }
+  }, [lastUpdate]);
 
   // Listen for expert profile/fee updates dispatched by MedicalExpertFormPage
   useEffect(() => {
