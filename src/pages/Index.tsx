@@ -7,7 +7,7 @@ import { Helmet } from "react-helmet-async";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminCard, AdminCardHeader, AdminCardBody } from "@/components/admin/ui/AdminUI";
 import { BarChart3, Target, Users } from "lucide-react";
 import SalesConsultantStats from "@/components/SalesConsultantStats";
 import CompanyFooter from "@/components/CompanyFooter";
@@ -139,24 +139,24 @@ const Index = () => {
         <Helmet>
           <title>Account Setup Required - Medico-Legal Assessment System</title>
         </Helmet>
-        <Card className="max-w-md w-full bg-gradient-card border-border/50 shadow-soft">
-          <CardHeader>
-            <CardTitle>We couldn't confirm your access level</CardTitle>
-            <CardDescription className="mt-2">
+        <AdminCard className="max-w-md w-full">
+          <AdminCardHeader title="We couldn't confirm your access level" />
+          <AdminCardBody className="space-y-4">
+            <p className="text-xs text-slate-500 md:text-sm">
               Your account is signed in, but no role is currently assigned to it. This should not happen for an
               account added by an administrator — please contact your system administrator so they can check your
               role in User Management, or try refreshing below.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col sm:flex-row gap-2">
-            <Button onClick={() => refetch()} className="gap-2">
-              Try again
-            </Button>
-            <Button variant="outline" onClick={() => signOut()}>
-              Sign out
-            </Button>
-          </CardContent>
-        </Card>
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button onClick={() => refetch()} className="gap-2 rounded-none">
+                Try again
+              </Button>
+              <Button variant="outline" onClick={() => signOut()} className="rounded-none">
+                Sign out
+              </Button>
+            </div>
+          </AdminCardBody>
+        </AdminCard>
       </div>
     );
   }
@@ -179,33 +179,26 @@ const Index = () => {
             <WelcomeSection onRefresh={handleRefresh} refreshing={refreshing} />
 
             {salesConsultant && userProfile?.first_name && (
-              <Card className="bg-gradient-card border-border/50 shadow-soft">
-                <CardHeader>
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-lg">
-                        <Target className="h-5 w-5 text-primary" />
-                        Welcome back, {userProfile.first_name}!
-                      </CardTitle>
-                      <CardDescription className="mt-1">
-                        Your personal sales performance — Deals Closed are pulled live from Scheduled Assessment
-                        Appointments and stay in sync with the Sales Dashboard and Attorney Pitchlog.
-                      </CardDescription>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button size="sm" onClick={() => navigate("/sales-dashboard")} className="gap-1">
+              <AdminCard>
+                <AdminCardHeader
+                  icon={Target}
+                  title={`Welcome back, ${userProfile.first_name}!`}
+                  description="Your personal sales performance — Deals Closed are pulled live from Scheduled Assessment Appointments and stay in sync with the Sales Dashboard and Attorney Pitchlog."
+                  actions={
+                    <>
+                      <Button size="sm" onClick={() => navigate("/sales-dashboard")} className="gap-1 rounded-none">
                         <BarChart3 className="h-4 w-4" /> My Sales Dashboard
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => navigate("/attorney-pitchlog")} className="gap-1">
+                      <Button size="sm" variant="outline" onClick={() => navigate("/attorney-pitchlog")} className="gap-1 rounded-none">
                         <Users className="h-4 w-4" /> Attorney Pitchlog
                       </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
+                    </>
+                  }
+                />
+                <AdminCardBody>
                   <SalesConsultantStats firstName={userProfile.first_name} lastName={userProfile.last_name} />
-                </CardContent>
-              </Card>
+                </AdminCardBody>
+              </AdminCard>
             )}
 
             {!salesConsultant && <DashboardStatsGrid stats={stats} loading={statsLoading} />}
