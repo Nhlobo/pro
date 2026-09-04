@@ -34,6 +34,7 @@ import {
   X,
   UserCog,
   UserX,
+  Send,
 } from 'lucide-react';
 import {
   AdminPage,
@@ -141,6 +142,7 @@ interface LitigationRequest {
   assigned_to: string | null;
   assigned_at: string | null;
   cancellation_reason: string | null;
+  cancelled_by_requester: boolean;
 }
 
 interface ResolvedCase {
@@ -244,6 +246,12 @@ const AdminLitigationRequests: React.FC = () => {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [attachTargetId, setAttachTargetId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Attaching a document doesn't by itself change status, so it never
+  // triggered notifyRequesterOfStatusChange — the attorney had no way to
+  // know a document was ready short of reloading the portal. This tracks
+  // an in-flight "notify attorney a document is available" send.
+  const [notifyingDocId, setNotifyingDocId] = useState<string | null>(null);
 
   const [statusTab, setStatusTab] = useState('all');
   const [serviceTypeFilter, setServiceTypeFilter] = useState('all');
@@ -417,6 +425,7 @@ const AdminLitigationRequests: React.FC = () => {
       assigned_to?: string | null;
       assigned_at?: string | null;
       cancellation_reason?: string | null;
+      cancelled_by_requester?: boolean;
     },
   ) => {
     setSavingId(id);
@@ -466,14 +475,24 @@ const AdminLitigationRequests: React.FC = () => {
     }
     // Leaving "Cancelled" for another status clears the old reason —
     // it no longer describes the request's current state.
-    const changes: { status: string; cancellation_reason?: string | null } = { status: newStatus };
-    if (r.status === 'cancelled') changes.cancellation_reason = null;
+    const changes: { status: string; cancellation_reason?: string | null; cancelled_by_requester?: boolean } = { status: newStatus };
+    if (r.status === 'cancelled') {
+      changes.cancellation_reason = null;
+      changes.cancelled_by_requester = false;
+    }
     updateRequest(r.id, changes);
   };
 
   const handleCancelConfirm = async () => {
     if (!cancelTargetId || !cancelReason.trim()) return;
-    await updateRequest(cancelTargetId, { status: 'cancelled', cancellation_reason: cancelReason.trim() });
+    // Explicitly false: a staff cancellation, even one re-applied after
+    // an earlier attorney cancellation was reopened, is never attorney-
+    // initiated — don't let a stale true from a prior cycle stick.
+    await updateRequest(cancelTargetId, {
+      status: 'cancelled',
+      cancellation_reason: cancelReason.trim(),
+      cancelled_by_requester: false,
+    });
     setCancelTargetId(null);
     setCancelReason('');
   };
@@ -566,6 +585,30 @@ const AdminLitigationRequests: React.FC = () => {
     } catch (err) {
       console.error('Error downloading litigation request document:', err);
       toast({ title: 'Error', description: 'Could not open the document.', variant: 'destructive' });
+    }
+  };
+
+  // Lets staff explicitly tell the attorney a response document is
+  // ready, without forcing an unrelated status change to do it. Reuses
+  // notify-litigation-request-status-change (oldStatus === newStatus,
+  // so the email reads as a same-status update) rather than a new edge
+  // function, since the only difference is the note text.
+  const handleNotifyDocument = async (r: LitigationRequest) => {
+    if (!r.response_document_path) return;
+    setNotifyingDocId(r.id);
+    try {
+      await notifyRequesterOfStatusChange(
+        r,
+        r.status,
+        r.status,
+        `A response document ("${r.response_document_name}") is now available for download.`,
+      );
+      toast({ title: 'Attorney notified', description: 'They will receive an email that the document is ready.' });
+    } catch (err) {
+      console.error('Failed to notify attorney of document:', err);
+      toast({ title: 'Error', description: 'Could not notify the attorney.', variant: 'destructive' });
+    } finally {
+      setNotifyingDocId(null);
     }
   };
 
@@ -772,7 +815,9 @@ const AdminLitigationRequests: React.FC = () => {
                           {r.status === 'cancelled' && r.cancellation_reason && (
                             <p className="mt-1 flex items-start gap-1 text-xs text-destructive">
                               <Ban className="mt-0.5 h-3 w-3 shrink-0" />
-                              <span>Cancelled: {r.cancellation_reason}</span>
+                              <span>
+                                {r.cancelled_by_requester ? 'Cancelled by attorney' : 'Cancelled'}: {r.cancellation_reason}
+                              </span>
                             </p>
                           )}
                           <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-400">
@@ -855,6 +900,18 @@ const AdminLitigationRequests: React.FC = () => {
                               <X className="h-3.5 w-3.5" />
                             </button>
                           </div>
+                        )}
+                        {r.response_document_path && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-none gap-1"
+                            disabled={notifyingDocId === r.id}
+                            onClick={() => handleNotifyDocument(r)}
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            {notifyingDocId === r.id ? 'Sending…' : 'Notify attorney'}
+                          </Button>
                         )}
                       </div>
 
