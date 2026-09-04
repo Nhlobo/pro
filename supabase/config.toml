@@ -120,6 +120,9 @@ verify_jwt = false  # Access code validated in code
 [functions.submit-litigation-service-request]
 verify_jwt = false  # Access code validated in code (same pattern as submit-appointment-request)
 
+[functions.notify-litigation-request-status-change]
+verify_jwt = false  # Called from AdminLitigationRequests.tsx by any authenticated staff member; no sensitive action taken, only queues an email
+
 [functions.remind-pending-payment-approvals]
 verify_jwt = false  # Called by pg_cron
 
