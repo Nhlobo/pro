@@ -264,20 +264,38 @@ export const AdminTabList: React.FC<{
   sticky?: boolean;
   /** Lay out triggers as an even grid on ≥sm instead of left-aligned flow. */
   columns?: number;
-}> = ({ children, className, sticky, columns }) => (
+  /**
+   * Keep the bar horizontally scrollable within its own bounds at every
+   * breakpoint, instead of switching to an unclipped full-width row at
+   * sm+. Without this, a tab list with enough triggers that they don't
+   * comfortably fit one row on a tablet/small-desktop width overflows the
+   * page itself (forcing the whole app to scroll sideways) rather than
+   * scrolling internally. Use this instead of `columns` when there are
+   * too many tabs, or labels too long, for an even grid to stay legible.
+   */
+  alwaysScroll?: boolean;
+}> = ({ children, className, sticky, columns, alwaysScroll }) => (
   <div
     className={cn(
-      '-mx-3 overflow-x-auto px-3 sm:mx-0 sm:overflow-visible sm:px-0',
+      alwaysScroll
+        // No edge-bleed trick here: -mx-3/px-3 only cancels out cleanly
+        // when an ancestor supplies matching padding, which isn't
+        // guaranteed at every breakpoint here. Plain overflow-x-auto
+        // keeps the bar inside its normal container width — contained
+        // scroll, never past the page edge.
+        ? 'overflow-x-auto'
+        : '-mx-3 overflow-x-auto px-3 sm:mx-0 sm:overflow-visible sm:px-0',
       sticky && 'sticky top-0 z-20 -mt-px bg-white/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80'
     )}
   >
     <TabsList
       className={cn(
-        'flex h-auto w-max min-w-full items-stretch gap-1 rounded-none border border-black/10 bg-white p-1 sm:w-full',
-        columns && `sm:grid sm:w-full sm:min-w-0`,
+        'flex h-auto w-max min-w-full items-stretch gap-1 rounded-none border border-black/10 bg-white p-1',
+        !alwaysScroll && 'sm:w-full',
+        columns && !alwaysScroll && `sm:grid sm:w-full sm:min-w-0`,
         className
       )}
-      style={columns ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } : undefined}
+      style={columns && !alwaysScroll ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } : undefined}
     >
       {children}
     </TabsList>
