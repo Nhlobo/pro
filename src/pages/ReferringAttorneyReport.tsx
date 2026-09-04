@@ -654,7 +654,7 @@ const ReferringAttorneyReport = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Button variant="outline" size="sm" asChild>
-                <Link to="/">
+                <Link to="/dashboard">
                   <ArrowLeft className="h-4 w-4 mr-2" />
                   Back to Dashboard
                 </Link>
