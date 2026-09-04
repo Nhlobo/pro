@@ -10,9 +10,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
 import {
   Scale, FileText, Users, BookOpen, Gavel, FileCheck,
-  Plus, Clock, CheckCircle2, AlertCircle, Loader2, Send, Download
+  Plus, Clock, CheckCircle2, AlertCircle, Loader2, Send, Download, Ban, XCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -29,6 +30,8 @@ interface ServiceRequest {
   notes: string | null;
   response_document_path: string | null;
   response_document_name: string | null;
+  cancellation_reason: string | null;
+  cancelled_by_requester: boolean;
 }
 
 // Storage bucket the admin side uploads response documents to
@@ -110,6 +113,13 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
   const [submitting, setSubmitting] = useState(false);
   const [selectedService, setSelectedService] = useState('');
 
+  // Self-service cancel — only ever available while a request is still
+  // Pending (see attorney_cancel_litigation_service_request RPC, which
+  // enforces the same rule server-side).
+  const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+
   const [formData, setFormData] = useState({
     serviceType: '',
     claimantName: '',
@@ -151,6 +161,27 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
     } catch (err) {
       console.error('Error downloading response document:', err);
       toast({ title: 'Error', description: 'Could not open the document.', variant: 'destructive' });
+    }
+  };
+
+  const handleCancelRequest = async () => {
+    if (!cancelTargetId || !cancelReason.trim()) return;
+    setCancelling(true);
+    try {
+      const { error } = await supabase.rpc('attorney_cancel_litigation_service_request' as any, {
+        p_id: cancelTargetId,
+        p_reason: cancelReason.trim(),
+      } as any);
+      if (error) throw error;
+      toast({ title: 'Request cancelled', description: 'We\u2019ve cancelled this request.' });
+      setCancelTargetId(null);
+      setCancelReason('');
+      fetchRequests();
+    } catch (err: any) {
+      console.error('Error cancelling service request:', err);
+      toast({ title: 'Error', description: err.message || 'Could not cancel this request.', variant: 'destructive' });
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -321,21 +352,42 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
                         {req.description && (
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{req.description}</p>
                         )}
+                        {req.status === 'cancelled' && req.cancellation_reason && (
+                          <p className="mt-1 flex items-start gap-1 text-xs text-destructive">
+                            <Ban className="mt-0.5 h-3 w-3 shrink-0" />
+                            <span>
+                              {req.cancelled_by_requester ? 'Cancelled by you' : 'Cancelled'}: {req.cancellation_reason}
+                            </span>
+                          </p>
+                        )}
                         <p className="text-[10px] text-muted-foreground mt-1">
                           Requested: {format(new Date(req.requested_at), 'dd MMM yyyy HH:mm')}
                           {req.completed_at && <> • Completed: {format(new Date(req.completed_at), 'dd MMM yyyy')}</>}
                         </p>
-                        {req.response_document_path && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="mt-1.5 h-7 gap-1.5 px-2 text-xs text-primary"
-                            onClick={() => handleDownloadResponse(req)}
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            {req.response_document_name || 'Download document'}
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {req.response_document_path && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="mt-1.5 h-7 gap-1.5 px-2 text-xs text-primary"
+                              onClick={() => handleDownloadResponse(req)}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              {req.response_document_name || 'Download document'}
+                            </Button>
+                          )}
+                          {req.status === 'pending' && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="mt-1.5 h-7 gap-1.5 px-2 text-xs text-destructive hover:text-destructive"
+                              onClick={() => { setCancelReason(''); setCancelTargetId(req.id); }}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              Cancel request
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -429,6 +481,47 @@ export const LitigationTrialServices: React.FC<LitigationTrialServicesProps> = (
             <Button onClick={handleSubmitRequest} disabled={submitting || !formData.claimantName || !formData.serviceType}>
               {submitting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
               Submit Request
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+
+      {/* Cancel Request Sheet */}
+      <Sheet open={!!cancelTargetId} onOpenChange={(open) => { if (!open) { setCancelTargetId(null); setCancelReason(''); } }}>
+        <SheetContent
+          side="right"
+          className="flex h-full w-full flex-col overflow-y-auto rounded-none border-black/10 p-0 shadow-none sm:max-w-lg"
+        >
+          <SheetHeader className="border-b border-black/10 px-4 py-4 text-left sm:px-6">
+            <SheetTitle className="flex items-center gap-2">
+              <Ban className="h-5 w-5 text-destructive" />
+              Cancel this request?
+            </SheetTitle>
+            <SheetDescription>
+              Let us know why so we can action it correctly if you request something similar again.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 space-y-2 px-4 py-4 sm:px-6">
+            <Label htmlFor="attorney-cancel-reason">Cancellation reason</Label>
+            <Textarea
+              id="attorney-cancel-reason"
+              value={cancelReason}
+              onChange={e => setCancelReason(e.target.value)}
+              placeholder="e.g. No longer needed, submitted in error, claimant matter resolved…"
+              rows={4}
+            />
+          </div>
+          <SheetFooter className="border-t border-black/10 px-4 py-4 sm:px-6">
+            <Button variant="outline" onClick={() => { setCancelTargetId(null); setCancelReason(''); }}>
+              Back
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelRequest}
+              disabled={!cancelReason.trim() || cancelling}
+            >
+              {cancelling ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Ban className="h-4 w-4 mr-2" />}
+              Cancel Request
             </Button>
           </SheetFooter>
         </SheetContent>
