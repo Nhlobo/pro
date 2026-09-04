@@ -7,7 +7,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X, Landmark, FileStack, History, Receipt } from "lucide-react";
 import { toast } from 'sonner';
-import { recalculateAODFromAppointments, recalculateShortTermFromAppointments } from '@/hooks/usePaymentSync';
+import { recalculateAODFromAppointments, recalculateShortTermFromAppointments, backfillShortTermAgreementsFromAppointments } from '@/hooks/usePaymentSync';
 import { RegularPaymentDialog } from '@/components/RegularPaymentDialog';
 import FinanceAuditTrail from '@/components/FinanceAuditTrail';
 import InternalInvoicesTable from '@/components/admin/finance/InternalInvoicesTable';
@@ -80,6 +80,12 @@ const AdminFinance: React.FC = () => {
   const [shortTermError, setShortTermError] = useState<string | null>(null);
 
   const [syncing, setSyncing] = useState(false);
+  // True only while the quiet background recalculation pass (below) is
+  // running after the first paint. Surfaced as a small "Syncing…" hint on
+  // the summary cards instead of letting the totals silently jump to a
+  // different number a second or two after load — same data, but the
+  // person now sees *why* it moved instead of it looking like a glitch.
+  const [backgroundSyncing, setBackgroundSyncing] = useState(false);
   const [attorneySearchDraft, setAttorneySearchDraft] = useState('');
   const [attorneySearch, setAttorneySearch] = useState('');
 
@@ -166,7 +172,18 @@ const AdminFinance: React.FC = () => {
     // discount captured on Scheduled Assessment is reflected here — but as a
     // quiet follow-up refresh, not something the page has to wait on.
     (async () => {
+      setBackgroundSyncing(true);
       try {
+        // Short-term agreements are only ever created by the New Appointment
+        // form's own insert. An appointment booked any other way (bulk/CSV
+        // upload, direct import, or a payment-terms edit after booking)
+        // never gets a matching agreement row, so it silently never showed
+        // up on this tab even though it's a real short-term matter. This
+        // catches those up before recalculating totals. It's a no-op for
+        // finance/director users — creating agreement rows needs the
+        // admin/employee write policy — so it only actually runs (and only
+        // needs to) when an admin or employee has the page open.
+        await backfillShortTermAgreementsFromAppointments();
         await Promise.all([
           ...filtered.map((d) => recalculateAODFromAppointments(d.id, d.referring_attorney_id)),
           ...filteredShortTerm.map((d) => recalculateShortTermFromAppointments(d.id, d.referring_attorney_id)),
@@ -184,6 +201,8 @@ const AdminFinance: React.FC = () => {
         setShortTermDocs(((stResult2.data || []) as ShortTermFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company));
       } catch (e) {
         console.warn('[AdminFinance] background recalc failed (non-fatal)', e);
+      } finally {
+        if (seq === fetchSeqRef.current) setBackgroundSyncing(false);
       }
     })();
   };
@@ -191,6 +210,7 @@ const AdminFinance: React.FC = () => {
   const handleFullSync = async () => {
     setSyncing(true);
     try {
+      await backfillShortTermAgreementsFromAppointments();
       for (const doc of aodDocs) {
         await recalculateAODFromAppointments(doc.id, doc.referring_attorney_id);
       }
@@ -382,10 +402,10 @@ const AdminFinance: React.FC = () => {
 
       {/* -------- Financial summary -------- */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <AdminStatCard label="Total contract value" value={`R${(totalValue / 1000).toFixed(0)}k`} icon={RandSign as any} loading={loading} />
-        <AdminStatCard label="Total payments received" value={`R${(totalPaid / 1000).toFixed(0)}k`} icon={CheckCircle2} loading={loading} />
-        <AdminStatCard label="Discount applied" value={`R${(totalDiscount / 1000).toFixed(1)}k`} icon={Clock} loading={loading} />
-        <AdminStatCard label="Outstanding balance" value={`R${(outstanding / 1000).toFixed(0)}k`} icon={AlertCircle} loading={loading} />
+        <AdminStatCard label="Total contract value" value={`R${(totalValue / 1000).toFixed(0)}k`} icon={RandSign as any} loading={loading} hint={backgroundSyncing ? 'Syncing…' : undefined} />
+        <AdminStatCard label="Total payments received" value={`R${(totalPaid / 1000).toFixed(0)}k`} icon={CheckCircle2} loading={loading} hint={backgroundSyncing ? 'Syncing…' : undefined} />
+        <AdminStatCard label="Discount applied" value={`R${(totalDiscount / 1000).toFixed(1)}k`} icon={Clock} loading={loading} hint={backgroundSyncing ? 'Syncing…' : undefined} />
+        <AdminStatCard label="Outstanding balance" value={`R${(outstanding / 1000).toFixed(0)}k`} icon={AlertCircle} loading={loading} hint={backgroundSyncing ? 'Syncing…' : undefined} />
         <AdminStatCard label="Long-term attorneys" value={String(filteredConsolidatedAttorneys.length)} icon={Users} loading={loading} />
       </div>
 
