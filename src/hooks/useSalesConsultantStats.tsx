@@ -121,19 +121,18 @@ export const useSalesConsultantStats = (userId: string | undefined, firstName: s
 
       const selectCols = 'id, pitch_status, deal_closed, deal_closed_date, month_year, law_firm_name, practice_area, province, matched_referring_attorney_id, consultant_id, created_at';
 
-      let byIdRows: any[] = [];
-      if (matchedConsultantId) {
-        const { data, error } = await supabase.from('attorney_pitchlog').select(selectCols).eq('consultant_id', matchedConsultantId);
-        if (error) throw error;
-        byIdRows = data || [];
-      }
-
-      let byNameRows: any[] = [];
-      if (consultantName) {
-        const { data, error } = await supabase.from('attorney_pitchlog').select(selectCols).is('consultant_id', null).ilike('sales_person', `%${consultantName}%`);
-        if (error) throw error;
-        byNameRows = data || [];
-      }
+      const [byIdResult, byNameResult] = await Promise.all([
+        matchedConsultantId
+          ? supabase.from('attorney_pitchlog').select(selectCols).eq('consultant_id', matchedConsultantId)
+          : Promise.resolve({ data: [], error: null }),
+        consultantName
+          ? supabase.from('attorney_pitchlog').select(selectCols).is('consultant_id', null).ilike('sales_person', `%${consultantName}%`)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (byIdResult.error) throw byIdResult.error;
+      if (byNameResult.error) throw byNameResult.error;
+      const byIdRows = byIdResult.data || [];
+      const byNameRows = byNameResult.data || [];
 
       const map = new Map<string, any>();
       [...byIdRows, ...byNameRows].forEach((r: any) => map.set(r.id, r));
@@ -164,51 +163,44 @@ export const useSalesConsultantStats = (userId: string | undefined, firstName: s
     queryFn: async () => {
       if (!consultantName) return [];
 
-      // (a) Direct attribution by sales_consultant_id
-      let directRows: any[] = [];
-      if (matchedConsultantId) {
-        const { data, error } = await supabase
-          .from('appointments')
-          .select('id, referring_attorney_id, appointment_date, matter_type, sales_consultant_id')
-          .is('deleted_at', null)
-          .eq('sales_consultant_id', matchedConsultantId);
-        if (error) throw error;
-        directRows = data || [];
-      }
+      // (a) Direct attribution by sales_consultant_id, and (b) the two
+      // sources of closed-deal pitch rows used to derive attorneyIds below
+      // — none of these three depend on each other's result, so they run
+      // concurrently instead of one after another. indirectRows (further
+      // below) genuinely depends on attorneyIds, so it stays sequential.
+      const legacyFirstTok = consultantName.trim();
+      const legacyLastTok = lastName?.trim();
 
-      // (b) Indirect attribution via this consultant's own closed deals in
-      // attorney_pitchlog. Prefer the real consultant_id link; only fall
-      // back to sales_person name-matching for legacy rows that have no
-      // consultant_id yet (same rationale as the pitchlog fetch above —
-      // never let a name guess pull in another consultant's closed deals
-      // once we have their real id).
-      let pitchRows: any[] = [];
-      if (matchedConsultantId) {
-        const { data, error } = await supabase
+      const [directResult, ownPitchResult, legacyPitchResult] = await Promise.all([
+        matchedConsultantId
+          ? supabase
+              .from('appointments')
+              .select('id, referring_attorney_id, appointment_date, matter_type, sales_consultant_id')
+              .is('deleted_at', null)
+              .eq('sales_consultant_id', matchedConsultantId)
+          : Promise.resolve({ data: [], error: null }),
+        matchedConsultantId
+          ? supabase
+              .from('attorney_pitchlog')
+              .select('matched_referring_attorney_id, sales_person, deal_closed')
+              .eq('deal_closed', true)
+              .not('matched_referring_attorney_id', 'is', null)
+              .eq('consultant_id', matchedConsultantId)
+          : Promise.resolve({ data: [], error: null }),
+        supabase
           .from('attorney_pitchlog')
           .select('matched_referring_attorney_id, sales_person, deal_closed')
           .eq('deal_closed', true)
           .not('matched_referring_attorney_id', 'is', null)
-          .eq('consultant_id', matchedConsultantId);
-        if (error) throw error;
-        pitchRows = data || [];
-      }
-      {
-        const firstTok = consultantName.trim();
-        const lastTok = lastName?.trim();
-        let legacyQuery = supabase
-          .from('attorney_pitchlog')
-          .select('matched_referring_attorney_id, sales_person, deal_closed')
-          .eq('deal_closed', true)
-          .not('matched_referring_attorney_id', 'is', null)
-          .is('consultant_id', null);
-        legacyQuery = legacyQuery.or(
-          `sales_person.ilike.%${firstTok}%${lastTok ? `,sales_person.ilike.%${lastTok}%` : ''}`
-        );
-        const { data, error } = await legacyQuery;
-        if (error) throw error;
-        pitchRows = [...pitchRows, ...(data || [])];
-      }
+          .is('consultant_id', null)
+          .or(`sales_person.ilike.%${legacyFirstTok}%${legacyLastTok ? `,sales_person.ilike.%${legacyLastTok}%` : ''}`),
+      ]);
+      if (directResult.error) throw directResult.error;
+      if (ownPitchResult.error) throw ownPitchResult.error;
+      if (legacyPitchResult.error) throw legacyPitchResult.error;
+
+      const directRows = directResult.data || [];
+      const pitchRows = [...(ownPitchResult.data || []), ...(legacyPitchResult.data || [])];
 
       const attorneyIds = Array.from(
         new Set((pitchRows || []).map((p: any) => p.matched_referring_attorney_id).filter(Boolean))
