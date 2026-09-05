@@ -110,9 +110,9 @@ export const AODDocumentManager = ({ attorneys, lawFirmId, onSyncAttorney, isSyn
       
       if (error) throw error;
       
-      if (data?.pdfData) {
+      if (data?.pdf) {
         // Convert base64 to blob and download as native PDF
-        const binaryString = atob(data.pdfData);
+        const binaryString = atob(data.pdf);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i);
