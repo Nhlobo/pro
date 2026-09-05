@@ -19,15 +19,38 @@ export const useAttorneyLinkStatus = (): AttorneyLinkStatus => {
   useEffect(() => {
     let cancelled = false;
     if (!user) return;
-    (async () => {
-      const { data: profile } = await supabase
+
+    // A failed query here (expired/refreshing JWT right after the tab
+    // regains focus, a dropped connection, etc.) must NEVER be treated the
+    // same as "no referring_attorney_id" — that's what was making a
+    // perfectly-linked attorney see the "Firm Not Linked / Get Help" page
+    // whenever the check happened to race Supabase's background token
+    // refresh, only for a manual refresh to "fix" it once the refresh had
+    // caught up. Retry transient errors instead of guessing, and never
+    // downgrade an already-resolved status because of one.
+    const check = async (attempt = 0): Promise<void> => {
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('referring_attorney_id')
         .eq('id', user.id)
         .single();
+
       if (cancelled) return;
+
+      if (error) {
+        if (attempt < 2) {
+          setTimeout(() => { if (!cancelled) check(attempt + 1); }, 500 * (attempt + 1));
+        }
+        // Leave the current status alone (e.g. 'checking', or a prior
+        // 'linked' from before the tab was backgrounded) rather than
+        // reporting 'not_linked' off the back of an error.
+        return;
+      }
+
       setStatus(profile?.referring_attorney_id ? 'linked' : 'not_linked');
-    })();
+    };
+
+    check();
     return () => { cancelled = true; };
   }, [user]);
 
