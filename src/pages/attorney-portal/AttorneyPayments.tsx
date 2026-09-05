@@ -21,6 +21,7 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { PaymentPopUploader } from "@/components/finance/PaymentPopUploader";
 import { RandSign } from "@/components/icons/RandSign";
+import { downloadAodDocument } from "@/lib/downloadAodDocument";
 import {
   PortalPage,
   PortalHeader,
@@ -73,25 +74,14 @@ const AttorneyPayments: React.FC = () => {
   const [tab, setTab] = useState<PaymentsTab>('aod');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  // Same underlying document as the "All Agreements" page — document_url
-  // is a bucket-relative path in the aod-documents bucket, not a full URL.
+  // Most existing AOD records have no real file in Storage at all (see
+  // downloadAodDocument.ts) — this regenerates one on demand rather
+  // than failing outright, using the same server-side tenant check
+  // that already gates direct downloads.
   const handleDownloadAod = async (doc: AODDocument) => {
-    if (!doc.document_url || doc.document_url === 'pending') {
-      toast({ title: 'Not available', description: 'This agreement document has not been uploaded yet.', variant: 'destructive' });
-      return;
-    }
     setDownloadingId(doc.id);
     try {
-      const { data, error } = await supabase.storage.from('aod-documents').download(doc.document_url);
-      if (error) throw error;
-      const url = URL.createObjectURL(data);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = doc.file_name || 'aod-agreement.pdf';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      await downloadAodDocument(doc.id, doc.document_url, doc.file_name);
     } catch (err) {
       console.error('AOD download error:', err);
       toast({ title: 'Download failed', description: 'Could not retrieve this document. Please try again or contact support.', variant: 'destructive' });
