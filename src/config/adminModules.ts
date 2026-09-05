@@ -242,6 +242,13 @@ export const ADMIN_MODULES: AdminModule[] = [
     // who action appointment requests action these.
     roles: ['admin', 'employee'],
     permissions: [{ category: 'Appointment Management' }],
+    // Admin's Model/Function Access panel has this permission switched off
+    // for admin, but admin still bypasses module gating entirely (admins
+    // always pass useModuleAccess), so the nav item would otherwise show
+    // regardless of that toggle. hideFromAdmin removes it from admin's nav
+    // while employee (whose access is actually gated by the permission
+    // above) is unaffected.
+    hideFromAdmin: true,
   },
   {
     key: 'assessment-reports',
