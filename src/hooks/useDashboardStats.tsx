@@ -146,79 +146,96 @@ export const useDashboardStats = () => {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch claimants count
-      const { count: claimantsCount } = await supabase
-        .from('claimants')
-        .select('*', { count: 'exact', head: true });
-
-      // All-time appointments count (excluding deleted) — this is the
-      // "Total appointments" figure, used as-is by the staff dashboard's
-      // Appointments stat card. It is NOT the same number as this year's
-      // bookings below, and must not be reused for the Operations
-      // Dashboard's year-over-year pace card.
-      const { count: appointmentsCount } = await supabase
-        .from('appointments')
-        .select('*', { count: 'exact', head: true })
-        .is('deleted_at', null);
-
-      // Fetch pending reports count
-      const { count: pendingCount } = await supabase
-        .from('expert_reports')
-        .select('*', { count: 'exact', head: true })
-        .in('report_status', ['pending', 'not_received', 'under_review', 'Pending', 'Not Received']);
-
-      // Fetch in progress reports count
-      const { count: inProgressCount } = await supabase
-        .from('expert_reports')
-        .select('*', { count: 'exact', head: true })
-        .in('report_status', ['in_progress', 'initial_stage', 'Initial Stage', 'Preparing Report', 'preparing_report', 'Report On Final Stage', 'report_on_final_stage']);
-
-      // Fetch taken out reports count
-      const { count: takenOutCount } = await supabase
-        .from('expert_reports')
-        .select('*', { count: 'exact', head: true })
-        .in('report_status', ['taken_out', 'Taken Out', 'Report Submitted On AOD', 'report_submitted_on_aod', 'Report Submitted Without Full Payment', 'report_submitted_without_full_payment']);
-
-      // Fetch completed assessments count
-      const { count: completedCount } = await supabase
-        .from('expert_reports')
-        .select('*', { count: 'exact', head: true })
-        .in('report_status', ['completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted', 'report_fully_paid_submitted', 'Report Submitted', 'report_submitted']);
-
       const currentYear = new Date().getFullYear();
       const lastYear = currentYear - 1;
       const currentYearStart = `${currentYear}-01-01`;
       const lastYearStart = `${lastYear}-01-01`;
       const lastYearEnd = `${lastYear}-12-31T23:59:59`;
+      const thirtyDaysAgoIso = (() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 30);
+        return d.toISOString();
+      })();
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      // New cases opened this year vs the same period last year — this is
-      // what the Active Cases trend badge on the operations dashboard is
-      // measured against (the 277 headline itself stays all-time).
-      const { count: claimantsThisYearCount } = await supabase
-        .from('claimants')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', currentYearStart);
-
-      const { count: claimantsLastYearCount } = await supabase
-        .from('claimants')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', lastYearStart)
-        .lte('created_at', lastYearEnd);
-
-      // Fetch current year appointments with province
-      const { data: currentYearAppts } = await supabase
-        .from('appointments')
-        .select('referring_attorney_id, matter_type, appointment_date, referring_attorneys!appointments_referring_attorney_id_fkey(province)')
-        .is('deleted_at', null)
-        .gte('appointment_date', currentYearStart);
-
-      // Fetch last year appointments with province
-      const { data: lastYearAppts } = await supabase
-        .from('appointments')
-        .select('referring_attorney_id, matter_type, appointment_date, referring_attorneys!appointments_referring_attorney_id_fkey(province)')
-        .is('deleted_at', null)
-        .gte('appointment_date', lastYearStart)
-        .lte('appointment_date', lastYearEnd);
+      // All 16 of these are independent reads — none of them depends on
+      // another's result — so they're fired together instead of one at a
+      // time. Sequentially awaiting each one (the previous approach) meant
+      // the page's total load time was the SUM of 16 round trips; this way
+      // it's roughly the time of the single slowest one. This is the main
+      // fix for the Operations Dashboard being slow to load/sync.
+      const [
+        { count: claimantsCount },
+        // All-time appointments count (excluding deleted) — this is the
+        // "Total appointments" figure, used as-is by the staff dashboard's
+        // Appointments stat card. It is NOT the same number as this year's
+        // bookings below, and must not be reused for the Operations
+        // Dashboard's year-over-year pace card.
+        { count: appointmentsCount },
+        { count: pendingCount },
+        { count: inProgressCount },
+        { count: takenOutCount },
+        { count: completedCount },
+        // New cases opened this year vs the same period last year — this is
+        // what the Active Cases trend badge on the operations dashboard is
+        // measured against (the 277 headline itself stays all-time).
+        { count: claimantsThisYearCount },
+        { count: claimantsLastYearCount },
+        { data: currentYearAppts },
+        { data: lastYearAppts },
+        // Every report's status, creation date, and the province of the
+        // referring attorney on its linked appointment, so the operations
+        // map can show a resolved / pending / failed (overdue) pin per
+        // province.
+        { data: reportsWithProvince },
+        // Overdue reports (pending/in_progress older than 30 days)
+        { count: overdueCount },
+        // Prior year report counts
+        { count: pendingCountLastYear },
+        { count: inProgressCountLastYear },
+        { count: takenOutCountLastYear },
+        { count: completedCountLastYear },
+      ] = await Promise.all([
+        supabase.from('claimants').select('*', { count: 'exact', head: true }),
+        supabase.from('appointments').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+        supabase.from('expert_reports').select('*', { count: 'exact', head: true })
+          .in('report_status', ['pending', 'not_received', 'under_review', 'Pending', 'Not Received']),
+        supabase.from('expert_reports').select('*', { count: 'exact', head: true })
+          .in('report_status', ['in_progress', 'initial_stage', 'Initial Stage', 'Preparing Report', 'preparing_report', 'Report On Final Stage', 'report_on_final_stage']),
+        supabase.from('expert_reports').select('*', { count: 'exact', head: true })
+          .in('report_status', ['taken_out', 'Taken Out', 'Report Submitted On AOD', 'report_submitted_on_aod', 'Report Submitted Without Full Payment', 'report_submitted_without_full_payment']),
+        supabase.from('expert_reports').select('*', { count: 'exact', head: true })
+          .in('report_status', ['completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted', 'report_fully_paid_submitted', 'Report Submitted', 'report_submitted']),
+        supabase.from('claimants').select('*', { count: 'exact', head: true }).gte('created_at', currentYearStart),
+        supabase.from('claimants').select('*', { count: 'exact', head: true }).gte('created_at', lastYearStart).lte('created_at', lastYearEnd),
+        supabase.from('appointments')
+          .select('referring_attorney_id, matter_type, appointment_date, referring_attorneys!appointments_referring_attorney_id_fkey(province)')
+          .is('deleted_at', null)
+          .gte('appointment_date', currentYearStart),
+        supabase.from('appointments')
+          .select('referring_attorney_id, matter_type, appointment_date, referring_attorneys!appointments_referring_attorney_id_fkey(province)')
+          .is('deleted_at', null)
+          .gte('appointment_date', lastYearStart)
+          .lte('appointment_date', lastYearEnd),
+        supabase.from('expert_reports')
+          .select('report_status, created_at, appointments!expert_reports_appointment_id_fkey(referring_attorneys!appointments_referring_attorney_id_fkey(province))'),
+        supabase.from('expert_reports').select('*', { count: 'exact', head: true })
+          .in('report_status', ['pending', 'not_received', 'in_progress', 'initial_stage', 'Pending', 'Not Received', 'Initial Stage'])
+          .lt('created_at', thirtyDaysAgo.toISOString()),
+        supabase.from('expert_reports').select('*', { count: 'exact', head: true })
+          .in('report_status', ['pending', 'not_received', 'under_review', 'Pending', 'Not Received'])
+          .gte('created_at', lastYearStart).lte('created_at', lastYearEnd),
+        supabase.from('expert_reports').select('*', { count: 'exact', head: true })
+          .in('report_status', ['in_progress', 'initial_stage', 'Initial Stage', 'Preparing Report', 'preparing_report', 'Report On Final Stage', 'report_on_final_stage'])
+          .gte('created_at', lastYearStart).lte('created_at', lastYearEnd),
+        supabase.from('expert_reports').select('*', { count: 'exact', head: true })
+          .in('report_status', ['taken_out', 'Taken Out', 'Report Submitted On AOD', 'report_submitted_on_aod', 'Report Submitted Without Full Payment', 'report_submitted_without_full_payment'])
+          .gte('created_at', lastYearStart).lte('created_at', lastYearEnd),
+        supabase.from('expert_reports').select('*', { count: 'exact', head: true })
+          .in('report_status', ['completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted', 'report_fully_paid_submitted', 'Report Submitted', 'report_submitted'])
+          .gte('created_at', lastYearStart).lte('created_at', lastYearEnd),
+      ]);
 
       // Build provincial distribution for current year
       const provinceCounts: Record<string, number> = {};
@@ -273,19 +290,6 @@ export const useDashboardStats = () => {
         }))
         .sort((a, b) => b.count - a.count);
 
-      // Fetch every report's status, creation date, and the province of the
-      // referring attorney on its linked appointment, so the operations map
-      // can show a resolved / pending / failed (overdue) pin per province.
-      const thirtyDaysAgoIso = (() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 30);
-        return d.toISOString();
-      })();
-
-      const { data: reportsWithProvince } = await supabase
-        .from('expert_reports')
-        .select('report_status, created_at, appointments!expert_reports_appointment_id_fkey(referring_attorneys!appointments_referring_attorney_id_fkey(province))');
-
       const provinceStatusCounts: Record<string, { resolved: number; pending: number; failed: number }> = {};
       (reportsWithProvince || []).forEach((report: any) => {
         const rawProvince = report.appointments?.referring_attorneys?.province;
@@ -320,44 +324,6 @@ export const useDashboardStats = () => {
           total: counts.resolved + counts.pending + counts.failed,
         }))
         .sort((a, b) => b.total - a.total);
-
-      // Count overdue reports (pending/in_progress older than 30 days)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const { count: overdueCount } = await supabase
-        .from('expert_reports')
-        .select('*', { count: 'exact', head: true })
-        .in('report_status', ['pending', 'not_received', 'in_progress', 'initial_stage', 'Pending', 'Not Received', 'Initial Stage'])
-        .lt('created_at', thirtyDaysAgo.toISOString());
-
-      // Fetch prior year report counts
-      const { count: pendingCountLastYear } = await supabase
-        .from('expert_reports')
-        .select('*', { count: 'exact', head: true })
-        .in('report_status', ['pending', 'not_received', 'under_review', 'Pending', 'Not Received'])
-        .gte('created_at', lastYearStart)
-        .lte('created_at', lastYearEnd);
-
-      const { count: inProgressCountLastYear } = await supabase
-        .from('expert_reports')
-        .select('*', { count: 'exact', head: true })
-        .in('report_status', ['in_progress', 'initial_stage', 'Initial Stage', 'Preparing Report', 'preparing_report', 'Report On Final Stage', 'report_on_final_stage'])
-        .gte('created_at', lastYearStart)
-        .lte('created_at', lastYearEnd);
-
-      const { count: takenOutCountLastYear } = await supabase
-        .from('expert_reports')
-        .select('*', { count: 'exact', head: true })
-        .in('report_status', ['taken_out', 'Taken Out', 'Report Submitted On AOD', 'report_submitted_on_aod', 'Report Submitted Without Full Payment', 'report_submitted_without_full_payment'])
-        .gte('created_at', lastYearStart)
-        .lte('created_at', lastYearEnd);
-
-      const { count: completedCountLastYear } = await supabase
-        .from('expert_reports')
-        .select('*', { count: 'exact', head: true })
-        .in('report_status', ['completed', 'Report fully paid & submitted', 'Report Fully Paid & Submitted', 'report_fully_paid_submitted', 'Report Submitted', 'report_submitted'])
-        .gte('created_at', lastYearStart)
-        .lte('created_at', lastYearEnd);
 
       setStats({
         totalClaimants: claimantsCount || 0,
