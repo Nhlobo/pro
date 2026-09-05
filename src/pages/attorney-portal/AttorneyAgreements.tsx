@@ -18,6 +18,7 @@ import {
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { RandSign } from "@/components/icons/RandSign";
+import { downloadAodDocument } from "@/lib/downloadAodDocument";
 import {
   PortalPage,
   PortalHeader,
@@ -84,32 +85,34 @@ const AttorneyAgreements: React.FC = () => {
   // bucket-relative path (`${referring_attorney_id}/${filename}`, see
   // useAODDocuments.tsx), not a full URL, so it needs an actual
   // storage call rather than a plain link.
+  // Most existing AOD records have no real file in Storage at all (see
+  // downloadAodDocument.ts) — both modes now fall back to regenerating
+  // the document on demand via the same server-side tenant-checked
+  // edge function used for download, rather than dead-ending.
   const handleViewOrDownload = async (agreement: Agreement, mode: 'view' | 'download') => {
-    if (!agreement.document_url || agreement.document_url === 'pending') {
-      toast({ title: 'Not available', description: 'This agreement document has not been uploaded yet.', variant: 'destructive' });
-      return;
-    }
     setDownloadingId(agreement.id);
     try {
       if (mode === 'view') {
-        const { data, error } = await supabase.storage
-          .from('aod-documents')
-          .createSignedUrl(agreement.document_url, 3600);
+        const hasPlausibleStoredFile =
+          !!agreement.document_url && agreement.document_url !== 'pending' && !agreement.document_url.startsWith('http');
+        if (hasPlausibleStoredFile) {
+          const { data, error } = await supabase.storage
+            .from('aod-documents')
+            .createSignedUrl(agreement.document_url, 3600);
+          if (!error && data?.signedUrl) {
+            window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+            return;
+          }
+          console.warn('Stored AOD file unavailable, regenerating instead:', error);
+        }
+        const { data, error } = await supabase.functions.invoke('generate-aod-pdf', {
+          body: { aodDocumentId: agreement.id, previewMode: false },
+        });
         if (error) throw error;
-        if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer');
+        if (!data?.pdf) throw new Error(data?.error || 'This document could not be generated.');
+        window.open(`data:application/pdf;base64,${data.pdf}`, '_blank', 'noopener,noreferrer');
       } else {
-        const { data, error } = await supabase.storage
-          .from('aod-documents')
-          .download(agreement.document_url);
-        if (error) throw error;
-        const url = URL.createObjectURL(data);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = agreement.file_name || 'agreement.pdf';
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(url);
+        await downloadAodDocument(agreement.id, agreement.document_url, agreement.file_name);
       }
     } catch (err) {
       console.error('Agreement download error:', err);
