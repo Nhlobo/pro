@@ -76,10 +76,14 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'Core',
     icon: LayoutDashboard,
     description: 'Main admin overview & KPIs',
-    // Director is also granted this live in role_module_defaults (confirmed
-    // 2026-08-30 audit) — documented here so this file stays the accurate
-    // source of truth instead of silently drifting from the DB.
-    roles: ['admin', 'employee', 'director'],
+    // Director and Finance are also granted this live in
+    // role_module_defaults (director confirmed 2026-08-30 audit; finance
+    // added 2026-09-05 — previously finance had no access to this module
+    // at all in role_module_defaults, so their guaranteed landing page
+    // fell through to Finance & Payments, its own `core` module, instead
+    // of here) — documented so this file stays the accurate source of
+    // truth instead of silently drifting from the DB.
+    roles: ['admin', 'employee', 'director', 'finance'],
     permissions: [{ category: 'Analytics & Reporting', functionName: 'CRM Analytics' }],
   },
   {
