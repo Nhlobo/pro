@@ -22,15 +22,35 @@ export const useExpertLinkStatus = (): ExpertLinkStatus => {
   useEffect(() => {
     let cancelled = false;
     if (!user) return;
-    (async () => {
-      const { data: profile } = await supabase
+
+    // A failed query here (expired/refreshing JWT right after the tab
+    // regains focus, a dropped connection, etc.) must NEVER be treated the
+    // same as "no expert_id" — that's what was making a perfectly-linked
+    // expert see the "Profile Not Linked / Get Help" page whenever the
+    // check happened to race Supabase's background token refresh, only for
+    // a manual refresh to "fix" it once the refresh had caught up. Retry
+    // transient errors instead of guessing, and never downgrade an
+    // already-resolved status because of one. Mirrors useAttorneyLinkStatus.
+    const check = async (attempt = 0): Promise<void> => {
+      const { data: profile, error } = await supabase
         .from('profiles')
         .select('expert_id')
         .eq('id', user.id)
         .single();
+
       if (cancelled) return;
+
+      if (error) {
+        if (attempt < 2) {
+          setTimeout(() => { if (!cancelled) check(attempt + 1); }, 500 * (attempt + 1));
+        }
+        return;
+      }
+
       setStatus(profile?.expert_id ? 'linked' : 'not_linked');
-    })();
+    };
+
+    check();
     return () => { cancelled = true; };
   }, [user]);
 
