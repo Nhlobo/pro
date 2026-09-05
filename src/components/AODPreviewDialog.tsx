@@ -137,10 +137,10 @@ export function AODPreviewDialog({ open, onOpenChange, aodDocumentId, onFinalize
 
       if (error) throw error;
 
-      if (data.success && data.pdfData) {
+      if (data.success && data.pdf) {
         // Create a data URI from the base64 PDF
-        const pdfDataUri = `data:application/pdf;base64,${data.pdfData}`;
-        setPdfPreview(data.pdfData);
+        const pdfDataUri = `data:application/pdf;base64,${data.pdf}`;
+        setPdfPreview(data.pdf);
         setPdfUrl(pdfDataUri);
       }
     } catch (error: any) {
@@ -206,9 +206,9 @@ export function AODPreviewDialog({ open, onOpenChange, aodDocumentId, onFinalize
 
       if (error) throw error;
 
-      if (data.success && data.pdfData) {
+      if (data.success && data.pdf) {
         // Auto-download the native PDF
-        const binaryString = atob(data.pdfData);
+        const binaryString = atob(data.pdf);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i);
