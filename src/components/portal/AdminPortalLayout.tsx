@@ -125,7 +125,20 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   const roleLabel =
     userRole === 'sales_consultant' ? 'Sales Consultant'
     : userRole === 'employee' ? 'Company Employee'
+    : userRole === 'finance' ? 'Finance'
+    : userRole === 'director' ? 'Director'
     : 'Administrator';
+
+  // Header title next to the logo — was hardcoded to "Admin Portal" for
+  // every role, so finance/director/sales staff saw a label that didn't
+  // match who they actually are. Now reflects the signed-in role, same
+  // as the roleLabel shown under their email below.
+  const portalTitle =
+    userRole === 'sales_consultant' ? 'Sales Portal'
+    : userRole === 'employee' ? 'Employee Portal'
+    : userRole === 'finance' ? 'Finance Portal'
+    : userRole === 'director' ? 'Director Portal'
+    : 'Admin Portal';
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -163,7 +176,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 p-1 ring-2 ring-white/30">
                   <img src={logoSrc} alt="Kutlwano & Associate" className="h-full w-full object-contain" />
                 </div>
-                <span className="truncate font-semibold text-sm">Admin Portal</span>
+                <span className="truncate font-semibold text-sm">{portalTitle}</span>
               </div>
             )}
             <Button
