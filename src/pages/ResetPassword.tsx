@@ -11,25 +11,35 @@ import { Eye, EyeOff, Loader2, Lock, CheckCircle2 } from 'lucide-react';
 
 const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
 
-type LinkStatus = 'checking' | 'valid' | 'invalid';
+type LinkStatus = 'checking' | 'ready' | 'valid' | 'invalid';
 
 const MIN_PASSWORD_LENGTH = 8;
 
 /**
- * Landing page for the link sent by supabase.auth.resetPasswordForEmail()
- * (triggered from the "Forgot Password?" flow on /auth).
+ * Landing page for the link sent by the request-password-reset edge
+ * function (triggered from the "Forgot Password?" flow on /auth).
  *
- * Supabase's client automatically exchanges the token in the URL for a
- * temporary "recovery" session before this component ever renders
- * (detectSessionInUrl is on by default). We just have to:
- *  1. Confirm that recovery session actually landed (the link can be
- *     expired, already used, or malformed).
- *  2. Let the person set a new password via supabase.auth.updateUser().
- *  3. Sign them out of the temporary recovery session and send them to
- *     /auth to sign in fresh with the new password.
+ * IMPORTANT: we deliberately do NOT verify/consume the one-time token
+ * just from this page loading. Corporate mail gateways and providers
+ * like Gmail automatically open links in emails to scan them for
+ * phishing/malware before the person ever clicks — if verifying the
+ * token were a side effect of the page rendering, that automated scan
+ * silently burns the one-time token and the real person then hits
+ * "invalid or expired" a few seconds later even though they never
+ * touched anything. (This is exactly what was happening here: Supabase's
+ * auth logs showed the token being consumed by a Google-range IP ~5
+ * seconds before the actual user's browser tried it.)
  *
- * No backend/database changes required — this only talks to the Supabase
- * Auth client already used everywhere else in the app.
+ * So instead:
+ *  1. On load, just detect which link shape arrived and hold onto the
+ *     token — do not call Supabase yet. Show the "set a new password"
+ *     form immediately.
+ *  2. Only when the person actually submits their new password do we
+ *     exchange/verify the token AND set the password, back to back.
+ *     A scanner that never fills in and submits a form can't trigger
+ *     this at all.
+ *  3. Sign out of the temporary recovery session afterward and send
+ *     them to /auth to sign in fresh with the new password.
  */
 const ResetPassword = () => {
   const [linkStatus, setLinkStatus] = useState<LinkStatus>('checking');
@@ -44,9 +54,25 @@ const ResetPassword = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Holds whichever token shape arrived in the URL, untouched until submit.
+  const pendingTokenRef = React.useRef<
+    | { kind: 'code'; code: string }
+    | { kind: 'token_hash'; tokenHash: string }
+    | null
+  >(null);
+
   useEffect(() => {
     let active = true;
 
+    // Supabase sends recovery links in three shapes depending on flow type:
+    //   1. #access_token=...&type=recovery   (implicit — session is
+    //      established directly from the fragment by the client SDK on
+    //      init, with no server round-trip to "use up", so it's not
+    //      vulnerable to the scanner race the other two shapes are)
+    //   2. ?code=...                          (PKCE — needs an explicit
+    //      exchange, deferred to submit below)
+    //   3. ?token_hash=...&type=recovery      (needs verifyOtp, deferred
+    //      to submit below)
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (!active) return;
       if (event === 'PASSWORD_RECOVERY' || session) {
@@ -54,44 +80,29 @@ const ResetPassword = () => {
       }
     });
 
-    // Supabase sends recovery links in three shapes depending on the project's
-    // email template and flow type:
-    //   1. #access_token=...&type=recovery   (implicit — handled automatically)
-    //   2. ?code=...                          (PKCE — needs an explicit exchange)
-    //   3. ?token_hash=...&type=recovery      (needs verifyOtp)
-    // Handle 2 and 3 here so the link works no matter which one arrives.
-    const resolve = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
-      const tokenHash = params.get('token_hash');
-      const type = params.get('type');
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const tokenHash = params.get('token_hash');
+    const type = params.get('type');
 
-      try {
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (!active) return;
-          setLinkStatus(error ? 'invalid' : 'valid');
-          return;
-        }
-        if (tokenHash && (type === 'recovery' || type === 'email')) {
-          const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'recovery' });
-          if (!active) return;
-          setLinkStatus(error ? 'invalid' : 'valid');
-          return;
-        }
-      } catch {
-        if (active) setLinkStatus('invalid');
-        return;
-      }
-
-      // In case the PASSWORD_RECOVERY event already fired before this
-      // component mounted its listener, fall back to checking directly.
-      const { data } = await supabase.auth.getSession();
-      if (!active) return;
-      setLinkStatus((current) => (current === 'checking' ? (data.session ? 'valid' : 'invalid') : current));
-    };
-
-    void resolve();
+    if (code) {
+      pendingTokenRef.current = { kind: 'code', code };
+      setLinkStatus((current) => (current === 'checking' ? 'ready' : current));
+    } else if (tokenHash && (type === 'recovery' || type === 'email')) {
+      pendingTokenRef.current = { kind: 'token_hash', tokenHash };
+      setLinkStatus((current) => (current === 'checking' ? 'ready' : current));
+    } else {
+      // No code/token_hash in the query string — the only other valid
+      // possibility is the implicit #access_token fragment, which the
+      // Supabase client already parses on init. Give that a brief moment
+      // to fire its PASSWORD_RECOVERY event (handled above), then fall
+      // back to checking for a session directly.
+      void (async () => {
+        const { data } = await supabase.auth.getSession();
+        if (!active) return;
+        setLinkStatus((current) => (current === 'checking' ? (data.session ? 'valid' : 'invalid') : current));
+      })();
+    }
 
     // Safety net: if nothing resolves within a few seconds, treat as invalid
     // rather than leaving the person staring at a spinner forever.
@@ -126,6 +137,25 @@ const ResetPassword = () => {
 
     setSubmitting(true);
     try {
+      // Only now — on an actual, explicit form submission — do we touch
+      // the one-time token. If a link-scanner already burned it, this is
+      // where (and only where) that surfaces, and we route to the
+      // "invalid" screen instead of silently failing the password update.
+      const pending = pendingTokenRef.current;
+      if (pending) {
+        const { error: verifyError } =
+          pending.kind === 'code'
+            ? await supabase.auth.exchangeCodeForSession(pending.code)
+            : await supabase.auth.verifyOtp({ token_hash: pending.tokenHash, type: 'recovery' });
+
+        if (verifyError) {
+          setLinkStatus('invalid');
+          return;
+        }
+        // Token is single-use — don't let a retry try to consume it again.
+        pendingTokenRef.current = null;
+      }
+
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) {
         setError(updateError.message);
@@ -224,7 +254,7 @@ const ResetPassword = () => {
               </>
             )}
 
-            {linkStatus === 'valid' && !done && (
+            {(linkStatus === 'ready' || linkStatus === 'valid') && !done && (
               <>
                 <div className="mb-6">
                   <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00BAAD]">Staff access</div>
@@ -307,7 +337,7 @@ const ResetPassword = () => {
               </>
             )}
 
-            {linkStatus === 'valid' && done && (
+            {(linkStatus === 'ready' || linkStatus === 'valid') && done && (
               <div className="flex flex-col items-center gap-3 py-12 text-center">
                 <CheckCircle2 className="h-10 w-10 text-[#00BAAD]" />
                 <h2 className="text-xl font-bold text-black">Password updated</h2>
