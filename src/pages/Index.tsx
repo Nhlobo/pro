@@ -52,12 +52,16 @@ const Index = () => {
     }
   }, [loading, admin, referringAttorney, navigate]);
 
-  // Finance and Director roles land on the Finance & Payments module inside
-  // the Admin Portal shell — same treatment as sales consultants above, so
-  // neither role gets stuck on this generic dashboard first.
+  // Finance and Director roles land on the Operations Dashboard inside the
+  // Admin Portal shell, same as admin/employee — role_module_defaults
+  // already has 'operations' as eligible + default-on for both roles, and
+  // it's on their nav. This used to hardcode a redirect straight to
+  // /admin/finance instead, which silently overrode that DB config and
+  // the adminModules.ts nav setup every time — landing them on Finance &
+  // Payments no matter what was actually configured as their default.
   useEffect(() => {
     if (!loading && (finance || director)) {
-      navigate("/admin/finance", { replace: true });
+      navigate("/admin", { replace: true });
     }
   }, [loading, finance, director, navigate]);
 
@@ -123,7 +127,7 @@ const Index = () => {
   }
 
   // Same treatment for finance/director — being redirected to
-  // /admin/finance by the effect above.
+  // /admin (Operations Dashboard) by the effect above.
   if (finance || director) {
     return <BrandedPageLoader message="Loading…" />;
   }
