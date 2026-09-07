@@ -228,7 +228,20 @@ export const ADMIN_MODULES: AdminModule[] = [
     // Their real appointment data (their own generated deals, incentive
     // calculations) comes through the separately-scoped get_consultant_*
     // RPCs on the Sales Dashboard, not this operational admin page.
-    roles: ['admin', 'employee'],
+    //
+    // finance added 2026-09-06, granted full parity with admin/employee —
+    // added matching "Finance and director can create/delete appointments"
+    // RLS policies on 'appointments' (SELECT/UPDATE already existed for
+    // finance/director via the "...for payments" policies) and matching
+    // SELECT/INSERT/UPDATE/DELETE policies for finance/director on
+    // appointment_checklist (previously admin/employee only), so the New
+    // Appointment button and checklist tab are actually functional, not
+    // just visible. director's RLS was extended the same way for
+    // consistency with the existing finance+director pairing on this
+    // table, but director's role_module_defaults row for this module is
+    // still is_eligible=false — flip that too if director should get the
+    // same nav access.
+    roles: ['admin', 'employee', 'finance'],
     permissions: [{ category: 'Appointment Management' }],
   },
   {
