@@ -52,13 +52,18 @@ const AttorneyPortalDashboard: React.FC = () => {
   const { stats, liveCases, loading, refetchStats } = useAttorneyDashboardStats();
   const { debtSummary, debtCases, loading: debtsLoading } = useAttorneyDebts();
   const linkStatus = useAttorneyLinkStatus();
-  const { firmName, personName } = useAttorneyFirmName();
+  const { firmName, personName, namesAreDuplicates } = useAttorneyFirmName();
 
   // Client request: "Dashboard must be written the name of the Attorney...
   // so each referring attorney must be welcomed by the lawfirm's [name]".
   // Prefer the person's own name ("Welcome, Jane Mavuya — Mavuya Attorney");
-  // fall back to the firm name alone if we only have that.
-  const welcomeLine = personName && firmName
+  // fall back to the firm name alone if we only have that, and collapse to
+  // just the firm name when both resolve to the same text (confirmed this
+  // happens on real accounts — see useAttorneyFirmName.ts) instead of
+  // showing "Welcome, X — X".
+  const welcomeLine = namesAreDuplicates
+    ? `Welcome, ${firmName}`
+    : personName && firmName
     ? `Welcome, ${personName} — ${firmName}`
     : personName
     ? `Welcome, ${personName}`
