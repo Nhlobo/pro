@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Paperclip, Eye, Download, Loader2, Upload } from "lucide-react";
 
@@ -15,6 +16,7 @@ export interface PaymentPopAttachment {
   file_path: string;
   file_name: string | null;
   uploaded_at: string;
+  notes: string | null;
 }
 
 interface PaymentPopUploaderProps {
@@ -41,6 +43,14 @@ export function PaymentPopUploader({
   const [attachments, setAttachments] = useState<PaymentPopAttachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  // Client request (#1): "add a Comment Section on that payment e.g. payment
+  // can be recorded or allocated for past, present and future appointment —
+  // this will help both attorney and us know what the payment was for."
+  // The payment_pop_attachments.notes column already existed but was never
+  // written to. Captured here, alongside the file, so the reason travels
+  // with the specific proof document rather than living only on the parent
+  // payment row.
+  const [pendingComment, setPendingComment] = useState('');
 
   const fetchAttachments = async () => {
     setLoading(true);
@@ -96,11 +106,13 @@ export function PaymentPopUploader({
           file_size_bytes: file.size,
           mime_type: file.type || null,
           uploaded_by: userData.user.id,
+          notes: pendingComment.trim() || null,
         });
 
       if (insertError) throw insertError;
 
       toast.success("Proof of payment uploaded");
+      setPendingComment('');
       await fetchAttachments();
     } catch (error: any) {
       console.error("Error uploading POP:", error);
@@ -159,25 +171,39 @@ export function PaymentPopUploader({
       )}
 
       {attachments.map((att) => (
-        <div key={att.id} className="flex items-center justify-between gap-2 rounded border px-2 py-1 text-xs">
-          <span className="truncate">{att.file_name || "Proof of payment"}</span>
-          <div className="flex items-center gap-1 shrink-0">
-            <Button type="button" size="sm" variant="ghost" className="h-6 px-2" onClick={() => handleView(att)}>
-              <Eye className="h-3 w-3" />
-            </Button>
-            <Button type="button" size="sm" variant="ghost" className="h-6 px-2" onClick={() => handleDownload(att)}>
-              <Download className="h-3 w-3" />
-            </Button>
+        <div key={att.id} className="rounded border px-2 py-1 text-xs space-y-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate">{att.file_name || "Proof of payment"}</span>
+            <div className="flex items-center gap-1 shrink-0">
+              <Button type="button" size="sm" variant="ghost" className="h-6 px-2" onClick={() => handleView(att)}>
+                <Eye className="h-3 w-3" />
+              </Button>
+              <Button type="button" size="sm" variant="ghost" className="h-6 px-2" onClick={() => handleDownload(att)}>
+                <Download className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
+          {att.notes && (
+            <p className="text-muted-foreground italic">"{att.notes}"</p>
+          )}
         </div>
       ))}
 
       {canUpload && (
-        <label className="flex items-center gap-2 text-xs cursor-pointer text-primary hover:underline w-fit">
-          {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-          {uploading ? "Uploading..." : "Upload proof of payment"}
-          <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} accept="image/*,.pdf" />
-        </label>
+        <div className="space-y-1.5">
+          <Textarea
+            value={pendingComment}
+            onChange={(e) => setPendingComment(e.target.value)}
+            placeholder="Comment — what was this payment for or allocated to? e.g. deposit for upcoming neurosurgeon appointment"
+            className="min-h-[50px] text-xs"
+            disabled={uploading}
+          />
+          <label className="flex items-center gap-2 text-xs cursor-pointer text-primary hover:underline w-fit">
+            {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+            {uploading ? "Uploading..." : "Upload proof of payment"}
+            <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} accept="image/*,.pdf" />
+          </label>
+        </div>
       )}
     </div>
   );
