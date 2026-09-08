@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X, Landmark, FileStack, History, Receipt } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X, Landmark, FileStack, History, Receipt, CalendarClock } from "lucide-react";
 import { toast } from 'sonner';
 import { recalculateAODFromAppointments, recalculateShortTermFromAppointments, backfillShortTermAgreementsFromAppointments } from '@/hooks/usePaymentSync';
 import { RegularPaymentDialog } from '@/components/RegularPaymentDialog';
+import { AgreementExtensionDialog } from '@/components/AgreementExtensionDialog';
 import FinanceAuditTrail from '@/components/FinanceAuditTrail';
 import InternalInvoicesTable from '@/components/admin/finance/InternalInvoicesTable';
 import {
@@ -101,6 +102,15 @@ const AdminFinance: React.FC = () => {
 
   // Payment dialog state
   const [paymentDialog, setPaymentDialog] = useState<{
+    open: boolean;
+    agreementId: string;
+    agreementType: 'aod' | 'short_term';
+    attorneyName: string;
+    referringAttorneyId: string;
+  }>({ open: false, agreementId: '', agreementType: 'aod', attorneyName: '', referringAttorneyId: '' });
+
+  // Extension dialog state (client request #2)
+  const [extensionDialog, setExtensionDialog] = useState<{
     open: boolean;
     agreementId: string;
     agreementType: 'aod' | 'short_term';
@@ -339,6 +349,10 @@ const AdminFinance: React.FC = () => {
     setPaymentDialog({ open: true, agreementId: id, agreementType: type, attorneyName: name, referringAttorneyId: attorneyId });
   };
 
+  const openExtensionDialog = (id: string, type: 'aod' | 'short_term', name: string, attorneyId: string) => {
+    setExtensionDialog({ open: true, agreementId: id, agreementType: type, attorneyName: name, referringAttorneyId: attorneyId });
+  };
+
   // ===== UI-only state for the redesigned layout (no business/data logic here) =====
   // Long-Term AOD, Short-term Agreements and the Audit Trail used to sit stacked on
   // one long page. Splitting them into tabs — the same module-switcher pattern as
@@ -514,14 +528,24 @@ const AdminFinance: React.FC = () => {
                             </Badge>
                           </TableCell>
                           <TableCell className="text-center">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 rounded-none text-xs"
-                              onClick={() => openPaymentDialog(att.latestAodId, 'aod', att.attorneyName, att.attorneyId)}
-                            >
-                              <Zap className="h-3.5 w-3.5 mr-1" /> Record Payment
-                            </Button>
+                            <div className="flex items-center justify-center gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 rounded-none text-xs"
+                                onClick={() => openPaymentDialog(att.latestAodId, 'aod', att.attorneyName, att.attorneyId)}
+                              >
+                                <Zap className="h-3.5 w-3.5 mr-1" /> Record Payment
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 rounded-none text-xs"
+                                onClick={() => openExtensionDialog(att.latestAodId, 'aod', att.attorneyName, att.attorneyId)}
+                              >
+                                <CalendarClock className="h-3.5 w-3.5 mr-1" /> Extend
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -617,14 +641,24 @@ const AdminFinance: React.FC = () => {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-center">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 rounded-none text-xs"
-                                onClick={() => openPaymentDialog(doc.id, 'short_term', referringAttorneyName, doc.referring_attorney_id)}
-                              >
-                                <Zap className="h-3.5 w-3.5 mr-1" /> Record Payment
-                              </Button>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 rounded-none text-xs"
+                                  onClick={() => openPaymentDialog(doc.id, 'short_term', referringAttorneyName, doc.referring_attorney_id)}
+                                >
+                                  <Zap className="h-3.5 w-3.5 mr-1" /> Record Payment
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 rounded-none text-xs"
+                                  onClick={() => openExtensionDialog(doc.id, 'short_term', referringAttorneyName, doc.referring_attorney_id)}
+                                >
+                                  <CalendarClock className="h-3.5 w-3.5 mr-1" /> Extend
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -657,6 +691,17 @@ const AdminFinance: React.FC = () => {
         attorneyName={paymentDialog.attorneyName}
         referringAttorneyId={paymentDialog.referringAttorneyId}
         onPaymentRecorded={fetchAll}
+      />
+
+      {/* Agreement Extension Dialog (client request #2) */}
+      <AgreementExtensionDialog
+        open={extensionDialog.open}
+        onOpenChange={(open) => setExtensionDialog(prev => ({ ...prev, open }))}
+        agreementId={extensionDialog.agreementId}
+        agreementType={extensionDialog.agreementType}
+        attorneyName={extensionDialog.attorneyName}
+        referringAttorneyId={extensionDialog.referringAttorneyId}
+        onExtended={fetchAll}
       />
     </AdminPage>
   );
