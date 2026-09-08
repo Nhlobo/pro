@@ -144,8 +144,26 @@ const AttorneyReports: React.FC = () => {
     const latestVersion = report.reportVersions[0];
     setDownloading(latestVersion.file_path);
     try {
-      const { data, error } = await supabase.storage.from('documents').download(latestVersion.file_path);
-      if (error) throw error;
+      // Report files aren't always in 'documents' — staff uploads for
+      // this path land in 'attorney-documents' in practice (confirmed
+      // via storage logs: every real report 400s on 'documents' and
+      // 'expert-documents' before 200-ing on 'attorney-documents').
+      // Same fallback order AttorneyMyCases.tsx already uses, so both
+      // pages behave identically for the same file. RLS is identical
+      // and case-scoped across all three buckets (Phase 25/27), so this
+      // fallback never grants access to a file this attorney can't
+      // already see — a bucket that isn't the real match still 400s
+      // via user_can_view_case_document, not a bypass.
+      const buckets = ['documents', 'attorney-documents', 'expert-documents'];
+      let data: Blob | null = null;
+      for (const bucket of buckets) {
+        const result = await supabase.storage.from(bucket).download(latestVersion.file_path);
+        if (result.data && !result.error) {
+          data = result.data;
+          break;
+        }
+      }
+      if (!data) throw new Error('Report file not found in any storage bucket');
       const url = URL.createObjectURL(data);
       const a = document.createElement('a');
       a.href = url;
