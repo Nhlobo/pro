@@ -3319,6 +3319,7 @@ export type Database = {
       }
       external_portal_agreement_payments: {
         Row: {
+          allocation_period: string | null
           aod_document_id: string | null
           id: string
           payment_amount: number | null
@@ -3327,6 +3328,7 @@ export type Database = {
           payment_type: string | null
         }
         Insert: {
+          allocation_period?: string | null
           aod_document_id?: string | null
           id: string
           payment_amount?: number | null
@@ -3335,6 +3337,7 @@ export type Database = {
           payment_type?: string | null
         }
         Update: {
+          allocation_period?: string | null
           aod_document_id?: string | null
           id?: string
           payment_amount?: number | null
