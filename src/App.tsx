@@ -105,10 +105,10 @@ const ExpertCaseAccess = lazy(() => import("./pages/ExpertCaseAccess"));
 // Attorney Portal Pages
 const AttorneyPortalDashboard = lazy(() => import("./pages/attorney-portal/AttorneyPortalDashboard"));
 const AttorneyMyCases = lazy(() => import("./pages/attorney-portal/AttorneyMyCases"));
+const AttorneyRequestAppointment = lazy(() => import("./pages/attorney-portal/AttorneyRequestAppointment"));
 const AttorneyAppointments = lazy(() => import("./pages/attorney-portal/AttorneyAppointments"));
 const AttorneyReports = lazy(() => import("./pages/attorney-portal/AttorneyReports"));
 const AttorneyPayments = lazy(() => import("./pages/attorney-portal/AttorneyPayments"));
-const AttorneyAgreements = lazy(() => import("./pages/attorney-portal/AttorneyAgreements"));
 const AttorneyNotifications = lazy(() => import("./pages/attorney-portal/AttorneyNotifications"));
 const AttorneyCaseStatus = lazy(() => import("./pages/attorney-portal/AttorneyCaseStatus"));
 const AttorneySupport = lazy(() => import("./pages/attorney-portal/AttorneySupport"));
@@ -445,11 +445,15 @@ const App = () => (
                 <Route path="/attorney-portal" element={<ProtectedRoute><AttorneyPortalDashboard /></ProtectedRoute>} />
                 <Route path="/attorney-portal/help" element={<ProtectedRoute><AttorneyHelpPortal /></ProtectedRoute>} />
                 <Route path="/attorney-portal/cases" element={<ProtectedRoute><AttorneyMyCases /></ProtectedRoute>} />
+                <Route path="/attorney-portal/request-appointment" element={<ProtectedRoute><AttorneyRequestAppointment /></ProtectedRoute>} />
                 <Route path="/attorney-portal/case-status" element={<ProtectedRoute><AttorneyCaseStatus /></ProtectedRoute>} />
                 <Route path="/attorney-portal/appointments" element={<ProtectedRoute><AttorneyAppointments /></ProtectedRoute>} />
                 <Route path="/attorney-portal/reports" element={<ProtectedRoute><AttorneyReports /></ProtectedRoute>} />
                 <Route path="/attorney-portal/payments" element={<ProtectedRoute><AttorneyPayments /></ProtectedRoute>} />
-                <Route path="/attorney-portal/agreements" element={<ProtectedRoute><AttorneyAgreements /></ProtectedRoute>} />
+                {/* Agreements page removed per client request (2026-09) — it duplicated
+                    AOD & Payments (both read external_portal_agreements). Old links/
+                    bookmarks redirect there instead of 404ing. */}
+                <Route path="/attorney-portal/agreements" element={<Navigate to="/attorney-portal/payments" replace />} />
                 <Route path="/attorney-portal/notifications" element={<ProtectedRoute><AttorneyNotifications /></ProtectedRoute>} />
                 <Route path="/attorney-portal/support" element={<ProtectedRoute><AttorneySupport /></ProtectedRoute>} />
                 <Route path="/attorney-portal/profile" element={<ProtectedRoute><AttorneyProfile /></ProtectedRoute>} />
