@@ -153,6 +153,9 @@ export const LiveCaseTracker: React.FC<LiveCaseTrackerProps> = ({ cases, loading
                       <div className="truncate text-sm font-semibold text-black">{caseItem.claimantName}</div>
                       <div className="truncate text-xs text-slate-500">
                         {caseItem.claimantAutoId} · {caseItem.expertType}
+                        {caseItem.appointmentDate && (
+                          <> · {format(new Date(caseItem.appointmentDate), 'd MMM yyyy')}</>
+                        )}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
