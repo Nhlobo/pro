@@ -55,6 +55,7 @@ interface PaymentRecord {
   payment_date: string;
   payment_type: string;
   payment_notes: string | null;
+  allocation_period: string | null;
 }
 
 type PaymentsTab = 'aod' | 'history';
@@ -311,6 +312,7 @@ const AttorneyPayments: React.FC = () => {
                         <TableHead>Date</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Amount</TableHead>
+                        <TableHead>Allocated To</TableHead>
                         <TableHead>Notes</TableHead>
                         <TableHead>Proof of Payment</TableHead>
                       </TableRow>
@@ -327,6 +329,13 @@ const AttorneyPayments: React.FC = () => {
                           <TableCell><PortalPill>{payment.payment_type}</PortalPill></TableCell>
                           <TableCell className="font-medium text-success">
                             R{payment.payment_amount.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-slate-500 capitalize">
+                            {payment.allocation_period === 'past' ? 'Past appointment'
+                              : payment.allocation_period === 'present' ? 'Present appointment'
+                              : payment.allocation_period === 'future' ? 'Future appointment'
+                              : payment.allocation_period === 'general' ? 'General'
+                              : '-'}
                           </TableCell>
                           <TableCell className="text-slate-500">
                             {payment.payment_notes || '-'}
