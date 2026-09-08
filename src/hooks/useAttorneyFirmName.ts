@@ -7,8 +7,22 @@ export interface AttorneyFirmName {
   firmName: string | null;
   /** The signed-in individual's own name, from profiles.first_name/last_name */
   personName: string | null;
+  /**
+   * True when personName and firmName are effectively the same text (case,
+   * spacing, and trailing-space differences ignored). Confirmed live: some
+   * attorney portal accounts have the firm's own name entered into
+   * first_name/last_name instead of a real contact person's name (e.g.
+   * first_name "Samora", last_name "Mabasa attorneys", against a firm named
+   * "Samora Mabasa attorneys") — showing both then reads as "Welcome,
+   * <name> — <name>", the same text twice. Callers should show only
+   * firmName when this is true.
+   */
+  namesAreDuplicates: boolean;
   loading: boolean;
 }
+
+const normalizeForComparison = (value: string | null): string =>
+  (value || '').trim().toLowerCase().replace(/\s+/g, ' ');
 
 /**
  * Client request: "Dashboard must be written the name of the Attorney e.g.
@@ -60,7 +74,12 @@ export const useAttorneyFirmName = (): AttorneyFirmName => {
     return () => { cancelled = true; };
   }, [user]);
 
-  return { firmName, personName, loading };
+  return {
+    firmName,
+    personName,
+    namesAreDuplicates: normalizeForComparison(personName) !== '' && normalizeForComparison(personName) === normalizeForComparison(firmName),
+    loading,
+  };
 };
 
 export default useAttorneyFirmName;
