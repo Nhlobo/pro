@@ -120,30 +120,22 @@ const AdminFinance: React.FC = () => {
 
   useEffect(() => {
     fetchAll();
-    window.addEventListener('agreement-data-updated', fetchAll);
-    window.addEventListener('appointment-financials-updated', fetchAll);
-
-    // Real-time subscriptions: any change to AODs, short-term agreements,
-    // or appointments triggers an immediate refresh so totals stay in sync.
-    let debounce: any = null;
-    const scheduleRefresh = () => {
-      if (debounce) clearTimeout(debounce);
-      debounce = setTimeout(() => fetchAll(), 400);
-    };
-    const channel = supabase
-      .channel('admin-finance-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'aod_documents' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'short_term_agreements' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, scheduleRefresh)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'aod_payments' }, scheduleRefresh)
-      .subscribe();
-
-    return () => {
-      window.removeEventListener('agreement-data-updated', fetchAll);
-      window.removeEventListener('appointment-financials-updated', fetchAll);
-      if (debounce) clearTimeout(debounce);
-      supabase.removeChannel(channel);
-    };
+    // Removed: automatic refresh on 'agreement-data-updated' /
+    // 'appointment-financials-updated' window events, and a Supabase
+    // Realtime subscription on aod_documents / short_term_agreements /
+    // appointments / aod_payments. Those events fire from ~10 other places
+    // across the whole app, and the realtime subscription fires on every
+    // row change to those 4 tables system-wide — neither is scoped to
+    // "something relevant to what's on screen right now" versus "someone
+    // somewhere touched an appointment." With multiple staff working
+    // concurrently, that meant this page kept re-fetching and re-rendering
+    // on its own every few seconds, unrelated to anything the person here
+    // was doing — the exact "we don't want that" from the request.
+    //
+    // This page now only loads once on open. To bring it up to date after
+    // that, use the "Sync" button (handleFullSync below) — same
+    // recalculation logic, just under manual control instead of firing on
+    // its own.
   }, []);
 
   const fetchAll = async () => {
