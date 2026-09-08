@@ -20,7 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { FileText, Zap, CheckCircle2, Calendar, Users, Search, X, CheckSquare, ChevronDown, ChevronUp } from "lucide-react";
+import { FileText, Zap, CheckCircle2, Calendar, Users, Search, X, CheckSquare, ChevronDown, ChevronUp, Paperclip } from "lucide-react";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -63,6 +63,7 @@ interface PaymentRecord {
   payment_date: string;
   reports_taken_out: number;
   payment_notes: string | null;
+  payment_reference?: string | null;
 }
 
 interface ClaimantOption {
@@ -125,8 +126,13 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   // Once a payment is recorded, its POP uploader mounts inline so staff can
   // immediately attach proof without leaving this dialog or hunting for the
   // payment afterward in a different screen.
-  const [justRecordedPaymentId, setJustRecordedPaymentId] = useState<string | null>(null);
-  const [justRecordedPaymentReference, setJustRecordedPaymentReference] = useState<string>('');
+  // Client feedback: the POP uploader only appeared briefly right after
+  // saving a new payment, then vanished for good once the dialog was
+  // reopened — too easy to miss, no way back to it for a payment recorded
+  // earlier. Recording a payment now auto-opens it in the Recent Payments
+  // list below instead (see expandedHistoryPaymentId), which is a
+  // permanent, reachable-any-time place — not a fixed 5-second window.
+  const [expandedHistoryPaymentId, setExpandedHistoryPaymentId] = useState<string | null>(null);
   const [paymentReference, setPaymentReference] = useState('');
 
   useEffect(() => {
@@ -135,11 +141,9 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       fetchClaimants();
       fetchPreviousAllocations();
     } else {
-      // Closing the sheet — clear the "just recorded" POP prompt so the
-      // next payment recorded in a future open doesn't show a stale
-      // uploader still pointed at the previous payment's id.
-      setJustRecordedPaymentId(null);
-      setJustRecordedPaymentReference('');
+      // Closing the sheet — clear which history row is expanded so the
+      // next time it opens, nothing is stuck open from a previous payment.
+      setExpandedHistoryPaymentId(null);
     }
   }, [open, agreementId]);
 
@@ -272,7 +276,18 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
           reportsTakenOut: reportsTaken, totalReportsAgreed,
           remainingReports: Math.max(0, totalReportsAgreed - reportsTaken),
         });
-        setRecentPayments([]);
+
+        // Previously this was hardcoded to [] — short-term payments were
+        // never queried here at all, so the Recent Payments list (and now
+        // the Proof of Payment action on it) was invisible for short-term
+        // agreements even though payments are now actually being recorded
+        // into short_term_agreement_payments (see handleRecordPayment).
+        const { data: shortTermPayments } = await supabase
+          .from('short_term_agreement_payments')
+          .select('*')
+          .eq('agreement_id', agreementId)
+          .order('payment_date', { ascending: false });
+        setRecentPayments((shortTermPayments || []) as PaymentRecord[]);
       }
     } catch (error) {
       console.error('Error fetching payment summary:', error);
@@ -530,14 +545,10 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         toast.success(`R${paymentAmount.toLocaleString()} recorded — reports can be marked taken out later`);
       }
 
-      // Keep the payment's id/reference around (don't wipe it in the reset
-      // below) so the POP uploader can mount for it immediately — the whole
-      // point of wiring this in here rather than making staff track the
-      // payment down again afterward on the Finance & Payments page.
-      if (!statusOnly && paymentId) {
-        setJustRecordedPaymentId(paymentId);
-        setJustRecordedPaymentReference(resolvedReference);
-      }
+      // Keep the payment's id around (don't wipe it in the reset below) so
+      // we can auto-open its Proof of Payment row in Recent Payments once
+      // the list below has been refreshed with this payment in it.
+      const recordedPaymentId = !statusOnly ? paymentId : null;
 
       // Reset form
       setAmount('');
@@ -554,6 +565,9 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       await fetchSummary();
       await fetchClaimants();
       await fetchPreviousAllocations();
+      // fetchSummary() above just repopulated recentPayments — only now
+      // does this payment actually exist in that list to expand.
+      if (recordedPaymentId) setExpandedHistoryPaymentId(recordedPaymentId);
       triggerSync();
       onPaymentRecorded();
     } catch (error: any) {
@@ -930,25 +944,6 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               </div>
             </div>
 
-            {/* Inline Proof of Payment uploader for the payment just recorded
-                (client request #1) — staff can attach POP immediately
-                without leaving this dialog to find the payment elsewhere. */}
-            {justRecordedPaymentId && (
-              <>
-                <Separator />
-                <Card className="border-border/50">
-                  <CardContent className="p-3">
-                    <p className="text-xs font-medium mb-2">Payment recorded — attach proof of payment?</p>
-                    <PaymentPopUploader
-                      recordType={agreementType === 'aod' ? 'aod_payment' : 'short_term_payment'}
-                      recordId={justRecordedPaymentId}
-                      paymentReference={justRecordedPaymentReference || 'payment'}
-                    />
-                  </CardContent>
-                </Card>
-              </>
-            )}
-
             {/* Previously Allocated Reports */}
             {previousAllocations.length > 0 && (
               <>
@@ -976,7 +971,11 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                   <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
                     <FileText className="h-3 w-3" /> Recent Payments
                   </p>
-                  <div className="rounded-md border overflow-auto max-h-[160px]">
+                  <p className="text-[10px] text-muted-foreground mb-1.5">
+                    Click "Proof" on any payment below to attach or view its proof of payment — works for payments
+                    recorded earlier too, not just the one you just saved.
+                  </p>
+                  <div className="rounded-md border overflow-auto max-h-[220px]">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -985,6 +984,7 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                           <TableHead className="text-[10px] text-right">Amount</TableHead>
                           <TableHead className="text-[10px] text-right">Reports</TableHead>
                           <TableHead className="text-[10px]">Notes</TableHead>
+                          <TableHead className="text-[10px] text-center">Proof</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1004,11 +1004,46 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                             <TableCell className="text-muted-foreground truncate max-w-[120px]">
                               {p.payment_notes || '—'}
                             </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-[10px]"
+                                onClick={() => setExpandedHistoryPaymentId(prev => prev === p.id ? null : p.id)}
+                              >
+                                <Paperclip className="h-3 w-3 mr-1" /> Proof
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </div>
+
+                  {expandedHistoryPaymentId && (() => {
+                    const expandedPayment = recentPayments.find(p => p.id === expandedHistoryPaymentId);
+                    if (!expandedPayment) return null;
+                    return (
+                      <Card className="border-border/50 mt-2">
+                        <CardContent className="p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-medium">
+                              Proof of payment — {format(new Date(expandedPayment.payment_date), 'dd MMM yyyy')}, R{expandedPayment.payment_amount.toLocaleString()}
+                            </p>
+                            <Button type="button" size="sm" variant="ghost" className="h-6 px-2" onClick={() => setExpandedHistoryPaymentId(null)}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <PaymentPopUploader
+                            recordType={agreementType === 'aod' ? 'aod_payment' : 'short_term_payment'}
+                            recordId={expandedPayment.id}
+                            paymentReference={expandedPayment.payment_reference || expandedPayment.id}
+                          />
+                        </CardContent>
+                      </Card>
+                    );
+                  })()}
                 </div>
               </>
             )}
