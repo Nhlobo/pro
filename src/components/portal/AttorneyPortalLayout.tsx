@@ -12,9 +12,9 @@ import {
   Briefcase,
   Activity,
   Calendar,
+  CalendarPlus,
   FileText,
   CreditCard,
-  FileSignature,
   Bell,
   HeadsetIcon,
   LogOut,
@@ -23,6 +23,7 @@ import {
   Menu,
 } from 'lucide-react';
 import BrandedPageLoader from '@/components/BrandedPageLoader';
+import { useAttorneyFirmName } from '@/hooks/useAttorneyFirmName';
 
 const logoSrc = '/lovable-uploads/7401e32a-2457-4a00-9d60-c1ff9fcfc4fc.png';
 
@@ -33,11 +34,13 @@ interface AttorneyPortalLayoutProps {
 const navigationItems = [
   { title: 'Dashboard', href: '/attorney-portal', icon: LayoutDashboard },
   { title: 'My Cases', href: '/attorney-portal/cases', icon: Briefcase },
+  { title: 'New Appointment Request', href: '/attorney-portal/request-appointment', icon: CalendarPlus },
   { title: 'View Case Status', href: '/attorney-portal/case-status', icon: Activity },
   { title: 'Appointments', href: '/attorney-portal/appointments', icon: Calendar },
   { title: 'Reports', href: '/attorney-portal/reports', icon: FileText },
+  // Agreements page removed (2026-09) — it duplicated AOD & Payments below,
+  // both reading the same external_portal_agreements mirror table.
   { title: 'AOD & Payments', href: '/attorney-portal/payments', icon: CreditCard },
-  { title: 'Agreements', href: '/attorney-portal/agreements', icon: FileSignature },
   { title: 'Profile', href: '/attorney-portal/profile', icon: User },
   { title: 'Notifications', href: '/attorney-portal/notifications', icon: Bell },
   { title: 'Support', href: '/attorney-portal/support', icon: HeadsetIcon },
@@ -80,6 +83,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
   const { loading } = usePermissions();
+  const { firmName, personName } = useAttorneyFirmName();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -183,8 +187,10 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
               </div>
               {!sidebarCollapsed && (
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <p className="truncate text-xs font-medium">{user?.email}</p>
-                  <p className="truncate text-[10px] text-[hsl(var(--portal-fg-muted))]">Referring Attorney</p>
+                  <p className="truncate text-xs font-medium">{personName || user?.email}</p>
+                  <p className="truncate text-[10px] text-[hsl(var(--portal-fg-muted))]">
+                    {firmName || 'Referring Attorney'}
+                  </p>
                 </div>
               )}
             </div>
