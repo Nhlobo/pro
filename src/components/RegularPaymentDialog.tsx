@@ -31,6 +31,8 @@ import {
 } from '@/hooks/usePaymentSync';
 import { useAppointmentSync } from '@/contexts/AppointmentSyncContext';
 import { BRAND_TEAL } from '@/components/admin/ui/AdminUI';
+import { PaymentPopUploader } from '@/components/finance/PaymentPopUploader';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import { RandSign } from "@/components/icons/RandSign";
 interface RegularPaymentDialogProps {
@@ -115,11 +117,29 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
   type CaptureMode = 'payment' | 'reports' | 'both';
   const [mode, setMode] = useState<CaptureMode>('both');
 
+  // Client request (#1): "payment can be recorded or allocated for past,
+  // present and future appointment — this will help both attorney and us
+  // know what the payment was for or allocated to."
+  type AllocationPeriod = 'past' | 'present' | 'future' | 'general';
+  const [allocationPeriod, setAllocationPeriod] = useState<AllocationPeriod>('general');
+  // Once a payment is recorded, its POP uploader mounts inline so staff can
+  // immediately attach proof without leaving this dialog or hunting for the
+  // payment afterward in a different screen.
+  const [justRecordedPaymentId, setJustRecordedPaymentId] = useState<string | null>(null);
+  const [justRecordedPaymentReference, setJustRecordedPaymentReference] = useState<string>('');
+  const [paymentReference, setPaymentReference] = useState('');
+
   useEffect(() => {
     if (open) {
       fetchSummary();
       fetchClaimants();
       fetchPreviousAllocations();
+    } else {
+      // Closing the sheet — clear the "just recorded" POP prompt so the
+      // next payment recorded in a future open doesn't show a stale
+      // uploader still pointed at the previous payment's id.
+      setJustRecordedPaymentId(null);
+      setJustRecordedPaymentReference('');
     }
   }, [open, agreementId]);
 
@@ -338,14 +358,48 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         ? paymentAmount / selectedOptions.length
         : 0;
 
+      // Client request (#1): allocate this payment to a specific appointment
+      // when exactly one is selected (unambiguous); otherwise the manually
+      // chosen period still records what the payment was for.
+      const allocatedAppointmentId = selectedOptions.length === 1 ? selectedOptions[0].appointmentId : null;
+      const resolvedReference = paymentReference.trim() || `${agreementType.toUpperCase()}-${paymentDate}-${Date.now().toString().slice(-5)}`;
+
       if (agreementType === 'aod' && !statusOnly) {
         const { data: inserted, error } = await supabase.from('aod_payments').insert({
           aod_document_id: agreementId,
           payment_amount: paymentAmount,
           payment_type: 'regular',
           payment_date: paymentDate,
+          payment_reference: resolvedReference,
           reports_taken_out: reportsCount,
           payment_notes: notes || `Regular payment: ${reportsCount} report(s) taken out`,
+          allocation_period: allocationPeriod,
+          allocated_appointment_id: allocatedAppointmentId,
+        }).select('id').single();
+        if (error) throw error;
+        paymentId = inserted.id;
+      } else if (agreementType === 'short_term' && !statusOnly) {
+        // Previously no row was ever written here for short-term agreements
+        // (totals are recalculated straight from appointments below) — this
+        // payment id was generated but discarded. Recording it now gives
+        // the payment somewhere to hold its comment/allocation/POP, without
+        // changing how short-term totals are computed.
+        //
+        // NOTE: unlike aod_payments, this table's payment_type check
+        // constraint only allows 'deposit' | 'installment' | 'final' |
+        // 'other' — 'regular' (valid on aod_payments) is NOT valid here.
+        // Confirmed by an actual insert dry-run against the live schema,
+        // not assumed. 'installment' is the closest semantic match for an
+        // ongoing payment against a short-term agreement.
+        const { data: inserted, error } = await supabase.from('short_term_agreement_payments').insert({
+          agreement_id: agreementId,
+          payment_amount: paymentAmount,
+          payment_type: 'installment',
+          payment_date: paymentDate,
+          reports_taken_out: reportsCount,
+          payment_notes: notes || `Regular payment: ${reportsCount} report(s) taken out`,
+          allocation_period: allocationPeriod,
+          allocated_appointment_id: allocatedAppointmentId,
         }).select('id').single();
         if (error) throw error;
         paymentId = inserted.id;
@@ -476,6 +530,15 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
         toast.success(`R${paymentAmount.toLocaleString()} recorded — reports can be marked taken out later`);
       }
 
+      // Keep the payment's id/reference around (don't wipe it in the reset
+      // below) so the POP uploader can mount for it immediately — the whole
+      // point of wiring this in here rather than making staff track the
+      // payment down again afterward on the Finance & Payments page.
+      if (!statusOnly && paymentId) {
+        setJustRecordedPaymentId(paymentId);
+        setJustRecordedPaymentReference(resolvedReference);
+      }
+
       // Reset form
       setAmount('');
       setManualReports('');
@@ -483,6 +546,8 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
       setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
       setNotes('');
       setClaimantSearch('');
+      setAllocationPeriod('general');
+      setPaymentReference('');
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
 
@@ -793,14 +858,46 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                   />
                 </div>
                 <div>
-                  <Label className="text-xs">Notes</Label>
+                  <Label className="text-xs">Notes / Comment</Label>
                   <Input
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Optional"
+                    placeholder="What was this payment for or allocated to?"
                     className="mt-1"
                   />
                 </div>
+                {mode !== 'reports' && (
+                  <>
+                    <div>
+                      <Label className="text-xs">Allocated To</Label>
+                      <Select value={allocationPeriod} onValueChange={(v) => setAllocationPeriod(v as typeof allocationPeriod)}>
+                        <SelectTrigger className="mt-1 h-9 rounded-none">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="past">Past appointment (already completed)</SelectItem>
+                          <SelectItem value="present">Present appointment (happening now)</SelectItem>
+                          <SelectItem value="future">Future appointment (not yet booked)</SelectItem>
+                          <SelectItem value="general">General / not appointment-specific</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">
+                        {selectedReportsCount === 1
+                          ? 'Auto-linked to the one appointment selected above'
+                          : 'Select claimants above to link a specific appointment, or leave as-is for a general payment'}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Payment Reference</Label>
+                      <Input
+                        value={paymentReference}
+                        onChange={(e) => setPaymentReference(e.target.value)}
+                        placeholder="Optional — auto-generated if left blank"
+                        className="mt-1"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <p className="text-[10px] text-muted-foreground">
@@ -832,6 +929,25 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                 </Button>
               </div>
             </div>
+
+            {/* Inline Proof of Payment uploader for the payment just recorded
+                (client request #1) — staff can attach POP immediately
+                without leaving this dialog to find the payment elsewhere. */}
+            {justRecordedPaymentId && (
+              <>
+                <Separator />
+                <Card className="border-border/50">
+                  <CardContent className="p-3">
+                    <p className="text-xs font-medium mb-2">Payment recorded — attach proof of payment?</p>
+                    <PaymentPopUploader
+                      recordType={agreementType === 'aod' ? 'aod_payment' : 'short_term_payment'}
+                      recordId={justRecordedPaymentId}
+                      paymentReference={justRecordedPaymentReference || 'payment'}
+                    />
+                  </CardContent>
+                </Card>
+              </>
+            )}
 
             {/* Previously Allocated Reports */}
             {previousAllocations.length > 0 && (
