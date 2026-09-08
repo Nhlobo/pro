@@ -83,7 +83,7 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
   const { loading } = usePermissions();
-  const { firmName, personName } = useAttorneyFirmName();
+  const { firmName, personName, namesAreDuplicates } = useAttorneyFirmName();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -187,10 +187,20 @@ export const AttorneyPortalLayout: React.FC<AttorneyPortalLayoutProps> = ({ chil
               </div>
               {!sidebarCollapsed && (
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <p className="truncate text-xs font-medium">{personName || user?.email}</p>
-                  <p className="truncate text-[10px] text-[hsl(var(--portal-fg-muted))]">
-                    {firmName || 'Referring Attorney'}
-                  </p>
+                  {/* Some accounts have the firm's own name entered as the
+                      person's first/last name (confirmed live) — showing
+                      both lines then reads as the same name twice. Collapse
+                      to one line in that case. */}
+                  {namesAreDuplicates ? (
+                    <p className="truncate text-xs font-medium">{firmName}</p>
+                  ) : (
+                    <>
+                      <p className="truncate text-xs font-medium">{personName || user?.email}</p>
+                      <p className="truncate text-[10px] text-[hsl(var(--portal-fg-muted))]">
+                        {firmName || 'Referring Attorney'}
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
             </div>
