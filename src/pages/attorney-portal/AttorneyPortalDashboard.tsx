@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useAttorneyDashboardStats } from '@/hooks/useAttorneyDashboardStats';
 import { useAttorneyDebts } from '@/hooks/useAttorneyDebts';
 import { useAttorneyLinkStatus } from '@/hooks/useAttorneyLinkStatus';
+import { useAttorneyFirmName } from '@/hooks/useAttorneyFirmName';
 import { AttorneyPortalLayout } from '@/components/portal/AttorneyPortalLayout';
 import { AttorneyNotLinkedState } from '@/components/portal/AttorneyNotLinkedState';
 import { LiveCaseTracker } from '@/components/LiveCaseTracker';
@@ -51,6 +52,19 @@ const AttorneyPortalDashboard: React.FC = () => {
   const { stats, liveCases, loading, refetchStats } = useAttorneyDashboardStats();
   const { debtSummary, debtCases, loading: debtsLoading } = useAttorneyDebts();
   const linkStatus = useAttorneyLinkStatus();
+  const { firmName, personName } = useAttorneyFirmName();
+
+  // Client request: "Dashboard must be written the name of the Attorney...
+  // so each referring attorney must be welcomed by the lawfirm's [name]".
+  // Prefer the person's own name ("Welcome, Jane Mavuya — Mavuya Attorney");
+  // fall back to the firm name alone if we only have that.
+  const welcomeLine = personName && firmName
+    ? `Welcome, ${personName} — ${firmName}`
+    : personName
+    ? `Welcome, ${personName}`
+    : firmName
+    ? `Welcome, ${firmName}`
+    : null;
 
   // ---- Derived case-stage counts (drive the KPI panel) -----------------
   const litigationReadyCases = liveCases.filter((c) =>
@@ -155,7 +169,7 @@ const AttorneyPortalDashboard: React.FC = () => {
       <PortalPage>
         <PortalHeader
           eyebrow="Attorney Portal"
-          title="Dashboard"
+          title={welcomeLine || 'Dashboard'}
           description="Everything that changed since you last checked — not a menu, that's what the sidebar is for."
           icon={LayoutDashboard}
           actions={<SyncStatus loading={isLoading} onRefresh={refetchStats} label="Live data" />}
