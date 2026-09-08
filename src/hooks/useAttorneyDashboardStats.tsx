@@ -156,7 +156,19 @@ export const useAttorneyDashboardStats = () => {
           ? supabase.from('expert_reports').select('appointment_id, report_status, report_submitted_date, created_at').in('appointment_id', liveApptIds)
           : Promise.resolve({ data: [] as any[] }),
         liveApptIds.length
-          ? supabase.from('external_portal_case_documents' as any).select('appointment_id, document_id, file_name, file_path, document_type, created_at').in('appointment_id', liveApptIds).eq('document_type', 'Expert Report')
+          // Fix: staff's actual upload form (DocumentUploadSystem.tsx) saves
+          // this as the lowercase value 'expert_report' — confirmed 283 of
+          // 305 real report documents in the database use that value, with
+          // only 22 legacy rows using the old 'Expert Report' string this
+          // query was exclusively filtering for. That mismatch was silently
+          // hiding ~93% of completed reports from every attorney's download
+          // button, with no error shown — the phase said "completed"
+          // (driven by expert_reports.report_status, a separate table) so
+          // the button rendered, but reportVersions came back empty because
+          // this exact-match filter found nothing. Matching both values
+          // covers all existing data without needing to touch or migrate
+          // any historical rows.
+          ? supabase.from('external_portal_case_documents' as any).select('appointment_id, document_id, file_name, file_path, document_type, created_at').in('appointment_id', liveApptIds).in('document_type', ['expert_report', 'Expert Report'])
           : Promise.resolve({ data: [] as any[] }),
       ]);
 
