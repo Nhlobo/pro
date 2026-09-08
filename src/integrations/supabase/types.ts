@@ -241,6 +241,48 @@ export type Database = {
         }
         Relationships: []
       }
+      agreement_extensions: {
+        Row: {
+          agreement_id: string
+          agreement_type: string
+          created_at: string
+          created_by: string | null
+          extension_type: string
+          id: string
+          new_appointment_ids: string[]
+          new_end_date: string
+          previous_end_date: string | null
+          reason: string | null
+          value_change_amount: number
+        }
+        Insert: {
+          agreement_id: string
+          agreement_type: string
+          created_at?: string
+          created_by?: string | null
+          extension_type: string
+          id?: string
+          new_appointment_ids?: string[]
+          new_end_date: string
+          previous_end_date?: string | null
+          reason?: string | null
+          value_change_amount?: number
+        }
+        Update: {
+          agreement_id?: string
+          agreement_type?: string
+          created_at?: string
+          created_by?: string | null
+          extension_type?: string
+          id?: string
+          new_appointment_ids?: string[]
+          new_end_date?: string
+          previous_end_date?: string | null
+          reason?: string | null
+          value_change_amount?: number
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           content: string
@@ -476,6 +518,8 @@ export type Database = {
       }
       aod_payments: {
         Row: {
+          allocated_appointment_id: string | null
+          allocation_period: string | null
           aod_document_id: string
           created_at: string
           id: string
@@ -491,6 +535,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allocated_appointment_id?: string | null
+          allocation_period?: string | null
           aod_document_id: string
           created_at?: string
           id?: string
@@ -506,6 +552,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allocated_appointment_id?: string | null
+          allocation_period?: string | null
           aod_document_id?: string
           created_at?: string
           id?: string
@@ -533,6 +581,13 @@ export type Database = {
             columns: ["pop_attachment_id"]
             isOneToOne: false
             referencedRelation: "payment_pop_attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aod_payments_allocated_appointment_id_fkey"
+            columns: ["allocated_appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
             referencedColumns: ["id"]
           },
         ]
@@ -767,6 +822,7 @@ export type Database = {
           processed_at: string | null
           processed_by: string | null
           province: string
+          referral_group_id: string | null
           referring_attorney_id: string
           referring_attorney_name: string
           requested_by: string
@@ -797,6 +853,7 @@ export type Database = {
           processed_at?: string | null
           processed_by?: string | null
           province: string
+          referral_group_id?: string | null
           referring_attorney_id: string
           referring_attorney_name: string
           requested_by: string
@@ -827,6 +884,7 @@ export type Database = {
           processed_at?: string | null
           processed_by?: string | null
           province?: string
+          referral_group_id?: string | null
           referring_attorney_id?: string
           referring_attorney_name?: string
           requested_by?: string
@@ -6331,6 +6389,8 @@ export type Database = {
       short_term_agreement_payments: {
         Row: {
           agreement_id: string
+          allocated_appointment_id: string | null
+          allocation_period: string | null
           created_at: string
           id: string
           payment_amount: number
@@ -6343,6 +6403,8 @@ export type Database = {
         }
         Insert: {
           agreement_id: string
+          allocated_appointment_id?: string | null
+          allocation_period?: string | null
           created_at?: string
           id?: string
           payment_amount: number
@@ -6355,6 +6417,8 @@ export type Database = {
         }
         Update: {
           agreement_id?: string
+          allocated_appointment_id?: string | null
+          allocation_period?: string | null
           created_at?: string
           id?: string
           payment_amount?: number
@@ -6371,6 +6435,13 @@ export type Database = {
             columns: ["agreement_id"]
             isOneToOne: false
             referencedRelation: "short_term_agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "short_term_agreement_payments_allocated_appointment_id_fkey"
+            columns: ["allocated_appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
             referencedColumns: ["id"]
           },
         ]
