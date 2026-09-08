@@ -75,6 +75,12 @@ const AttorneyMyCases: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  // Separate search state for the Documents tab (client request: "Document
+  // Section include search function in case the attorney has 10 claimant
+  // plus must search be name to retrieve document of such patient"). Kept
+  // independent from the Cases tab's searchTerm so switching tabs doesn't
+  // wipe out whichever search the attorney was mid-typing on either one.
+  const [documentSearchTerm, setDocumentSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [litigationFilter, setLitigationFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState('cases');
@@ -259,6 +265,19 @@ const AttorneyMyCases: React.FC = () => {
       return matchesSearch && matchesStatus && matchesLitigation;
     });
   }, [liveCases, searchTerm, statusFilter, litigationFilter]);
+
+  // Documents tab has its own independent search — it lists every case's
+  // documents stacked vertically with no filtering at all previously, which
+  // is unusable once an attorney has 10+ claimants (client's exact
+  // complaint). Matches on claimant name or auto-generated case ID.
+  const filteredCasesForDocuments = useMemo(() => {
+    const term = documentSearchTerm.trim().toLowerCase();
+    if (!term) return liveCases;
+    return liveCases.filter(c =>
+      c.claimantName.toLowerCase().includes(term) ||
+      c.claimantAutoId.toLowerCase().includes(term)
+    );
+  }, [liveCases, documentSearchTerm]);
 
   const STATUS_PILL_TONE: Record<string, PortalPillTone> = {
     'Completed': 'success',
@@ -668,7 +687,15 @@ const AttorneyMyCases: React.FC = () => {
                   <PortalEmptyState icon={FolderOpen} title="No cases available" />
                 ) : (
                   <div className="space-y-3">
-                    {liveCases.map(caseItem => {
+                    <AdminSearchInput
+                      value={documentSearchTerm}
+                      onChange={setDocumentSearchTerm}
+                      placeholder="Search by claimant name or case ID to find their documents…"
+                      className="w-full"
+                    />
+                    {filteredCasesForDocuments.length === 0 ? (
+                      <PortalEmptyState icon={FolderOpen} title={`No claimants match "${documentSearchTerm}"`} />
+                    ) : filteredCasesForDocuments.map(caseItem => {
                       const docs = caseDocuments[caseItem.id] || [];
                       return (
                         <div key={caseItem.id} className="border border-black/10 p-4">
