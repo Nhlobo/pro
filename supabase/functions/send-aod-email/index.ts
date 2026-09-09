@@ -199,7 +199,13 @@ serve(withErrorHandler(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    // See generate-aod-pdf for the full explanation: bare getUser() on
+    // this pinned supabase-js@2.39.3 client always fails for a
+    // freshly-constructed per-request client, regardless of token
+    // validity — pass the token explicitly to skip the broken
+    // session-lookup path entirely.
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await userClient.auth.getUser(token);
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
@@ -404,5 +410,4 @@ serve(withErrorHandler(async (req) => {
       { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
-});
-))
+}));
