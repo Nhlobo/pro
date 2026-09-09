@@ -143,7 +143,19 @@ serve(withErrorHandler(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    // Pass the JWT explicitly rather than calling getUser() bare.
+    // Bare getUser() reads the client's *stored session* (empty, for a
+    // fresh per-request client like this one) and only falls back to
+    // the forwarded header via `hasCustomAuthorizationHeader`, a check
+    // added in a supabase-js version newer than the 2.39.3 this
+    // function is pinned to. On 2.39.3 that fallback doesn't exist, so
+    // bare getUser() always returned "no session" here — 401 for every
+    // caller, valid token or not (confirmed: 100% failure rate in
+    // storage/edge logs across every attempt, all day). Passing the
+    // token directly skips the session lookup entirely and is the
+    // version-independent, Supabase-documented way to do this.
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await userClient.auth.getUser(token);
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
