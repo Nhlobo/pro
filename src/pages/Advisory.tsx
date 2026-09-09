@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Helmet } from "react-helmet-async";
 import {
   FileText,
@@ -48,6 +48,18 @@ const Advisory = () => {
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
   const [downloadingWord, setDownloadingWord] = useState(false);
+  const selectedItemRef = useRef<HTMLDivElement | null>(null);
+
+  // Eye button on a history row opens the result card below the history
+  // list — scroll it into view so the click has a visible effect instead
+  // of silently updating something off-screen. Runs after the card has
+  // actually rendered (ref is only non-null once selectedHistoryItem is
+  // set), not on every render.
+  useEffect(() => {
+    if (selectedHistoryItem && selectedItemRef.current) {
+      selectedItemRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [selectedHistoryItem]);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -448,7 +460,7 @@ const Advisory = () => {
         </Card>
 
         {selectedHistoryItem && (
-          <Card>
+          <Card ref={selectedItemRef}>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-lg">{selectedHistoryItem.file_name}</CardTitle>
