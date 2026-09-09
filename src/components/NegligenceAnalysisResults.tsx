@@ -57,10 +57,13 @@ interface NegligenceAnalysisResultsProps {
     overallSeverity: string;
     documentTypesIdentified?: string[];
     medicalTimeline?: TimelineEvent[];
-    negligenceIndicators: NegligenceIndicator[];
+    // Optional, not required: history rows created before these fields
+    // existed (or a completed row saved with no result data) won't have
+    // them. Every read site below must tolerate that.
+    negligenceIndicators?: NegligenceIndicator[];
     negligenceByType?: Record<string, NegligenceIndicator[]>;
-    keyEvidence: any[];
-    expertRecommendations: ExpertRecommendation[];
+    keyEvidence?: any[];
+    expertRecommendations?: ExpertRecommendation[];
     factsSummary?: string;
     // What's missing from the records, populated only for a 'defer' outcome
     // caused by lack of relevant content (client spec section 6 examples:
@@ -247,7 +250,7 @@ export const NegligenceAnalysisResults: React.FC<NegligenceAnalysisResultsProps>
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="negligence" className="gap-1">
             <Scale className="h-4 w-4" />
-            Negligence ({result.negligenceIndicators.length})
+            Negligence ({result.negligenceIndicators?.length || 0})
           </TabsTrigger>
           <TabsTrigger value="timeline" className="gap-1">
             <Calendar className="h-4 w-4" />
@@ -255,11 +258,11 @@ export const NegligenceAnalysisResults: React.FC<NegligenceAnalysisResultsProps>
           </TabsTrigger>
           <TabsTrigger value="evidence" className="gap-1">
             <FileText className="h-4 w-4" />
-            Evidence ({result.keyEvidence.length})
+            Evidence ({result.keyEvidence?.length || 0})
           </TabsTrigger>
           <TabsTrigger value="experts" className="gap-1">
             <Stethoscope className="h-4 w-4" />
-            Experts ({result.expertRecommendations.length})
+            Experts ({result.expertRecommendations?.length || 0})
           </TabsTrigger>
         </TabsList>
 
@@ -371,7 +374,7 @@ export const NegligenceAnalysisResults: React.FC<NegligenceAnalysisResultsProps>
             <CardContent className="p-4">
               <ScrollArea className="h-[400px]">
                 <div className="space-y-3">
-                  {result.keyEvidence.length > 0 ? (
+                  {result.keyEvidence && result.keyEvidence.length > 0 ? (
                     result.keyEvidence.map((evidence, idx) => (
                       <div key={idx} className="p-3 border rounded-lg">
                         <div className="flex items-center gap-2 mb-2">
@@ -412,7 +415,7 @@ export const NegligenceAnalysisResults: React.FC<NegligenceAnalysisResultsProps>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {result.expertRecommendations.length > 0 ? (
+              {result.expertRecommendations && result.expertRecommendations.length > 0 ? (
                 <div className="space-y-3">
                   {result.expertRecommendations.map((rec, idx) => (
                     <div key={idx} className="p-4 border rounded-lg">
