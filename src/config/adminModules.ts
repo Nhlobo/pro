@@ -17,6 +17,7 @@ import {
   HeadsetIcon,
   FileText,
   FileSignature,
+  Scale,
   BarChart3,
   FolderLock,
   Calendar,
@@ -181,6 +182,22 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'Workflow',
     icon: FolderLock,
     description: 'Secure document storage & uploads',
+    permissions: [{ category: 'Document Management' }],
+  },
+  {
+    key: 'advisory',
+    title: 'Advisory',
+    href: '/advisory',
+    group: 'Workflow',
+    icon: Scale,
+    description: 'AI screening of medical records for negligence indicators & expert recommendations',
+    // referring_attorney and medical_expert are External Portal roles —
+    // they never reach the Admin Portal sidebar this module renders in
+    // (see isExternalPortalRole in usePermissions.tsx), so including them
+    // here would be a dead entry, not real access. No `roles` field =
+    // admin/employee only, same default as Document Vault above — this is
+    // internal staff tooling for now per the client brief; a doctor/expert-
+    // facing subscription version is a distinct future build, not this one.
     permissions: [{ category: 'Document Management' }],
   },
   {
