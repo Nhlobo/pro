@@ -413,7 +413,11 @@ const App = () => (
                 <Route path="/document-upload" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentUpload /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/document-uploading" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentUploading /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/document-proofreading" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentProofreading /></PermissionProtectedRoute></ProtectedRoute>} />
-                <Route path="/advisory" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><Advisory /></PermissionProtectedRoute></ProtectedRoute>} />
+                {/* Advisory is internal-staff-only tooling (admin/employee) — unlike the
+                    other document routes below, referring attorneys are intentionally
+                    excluded (see src/config/adminModules.ts). Do not add "referring_attorney"
+                    back here without updating that intent. */}
+                <Route path="/advisory" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents"]}><Advisory /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/document-checklist" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentChecklist /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/aod-management" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><AODManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/aod-payment-tracking/:documentId" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><AODPaymentTracking /></PermissionProtectedRoute></ProtectedRoute>} />
