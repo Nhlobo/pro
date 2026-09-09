@@ -12,6 +12,7 @@ import {
   ChevronDown,
   FileSignature,
   FileText,
+  Scale,
   Settings,
   Stethoscope,
   Target,
@@ -177,6 +178,12 @@ const DashboardMenus = () => (
             <Link to="/document-proofreading" className="flex items-center w-full">
               <FileText className="h-4 w-4 mr-2" />
               Document Proofreading
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/advisory" className="flex items-center w-full">
+              <Scale className="h-4 w-4 mr-2" />
+              Advisory
             </Link>
           </DropdownMenuItem>
         </DropdownMenuContent>
