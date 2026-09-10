@@ -223,13 +223,22 @@ export const syncShortTermPaymentToAppointments = async (
     // missing entirely - payments were only reflected as side-effects on
     // appointments/AOD, with no row in short_term_agreement_payments, which
     // meant there was nothing to attach a Proof of Payment to.
+    //
+    // NOTE: unlike aod_payments, this table's payment_type check constraint
+    // only allows 'deposit' | 'installment' | 'final' | 'other' - 'regular'
+    // (the value the UI actually sends here) is NOT valid and was silently
+    // failing the insert (error only logged, never surfaced), so no payment
+    // row - and nothing to attach a POP to - was ever created for ordinary
+    // short-term payments. 'installment' is the closest semantic match,
+    // matching the mapping already used in RegularPaymentDialog.tsx.
+    const dbPaymentType = paymentType === 'regular' ? 'installment' : paymentType;
     const { data: userData } = await supabase.auth.getUser();
     const { data: paymentRow, error: paymentInsertError } = await supabase
       .from('short_term_agreement_payments')
       .insert({
         agreement_id: agreementId,
         payment_amount: paymentAmount,
-        payment_type: paymentType,
+        payment_type: dbPaymentType,
         payment_date: paymentDate,
         reports_taken_out: reportsCount || 0,
         payment_notes: paymentNotes || null,
