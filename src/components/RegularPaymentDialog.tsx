@@ -92,6 +92,9 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
     balance: 0, reportsTakenOut: 0, totalReportsAgreed: 0, remainingReports: 0,
   });
   const [recentPayments, setRecentPayments] = useState<PaymentRecord[]>([]);
+  // Full payment history now renders here (see fetchSummary) rather than a
+  // truncated "last 5" - this filter keeps a long list usable.
+  const [paymentHistorySearch, setPaymentHistorySearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -256,7 +259,10 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
           reportsTakenOut: reportsTaken, totalReportsAgreed,
           remainingReports: Math.max(0, totalReportsAgreed - reportsTaken),
         });
-        setRecentPayments(allPayments.slice(0, 5));
+        // Show every payment on record here, not just the last few - this
+        // list is the only place staff can reach the Proof of Payment for
+        // an older payment, so truncating it silently hid that action.
+        setRecentPayments(allPayments);
       } else {
         const { data: doc } = await supabase
           .from('short_term_agreements')
@@ -963,18 +969,26 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
               </>
             )}
 
-            {/* Recent Payments */}
+            {/* Payment History - every payment on record, not just recent ones */}
             {recentPayments.length > 0 && (
               <>
                 <Separator />
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
-                    <FileText className="h-3 w-3" /> Recent Payments
+                    <FileText className="h-3 w-3" /> All Payments ({recentPayments.length})
                   </p>
                   <p className="text-[10px] text-muted-foreground mb-1.5">
                     Click "Proof" on any payment below to attach or view its proof of payment — works for payments
                     recorded earlier too, not just the one you just saved.
                   </p>
+                  {recentPayments.length > 8 && (
+                    <Input
+                      value={paymentHistorySearch}
+                      onChange={(e) => setPaymentHistorySearch(e.target.value)}
+                      placeholder="Search by date, type, or notes..."
+                      className="h-7 text-xs mb-1.5"
+                    />
+                  )}
                   <div className="rounded-md border overflow-auto max-h-[220px]">
                     <Table>
                       <TableHeader>
@@ -988,7 +1002,18 @@ export const RegularPaymentDialog: React.FC<RegularPaymentDialogProps> = ({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {recentPayments.map((p) => (
+                        {recentPayments
+                          .filter((p) => {
+                            const q = paymentHistorySearch.trim().toLowerCase();
+                            if (!q) return true;
+                            return (
+                              p.payment_type?.toLowerCase().includes(q) ||
+                              p.payment_notes?.toLowerCase().includes(q) ||
+                              format(new Date(p.payment_date), 'dd MMM yyyy').toLowerCase().includes(q) ||
+                              String(p.payment_amount).includes(q)
+                            );
+                          })
+                          .map((p) => (
                           <TableRow key={p.id} className="text-xs">
                             <TableCell>{format(new Date(p.payment_date), 'dd MMM yyyy')}</TableCell>
                             <TableCell>
