@@ -33,8 +33,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Card } from "@/components/ui/card";
-import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download, Loader2, Mail, FileCheck, AlertTriangle } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { FileText, Plus, Edit, Trash2, Calendar as CalendarIcon, Upload, Download, Loader2, Mail, FileCheck, AlertTriangle, Paperclip, X } from "lucide-react";
 import { useShortTermAgreements } from "@/hooks/useShortTermAgreements";
 import { syncShortTermPaymentToAppointments, fetchLinkedAssessments } from "@/hooks/usePaymentSync";
 import { PaymentPopUploader } from "@/components/finance/PaymentPopUploader";
@@ -92,6 +92,11 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
   const [capturePaymentDate, setCapturePaymentDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [capturePaymentNotes, setCapturePaymentNotes] = useState('');
   const [capturingPayment, setCapturingPayment] = useState(false);
+  // Recent payments for this agreement, so Proof of Payment stays reachable
+  // for payments captured in earlier sessions too - mirrors the pattern
+  // already used on the Finance page's Record Payment sheet.
+  const [recentShortTermPayments, setRecentShortTermPayments] = useState<any[]>([]);
+  const [expandedHistoryPaymentId, setExpandedHistoryPaymentId] = useState<string | null>(null);
   const [captureAssessments, setCaptureAssessments] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
@@ -306,6 +311,21 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     }
   };
 
+  const fetchRecentShortTermPayments = async (agreementId: string) => {
+    const { data, error } = await supabase
+      .from('short_term_agreement_payments')
+      .select('id, payment_amount, payment_type, payment_date, reports_taken_out, payment_notes')
+      .eq('agreement_id', agreementId)
+      .order('payment_date', { ascending: false })
+      .limit(15);
+
+    if (error) {
+      console.error('Error fetching recent short-term payments:', error);
+      return;
+    }
+    setRecentShortTermPayments(data || []);
+  };
+
   // Open payment capture dialog
   const handleOpenCapturePayment = async (agreement: any) => {
     setPaymentAgreementId(agreement.id);
@@ -316,10 +336,15 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
     setCapturePaymentDate(format(new Date(), 'yyyy-MM-dd'));
     setCapturePaymentNotes('');
     setLastCapturedPaymentId(null);
+    setExpandedHistoryPaymentId(null);
     
     // Fetch linked assessments for this attorney
     const assessments = await fetchLinkedAssessments(agreement.referring_attorney_id);
     setCaptureAssessments(assessments);
+
+    // Fetch payment history so Proof of Payment stays reachable for
+    // payments captured in earlier sessions, not just this one.
+    await fetchRecentShortTermPayments(agreement.id);
   };
 
   const handleCapturePayment = async () => {
@@ -366,6 +391,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
 
       await refetch();
       triggerSync();
+      await fetchRecentShortTermPayments(paymentAgreementId);
     } catch (error: any) {
       console.error('Error capturing payment:', error);
       toast.error('Failed to capture payment');
@@ -1557,6 +1583,85 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                 recordId={lastCapturedPaymentId}
                 paymentReference={`${attorneyNames[paymentAttorneyId || ''] || 'Attorney'} - ${capturePaymentDate}`}
               />
+            </div>
+          )}
+
+          {/* Recent Payments - Proof of Payment stays reachable here for
+              payments captured earlier, not only the one just captured
+              above. One payment/proof can cover multiple appointments -
+              see "assessment(s) updated" in the confirmation toast. */}
+          {recentShortTermPayments.length > 0 && (
+            <div className="pt-2">
+              <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <FileText className="h-3 w-3" /> Recent Payments
+              </Label>
+              <p className="text-[10px] text-muted-foreground mb-1.5">
+                Click "Proof" on any payment below to attach or view its proof of payment.
+              </p>
+              <div className="rounded-md border overflow-auto max-h-[220px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-[10px]">Date</TableHead>
+                      <TableHead className="text-[10px]">Type</TableHead>
+                      <TableHead className="text-[10px] text-right">Amount</TableHead>
+                      <TableHead className="text-[10px] text-right">Reports</TableHead>
+                      <TableHead className="text-[10px]">Notes</TableHead>
+                      <TableHead className="text-[10px] text-center">Proof</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentShortTermPayments.map((p) => (
+                      <TableRow key={p.id} className="text-xs">
+                        <TableCell>{format(new Date(p.payment_date), 'dd MMM yyyy')}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[9px]">{p.payment_type}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">R{p.payment_amount.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{p.reports_taken_out || '—'}</TableCell>
+                        <TableCell className="text-muted-foreground truncate max-w-[120px]">
+                          {p.payment_notes || '—'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-[10px]"
+                            onClick={() => setExpandedHistoryPaymentId(prev => prev === p.id ? null : p.id)}
+                          >
+                            <Paperclip className="h-3 w-3 mr-1" /> Proof
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {expandedHistoryPaymentId && (() => {
+                const expandedPayment = recentShortTermPayments.find(p => p.id === expandedHistoryPaymentId);
+                if (!expandedPayment) return null;
+                return (
+                  <Card className="border-border/50 mt-2">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs font-medium">
+                          Proof of payment — {format(new Date(expandedPayment.payment_date), 'dd MMM yyyy')}, R{expandedPayment.payment_amount.toLocaleString()}
+                        </p>
+                        <Button type="button" size="sm" variant="ghost" className="h-6 px-2" onClick={() => setExpandedHistoryPaymentId(null)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <PaymentPopUploader
+                        recordType="short_term_payment"
+                        recordId={expandedPayment.id}
+                        paymentReference={`${attorneyNames[paymentAttorneyId || ''] || 'Attorney'} - ${expandedPayment.payment_date}`}
+                      />
+                    </CardContent>
+                  </Card>
+                );
+              })()}
             </div>
           )}
 
