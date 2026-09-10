@@ -97,6 +97,7 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
   // already used on the Finance page's Record Payment sheet.
   const [recentShortTermPayments, setRecentShortTermPayments] = useState<any[]>([]);
   const [expandedHistoryPaymentId, setExpandedHistoryPaymentId] = useState<string | null>(null);
+  const [paymentHistorySearch, setPaymentHistorySearch] = useState('');
   const [captureAssessments, setCaptureAssessments] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
@@ -316,8 +317,11 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
       .from('short_term_agreement_payments')
       .select('id, payment_amount, payment_type, payment_date, reports_taken_out, payment_notes')
       .eq('agreement_id', agreementId)
-      .order('payment_date', { ascending: false })
-      .limit(15);
+      .order('payment_date', { ascending: false });
+      // No .limit() here - same reasoning as AODGroupedView's equivalent
+      // fetch: this list is how staff reach Proof of Payment for older
+      // payments, so capping it hid that action once there were more than
+      // a handful of payments.
 
     if (error) {
       console.error('Error fetching recent short-term payments:', error);
@@ -1593,11 +1597,19 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
           {recentShortTermPayments.length > 0 && (
             <div className="pt-2">
               <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                <FileText className="h-3 w-3" /> Recent Payments
+                <FileText className="h-3 w-3" /> All Payments ({recentShortTermPayments.length})
               </Label>
               <p className="text-[10px] text-muted-foreground mb-1.5">
                 Click "Proof" on any payment below to attach or view its proof of payment.
               </p>
+              {recentShortTermPayments.length > 8 && (
+                <Input
+                  value={paymentHistorySearch}
+                  onChange={(e) => setPaymentHistorySearch(e.target.value)}
+                  placeholder="Search by date, type, or notes..."
+                  className="h-7 text-xs mb-1.5"
+                />
+              )}
               <div className="rounded-md border overflow-auto max-h-[220px]">
                 <Table>
                   <TableHeader>
@@ -1611,7 +1623,18 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {recentShortTermPayments.map((p) => (
+                    {recentShortTermPayments
+                      .filter((p) => {
+                        const q = paymentHistorySearch.trim().toLowerCase();
+                        if (!q) return true;
+                        return (
+                          p.payment_type?.toLowerCase().includes(q) ||
+                          p.payment_notes?.toLowerCase().includes(q) ||
+                          format(new Date(p.payment_date), 'dd MMM yyyy').toLowerCase().includes(q) ||
+                          String(p.payment_amount).includes(q)
+                        );
+                      })
+                      .map((p) => (
                       <TableRow key={p.id} className="text-xs">
                         <TableCell>{format(new Date(p.payment_date), 'dd MMM yyyy')}</TableCell>
                         <TableCell>
