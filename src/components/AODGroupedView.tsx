@@ -34,7 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronDown, ChevronRight, Filter, Users, Calendar, FileText, TrendingUp, AlertCircle, Plus, Loader2, Activity, Pause, CheckCircle2, AlertTriangle } from "lucide-react";
+import { ChevronDown, ChevronRight, Filter, Users, Calendar, FileText, TrendingUp, AlertCircle, Plus, Loader2, Activity, Pause, CheckCircle2, AlertTriangle, Paperclip, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -160,6 +160,12 @@ export const AODGroupedView = () => {
   const [paymentNotes, setPaymentNotes] = useState("");
   const [submittingPayment, setSubmittingPayment] = useState(false);
   const [linkedAssessments, setLinkedAssessments] = useState<any[]>([]);
+  // Recent payments for this AOD, so Proof of Payment can be attached/viewed
+  // for payments recorded earlier too - not only the one just captured in
+  // this dialog session. Mirrors the pattern already used on the Finance
+  // page's Record Payment sheet (RegularPaymentDialog).
+  const [recentAodPayments, setRecentAodPayments] = useState<any[]>([]);
+  const [expandedHistoryPaymentId, setExpandedHistoryPaymentId] = useState<string | null>(null);
 
   // Fetch AOD data with payments
   useEffect(() => {
@@ -506,6 +512,21 @@ export const AODGroupedView = () => {
     };
   }, [groupedData]);
 
+  const fetchRecentAodPayments = async (aodDocumentId: string) => {
+    const { data, error } = await supabase
+      .from("aod_payments")
+      .select("id, payment_amount, payment_type, payment_date, reports_taken_out, payment_notes")
+      .eq("aod_document_id", aodDocumentId)
+      .order("payment_date", { ascending: false })
+      .limit(15);
+
+    if (error) {
+      console.error("Error fetching recent AOD payments:", error);
+      return;
+    }
+    setRecentAodPayments(data || []);
+  };
+
   // Open payment dialog for an attorney
   const handleOpenPaymentDialog = async (attorney: AttorneyGroup) => {
     // Find the first (most recent) AOD record for this attorney from raw records
@@ -528,11 +549,16 @@ export const AODGroupedView = () => {
     setPaymentDate(format(new Date(), 'yyyy-MM-dd'));
     setPaymentNotes("");
     setLastRecordedPaymentId(null);
+    setExpandedHistoryPaymentId(null);
     setPaymentDialogOpen(true);
 
     // Fetch linked assessments
     const assessments = await fetchLinkedAssessments(attorney.attorney_id);
     setLinkedAssessments(assessments);
+
+    // Fetch payment history so Proof of Payment stays reachable for
+    // payments recorded in earlier sessions, not just this one.
+    await fetchRecentAodPayments(latestAod.id);
   };
 
   const handleRecordPayment = async () => {
@@ -628,6 +654,7 @@ export const AODGroupedView = () => {
       }
 
       triggerSync();
+      await fetchRecentAodPayments(paymentAttorney.aodId);
     } catch (error: any) {
       console.error("Error recording payment:", error);
       toast.error("Failed to record payment");
@@ -1175,6 +1202,86 @@ export const AODGroupedView = () => {
                   recordId={lastRecordedPaymentId}
                   paymentReference={`${paymentAttorney?.name || "Attorney"} - ${paymentDate}`}
                 />
+              </div>
+            )}
+
+            {/* Recent Payments - Proof of Payment stays reachable here for
+                payments recorded earlier, not only the one just captured
+                above. One payment/proof can cover multiple appointments -
+                see "assessment(s) updated" in the confirmation toast and
+                the Linked Assessments preview above. */}
+            {recentAodPayments.length > 0 && (
+              <div className="pt-2">
+                <Label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <FileText className="h-3 w-3" /> Recent Payments
+                </Label>
+                <p className="text-[10px] text-muted-foreground mb-1.5">
+                  Click "Proof" on any payment below to attach or view its proof of payment.
+                </p>
+                <div className="rounded-md border overflow-auto max-h-[220px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-[10px]">Date</TableHead>
+                        <TableHead className="text-[10px]">Type</TableHead>
+                        <TableHead className="text-[10px] text-right">Amount</TableHead>
+                        <TableHead className="text-[10px] text-right">Reports</TableHead>
+                        <TableHead className="text-[10px]">Notes</TableHead>
+                        <TableHead className="text-[10px] text-center">Proof</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {recentAodPayments.map((p) => (
+                        <TableRow key={p.id} className="text-xs">
+                          <TableCell>{format(new Date(p.payment_date), "dd MMM yyyy")}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[9px]">{p.payment_type}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">R{p.payment_amount.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">{p.reports_taken_out || "—"}</TableCell>
+                          <TableCell className="text-muted-foreground truncate max-w-[120px]">
+                            {p.payment_notes || "—"}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-[10px]"
+                              onClick={() => setExpandedHistoryPaymentId(prev => prev === p.id ? null : p.id)}
+                            >
+                              <Paperclip className="h-3 w-3 mr-1" /> Proof
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {expandedHistoryPaymentId && (() => {
+                  const expandedPayment = recentAodPayments.find(p => p.id === expandedHistoryPaymentId);
+                  if (!expandedPayment) return null;
+                  return (
+                    <Card className="border-border/50 mt-2">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-medium">
+                            Proof of payment — {format(new Date(expandedPayment.payment_date), "dd MMM yyyy")}, R{expandedPayment.payment_amount.toLocaleString()}
+                          </p>
+                          <Button type="button" size="sm" variant="ghost" className="h-6 px-2" onClick={() => setExpandedHistoryPaymentId(null)}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <PaymentPopUploader
+                          recordType="aod_payment"
+                          recordId={expandedPayment.id}
+                          paymentReference={`${paymentAttorney?.name || "Attorney"} - ${expandedPayment.payment_date}`}
+                        />
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
               </div>
             )}
 
