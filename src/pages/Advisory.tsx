@@ -27,6 +27,7 @@ import { addBrandingToPDF, addBrandingFooter } from "@/utils/pdfBranding";
 import { buildNegligenceWordReport, downloadBlob } from "@/utils/negligenceWordReport";
 
 const SUPABASE_FUNCTIONS_URL = "https://zybkhhxvsdjkluqydcbb.supabase.co/functions/v1";
+const ADVISORY_BUCKET = "advisory-documents";
 const ALLOWED_TYPES = [
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -37,7 +38,15 @@ const ALLOWED_TYPES = [
   "image/bmp",
   "image/webp",
 ];
-const MAX_FILE_SIZE = 20 * 1024 * 1024;
+// Client requirement: minimum 500MB per file for large hospital record
+// bundles. Files are uploaded straight to Storage (advisory-documents
+// bucket, 600MB bucket limit) rather than embedded in the analysis
+// request, so this can safely sit at the client's stated minimum.
+const MAX_FILE_SIZE = 500 * 1024 * 1024;
+// Small files skip the Storage round-trip and go straight to the analysis
+// function inline, for lower latency on the common case (single scanned
+// page, a short discharge summary, etc).
+const INLINE_UPLOAD_THRESHOLD = 15 * 1024 * 1024;
 
 const Advisory = () => {
   const { toast } = useToast();
@@ -48,6 +57,7 @@ const Advisory = () => {
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(null);
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
   const [downloadingWord, setDownloadingWord] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null);
   const selectedItemRef = useRef<HTMLDivElement | null>(null);
 
   // Eye button on a history row opens the result card below the history
@@ -132,7 +142,7 @@ const Advisory = () => {
         continue;
       }
       if (file.size > MAX_FILE_SIZE) {
-        toast({ title: "File too large", description: `${file.name} exceeds 20MB.`, variant: "destructive" });
+        toast({ title: "File too large", description: `${file.name} exceeds 500MB.`, variant: "destructive" });
         continue;
       }
       valid.push(file);
@@ -153,21 +163,57 @@ const Advisory = () => {
     }
     setLoading(true);
     setResult(null);
-    try {
-      const formData = new FormData();
-      files.forEach((file, index) => formData.append(`file${index}`, file));
-      formData.append("fileCount", files.length.toString());
 
+    const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+    const uploadedPaths: string[] = [];
+
+    try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const response = await fetch(`${SUPABASE_FUNCTIONS_URL}/analyze-medical-negligence`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: formData,
-      });
+      let response: Response;
+
+      if (totalSize > INLINE_UPLOAD_THRESHOLD) {
+        // Large file(s): upload directly to Storage first (this is what
+        // makes 500MB-class hospital record bundles work — the bytes never
+        // pass through the analysis function's request body), then hand
+        // the function references to what was uploaded.
+        setUploadStatus(`Uploading ${files.length} document(s) — this can take a while for large scans...`);
+        const storageRefs: { path: string; fileName: string; fileType: string }[] = [];
+        for (const file of files) {
+          const path = `${session.user.id}/${crypto.randomUUID()}-${file.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from(ADVISORY_BUCKET)
+            .upload(path, file, { contentType: file.type, upsert: false });
+          if (uploadError) throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
+          uploadedPaths.push(path);
+          storageRefs.push({ path, fileName: file.name, fileType: file.type });
+        }
+        setUploadStatus(null);
+
+        response = await fetch(`${SUPABASE_FUNCTIONS_URL}/analyze-medical-negligence`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ storageRefs }),
+        });
+      } else {
+        // Small file(s): keep the direct inline path for lower latency.
+        const formData = new FormData();
+        files.forEach((file, index) => formData.append(`file${index}`, file));
+        formData.append("fileCount", files.length.toString());
+
+        response = await fetch(`${SUPABASE_FUNCTIONS_URL}/analyze-medical-negligence`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          body: formData,
+        });
+      }
+
       const data = await response.json();
       if (!response.ok || data.error) throw new Error(data.error || "Analysis failed");
 
@@ -182,6 +228,12 @@ const Advisory = () => {
     } catch (error: any) {
       console.error("Advisory analysis error:", error);
       setLoading(false);
+      setUploadStatus(null);
+      // Best-effort cleanup: don't leave uploaded originals in Storage if the
+      // analysis request itself never got queued.
+      if (uploadedPaths.length > 0) {
+        supabase.storage.from(ADVISORY_BUCKET).remove(uploadedPaths).catch(() => {});
+      }
       toast({
         title: "Analysis failed",
         description: error?.message || "Failed to analyze document(s).",
@@ -324,7 +376,7 @@ const Advisory = () => {
                 <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                 <p className="text-sm font-medium">Click to upload medical records</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  PDF, Word, TXT, or scanned images (JPG/PNG/TIFF) — up to 20MB each
+                  PDF, Word, TXT, or scanned/handwritten images (JPG/PNG/TIFF) — up to 500MB each
                 </p>
               </label>
             </div>
@@ -356,12 +408,20 @@ const Advisory = () => {
               </div>
             )}
 
-            {(loading || pendingTaskId) && (
+            {uploadStatus && (
+              <div className="flex items-center gap-2 p-3 bg-muted/40 rounded-lg">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">{uploadStatus}</span>
+              </div>
+            )}
+
+            {(loading || pendingTaskId) && !uploadStatus && (
               <div className="flex items-center gap-2 p-3 bg-muted/40 rounded-lg">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span className="text-sm text-muted-foreground">
-                  Reading records and screening for negligence indicators — this can take a few minutes for scanned
-                  or handwritten documents. You can leave this page; results are saved automatically.
+                  Reading records — including handwritten notes — and screening for negligence indicators. This can
+                  take a few minutes, longer for large or handwritten document sets. You can leave this page; results
+                  are saved automatically.
                 </span>
               </div>
             )}
