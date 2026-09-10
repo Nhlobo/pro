@@ -152,7 +152,7 @@ export const AODGroupedView = () => {
   // Payment dialog state
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [lastRecordedPaymentId, setLastRecordedPaymentId] = useState<string | null>(null);
-  const [paymentAttorney, setPaymentAttorney] = useState<{ id: string; name: string; aodId: string } | null>(null);
+  const [paymentAttorney, setPaymentAttorney] = useState<{ id: string; name: string; aodId: string; allAodIds: string[] } | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentType, setPaymentType] = useState<'deposit' | 'regular' | 'final'>('regular');
   const [reportsTakenOut, setReportsTakenOut] = useState("");
@@ -513,11 +513,22 @@ export const AODGroupedView = () => {
     };
   }, [groupedData]);
 
-  const fetchRecentAodPayments = async (aodDocumentId: string) => {
+  const fetchRecentAodPayments = async (aodDocumentIds: string[]) => {
+    if (aodDocumentIds.length === 0) {
+      setRecentAodPayments([]);
+      return;
+    }
     const { data, error } = await supabase
       .from("aod_payments")
       .select("id, payment_amount, payment_type, payment_date, reports_taken_out, payment_notes")
-      .eq("aod_document_id", aodDocumentId)
+      // An attorney can have more than one AOD document over time (renewed
+      // agreements, separate claims, etc). Payments recorded against an
+      // older AOD document were invisible here when this only queried the
+      // single most-recent AOD - looking like the feature "worked for some
+      // attorneys" when it actually correlated with how many AOD documents
+      // that attorney had. Query across all of this attorney's AOD
+      // documents instead of just the latest one.
+      .in("aod_document_id", aodDocumentIds)
       .order("payment_date", { ascending: false });
       // No .limit() here - this list is how staff reach Proof of Payment
       // for older payments, so capping it silently hid that action for
@@ -545,7 +556,7 @@ export const AODGroupedView = () => {
       return;
     }
 
-    setPaymentAttorney({ id: attorney.attorney_id, name: attorney.attorney_name, aodId: latestAod.id });
+    setPaymentAttorney({ id: attorney.attorney_id, name: attorney.attorney_name, aodId: latestAod.id, allAodIds: attorneyAods.map(a => a.id) });
     setPaymentAmount("");
     setPaymentType('regular');
     setReportsTakenOut("");
@@ -559,9 +570,10 @@ export const AODGroupedView = () => {
     const assessments = await fetchLinkedAssessments(attorney.attorney_id);
     setLinkedAssessments(assessments);
 
-    // Fetch payment history so Proof of Payment stays reachable for
-    // payments recorded in earlier sessions, not just this one.
-    await fetchRecentAodPayments(latestAod.id);
+    // Fetch payment history across every AOD document this attorney has,
+    // not just the latest one, so Proof of Payment stays reachable for
+    // payments recorded in earlier sessions or against an older agreement.
+    await fetchRecentAodPayments(attorneyAods.map(a => a.id));
   };
 
   const handleRecordPayment = async () => {
@@ -657,7 +669,7 @@ export const AODGroupedView = () => {
       }
 
       triggerSync();
-      await fetchRecentAodPayments(paymentAttorney.aodId);
+      await fetchRecentAodPayments(paymentAttorney.allAodIds);
     } catch (error: any) {
       console.error("Error recording payment:", error);
       toast.error("Failed to record payment");
