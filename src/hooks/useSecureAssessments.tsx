@@ -75,8 +75,11 @@ export const useSecureAssessments = () => {
     }
   };
 
-  const updateAssessmentStatus = useCallback(async (appointmentId: string, newStatus: string) => {
-    setSaveStatus({ status: 'saving', lastSaved: null, error: null });
+  const updateAssessmentStatus = useCallback(async (appointmentId: string, newStatus: string, options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    if (!silent) {
+      setSaveStatus({ status: 'saving', lastSaved: null, error: null });
+    }
 
     try {
       const { updateAppointmentCaseStatus } = await import('@/utils/supabaseTypedHelpers');
@@ -99,7 +102,7 @@ export const useSecureAssessments = () => {
         'assessment',
         { case_status: oldStatus },
         { case_status: uiStatus },
-        `Status changed from "${oldStatus}" to "${uiStatus}"`
+        silent ? `Status auto-updated from "${oldStatus}" to "${uiStatus}" (appointment date passed)` : `Status changed from "${oldStatus}" to "${uiStatus}"`
       );
 
       setAssessments(prev => prev.map(assessment =>
@@ -107,6 +110,17 @@ export const useSecureAssessments = () => {
           ? { ...assessment, case_status: dbStatus }
           : assessment
       ));
+
+      window.dispatchEvent(new CustomEvent('assessment-status-updated', { detail: { appointmentId, newStatus: dbStatus } }));
+
+      if (silent) {
+        // Automated background updates (e.g. the "mark overdue Scheduled as
+        // Assessed" sweep) must not spam a toast per row or force-broadcast
+        // a sync per row -- that was the source of the toast storm / repeated
+        // refetch cascade on this page. Caller batches these and triggers a
+        // single sync + summary toast once the whole sweep finishes.
+        return true;
+      }
 
       setSaveStatus({
         status: 'saved',
@@ -116,7 +130,6 @@ export const useSecureAssessments = () => {
 
       // Trigger global sync for real-time updates (force broadcast - user-initiated save)
       triggerSync(false, true);
-      window.dispatchEvent(new CustomEvent('assessment-status-updated', { detail: { appointmentId, newStatus: dbStatus } }));
 
       toast({
         title: "Saved successfully",
@@ -126,16 +139,18 @@ export const useSecureAssessments = () => {
       return true;
     } catch (err: any) {
       console.error('Error updating status:', err);
-      setSaveStatus({ 
-        status: 'error', 
-        lastSaved: null, 
-        error: err.message 
-      });
-      toast({
-        title: "Error",
-        description: "Failed to update assessment status. Changes not saved.",
-        variant: "destructive",
-      });
+      if (!silent) {
+        setSaveStatus({
+          status: 'error',
+          lastSaved: null,
+          error: err.message
+        });
+        toast({
+          title: "Error",
+          description: "Failed to update assessment status. Changes not saved.",
+          variant: "destructive",
+        });
+      }
       return false;
     }
   }, [assessments, logAuditTrail, triggerSync, toast]);
