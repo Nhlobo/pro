@@ -16,6 +16,9 @@ import {
   NotebookPen,
   ListChecks,
   X,
+  Paperclip,
+  Upload as UploadIcon,
+  Loader2,
 } from "lucide-react";
 import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -107,6 +110,14 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
   const [isAdminUser, setIsAdminUser] = useState(false);
   const [claimantsLoading, setClaimantsLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, boolean>>({});
+
+  // POP (Proof of Payment) captured at booking time -- client requirement:
+  // payment must be loaded when capturing new appointments, not deferred to
+  // a later Finance reconciliation step. If staff genuinely can't attach the
+  // file right now, a reason is required instead.
+  const [popFile, setPopFile] = useState<File | null>(null);
+  const [popPendingReason, setPopPendingReason] = useState("");
+  const [popUploading, setPopUploading] = useState(false);
 
   // Draft persistence – only active for new appointments (not edit mode)
   const { draft, setDraft, clearDraft, lastSavedAt, saveStatus } = useFormDraft<typeof NEW_APPOINTMENT_DEFAULTS>(
@@ -577,6 +588,15 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
       return;
     }
 
+    // Same POP requirement as the single-appointment form: a captured
+    // deposit needs either the file attached now, or a reason it's pending.
+    const queueDepositAmount = formData.depositMade ? parseFloat(formData.depositMade) : 0;
+    if (queueDepositAmount > 0 && !popFile && !popPendingReason.trim()) {
+      toast.error('Attach the proof of payment, or explain why it\u2019s pending POP upload');
+      setValidationErrors(prev => ({ ...prev, popPendingReason: true }));
+      return;
+    }
+
     // Get claimant and expert names for display
     const selectedClaimant = claimants.find(c => c.id === formData.claimantId);
     const selectedExpert = experts.find(e => e.id === formData.expertId);
@@ -588,7 +608,9 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
       claimantName: `${selectedClaimant?.first_name_masked} ${selectedClaimant?.last_name_masked} (${selectedClaimant?.auto_id})`,
       expertName: `Dr. ${selectedExpert?.first_name} ${selectedExpert?.last_name}`,
       attorneyName: selectedAttorney?.name,
-      referringAttorneyId: formData.referringAttorney
+      referringAttorneyId: formData.referringAttorney,
+      popFile: popFile,
+      popPendingReason: popPendingReason.trim(),
     };
 
     setAppointmentQueue(prev => [...prev, queueItem]);
@@ -614,6 +636,8 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
       notes: "",
       salesConsultantId: ""
     });
+    setPopFile(null);
+    setPopPendingReason("");
 
     toast.success('Appointment added to queue');
   };
@@ -775,7 +799,15 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
           agreement_duration_months: item.agreementDurationMonths ? parseInt(item.agreementDurationMonths) : null,
           case_status: 'scheduled',
           assessment_code: assessmentCode,
-          sales_consultant_id: item.salesConsultantId || null
+          sales_consultant_id: item.salesConsultantId || null,
+          pop_status: depositAmount <= 0
+            ? 'not_required'
+            : 'pending_upload',
+          pop_pending_reason: depositAmount <= 0
+            ? null
+            : ((item as any).popFile
+                ? 'Proof of payment uploading with this appointment.'
+                : ((item as any).popPendingReason || 'Reason not captured.')),
         };
       });
 
@@ -791,7 +823,43 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
 
           // Handle AOD/Short-term agreement creation for appointments with payment terms
           if (insertedAppointments && insertedAppointments.length > 0) {
-            for (const appointment of insertedAppointments) {
+            for (let i = 0; i < insertedAppointments.length; i++) {
+              const appointment = insertedAppointments[i];
+              const queueItem = appointmentQueue[i] as any;
+
+              // Attach the POP file captured at booking, same as the
+              // single-appointment path. Order of insertedAppointments
+              // matches the insert array (and therefore appointmentQueue).
+              if (queueItem?.popFile) {
+                try {
+                  const fileExt = queueItem.popFile.name.split('.').pop();
+                  const filePath = `appointment_payment/${appointment.id}/${Date.now()}.${fileExt}`;
+                  const { error: uploadError } = await supabase.storage
+                    .from('payment-pop-documents')
+                    .upload(filePath, queueItem.popFile);
+                  if (uploadError) throw uploadError;
+
+                  const { error: attachError } = await supabase
+                    .from('payment_pop_attachments')
+                    .insert({
+                      record_type: 'appointment_payment',
+                      record_id: appointment.id,
+                      payment_reference: appointment.assessment_code || appointment.id,
+                      file_path: filePath,
+                      file_name: queueItem.popFile.name,
+                      file_size_bytes: queueItem.popFile.size,
+                      mime_type: queueItem.popFile.type || null,
+                      uploaded_by: user.id,
+                    });
+                  if (attachError) throw attachError;
+                } catch (popError: any) {
+                  console.error('Error uploading queued POP at booking:', popError);
+                  toast.error(
+                    `Appointment for ${queueItem.claimantName} saved, but its POP upload failed. Please attach it from Finance.`
+                  );
+                }
+              }
+
               await handleAODCreation(appointment);
               try {
                 await supabase.functions.invoke('sageone-processor', {
@@ -1039,10 +1107,25 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
           returnAfterSave();
         }, 500);
       } else {
-        // Create new appointment
+        // Create new appointment. POP status is decided here, at the moment
+        // of capture, per the client's requirement: not_required when no
+        // payment is being recorded yet; pending_upload (with a mandatory
+        // reason) when a deposit is captured but the POP file isn't ready to
+        // attach in the same step; the trigger flips it to 'uploaded' the
+        // instant the attachment row below is created.
+        const insertPayload = {
+          ...appointmentData,
+          pop_status: depositAmount <= 0
+            ? 'not_required'
+            : 'pending_upload',
+          pop_pending_reason: depositAmount <= 0
+            ? null
+            : (popFile ? 'Proof of payment uploading with this appointment.' : popPendingReason.trim()),
+        };
+
         const { data: insertedAppointment, error } = await supabase
           .from('appointments')
-          .insert([appointmentData])
+          .insert([insertPayload])
           .select();
 
         if (error) {
@@ -1053,6 +1136,46 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
         // Handle AOD/Short-term agreement creation based on payment terms
         if (insertedAppointment && insertedAppointment.length > 0) {
           const newAppointment = insertedAppointment[0];
+
+          // Attach the POP file captured at booking, if one was provided.
+          // The trg_sync_appointment_pop_status trigger flips
+          // appointments.pop_status to 'uploaded' as soon as this insert
+          // succeeds, so Finance & the Attorney Portal see it immediately.
+          if (popFile) {
+            try {
+              setPopUploading(true);
+              const fileExt = popFile.name.split('.').pop();
+              const filePath = `appointment_payment/${newAppointment.id}/${Date.now()}.${fileExt}`;
+
+              const { error: uploadError } = await supabase.storage
+                .from('payment-pop-documents')
+                .upload(filePath, popFile);
+              if (uploadError) throw uploadError;
+
+              const { error: attachError } = await supabase
+                .from('payment_pop_attachments')
+                .insert({
+                  record_type: 'appointment_payment',
+                  record_id: newAppointment.id,
+                  payment_reference: newAppointment.assessment_code || newAppointment.id,
+                  file_path: filePath,
+                  file_name: popFile.name,
+                  file_size_bytes: popFile.size,
+                  mime_type: popFile.type || null,
+                  uploaded_by: user.id,
+                });
+              if (attachError) throw attachError;
+            } catch (popError: any) {
+              console.error('Error uploading POP at booking:', popError);
+              toast.error(
+                popError?.message
+                  ? `Appointment saved, but the POP upload failed: ${popError.message}`
+                  : 'Appointment saved, but the POP upload failed. Please attach it from Finance.'
+              );
+            } finally {
+              setPopUploading(false);
+            }
+          }
 
           try {
             await supabase.functions.invoke('sageone-processor', {
@@ -1201,6 +1324,17 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
         toast.error('Selected claimant is not linked to the chosen referring attorney');
       }
     }
+
+    // POP requirement: if a deposit/payment is being captured on a new
+    // appointment, either attach the proof of payment now or give a reason
+    // it's pending -- an appointment can't silently skip both.
+    if (!isEditMode) {
+      const depositAmount = formData.depositMade ? parseFloat(formData.depositMade) : 0;
+      if (depositAmount > 0 && !popFile && !popPendingReason.trim()) {
+        errors.popPendingReason = true;
+        toast.error('Attach the proof of payment, or explain why it\u2019s pending POP upload');
+      }
+    }
     
     setValidationErrors(errors);
     
@@ -1313,6 +1447,19 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
                         {item.assessmentFees && (
                           <div className="text-xs text-slate-500">
                             Assessment Fee: <span className="font-medium text-black">R {parseFloat(item.assessmentFees).toFixed(2)}</span>
+                          </div>
+                        )}
+                        {(parseFloat(item.depositMade) || 0) > 0 && (
+                          <div className="text-xs">
+                            {item.popFile ? (
+                              <span className="inline-flex items-center gap-1 text-success">
+                                <Paperclip className="h-3 w-3" /> POP attached: {item.popFile.name}
+                              </span>
+                            ) : (
+                              <span className="text-amber-700">
+                                Pending POP Upload &mdash; {item.popPendingReason}
+                              </span>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1886,6 +2033,79 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
                       </AdminCard>
                     );
                   })()
+                )}
+
+                {/* Proof of Payment -- must be captured now, not deferred to
+                    a later Finance step. Only relevant once a deposit/full
+                    payment is being recorded on this (new) appointment. */}
+                {!isEditMode && (parseFloat(formData.depositMade) || 0) > 0 && (
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="pop-upload">Proof of Payment (POP)</Label>
+                    <AdminCard className="space-y-2 p-3">
+                      {popFile ? (
+                        <div className="flex items-center justify-between gap-2 text-sm">
+                          <span className="flex items-center gap-1.5 truncate">
+                            <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            {popFile.name}
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2"
+                            onClick={() => setPopFile(null)}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <label className="flex items-center gap-2 text-sm cursor-pointer text-primary hover:underline w-fit">
+                          <UploadIcon className="h-3.5 w-3.5" />
+                          Upload proof of payment
+                          <input
+                            id="pop-upload"
+                            type="file"
+                            className="hidden"
+                            accept="image/*,.pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              e.target.value = "";
+                              if (file) {
+                                setPopFile(file);
+                                setPopPendingReason("");
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+
+                      {!popFile && (
+                        <div className="space-y-1">
+                          <Label htmlFor="pop-pending-reason" className="text-xs text-slate-500">
+                            No POP to attach yet? Give a reason -- the appointment will be marked
+                            <span className="font-medium"> Pending POP Upload</span> instead.
+                          </Label>
+                          <Textarea
+                            id="pop-pending-reason"
+                            placeholder="e.g. Attorney to email POP by Friday; bank confirmation still pending"
+                            value={popPendingReason}
+                            onChange={(e) => {
+                              setPopPendingReason(e.target.value);
+                              if (validationErrors.popPendingReason) {
+                                setValidationErrors(prev => ({ ...prev, popPendingReason: false }));
+                              }
+                            }}
+                            className={`min-h-[60px] text-sm rounded-none ${validationErrors.popPendingReason ? 'border-destructive' : ''}`}
+                          />
+                          {validationErrors.popPendingReason && (
+                            <p className="text-xs text-destructive">
+                              Attach the POP or give a reason it's pending.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </AdminCard>
+                  </div>
                 )}
 
                 <div className="space-y-2">
