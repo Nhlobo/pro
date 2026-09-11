@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Paperclip, Eye, Download, Loader2, Upload } from "lucide-react";
 
-export type PopRecordType = "aod_payment" | "short_term_payment";
+export type PopRecordType = "aod_payment" | "short_term_payment" | "appointment_payment";
 
 export interface PaymentPopAttachment {
   id: string;
