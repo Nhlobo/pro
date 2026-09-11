@@ -2035,10 +2035,12 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
                   })()
                 )}
 
-                {/* Proof of Payment -- must be captured now, not deferred to
-                    a later Finance step. Only relevant once a deposit/full
-                    payment is being recorded on this (new) appointment. */}
-                {!isEditMode && (parseFloat(formData.depositMade) || 0) > 0 && (
+                {/* Proof of Payment -- always visible on the New Appointment
+                    page (client complaint: staff couldn't find it before it
+                    only appeared after a deposit amount was typed in).
+                    Uploading/reason is only required once a deposit/full
+                    payment is actually being captured on this appointment. */}
+                {!isEditMode && (
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="pop-upload">Proof of Payment (POP)</Label>
                     <AdminCard className="space-y-2 p-3">
@@ -2079,7 +2081,7 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
                         </label>
                       )}
 
-                      {!popFile && (
+                      {!popFile && (parseFloat(formData.depositMade) || 0) > 0 && (
                         <div className="space-y-1">
                           <Label htmlFor="pop-pending-reason" className="text-xs text-slate-500">
                             No POP to attach yet? Give a reason -- the appointment will be marked
