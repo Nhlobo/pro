@@ -272,68 +272,95 @@ const ScheduledAssessment = ({ embedded = false, onEditAppointment }: { embedded
     fetchConsultants();
   }, []);
 
-  // Auto-update status from "Scheduled" to "Assessed" when appointment date has passed
+  // Auto-update status from "Scheduled" to "Assessed" when appointment date has passed.
+  //
+  // FIX (client-reported instability on this page): this used to run every
+  // time `assessments.length` changed -- which it does after every single
+  // status update below (each one calls updateAssessmentStatus, which used
+  // to force-broadcast a sync, which refetched, which could re-run this
+  // effect). With several overdue "Scheduled" rows on a real dataset, that
+  // produced a burst of toast notifications and repeated refetch/re-render
+  // cycles every time anyone opened this page -- i.e. exactly "not stable".
+  // Now: runs once per mount, updates are silent (no per-row toast/broadcast),
+  // and a single summary toast + sync fires once at the end if anything changed.
+  const autoUpdateRanRef = React.useRef(false);
   useEffect(() => {
     const autoUpdateExpiredScheduled = async () => {
-      if (!loading && assessments.length > 0) {
-        const { year, month, day } = sastNowParts();
-        const nowSAST = new Date(year, month - 1, day, 0, 0, 0, 0); // midnight SAST today
-        
-        for (const assessment of assessments) {
-          const currentStatus = assessment.case_status?.toLowerCase();
-          if (currentStatus !== 'scheduled') continue;
-          
-          const appointmentDate = new Date(assessment.appointment_date);
-          appointmentDate.setHours(0, 0, 0, 0);
-          
-          if (appointmentDate < nowSAST) {
-            console.log(`Auto-updating expired appointment ${assessment.appointment_id} from Scheduled to Assessed`);
-            await updateAssessmentStatus(assessment.appointment_id, 'Assessed');
-          }
-        }
+      if (autoUpdateRanRef.current || loading || assessments.length === 0) return;
+      autoUpdateRanRef.current = true;
+
+      const { year, month, day } = sastNowParts();
+      const nowSAST = new Date(year, month - 1, day, 0, 0, 0, 0); // midnight SAST today
+
+      const overdue = assessments.filter(a => {
+        if (a.case_status?.toLowerCase() !== 'scheduled') return false;
+        const appointmentDate = new Date(a.appointment_date);
+        appointmentDate.setHours(0, 0, 0, 0);
+        return appointmentDate < nowSAST;
+      });
+
+      if (overdue.length === 0) return;
+
+      let updatedCount = 0;
+      for (const assessment of overdue) {
+        console.log(`Auto-updating expired appointment ${assessment.appointment_id} from Scheduled to Assessed`);
+        const ok = await updateAssessmentStatus(assessment.appointment_id, 'Assessed', { silent: true });
+        if (ok) updatedCount++;
+      }
+
+      if (updatedCount > 0) {
+        triggerSync(false, true);
+        toast({
+          title: "Assessments auto-updated",
+          description: `${updatedCount} appointment(s) past their date were marked Assessed.`,
+        });
       }
     };
-    
+
     autoUpdateExpiredScheduled();
   }, [loading, assessments.length]);
 
-  // Sync appointments on load and when assessments change
+  // Sync appointments on load (once per mount -- see note on the effect
+  // above; this had the same "re-runs on every assessments.length change"
+  // problem, doing a full per-attorney sync sweep repeatedly).
+  const syncOnLoadRanRef = React.useRef(false);
   useEffect(() => {
     const syncOnLoad = async () => {
-      if (!loading && assessments.length > 0) {
-        console.log('Starting auto-sync for all referring attorneys...');
-        
-        // Get unique referring attorneys from assessments
-        const lawFirmIds = [...new Set(assessments.map(a => a.referring_attorney_id).filter(Boolean))];
-        console.log(`Found ${lawFirmIds.length} unique referring attorney(s) to sync`);
-        
-        for (const lawFirmId of lawFirmIds) {
-          try {
-            // Find assessments for this referring attorney with outstanding balance
-            const lawFirmAssessments = assessments.filter(a => {
-              const balance = (a.service_fee || 0) - (a.deposit_amount || 0);
-              return a.referring_attorney_id === lawFirmId && balance > 0;
-            });
-            
-            if (lawFirmAssessments.length > 0) {
-              console.log(`Syncing referring attorney ${lawFirmId}: ${lawFirmAssessments.length} assessment(s) with outstanding balance`);
-              
-              // Use first assessment's appointment_id to trigger sync
-              const assessment = lawFirmAssessments[0];
-              if (assessment?.appointment_id) {
-                const balance = (assessment.service_fee || 0) - (assessment.deposit_amount || 0);
-                await syncToAODManagement(assessment.appointment_id, balance);
-              }
+      if (syncOnLoadRanRef.current || loading || assessments.length === 0) return;
+      syncOnLoadRanRef.current = true;
+
+      console.log('Starting auto-sync for all referring attorneys...');
+
+      // Get unique referring attorneys from assessments
+      const lawFirmIds = [...new Set(assessments.map(a => a.referring_attorney_id).filter(Boolean))];
+      console.log(`Found ${lawFirmIds.length} unique referring attorney(s) to sync`);
+
+      for (const lawFirmId of lawFirmIds) {
+        try {
+          // Find assessments for this referring attorney with outstanding balance
+          const lawFirmAssessments = assessments.filter(a => {
+            const balance = (a.service_fee || 0) - (a.deposit_amount || 0);
+            return a.referring_attorney_id === lawFirmId && balance > 0;
+          });
+
+          if (lawFirmAssessments.length > 0) {
+            console.log(`Syncing referring attorney ${lawFirmId}: ${lawFirmAssessments.length} assessment(s) with outstanding balance`);
+
+            // Use first assessment's appointment_id to trigger sync
+            const assessment = lawFirmAssessments[0];
+            if (assessment?.appointment_id) {
+              const balance = (assessment.service_fee || 0) - (assessment.deposit_amount || 0);
+              await syncToAODManagement(assessment.appointment_id, balance);
             }
-          } catch (error) {
-            console.error(`Failed to sync referring attorney ${lawFirmId}:`, error);
           }
+        } catch (error) {
+          console.error(`Failed to sync referring attorney ${lawFirmId}:`, error);
         }
-        
-        console.log('Auto-sync completed');
       }
+
+      console.log('Auto-sync completed');
     };
-    
+
     syncOnLoad();
   }, [loading, assessments.length]);
 
