@@ -5,13 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
-import { AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X, Landmark, FileStack, History, Receipt, CalendarClock } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, RefreshCw, ArrowRightLeft, Zap, Users, Search, X, Landmark, FileStack, History, Receipt, CalendarClock, Paperclip } from "lucide-react";
 import { toast } from 'sonner';
 import { recalculateAODFromAppointments, recalculateShortTermFromAppointments, backfillShortTermAgreementsFromAppointments } from '@/hooks/usePaymentSync';
 import { RegularPaymentDialog } from '@/components/RegularPaymentDialog';
 import { AgreementExtensionDialog } from '@/components/AgreementExtensionDialog';
 import FinanceAuditTrail from '@/components/FinanceAuditTrail';
 import InternalInvoicesTable from '@/components/admin/finance/InternalInvoicesTable';
+import PendingPopUploadsPanel from '@/components/admin/finance/PendingPopUploadsPanel';
 import {
   AdminPage,
   AdminHeader,
@@ -350,7 +351,23 @@ const AdminFinance: React.FC = () => {
   // one long page. Splitting them into tabs — the same module-switcher pattern as
   // Appointment Engine / System Control / Sales Performance — means staff land on
   // one focused table instead of scrolling past everything to find it.
-  const [activeTab, setActiveTab] = useState<'aod' | 'short_term' | 'audit' | 'internal_invoices'>('aod');
+  const [activeTab, setActiveTab] = useState<'aod' | 'short_term' | 'pending_pop' | 'audit' | 'internal_invoices'>('aod');
+  const [pendingPopCount, setPendingPopCount] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from('appointments')
+      .select('id', { count: 'exact', head: true })
+      .eq('pop_status', 'pending_upload')
+      .is('deleted_at', null)
+      .then(({ count }) => {
+        if (!cancelled) setPendingPopCount(count ?? undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
   const dateLabel = new Date().toLocaleDateString('en-ZA', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
@@ -417,7 +434,7 @@ const AdminFinance: React.FC = () => {
 
       {/* -------- Module switcher: AOD / Short-term / Audit Trail -------- */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <AdminTabList sticky columns={4}>
+        <AdminTabList sticky columns={5}>
           <AdminTabTrigger
             value="aod"
             label="Long-Term AOD"
@@ -430,6 +447,13 @@ const AdminFinance: React.FC = () => {
             label="Short-term Agreements"
             icon={FileStack}
             badge={filteredShortTermDocs.length || undefined}
+            center
+          />
+          <AdminTabTrigger
+            value="pending_pop"
+            label="Pending POP Upload"
+            icon={Paperclip}
+            badge={pendingPopCount || undefined}
             center
           />
           <AdminTabTrigger value="audit" label="Audit Trail" icon={History} center />
@@ -663,6 +687,10 @@ const AdminFinance: React.FC = () => {
           </TabsContent>
 
           {/* ================= AUDIT TRAIL ================= */}
+          <TabsContent value="pending_pop" className="mt-0 focus-visible:outline-none">
+            <PendingPopUploadsPanel />
+          </TabsContent>
+
           <TabsContent value="audit" className="mt-0 focus-visible:outline-none">
             <FinanceAuditTrail />
           </TabsContent>
