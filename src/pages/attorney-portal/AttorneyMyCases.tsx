@@ -149,7 +149,7 @@ const AttorneyMyCases: React.FC = () => {
       // appointments directly (kept in sync by trigger).
       const { data: appointment } = await supabase
         .from('external_portal_cases' as any)
-        .select('service_fee, deposit_amount, payment_status, payment_date, matter_type')
+        .select('service_fee, deposit_amount, payment_status, payment_date, matter_type, pop_status, pop_pending_reason')
         .eq('appointment_id', caseItem.id)
         .single();
 
@@ -180,6 +180,7 @@ const AttorneyMyCases: React.FC = () => {
         .from('external_portal_cases' as any)
         .select(`
           appointment_id, appointment_date, service_fee, deposit_amount, payment_status,
+          pop_status, pop_pending_reason,
           claimant_first_name, claimant_last_name, claimant_auto_id,
           expert_first_name, expert_last_name, expert_type
         `)
@@ -191,6 +192,7 @@ const AttorneyMyCases: React.FC = () => {
         service_fee: c.service_fee,
         deposit_amount: c.deposit_amount,
         payment_status: c.payment_status,
+        pop_status: c.pop_status,
         claimants: { first_name: c.claimant_first_name, last_name: c.claimant_last_name, auto_id: c.claimant_auto_id },
         medical_experts: { first_name: c.expert_first_name, last_name: c.expert_last_name, expert_type: c.expert_type },
       }));
@@ -806,9 +808,17 @@ const AttorneyMyCases: React.FC = () => {
                               <TableCell className="text-right tabular-nums">R{(item.service_fee || 0).toLocaleString()}</TableCell>
                               <TableCell className="text-right tabular-nums text-success">R{(item.deposit_amount || 0).toLocaleString()}</TableCell>
                               <TableCell>
-                                <PortalPill tone={item.payment_status === 'paid' ? 'success' : 'warning'}>
-                                  {item.payment_status || 'Pending'}
-                                </PortalPill>
+                                <div className="flex flex-col items-start gap-1">
+                                  <PortalPill tone={item.payment_status === 'paid' ? 'success' : 'warning'}>
+                                    {item.payment_status || 'Pending'}
+                                  </PortalPill>
+                                  {item.pop_status === 'uploaded' && (
+                                    <PortalPill tone="success">POP Confirmed</PortalPill>
+                                  )}
+                                  {item.pop_status === 'pending_upload' && (
+                                    <PortalPill tone="warning">POP Pending</PortalPill>
+                                  )}
+                                </div>
                               </TableCell>
                             </TableRow>
                           );
@@ -831,9 +841,17 @@ const AttorneyMyCases: React.FC = () => {
                                 <p className="truncate text-sm font-medium text-black">{name || 'Unknown'}</p>
                                 <p className="truncate text-xs text-slate-500">{formatExpertType(expert?.expert_type || '')}</p>
                               </div>
-                              <PortalPill tone={item.payment_status === 'paid' ? 'success' : 'warning'}>
-                                {item.payment_status || 'Pending'}
-                              </PortalPill>
+                              <div className="flex flex-col items-end gap-1">
+                                <PortalPill tone={item.payment_status === 'paid' ? 'success' : 'warning'}>
+                                  {item.payment_status || 'Pending'}
+                                </PortalPill>
+                                {item.pop_status === 'uploaded' && (
+                                  <PortalPill tone="success">POP Confirmed</PortalPill>
+                                )}
+                                {item.pop_status === 'pending_upload' && (
+                                  <PortalPill tone="warning">POP Pending</PortalPill>
+                                )}
+                              </div>
                             </div>
                             <div className="mt-1 flex items-center justify-between text-xs text-slate-500">
                               <span>{format(new Date(item.appointment_date), 'dd MMM yyyy')}</span>
@@ -1099,6 +1117,14 @@ const AttorneyMyCases: React.FC = () => {
                     </PortalPill>
                   </div>
                 </div>
+                {caseFinancials?.pop_status === 'uploaded' && (
+                  <p className="px-3 pb-3 text-xs text-success">Proof of payment received and on file.</p>
+                )}
+                {caseFinancials?.pop_status === 'pending_upload' && (
+                  <p className="px-3 pb-3 text-xs text-amber-700">
+                    Proof of payment still pending{caseFinancials?.pop_pending_reason ? `: ${caseFinancials.pop_pending_reason}` : '.'}
+                  </p>
+                )}
               </div>
 
               {/* Progress Timeline */}
