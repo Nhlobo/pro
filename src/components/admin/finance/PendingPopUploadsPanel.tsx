@@ -1,210 +1,132 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
-import { Paperclip, Eye, Download, Loader2, Upload } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AdminCard, AdminEmptyState, AdminLoadingState } from "@/components/admin/ui/AdminUI";
+import { PaymentPopUploader } from "@/components/finance/PaymentPopUploader";
+import { AlertCircle } from "lucide-react";
 
-export type PopRecordType = "aod_payment" | "short_term_payment" | "appointment_payment";
-
-export interface PaymentPopAttachment {
+interface PendingPopAppointment {
   id: string;
-  record_type: string;
-  record_id: string;
-  payment_reference: string;
-  file_path: string;
-  file_name: string | null;
-  uploaded_at: string;
-  notes: string | null;
+  assessment_code: string | null;
+  deposit_amount: number | null;
+  service_fee: number | null;
+  payment_status: string | null;
+  pop_pending_reason: string | null;
+  appointment_date: string;
+  claimants: { first_name: string | null; last_name: string | null } | null;
+  referring_attorneys: { name: string | null } | null;
 }
-
-interface PaymentPopUploaderProps {
-  recordType: PopRecordType;
-  recordId: string;
-  paymentReference: string;
-  /** Set to false for read-only contexts (e.g. attorney portal) */
-  canUpload?: boolean;
-}
-
-const BUCKET = "payment-pop-documents";
 
 /**
- * Upload / view Proof of Payment attachments for an AOD or Short-Term
- * Agreement payment. Used by Finance (upload) and the attorney portal
- * (view-only) - both parties benefit from having POPs on record.
+ * Finance-side view of appointments where a deposit/payment was captured at
+ * booking but the Proof of Payment hasn't been attached yet. This is the
+ * "Appears on Finance & Payment" hop in the client's requested flow:
+ *   New Appointment > POP Uploaded > Finance & Payment > Referring Attorney.
+ * Staff can attach the POP directly from here -- appointments.pop_status
+ * flips to 'uploaded' automatically (trg_sync_appointment_pop_status) and
+ * the row drops off this list on next refresh.
  */
-export function PaymentPopUploader({
-  recordType,
-  recordId,
-  paymentReference,
-  canUpload = true,
-}: PaymentPopUploaderProps) {
-  const [attachments, setAttachments] = useState<PaymentPopAttachment[]>([]);
+export default function PendingPopUploadsPanel() {
+  const [rows, setRows] = useState<PendingPopAppointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  // Client request (#1): "add a Comment Section on that payment e.g. payment
-  // can be recorded or allocated for past, present and future appointment —
-  // this will help both attorney and us know what the payment was for."
-  // The payment_pop_attachments.notes column already existed but was never
-  // written to. Captured here, alongside the file, so the reason travels
-  // with the specific proof document rather than living only on the parent
-  // payment row.
-  const [pendingComment, setPendingComment] = useState('');
 
-  const fetchAttachments = async () => {
+  const fetchRows = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("payment_pop_attachments")
-        .select("*")
-        .eq("record_type", recordType)
-        .eq("record_id", recordId)
-        .order("uploaded_at", { ascending: false });
+        .from("appointments")
+        .select(
+          "id, assessment_code, deposit_amount, service_fee, payment_status, pop_pending_reason, appointment_date, claimants(first_name, last_name), referring_attorneys(name)"
+        )
+        .eq("pop_status", "pending_upload")
+        .is("deleted_at", null)
+        .order("appointment_date", { ascending: false })
+        .limit(200);
 
       if (error) throw error;
-      setAttachments((data || []) as PaymentPopAttachment[]);
+      setRows((data || []) as unknown as PendingPopAppointment[]);
     } catch (error) {
-      console.error("Error fetching POP attachments:", error);
+      console.error("Error fetching pending POP appointments:", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (recordId) fetchAttachments();
+    fetchRows();
+
+    const channel = supabase
+      .channel("pending-pop-appointments")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "appointments" },
+        () => fetchRows()
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "payment_pop_attachments" },
+        () => fetchRows()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recordType, recordId]);
+  }, []);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-selecting the same file later
-    if (!file) return;
+  if (loading) return <AdminLoadingState />;
 
-    try {
-      setUploading(true);
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error("Not authenticated");
-
-      const fileExt = file.name.split(".").pop();
-      const filePath = `${recordType}/${recordId}/${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET)
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { error: insertError } = await supabase
-        .from("payment_pop_attachments")
-        .insert({
-          record_type: recordType,
-          record_id: recordId,
-          payment_reference: paymentReference,
-          file_path: filePath,
-          file_name: file.name,
-          file_size_bytes: file.size,
-          mime_type: file.type || null,
-          uploaded_by: userData.user.id,
-          notes: pendingComment.trim() || null,
-        });
-
-      if (insertError) throw insertError;
-
-      toast.success("Proof of payment uploaded");
-      setPendingComment('');
-      await fetchAttachments();
-    } catch (error: any) {
-      console.error("Error uploading POP:", error);
-      toast.error(error.message || "Failed to upload proof of payment");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleView = async (attachment: PaymentPopAttachment) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(attachment.file_path, 60 * 5); // 5 minutes
-
-      if (error) throw error;
-      window.open(data.signedUrl, "_blank", "noopener,noreferrer");
-    } catch (error: any) {
-      console.error("Error opening POP:", error);
-      toast.error("Failed to open proof of payment");
-    }
-  };
-
-  const handleDownload = async (attachment: PaymentPopAttachment) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .download(attachment.file_path);
-
-      if (error) throw error;
-
-      const url = URL.createObjectURL(data);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = attachment.file_name || "proof-of-payment";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (error: any) {
-      console.error("Error downloading POP:", error);
-      toast.error("Failed to download proof of payment");
-    }
-  };
+  if (rows.length === 0) {
+    return (
+      <AdminEmptyState
+        icon={AlertCircle}
+        title="Nothing pending"
+        description="Every appointment with a captured payment has its proof of payment attached."
+      />
+    );
+  }
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium text-muted-foreground">Proof of Payment</span>
-        {loading && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-      </div>
-
-      {attachments.length === 0 && !loading && (
-        <p className="text-xs text-muted-foreground">No proof of payment uploaded yet.</p>
-      )}
-
-      {attachments.map((att) => (
-        <div key={att.id} className="rounded border px-2 py-1 text-xs space-y-1">
-          <div className="flex items-center justify-between gap-2">
-            <span className="truncate">{att.file_name || "Proof of payment"}</span>
-            <div className="flex items-center gap-1 shrink-0">
-              <Button type="button" size="sm" variant="ghost" className="h-6 px-2" onClick={() => handleView(att)}>
-                <Eye className="h-3 w-3" />
-              </Button>
-              <Button type="button" size="sm" variant="ghost" className="h-6 px-2" onClick={() => handleDownload(att)}>
-                <Download className="h-3 w-3" />
-              </Button>
-            </div>
-          </div>
-          {att.notes && (
-            <p className="text-muted-foreground italic">"{att.notes}"</p>
-          )}
-        </div>
-      ))}
-
-      {canUpload && (
-        <div className="space-y-1.5">
-          <Textarea
-            value={pendingComment}
-            onChange={(e) => setPendingComment(e.target.value)}
-            placeholder="Comment — what was this payment for or allocated to? e.g. deposit for upcoming neurosurgeon appointment"
-            className="min-h-[50px] text-xs"
-            disabled={uploading}
-          />
-          <label className="flex items-center gap-2 text-xs cursor-pointer text-primary hover:underline w-fit">
-            {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-            {uploading ? "Uploading..." : "Upload proof of payment"}
-            <input type="file" className="hidden" onChange={handleUpload} disabled={uploading} accept="image/*,.pdf" />
-          </label>
-        </div>
-      )}
-    </div>
+    <AdminCard>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Assessment Code</TableHead>
+            <TableHead>Claimant</TableHead>
+            <TableHead>Referring Attorney</TableHead>
+            <TableHead>Deposit</TableHead>
+            <TableHead>Reason Pending</TableHead>
+            <TableHead>Proof of Payment</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.id}>
+              <TableCell className="font-mono text-xs">{row.assessment_code || "\u2014"}</TableCell>
+              <TableCell>
+                {row.claimants ? `${row.claimants.first_name || ""} ${row.claimants.last_name || ""}`.trim() : "\u2014"}
+              </TableCell>
+              <TableCell>{row.referring_attorneys?.name || "\u2014"}</TableCell>
+              <TableCell>R {Number(row.deposit_amount || 0).toFixed(2)}</TableCell>
+              <TableCell className="max-w-[220px]">
+                <Badge variant="outline" className="rounded-none border-amber-300 bg-amber-50 text-amber-800 mb-1">
+                  Pending POP Upload
+                </Badge>
+                <p className="text-xs text-muted-foreground italic">{row.pop_pending_reason}</p>
+              </TableCell>
+              <TableCell className="min-w-[220px]">
+                <PaymentPopUploader
+                  recordType="appointment_payment"
+                  recordId={row.id}
+                  paymentReference={row.assessment_code || row.id}
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </AdminCard>
   );
 }
