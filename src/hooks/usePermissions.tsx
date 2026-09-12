@@ -104,17 +104,19 @@ const usePermissionsState = (): PermissionsContextValue => {
     // Company Employees have full system access equal to Administrator
     if (userRole === 'employee') return true;
     
-    // Sales Consultants have limited permissions - Claimants, Attorneys, Pitchlog, Heatmap,
-    // plus read/write access to Appointment Engine and Finance & Payments (no delete capability).
+    // Sales Consultants have limited permissions - Attorneys, Pitchlog, Heatmap.
+    // 'manage_claimants' deliberately excluded (removed 2026-09-12): claimant
+    // records are sensitive client/company data, there was never a matching
+    // RLS grant for this role on the `claimants` table (every read/write
+    // silently failed), and this role has no legitimate need to see other
+    // people's claimant data — same reasoning as the Appointments/Finance
+    // exclusions in adminModules.ts.
     if (userRole === 'sales_consultant') {
       const salesConsultantPermissions = [
-        'manage_claimants',
         'manage_attorneys',
         'attorney_pitchlog',
         'view_dashboard_own',
         'view_availability_heatmap',
-        'view_admin_appointments',
-        'view_admin_finance',
       ];
       return salesConsultantPermissions.includes(permissionName);
     }
