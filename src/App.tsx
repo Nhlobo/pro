@@ -18,6 +18,7 @@ import IdleLogoutGuard from "@/components/IdleLogoutGuard";
 import { ExitConfirmationGuard } from "@/hooks/useExitConfirmation";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
+import PortalRoleRoute from "./components/PortalRoleRoute";
 import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
 import BrandedPageLoader from "@/components/BrandedPageLoader";
 import MFARequiredGuard from "@/components/MFARequiredGuard";
@@ -265,11 +266,18 @@ const AdminPortalRoute = ({ children }: { children: React.ReactNode }) => (
 // back on, just remove the comment markers so the guard wraps
 // ExpertPortalLayout again, exactly as it did before.
 const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => (
-  <ProtectedRoute>
+  <PortalRoleRoute portal="expert">
     {/* <MFARequiredGuard roleLabel="Medical Expert"> */}
       <ExpertPortalLayout>{children}</ExpertPortalLayout>
     {/* </MFARequiredGuard> */}
-  </ProtectedRoute>
+  </PortalRoleRoute>
+);
+
+// Attorney Portal pages already wrap themselves in <AttorneyPortalLayout>
+// individually (unlike Expert, which centralizes the layout here) — this
+// only adds the role gate on top of that existing per-page layout.
+const AttorneyPortalRoute = ({ children }: { children: React.ReactNode }) => (
+  <PortalRoleRoute portal="attorney">{children}</PortalRoleRoute>
 );
 
 // Shown by <Suspense> while a lazy-loaded route's JS chunk is downloading.
@@ -448,21 +456,21 @@ const App = () => (
                 <Route path="/availability-heatmap" element={<ProtectedRoute><div className="min-h-screen bg-background"><div className="container mx-auto p-4 md:p-6"><AdminHeatmap /></div></div></ProtectedRoute>} />
 
                 {/* Attorney Portal Routes */}
-                <Route path="/attorney-portal" element={<ProtectedRoute><AttorneyPortalDashboard /></ProtectedRoute>} />
-                <Route path="/attorney-portal/help" element={<ProtectedRoute><AttorneyHelpPortal /></ProtectedRoute>} />
-                <Route path="/attorney-portal/cases" element={<ProtectedRoute><AttorneyMyCases /></ProtectedRoute>} />
-                <Route path="/attorney-portal/request-appointment" element={<ProtectedRoute><AttorneyRequestAppointment /></ProtectedRoute>} />
-                <Route path="/attorney-portal/case-status" element={<ProtectedRoute><AttorneyCaseStatus /></ProtectedRoute>} />
-                <Route path="/attorney-portal/appointments" element={<ProtectedRoute><AttorneyAppointments /></ProtectedRoute>} />
-                <Route path="/attorney-portal/reports" element={<ProtectedRoute><AttorneyReports /></ProtectedRoute>} />
-                <Route path="/attorney-portal/payments" element={<ProtectedRoute><AttorneyPayments /></ProtectedRoute>} />
+                <Route path="/attorney-portal" element={<AttorneyPortalRoute><AttorneyPortalDashboard /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/help" element={<AttorneyPortalRoute><AttorneyHelpPortal /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/cases" element={<AttorneyPortalRoute><AttorneyMyCases /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/request-appointment" element={<AttorneyPortalRoute><AttorneyRequestAppointment /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/case-status" element={<AttorneyPortalRoute><AttorneyCaseStatus /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/appointments" element={<AttorneyPortalRoute><AttorneyAppointments /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/reports" element={<AttorneyPortalRoute><AttorneyReports /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/payments" element={<AttorneyPortalRoute><AttorneyPayments /></AttorneyPortalRoute>} />
                 {/* Agreements page removed per client request (2026-09) — it duplicated
                     AOD & Payments (both read external_portal_agreements). Old links/
                     bookmarks redirect there instead of 404ing. */}
                 <Route path="/attorney-portal/agreements" element={<Navigate to="/attorney-portal/payments" replace />} />
-                <Route path="/attorney-portal/notifications" element={<ProtectedRoute><AttorneyNotifications /></ProtectedRoute>} />
-                <Route path="/attorney-portal/support" element={<ProtectedRoute><AttorneySupport /></ProtectedRoute>} />
-                <Route path="/attorney-portal/profile" element={<ProtectedRoute><AttorneyProfile /></ProtectedRoute>} />
+                <Route path="/attorney-portal/notifications" element={<AttorneyPortalRoute><AttorneyNotifications /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/support" element={<AttorneyPortalRoute><AttorneySupport /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal/profile" element={<AttorneyPortalRoute><AttorneyProfile /></AttorneyPortalRoute>} />
                 
                 {/* ============ EXPERT PORTAL ============ */}
                 <Route path="/expert-portal" element={<ExpertPortalRoute><ExpertDashboard /></ExpertPortalRoute>} />
