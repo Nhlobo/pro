@@ -59,7 +59,7 @@ export const getNotificationRoute = (n: RoutableNotification, portal: Notificati
       return null;
     case 'invoice':
     case 'payment':
-      if (portal === 'attorney') return id ? `/attorney-portal/agreements?open=${id}` : '/attorney-portal/agreements';
+      if (portal === 'attorney') return id ? `/attorney-portal/payments?open=${id}` : '/attorney-portal/payments';
       if (portal === 'admin') return '/admin/finance';
       return null;
     case 'appointment_reminder':
@@ -111,7 +111,7 @@ export const getNotificationRoute = (n: RoutableNotification, portal: Notificati
     case 'aod_documents':
     case 'document':
       if (portal === 'admin') return '/admin/documents';
-      if (portal === 'attorney') return '/attorney-portal/agreements';
+      if (portal === 'attorney') return '/attorney-portal/payments';
       return null;
     case 'payments':
     case 'aod_payments':
