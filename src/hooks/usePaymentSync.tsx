@@ -658,11 +658,37 @@ export const backfillShortTermAgreementsFromAppointments = async (): Promise<{ c
     const eligible = shortTermAppts.filter((a: any) => !systemIds.has(a.referring_attorney_id));
     if (eligible.length === 0) return result;
 
-    const { data: existingAgreements } = await supabase
-      .from('short_term_agreements')
-      .select(
-        'id, referring_attorney_id, contract_start_date, notes, linked_appointment_ids, total_contract_value, deposit_amount, total_reports_agreed, payment_status'
-      );
+    // FIX: this used to be a single unbounded .select() with no .range()/
+    // .limit(). PostgREST caps a request with no explicit range at 1000
+    // rows by default, so once short_term_agreements grew past 1000 rows
+    // this silently saw only a partial table. Appointments already covered
+    // by a row outside that arbitrary window were wrongly treated as
+    // "uncovered" below, so this function kept re-creating agreements for
+    // appointments that already had one — a compounding bug that (together
+    // with a separate bug in ScheduledAssessment.tsx) inflated this table
+    // to 61,000+ duplicate rows. Paginating through every row here removes
+    // the silent truncation regardless of how large the table gets.
+    const existingAgreements: any[] = [];
+    {
+      const pageSize = 1000;
+      let from = 0;
+      while (true) {
+        const { data: page, error: pageError } = await supabase
+          .from('short_term_agreements')
+          .select(
+            'id, referring_attorney_id, contract_start_date, notes, linked_appointment_ids, total_contract_value, deposit_amount, total_reports_agreed, payment_status'
+          )
+          .range(from, from + pageSize - 1);
+        if (pageError) {
+          console.error('Error paginating existing short-term agreements:', pageError);
+          break;
+        }
+        if (!page || page.length === 0) break;
+        existingAgreements.push(...page);
+        if (page.length < pageSize) break;
+        from += pageSize;
+      }
+    }
 
     // Every appointment already linked to an agreement — via the explicit
     // linked_appointment_ids array or the older APPOINTMENT:<id> notes marker.
