@@ -111,10 +111,16 @@ Deno.serve(async (req) => {
     const { data: userData } = await userClient.auth.getUser();
     if (!userData?.user) return json({ error: 'Unauthorized' }, 401);
 
-    const { data: hasRole } = await userClient.rpc('has_role', {
-      _user_id: userData.user.id,
-      _role: 'admin',
-    });
+    // The Find Experts page (src/config/adminModules.ts) is available to
+    // admin, employee, and sales_consultant roles. Check all three —
+    // an admin-only check here would 403 every other allowed role.
+    const allowedRoles = ['admin', 'employee', 'sales_consultant'] as const;
+    const roleChecks = await Promise.all(
+      allowedRoles.map((role) =>
+        userClient.rpc('has_role', { _user_id: userData.user.id, _role: role })
+      )
+    );
+    const hasRole = roleChecks.some((r) => r.data === true);
     if (!hasRole) return json({ error: 'Forbidden' }, 403);
 
     const body = (await req.json().catch(() => ({}))) as SearchBody;
@@ -150,19 +156,23 @@ Deno.serve(async (req) => {
     // after the fact) so the search itself is biased toward medico-legal
     // expert witness listings rather than general medical directory noise.
     const baseQuery = `${searchTerm} medico-legal expert witness ${locationParts} HPCSA RAF medical negligence`;
-    // A second, looser query without the legal-specific terms — this is
-    // what makes the search behave more like a general (Google-style)
-    // lookup: it catches specialist directory listings, practice pages,
-    // and society member lists that never use the phrase "expert witness"
-    // but are still exactly who a case manager is looking for.
-    const broadQuery = `${searchTerm} ${locationParts} specialist directory`;
-    // Always include Recomed and Medpages as dedicated source queries so results
-    // from those directories surface even when general search misses them.
-    // These two stay focused on profession + location only: they're general
-    // medical directories rather than legal-focused ones, so requiring the
-    // "expert witness" phrase here would zero out otherwise-good matches.
+    // A second, looser query without the legal-specific terms — this is a
+    // general, Google-style lookup targeted at private practice pages
+    // (a practice's own site, not a directory listing), since that's
+    // usually where the expert's actual contact details live.
+    const broadQuery = `${searchTerm} private practice ${locationParts}`;
+    // Dedicated per-source queries so every registry the client named is
+    // always explicitly searched, not just picked up incidentally by the
+    // general query above. These stay focused on profession + location:
+    // requiring "expert witness" here would zero out otherwise-good
+    // matches on directories that don't use that exact phrase.
     const recomedQuery = `site:recomed.co.za ${searchTerm} ${locationParts}`;
     const medpagesQuery = `site:medpages.co.za ${searchTerm} ${locationParts}`;
+    // HPCSA — the statutory register for every SA health profession.
+    const hpcsaQuery = `site:hpcsa.co.za ${searchTerm} ${locationParts}`;
+    // Medico-Legal.org.za — a dedicated medico-legal expert directory the
+    // client specifically named as a required source.
+    const medicoLegalOrgQuery = `site:medico-legal.org.za ${searchTerm} ${locationParts}`;
 
     const perQueryLimit = Math.min(limit, 50);
     const runFirecrawl = async (q: string) => {
@@ -180,15 +190,21 @@ Deno.serve(async (req) => {
       return arr;
     };
 
-    const [generalResults, broadResults, recomedResults, medpagesResults] = await Promise.all([
+    const [generalResults, broadResults, recomedResults, medpagesResults, hpcsaResults, medicoLegalOrgResults] = await Promise.all([
       runFirecrawl(baseQuery),
       runFirecrawl(broadQuery),
       includeRecomed ? runFirecrawl(recomedQuery) : Promise.resolve([] as any[]),
       includeMedpages ? runFirecrawl(medpagesQuery) : Promise.resolve([] as any[]),
+      runFirecrawl(hpcsaQuery),
+      runFirecrawl(medicoLegalOrgQuery),
     ]);
 
-    // Combine, preserving Recomed/Medpages hits first so identity merging keeps them
-    const rawResults: any[] = [...recomedResults, ...medpagesResults, ...generalResults, ...broadResults];
+    // Combine, preserving the dedicated-registry hits first so identity
+    // merging prefers them as the representative record for an expert.
+    const rawResults: any[] = [
+      ...hpcsaResults, ...medicoLegalOrgResults, ...recomedResults, ...medpagesResults,
+      ...generalResults, ...broadResults,
+    ];
     // Host-level filter: when a directory toggle is OFF, drop incidental hits
     // that came in from the general query for that host.
     const filteredRaw = rawResults.filter((r: any) => {
@@ -205,8 +221,8 @@ Deno.serve(async (req) => {
     const trustedHosts = [
       'hpcsa.co.za', 'hpcsaonline.co.za', 'samedical.org', 'sajbl.org.za',
       'mp.org.za', 'saoa.co.za', 'psyssa.com', 'sacssp.co.za',
-      'medpages.co.za', 'recomed.co.za', 'doctors.co.za', 'medico-legal', 'raf.co.za',
-      'saspweb.org', 'osasa.co.za', 'sasop.co.za',
+      'medpages.co.za', 'recomed.co.za', 'doctors.co.za', 'medico-legal.org.za',
+      'medico-legal', 'raf.co.za', 'saspweb.org', 'osasa.co.za', 'sasop.co.za',
     ];
 
     const getHost = (url: string): string => {
@@ -556,6 +572,60 @@ Deno.serve(async (req) => {
     const trustedRanked = allRanked.filter((x) => x.item.trusted);
     const chosen = trustedOnly ? trustedRanked : allRanked;
     const ranked = chosen.slice(0, limit).map((x) => x.item);
+
+    // --- Contact-detail enrichment -----------------------------------
+    // The whole point of this search is to hand back an expert's actual
+    // contact details, not a link the case manager still has to click
+    // through and dig around on (e.g. a Medpages/HPCSA hit whose search
+    // snippet never carried an email or phone number). For results that
+    // came back with neither, fetch the real page content and mine it —
+    // bounded and time-limited so one slow site can't stall the response.
+    const ENRICH_TARGET = 12;
+    const ENRICH_CONCURRENCY = 4;
+    const ENRICH_TIMEOUT_MS = 7000;
+
+    const scrapeContactDetails = async (
+      url: string,
+    ): Promise<{ emails: string[]; phones: string[]; registryId?: string } | null> => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), ENRICH_TIMEOUT_MS);
+      try {
+        const r = await fetch('https://api.firecrawl.dev/v2/scrape', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, formats: ['markdown'], onlyMainContent: true }),
+          signal: controller.signal,
+        });
+        if (!r.ok) return null;
+        const d = await r.json().catch(() => null);
+        const content: string = d?.data?.markdown || d?.markdown || '';
+        if (!content) return null;
+        return {
+          emails: extractEmails(content),
+          phones: extractPhones(content),
+          registryId: extractRegistryId(content),
+        };
+      } catch {
+        return null; // timeout or network error — leave this result as-is
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
+    const needsEnrichment = ranked
+      .filter((it) => (it.emails?.length ?? 0) === 0 && (it.phones?.length ?? 0) === 0)
+      .slice(0, ENRICH_TARGET);
+
+    for (let i = 0; i < needsEnrichment.length; i += ENRICH_CONCURRENCY) {
+      const batch = needsEnrichment.slice(i, i + ENRICH_CONCURRENCY);
+      await Promise.all(batch.map(async (item) => {
+        const found = await scrapeContactDetails(item.source_url);
+        if (!found) return;
+        if (found.emails.length) item.emails = Array.from(new Set([...(item.emails ?? []), ...found.emails]));
+        if (found.phones.length) item.phones = Array.from(new Set([...(item.phones ?? []), ...found.phones]));
+        if (found.registryId && !item.registry_id) item.registry_id = found.registryId;
+      }));
+    }
 
     return json({
       results: ranked,
