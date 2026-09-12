@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -116,7 +116,6 @@ const DECISION_STYLE: Record<ApprovalStatus, string> = {
   not_approved: 'bg-rose-100 text-rose-800 border-rose-300',
   moved_next: 'bg-indigo-100 text-indigo-800 border-indigo-300',
 };
-const PLAN_STORAGE_KEY = 'epp_plan_state_v2';
 const HISTORY_STORAGE_KEY = 'epp_history_v1';
 
 const fmtStamp = (iso: string) => {
@@ -268,15 +267,138 @@ const AdminExpertPaymentPlanner: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  // Editable per-row planner state (urgent/planned/partial/comment), persisted locally.
-  const [plan, setPlan] = useState<Record<string, PlanState>>(() => {
-    try {
-      const raw = localStorage.getItem(PLAN_STORAGE_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch { return {}; }
+  // Editable per-row planner state (urgent/planned/partial/comment/decision),
+  // shared across staff via public.expert_payment_plan_entries + realtime.
+  //
+  // FIX: this used to be initialized from and persisted to localStorage only
+  // (a 'epp_plan_state_v2' key) -- meaning marks made by one staff
+  // member on one browser were invisible to everyone else, and cleared
+  // browser storage silently wiped all of it. Now backed by a real table:
+  // loaded on mount, kept in sync via realtime, and every local edit is
+  // written through. planFromRemoteIdsRef tracks ids that were just applied
+  // *from* a DB/realtime read so the write-through effect below doesn't
+  // immediately re-save them (which would otherwise loop).
+  const [plan, setPlan] = useState<Record<string, PlanState>>({});
+  const planFromRemoteIdsRef = useRef<Set<string>>(new Set());
+  const prevPlanRef = useRef<Record<string, PlanState>>({});
+
+  const dbRowToPlanState = (r: any): PlanState => ({
+    urgent: !!r.urgent,
+    planned: !!r.planned,
+    partial: Number(r.partial || 0),
+    comment: r.comment || '',
+    comments: r.comments || [],
+    expertPaymentOverride: (r.expert_payment_override as ExpertPayStatus | null) ?? null,
+    decision: (r.decision as ApprovalStatus) ?? 'pending',
+    decidedAt: r.decided_at ?? null,
+    decidedBy: r.decided_by ?? null,
+    requestStatus: (r.request_status as RequestStatus) ?? 'none',
+    requestedAt: r.requested_at ?? null,
+    requestedBy: r.requested_by ?? null,
+    requestedById: r.requested_by_id ?? null,
   });
+  const planStateToDbRow = (appointmentId: string, s: PlanState) => ({
+    appointment_id: appointmentId,
+    urgent: s.urgent,
+    planned: s.planned,
+    partial: s.partial || 0,
+    comment: s.comment || '',
+    comments: (s.comments ?? []) as any,
+    expert_payment_override: s.expertPaymentOverride ?? null,
+    decision: s.decision ?? 'pending',
+    decided_at: s.decidedAt ?? null,
+    decided_by: s.decidedBy ?? null,
+    request_status: s.requestStatus ?? 'none',
+    requested_at: s.requestedAt ?? null,
+    requested_by: s.requestedBy ?? null,
+    requested_by_id: s.requestedById ?? null,
+    updated_at: new Date().toISOString(),
+    updated_by: user?.id ?? null,
+  });
+
+  // Initial load from DB + realtime subscription — same pattern already
+  // used below for expert_payment_planner_snapshots on this same page.
   useEffect(() => {
-    try { localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(plan)); } catch {}
+    let active = true;
+    (async () => {
+      // Paginate defensively (same reasoning as the usePaymentSync.tsx and
+      // ShortTermAgreementManager.tsx fixes above): a plain .select() with
+      // no .range() silently caps at 1000 rows in PostgREST. This table is
+      // 1 row per appointment so it's nowhere near that today, but there's
+      // no reason to leave the same footgun in place for future growth.
+      const allRows: any[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from('expert_payment_plan_entries' as any)
+          .select('*')
+          .range(from, from + pageSize - 1);
+        if (!active) return;
+        if (error) { console.error('Failed to load shared plan entries:', error); return; }
+        if (!data || data.length === 0) break;
+        allRows.push(...data);
+        if (data.length < pageSize) break;
+        from += pageSize;
+      }
+      const merged: Record<string, PlanState> = {};
+      allRows.forEach((row: any) => {
+        merged[row.appointment_id] = dbRowToPlanState(row);
+        planFromRemoteIdsRef.current.add(row.appointment_id);
+      });
+      prevPlanRef.current = merged;
+      setPlan(merged);
+    })();
+
+    const channel = supabase
+      .channel('epp-plan-entries-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expert_payment_plan_entries' }, (payload: any) => {
+        if (payload.eventType === 'DELETE') {
+          const oldId = payload.old?.appointment_id;
+          if (!oldId) return;
+          planFromRemoteIdsRef.current.add(oldId);
+          setPlan(prev => {
+            const next = { ...prev };
+            delete next[oldId];
+            return next;
+          });
+          return;
+        }
+        const row = payload.new;
+        if (!row) return;
+        planFromRemoteIdsRef.current.add(row.appointment_id);
+        setPlan(prev => ({ ...prev, [row.appointment_id]: dbRowToPlanState(row) }));
+      })
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Write-through: whenever a plan entry changes locally (and it wasn't just
+  // applied from a remote read/realtime event above), save it to the DB so
+  // every other staff member sees it too.
+  useEffect(() => {
+    const prev = prevPlanRef.current;
+    const ids = new Set([...Object.keys(prev), ...Object.keys(plan)]);
+    prevPlanRef.current = plan;
+    ids.forEach((id) => {
+      if (planFromRemoteIdsRef.current.has(id)) {
+        planFromRemoteIdsRef.current.delete(id);
+        return;
+      }
+      if (prev[id] === plan[id]) return; // same reference — nothing changed
+      const next = plan[id];
+      if (!next) return; // no current UI action removes an entry locally
+      supabase
+        .from('expert_payment_plan_entries' as any)
+        .upsert(planStateToDbRow(id, next), { onConflict: 'appointment_id' })
+        .then(({ error }: any) => {
+          if (error) console.error(`Failed to save plan entry ${id}:`, error);
+        });
+    });
   }, [plan]);
   const getPlan = (id: string): PlanState => plan[id] ?? EMPTY_PLAN;
   const setPlanField = <K extends keyof PlanState>(id: string, key: K, value: PlanState[K]) =>
