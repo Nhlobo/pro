@@ -784,10 +784,33 @@ export const ShortTermAgreementManager = ({ attorneys, lawFirmId, onSyncAttorney
         return;
       }
 
-      // Get existing agreements to avoid duplicates
-      const { data: existingAgreements } = await supabase
-        .from('short_term_agreements')
-        .select('id, referring_attorney_id, agreement_reference');
+      // Get existing agreements to avoid duplicates.
+      //
+      // FIX: this was a single unbounded .select() with no .range()/.limit().
+      // PostgREST caps a request with no explicit range at 1000 rows by
+      // default, so once short_term_agreements grew past 1000 rows this
+      // duplicate check silently saw only part of the table and kept
+      // re-creating agreements that already existed. Paginating through
+      // every row removes that silent truncation regardless of table size.
+      const existingAgreements: any[] = [];
+      {
+        const pageSize = 1000;
+        let from = 0;
+        while (true) {
+          const { data: page, error: pageError } = await supabase
+            .from('short_term_agreements')
+            .select('id, referring_attorney_id, agreement_reference')
+            .range(from, from + pageSize - 1);
+          if (pageError) {
+            console.error('Error paginating existing short-term agreements:', pageError);
+            break;
+          }
+          if (!page || page.length === 0) break;
+          existingAgreements.push(...page);
+          if (page.length < pageSize) break;
+          from += pageSize;
+        }
+      }
 
       let syncedCount = 0;
       let skippedCount = 0;
