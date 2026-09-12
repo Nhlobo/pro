@@ -119,7 +119,7 @@ const AdminFindExperts: React.FC = () => {
                   <div>
                     <h2 className="text-lg font-semibold text-black">Find an External Expert</h2>
                     <p className="mt-1 text-sm text-slate-500">
-                      Search the wider South African medico-legal expert network — HPCSA and other verified registries.
+                      Search HPCSA, Medico-Legal.org.za, professional bodies, and private practices across South Africa — we pull the expert's actual contact details, not just a link.
                     </p>
                   </div>
                 </>
@@ -136,7 +136,7 @@ const AdminFindExperts: React.FC = () => {
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <Input
                       id="quick-expert-search"
-                      placeholder='e.g. "Dentist", "Psychiatrist", "Orthopaedic expert in Gauteng"'
+                      placeholder='e.g. "Orthopaedic Surgeon witness expert in Limpopo", "Psychiatrist in Gauteng"'
                       value={quickQuery}
                       onChange={(e) => setQuickQuery(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') runQuickSearch(); }}
@@ -157,7 +157,7 @@ const AdminFindExperts: React.FC = () => {
 
                 {!hasSearchedExternal ? (
                   <p className="text-xs text-slate-500">
-                    Try a speciality — "Dentist", "Psychiatrist", "Neurologist" — or a location, e.g. "Expert in Johannesburg".
+                    Try a speciality — "Dentist", "Psychiatrist", "Neurologist" — or a location, e.g. "Expert in Johannesburg". Searches default to expert witnesses for RAF and medico-legal matters.
                   </p>
                 ) : lastParsedQuery ? (
                   <div className="flex flex-wrap gap-1.5">
@@ -192,7 +192,7 @@ const AdminFindExperts: React.FC = () => {
                     <ShieldCheck className="h-4 w-4" style={{ color: BRAND_TEAL }} />
                     <span className="font-medium text-black">Trusted registries only</span>
                     <span className="hidden text-xs text-slate-500 sm:inline">
-                      HPCSA, professional bodies, and verified medico-legal directories
+                      HPCSA, Medico-Legal.org.za, professional bodies, and verified medico-legal directories
                     </span>
                     {externalTotal !== null && (
                       <AdminPill tone="neutral">
@@ -270,11 +270,11 @@ const AdminFindExperts: React.FC = () => {
                       aria-hidden="true"
                     />
                     <div>
-                      <p className="font-medium text-black">Searching public directories…</p>
+                      <p className="font-medium text-black">Searching HPCSA, Medico-Legal.org.za, and other directories…</p>
                       <p className="text-sm text-slate-500">
                         Fetching up to {externalLimit} {trustedOnly ? 'trusted-registry' : 'external'} results for{' '}
                         <span className="font-medium text-black">{profession || (lastFreeText ? `"${lastFreeText}"` : 'experts')}</span>
-                        {city ? ` in ${city}` : province ? ` in ${province}` : ''}. This can take 10–20 seconds.
+                        {city ? ` in ${city}` : province ? ` in ${province}` : ''}, and pulling contact details from source pages. This can take up to 30 seconds.
                       </p>
                     </div>
                     <div className="h-1 w-full max-w-sm overflow-hidden bg-black/10">
