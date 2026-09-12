@@ -791,13 +791,30 @@ const ScheduledAssessment = ({ embedded = false, onEditAppointment }: { embedded
           }
         }
 
-        // Check for existing short-term agreement for this appointment
-        const { data: existingAgreement } = await supabase
+        // Check for existing short-term agreement for this appointment.
+        //
+        // FIX: this previously used .contains('notes', ...) — a plain-text
+        // `notes` column doesn't support the `@>` containment operator that
+        // .contains() emits, so this query errored on every single call
+        // (confirmed directly against the DB: "operator does not exist:
+        // text @> unknown"). The error was never checked, so
+        // `existingAgreement` was always undefined and the code below
+        // always took the "create new" branch — silently inserting a brand
+        // new duplicate short_term_agreements row every time this ran for
+        // the same appointment, instead of updating the one already there.
+        // That is what produced tens of thousands of duplicate rows and
+        // made the Finance & Payments summary cards unstable. .ilike() with
+        // wildcards is the correct substring match on a text column.
+        const { data: existingAgreement, error: existingAgreementError } = await supabase
           .from('short_term_agreements')
           .select('id, total_contract_value, deposit_amount')
           .eq('referring_attorney_id', appointmentData.referring_attorney_id)
-          .contains('notes', apt.id.substring(0, 8))
+          .ilike('notes', `%${apt.id.substring(0, 8)}%`)
           .maybeSingle();
+
+        if (existingAgreementError) {
+          console.error('Error checking for existing short-term agreement:', existingAgreementError);
+        }
 
         if (!existingAgreement) {
           // Create new short-term agreement
