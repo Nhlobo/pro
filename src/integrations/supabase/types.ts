@@ -7874,6 +7874,14 @@ export type Database = {
         }[]
       }
       get_app_roles: { Args: never; Returns: string[] }
+      get_assignable_staff: {
+        Args: never
+        Returns: {
+          id: string
+          is_active: boolean
+          name: string
+        }[]
+      }
       get_claimant_secure: {
         Args: { claimant_id: string }
         Returns: {
