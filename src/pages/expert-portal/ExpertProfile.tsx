@@ -52,6 +52,7 @@ const ExpertProfile: React.FC = () => {
   // Availability calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [availability, setAvailability] = useState<any[]>([]);
+  const [bookedCounts, setBookedCounts] = useState<Record<string, number>>({});
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [availNotes, setAvailNotes] = useState('');
   const [availIsAvailable, setAvailIsAvailable] = useState(true);
@@ -137,6 +138,25 @@ const ExpertProfile: React.FC = () => {
         .eq('expert_id', prof.expert_id)
         .order('date');
       setAvailability(avail || []);
+
+      // Load this expert's own bookings so the calendar can show at a
+      // glance which days already have appointments — previously the
+      // availability calendar had no idea what was actually booked, so an
+      // expert could mark a day "available" while already double-booked
+      // on it, with no visual cue either way.
+      const { data: bookedAppts } = await supabase
+        .from('appointments')
+        .select('appointment_date')
+        .eq('expert_id', prof.expert_id)
+        .is('deleted_at', null);
+      const counts: Record<string, number> = {};
+      (bookedAppts || []).forEach((a: any) => {
+        if (!a.appointment_date) return;
+        const key = format(parseISO(a.appointment_date), 'yyyy-MM-dd');
+        counts[key] = (counts[key] || 0) + 1;
+      });
+      setBookedCounts(counts);
+
       await loadFeeHistory(prof.expert_id);
       } catch (error) {
         // Previously unguarded — a thrown error left `loading` stuck
@@ -313,6 +333,7 @@ const ExpertProfile: React.FC = () => {
   const paddingDays = (startDay === 0 ? 6 : startDay - 1);
 
   const getAvailForDate = (date: Date) => availability.find(a => isSameDay(parseISO(a.date), date));
+  const getBookingCountForDate = (date: Date) => bookedCounts[format(date, 'yyyy-MM-dd')] || 0;
 
   if (loading) {
     return (
@@ -694,7 +715,9 @@ const ExpertProfile: React.FC = () => {
           <CardTitle className="text-base flex items-center gap-2">
             <Calendar className="h-4 w-4 text-primary" /> Availability Calendar
           </CardTitle>
-          <CardDescription className="text-xs">Mark your available and unavailable dates</CardDescription>
+          <CardDescription className="text-xs">
+            Mark your available and unavailable dates — this is what staff see when they book an appointment with you.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-3 gap-6">
@@ -718,6 +741,7 @@ const ExpertProfile: React.FC = () => {
                 {Array.from({ length: paddingDays }).map((_, i) => <div key={`p-${i}`} className="aspect-square" />)}
                 {daysInMonth.map(day => {
                   const avail = getAvailForDate(day);
+                  const bookingCount = getBookingCountForDate(day);
                   const isSelected = selectedDate && isSameDay(day, selectedDate);
                   const today = isToday(day);
                   return (
@@ -738,39 +762,61 @@ const ExpertProfile: React.FC = () => {
                         }
                       }}
                       className={cn(
-                        'relative flex aspect-square items-center justify-center border text-[11px] font-medium transition-colors sm:text-sm',
-                        isSelected ? 'border-black ring-1 ring-black' : 'border-black/5 hover:border-black/20 hover:bg-black/[0.03]',
+                        'group relative flex aspect-square flex-col items-center justify-center gap-0.5 border text-[11px] font-medium transition-colors sm:text-sm',
+                        isSelected
+                          ? 'border-black ring-1 ring-black bg-black/[0.04]'
+                          : avail
+                            ? avail.is_available
+                              ? 'border-success/30 bg-success/[0.07] hover:bg-success/[0.12]'
+                              : 'border-destructive/30 bg-destructive/[0.06] hover:bg-destructive/[0.1]'
+                            : 'border-black/5 hover:border-black/20 hover:bg-black/[0.03]',
                         avail
-                          ? avail.is_available
-                            ? 'text-success'
-                            : 'text-destructive'
-                          : today
-                            ? 'font-bold'
-                            : 'text-black'
+                          ? avail.is_available ? 'text-success' : 'text-destructive'
+                          : today ? 'font-bold' : 'text-black'
                       )}
                       style={avail ? undefined : today && !isSelected ? { color: BRAND_TEAL } : undefined}
                     >
-                      {format(day, 'd')}
+                      <span>{format(day, 'd')}</span>
+                      {bookingCount > 0 && (
+                        <span
+                          className="rounded-full px-1 text-[8px] font-semibold leading-tight text-white sm:text-[9px]"
+                          style={{ backgroundColor: BRAND_TEAL }}
+                        >
+                          {bookingCount} booked
+                        </span>
+                      )}
                       {avail && (
                         <span
-                          className={cn('absolute bottom-1 h-1 w-1 sm:bottom-1.5 sm:h-1.5 sm:w-1.5', avail.is_available ? 'bg-success' : 'bg-destructive')}
+                          className={cn('absolute bottom-1 h-1 w-1 rounded-full sm:bottom-1.5 sm:h-1.5 sm:w-1.5', avail.is_available ? 'bg-success' : 'bg-destructive')}
                         />
                       )}
                     </button>
                   );
                 })}
               </div>
-              <div className="flex items-center gap-4 mt-3 text-xs text-slate-500">
-                <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Available</span>
-                <span className="flex items-center gap-1.5"><XCircle className="h-3.5 w-3.5 text-destructive" /> Unavailable</span>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mt-3 text-xs text-slate-500">
+                <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Marked available</span>
+                <span className="flex items-center gap-1.5"><XCircle className="h-3.5 w-3.5 text-destructive" /> Marked unavailable</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="rounded-full px-1.5 text-[9px] font-semibold leading-tight text-white" style={{ backgroundColor: BRAND_TEAL }}>N</span>
+                  Appointments already booked
+                </span>
               </div>
             </div>
 
             {/* Set Availability Panel */}
             <div className="space-y-4">
-              <h4 className="font-semibold text-sm text-foreground">
-                {selectedDate ? format(selectedDate, 'dd MMMM yyyy') : 'Select a date'}
-              </h4>
+              <div>
+                <h4 className="font-semibold text-sm text-foreground">
+                  {selectedDate ? format(selectedDate, 'dd MMMM yyyy') : 'Select a date'}
+                </h4>
+                {selectedDate && getBookingCountForDate(selectedDate) > 0 && (
+                  <p className="mt-1 flex items-center gap-1.5 text-xs" style={{ color: BRAND_TEAL }}>
+                    <Clock className="h-3.5 w-3.5 shrink-0" />
+                    {getBookingCountForDate(selectedDate)} appointment{getBookingCountForDate(selectedDate) > 1 ? 's' : ''} already booked this day
+                  </p>
+                )}
+              </div>
               {selectedDate && (
                 <>
                   <div>
@@ -802,6 +848,26 @@ const ExpertProfile: React.FC = () => {
                   <Button size="sm" className="w-full" onClick={handleSetAvailability}>
                     <Save className="h-4 w-4 mr-1" /> Save Availability
                   </Button>
+                  {(() => {
+                    const existing = getAvailForDate(selectedDate);
+                    if (!existing) return null;
+                    return (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full text-destructive hover:text-destructive"
+                        onClick={async () => {
+                          await handleRemoveAvailability(existing.id);
+                          setAvailIsAvailable(true);
+                          setAvailStart('09:00');
+                          setAvailEnd('17:00');
+                          setAvailNotes('');
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" /> Clear this date
+                      </Button>
+                    );
+                  })()}
                 </>
               )}
             </div>
