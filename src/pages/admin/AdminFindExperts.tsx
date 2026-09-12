@@ -80,6 +80,16 @@ const AdminFindExperts: React.FC = () => {
   // dialog with everything already fetched for that expert, instead of
   // navigating to the admin directory's edit form.
   const [viewExpert, setViewExpert] = useState<InternalExpert | null>(null);
+  const [viewExternal, setViewExternal] = useState<ExternalResult | null>(null);
+
+  // Only ever show an external card once it actually carries a way to
+  // reach the expert — a directory hit with no email/phone extracted is
+  // just a link, not a lead, so it's dropped rather than shown as a card
+  // with nothing to act on. The edge function already filters for this
+  // server-side; this is a defensive second pass.
+  const contactableExternal = external.filter(
+    (r) => (r.emails?.length ?? 0) > 0 || (r.phones?.length ?? 0) > 0,
+  );
 
   // Find Expert is one feature with two modes: a search-first "External
   // Expert" screen (default — nothing about our own directory shows until
@@ -196,7 +206,7 @@ const AdminFindExperts: React.FC = () => {
                     </span>
                     {externalTotal !== null && (
                       <AdminPill tone="neutral">
-                        Showing {external.length}{externalTotal > external.length ? ` of ${externalTotal}` : ''}
+                        Showing {contactableExternal.length}{externalTotal > contactableExternal.length ? ` of ${externalTotal}` : ''}
                       </AdminPill>
                     )}
                     {trustedTotal !== null && (
@@ -274,7 +284,7 @@ const AdminFindExperts: React.FC = () => {
                       <p className="text-sm text-slate-500">
                         Fetching up to {externalLimit} {trustedOnly ? 'trusted-registry' : 'external'} results for{' '}
                         <span className="font-medium text-black">{profession || (lastFreeText ? `"${lastFreeText}"` : 'experts')}</span>
-                        {city ? ` in ${city}` : province ? ` in ${province}` : ''}, and pulling contact details from source pages. This can take up to 30 seconds.
+                        {city ? ` in ${city}` : province ? ` in ${province}` : ''}, and pulling contact details from source pages. This can take up to 40 seconds.
                       </p>
                     </div>
                     <div className="h-1 w-full max-w-sm overflow-hidden bg-black/10">
@@ -297,24 +307,24 @@ const AdminFindExperts: React.FC = () => {
                     </Button>
                   </AdminCardBody>
                 </AdminCard>
-              ) : external.length === 0 ? (
+              ) : contactableExternal.length === 0 ? (
                 <AdminCard>
                   {trustedOnly ? (
                     <AdminEmptyState
                       icon={ShieldCheck}
-                      title="No trusted-registry matches"
+                      title="No trusted-registry matches with contact details"
                       description='Try turning off "Trusted registries only", or broaden the location.'
                     />
                   ) : (
                     <AdminEmptyState
                       icon={Globe}
-                      title="No external results found"
-                      description={`We searched up to ${externalLimit} sources for ${profession || (lastFreeText ? `"${lastFreeText}"` : 'that')}${city ? ` in ${city}` : province ? ` in ${province}` : ''}. Try a broader location, a related profession, or Use Our Internal Experts above.`}
+                      title="No experts with contact details found"
+                      description={`We searched up to ${externalLimit} sources for ${profession || (lastFreeText ? `"${lastFreeText}"` : 'that')}${city ? ` in ${city}` : province ? ` in ${province}` : ''}, but couldn't find a reachable email or phone number for any match. Try a broader location, a related profession, or Use Our Internal Experts above.`}
                     />
                   )}
                 </AdminCard>
               ) : (
-                <VirtualizedResults items={external} renderItem={(r) => <ExternalResultCard result={r} />} />
+                <VirtualizedResults items={contactableExternal} renderItem={(r) => <ExternalExpertCard result={r} onView={setViewExternal} />} />
               )}
             </div>
           )}
@@ -458,6 +468,7 @@ const AdminFindExperts: React.FC = () => {
       )}
 
       <ExpertProfileDialog expert={viewExpert} onOpenChange={(open) => { if (!open) setViewExpert(null); }} />
+      <ExternalProfileDialog result={viewExternal} onOpenChange={(open) => { if (!open) setViewExternal(null); }} />
     </AdminPage>
   );
 };
@@ -802,39 +813,29 @@ const ExpertCard: React.FC<{ expert: InternalExpert; compact?: boolean; onView: 
 ExpertCard.displayName = 'ExpertCard';
 
 /**
- * Mirrors ExpertCard's structure (header + pill row + body copy + bottom
- * contact row with a primary action on the right) so external results
- * read as the same "expert card" the internal directory uses, instead of
- * a differently-shaped search-result card. Extra data external results
- * can carry that internal ones don't (multiple emails/phones, multiple
- * source registries) is folded into an expandable "more" section rather
- * than changing the card's overall shape.
+ * Mirrors ExpertCard exactly — same header, pill row, contact row, and
+ * "View Profile" action opening a dialog with the full record — so an
+ * external result reads as the same kind of expert card the internal
+ * directory uses, not a differently-shaped search-result card. All the
+ * extra detail (every email/phone, source registries, full snippet)
+ * lives in ExternalProfileDialog rather than an inline expand toggle.
  */
-const ExternalResultCard: React.FC<{ result: ExternalResult }> = React.memo(({ result: r }) => {
-  const [expanded, setExpanded] = useState(false);
-
+const ExternalExpertCard: React.FC<{ result: ExternalResult; onView: (result: ExternalResult) => void }> = React.memo(({ result: r, onView }) => {
   const emails = r.emails ?? [];
   const phones = r.phones ?? [];
-  const sources = r.sources ?? [];
-
   const primaryEmail = emails[0];
   const primaryPhone = phones[0];
-  const extraEmails = emails.slice(1);
-  const extraPhones = phones.slice(1);
-  const extraSources = sources.length > 1 ? sources : [];
-
-  const hasMore = extraEmails.length > 0 || extraPhones.length > 0 || extraSources.length > 0 || (r.snippet?.length ?? 0) > 220;
+  const fullName = r.name || r.title;
+  const sourceHosts = (r.sources ?? []).map((s) => s.host);
 
   return (
     <AdminCard className="flex flex-col">
       <AdminCardHeader
         icon={User}
-        title={<span className="truncate">{r.name || r.title}</span>}
+        title={<span className="truncate">{fullName}</span>}
         actions={r.trusted ? (
           <AdminPill tone="teal"><ShieldCheck className="h-3 w-3" /> Trusted</AdminPill>
-        ) : (
-          <AdminPill tone="neutral">External</AdminPill>
-        )}
+        ) : undefined}
       />
       <AdminCardBody className="flex flex-1 flex-col gap-2 text-sm">
         <div className="flex flex-wrap gap-1.5">
@@ -844,48 +845,24 @@ const ExternalResultCard: React.FC<{ result: ExternalResult }> = React.memo(({ r
               <MapPin className="h-3 w-3" /> {r.province}{r.province && r.city ? ` · ${r.city}` : r.city}
             </AdminPill>
           )}
-          {r.registry_id && <AdminPill tone="teal" className="font-mono">{r.registry_id}</AdminPill>}
         </div>
 
-        <p className={expanded ? 'text-slate-500' : 'line-clamp-3 text-slate-500'}>{r.snippet}</p>
+        {r.registry_id && (
+          <p className="text-xs text-slate-500">Registry: <span className="font-mono">{r.registry_id}</span></p>
+        )}
 
-        {expanded && (extraEmails.length > 0 || extraPhones.length > 0 || extraSources.length > 0) && (
-          <div className="space-y-1 border border-black/10 bg-black/[0.02] p-2 text-xs">
-            {extraEmails.map((e) => (
-              <a key={e} href={`mailto:${e}`} className="flex items-center gap-2 break-all text-black hover:underline">
-                <Mail className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} /> {e}
-              </a>
-            ))}
-            {extraPhones.map((p) => (
-              <a key={p} href={`tel:${p}`} className="flex items-center gap-2 text-black hover:underline">
-                <Phone className="h-3 w-3 shrink-0" style={{ color: BRAND_TEAL }} /> {p}
-              </a>
-            ))}
-            {extraSources.map((s) => (
-              <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-slate-500 hover:text-black hover:underline">
-                <ExternalLink className="h-3 w-3 shrink-0" /> {s.host}
-              </a>
+        {r.snippet && <p className="line-clamp-2 text-xs text-slate-500">{r.snippet}</p>}
+
+        {sourceHosts.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {sourceHosts.slice(0, 3).map((h) => (
+              <AdminPill key={h} tone="neutral" className="text-[9px]">{h}</AdminPill>
             ))}
           </div>
         )}
 
-        {!primaryEmail && !primaryPhone && (
-          <p className="text-xs italic text-slate-400">No contact details detected — open the source for more info.</p>
-        )}
-
-        {hasMore && (
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="self-start text-xs font-medium underline"
-            style={{ color: BRAND_TEAL }}
-          >
-            {expanded ? 'Show less' : 'Show more details'}
-          </button>
-        )}
-
-        {/* Contact row — same shape as ExpertCard: Email / Call on the
-            left, primary action on the right. */}
+        {/* Contact row — identical shape to ExpertCard: Email / Call on
+            the left, View Profile as the primary action on the right. */}
         <div className="mt-auto flex flex-wrap gap-2 pt-2">
           {primaryEmail && (
             <Button asChild size="sm" variant="outline" className="rounded-none border-black/15 text-black hover:bg-black/5">
@@ -897,16 +874,112 @@ const ExternalResultCard: React.FC<{ result: ExternalResult }> = React.memo(({ r
               <a href={`tel:${primaryPhone}`}><Phone className="mr-1 h-3 w-3" />Call</a>
             </Button>
           )}
-          <Button asChild size="sm" className="ml-auto rounded-none bg-black text-white hover:bg-black/90">
-            <a href={r.source_url} target="_blank" rel="noreferrer">
-              View Source <ExternalLink className="ml-1 h-3 w-3" />
-            </a>
+          <Button
+            size="sm"
+            className="ml-auto rounded-none bg-black text-white hover:bg-black/90"
+            onClick={() => onView(r)}
+          >
+            View Profile <ChevronRight className="ml-1 h-3 w-3" />
           </Button>
         </div>
       </AdminCardBody>
     </AdminCard>
   );
 });
-ExternalResultCard.displayName = 'ExternalResultCard';
+ExternalExpertCard.displayName = 'ExternalExpertCard';
+
+/**
+ * Mirrors ExpertProfileDialog's structure (header, status pills, fields,
+ * contact block) for an external search result — everything the search
+ * found for this expert lives here, so "View Profile" gives the full
+ * picture instead of sending the case manager off to a directory page.
+ */
+const ExternalProfileDialog: React.FC<{
+  result: ExternalResult | null;
+  onOpenChange: (open: boolean) => void;
+}> = ({ result: r, onOpenChange }) => {
+  if (!r) return null;
+
+  const emails = r.emails ?? [];
+  const phones = r.phones ?? [];
+  const websites = r.websites ?? [];
+  const sources = r.sources ?? [];
+  const fullName = r.name || r.title;
+
+  return (
+    <Dialog open={!!r} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto rounded-none">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <User className="h-4 w-4" style={{ color: BRAND_TEAL }} />
+            {fullName}
+          </DialogTitle>
+          <DialogDescription>{r.profession || 'Medico-legal expert'}</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 text-sm">
+          <div className="flex flex-wrap gap-1.5">
+            {(r.province || r.city) && (
+              <AdminPill tone="neutral"><MapPin className="h-3 w-3" /> {r.province}{r.province && r.city ? ` · ${r.city}` : r.city}</AdminPill>
+            )}
+            <AdminPill tone={r.trusted ? 'teal' : 'neutral'}>
+              <ShieldCheck className="h-3 w-3" /> {r.trusted ? 'Trusted registry' : 'External result'}
+            </AdminPill>
+            {r.registry_id && <AdminPill tone="teal" className="font-mono">{r.registry_id}</AdminPill>}
+          </div>
+
+          {r.snippet && (
+            <ProfileField label="Summary"><p className="whitespace-pre-wrap">{r.snippet}</p></ProfileField>
+          )}
+
+          {/* Contact */}
+          <div className="border-t border-black/10 pt-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</p>
+            <div className="mt-1.5 flex flex-col gap-1.5">
+              {emails.map((e) => (
+                <a key={e} href={`mailto:${e}`} className="flex items-center gap-2 break-all text-black hover:underline">
+                  <Mail className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> {e}
+                </a>
+              ))}
+              {phones.map((p) => (
+                <a key={p} href={`tel:${p}`} className="flex items-center gap-2 text-black hover:underline">
+                  <Phone className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> {p}
+                </a>
+              ))}
+              {emails.length === 0 && phones.length === 0 && (
+                <p className="text-xs italic text-slate-400">No contact details on file</p>
+              )}
+            </div>
+          </div>
+
+          {websites.length > 0 && (
+            <ProfileField label="Websites">
+              <div className="flex flex-col gap-1">
+                {websites.map((w) => (
+                  <a key={w.host} href={w.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-black hover:underline">
+                    <Globe className="h-3.5 w-3.5" style={{ color: BRAND_TEAL }} /> {w.host}
+                  </a>
+                ))}
+              </div>
+            </ProfileField>
+          )}
+
+          {sources.length > 0 && (
+            <div className="border-t border-black/10 pt-3">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Found via</p>
+              <div className="flex flex-col gap-1">
+                {sources.map((s) => (
+                  <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-xs text-slate-500 hover:text-black hover:underline">
+                    <ExternalLink className="h-3 w-3 shrink-0" /> {s.title || s.host}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 export default AdminFindExperts;
