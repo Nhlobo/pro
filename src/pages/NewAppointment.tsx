@@ -10,6 +10,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   CalendarIcon,
   AlertTriangle,
+  CheckCircle2,
+  CalendarClock,
   UserSquare2,
   Stethoscope,
   Wallet,
@@ -132,6 +134,55 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
 
   const [filteredExperts, setFilteredExperts] = useState([]);
   const [filteredClaimants, setFilteredClaimants] = useState([]);
+
+  // Expert availability sync — surfaces what the expert marked on their own
+  // "Availability Calendar" (Expert Portal → Profile) right where staff pick
+  // the date, instead of that data going in one side and never being seen
+  // on the other. Previously nothing on the admin side read
+  // expert_availability at all, so an expert marking themselves unavailable
+  // had zero effect on booking.
+  const [expertAvailability, setExpertAvailability] = useState<{
+    status: 'loading' | 'available' | 'unavailable' | 'unset';
+    notes?: string | null;
+    startTime?: string | null;
+    endTime?: string | null;
+    existingCount: number;
+  } | null>(null);
+  useEffect(() => {
+    let active = true;
+    if (!formData.expertId || !formData.appointmentDate) {
+      setExpertAvailability(null);
+      return;
+    }
+    setExpertAvailability({ status: 'loading', existingCount: 0 });
+    (async () => {
+      const [{ data: availRow }, { count: existingCount }] = await Promise.all([
+        supabase
+          .from('expert_availability')
+          .select('is_available, start_time, end_time, notes')
+          .eq('expert_id', formData.expertId)
+          .eq('date', formData.appointmentDate)
+          .maybeSingle(),
+        supabase
+          .from('appointments')
+          .select('id', { count: 'exact', head: true })
+          .eq('expert_id', formData.expertId)
+          .gte('appointment_date', `${formData.appointmentDate}T00:00:00`)
+          .lt('appointment_date', `${formData.appointmentDate}T23:59:59.999`)
+          .is('deleted_at', null),
+      ]);
+      if (!active) return;
+      setExpertAvailability({
+        status: availRow ? (availRow.is_available ? 'available' : 'unavailable') : 'unset',
+        notes: availRow?.notes ?? null,
+        startTime: availRow?.start_time ?? null,
+        endTime: availRow?.end_time ?? null,
+        existingCount: existingCount ?? 0,
+      });
+    })();
+    return () => { active = false; };
+  }, [formData.expertId, formData.appointmentDate]);
+
   const [editAppointmentDetails, setEditAppointmentDetails] = useState<{
     claimant: any | null;
     attorney: any | null;
@@ -1848,6 +1899,57 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
                     required
                   />
                   {validationErrors.appointmentDate && <p className="text-sm text-destructive">Please select an appointment date</p>}
+                  {expertAvailability && (
+                    <div
+                      className={`flex items-start gap-2 rounded-none border px-3 py-2 text-xs ${
+                        expertAvailability.status === 'unavailable'
+                          ? 'border-destructive/30 bg-destructive/5 text-destructive'
+                          : expertAvailability.status === 'available'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                            : 'border-black/10 bg-black/[0.02] text-slate-600'
+                      }`}
+                    >
+                      {expertAvailability.status === 'loading' ? (
+                        <>
+                          <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
+                          <span>Checking expert availability…</span>
+                        </>
+                      ) : expertAvailability.status === 'unavailable' ? (
+                        <>
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span>
+                            This expert marked themselves <strong>unavailable</strong> on this date.
+                            {expertAvailability.notes ? ` "${expertAvailability.notes}"` : ''}
+                            {' '}You can still book, but double-check with them first.
+                          </span>
+                        </>
+                      ) : expertAvailability.status === 'available' ? (
+                        <>
+                          <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span>
+                            Marked available on this date
+                            {expertAvailability.startTime && expertAvailability.endTime
+                              ? ` (${expertAvailability.startTime.slice(0, 5)}–${expertAvailability.endTime.slice(0, 5)})`
+                              : ''}
+                            .
+                            {expertAvailability.existingCount > 0
+                              ? ` Already has ${expertAvailability.existingCount} appointment(s) booked this day.`
+                              : ''}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span>
+                            No availability preference set for this date.
+                            {expertAvailability.existingCount > 0
+                              ? ` Already has ${expertAvailability.existingCount} appointment(s) booked this day.`
+                              : ''}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2" data-field="appointmentTime">
