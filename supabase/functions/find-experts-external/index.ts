@@ -571,18 +571,20 @@ Deno.serve(async (req) => {
 
     const trustedRanked = allRanked.filter((x) => x.item.trusted);
     const chosen = trustedOnly ? trustedRanked : allRanked;
-    const ranked = chosen.slice(0, limit).map((x) => x.item);
 
     // --- Contact-detail enrichment -----------------------------------
     // The whole point of this search is to hand back an expert's actual
     // contact details, not a link the case manager still has to click
     // through and dig around on (e.g. a Medpages/HPCSA hit whose search
-    // snippet never carried an email or phone number). For results that
-    // came back with neither, fetch the real page content and mine it —
-    // bounded and time-limited so one slow site can't stall the response.
-    const ENRICH_TARGET = 12;
+    // snippet never carried an email or phone number). Results with
+    // neither are dropped entirely further down — so we enrich a larger
+    // candidate pool than the final `limit` here, otherwise dropping
+    // contact-less results would routinely leave the page under-filled.
+    const ENRICH_TARGET = 16;
     const ENRICH_CONCURRENCY = 4;
     const ENRICH_TIMEOUT_MS = 7000;
+    const POOL_SIZE = Math.min(chosen.length, Math.max(limit * 2, 40));
+    const pool = chosen.slice(0, POOL_SIZE).map((x) => x.item);
 
     const scrapeContactDetails = async (
       url: string,
@@ -612,7 +614,7 @@ Deno.serve(async (req) => {
       }
     };
 
-    const needsEnrichment = ranked
+    const needsEnrichment = pool
       .filter((it) => (it.emails?.length ?? 0) === 0 && (it.phones?.length ?? 0) === 0)
       .slice(0, ENRICH_TARGET);
 
@@ -627,11 +629,19 @@ Deno.serve(async (req) => {
       }));
     }
 
+    // This is the point of the whole exercise: a result the case manager
+    // can't actually contact isn't useful — it's just a link they'd have
+    // to go dig through themselves, which is exactly what this search is
+    // meant to replace. Anything still without an email or phone after
+    // enrichment is dropped rather than shown as a dead-end card.
+    const withContact = pool.filter((it) => (it.emails?.length ?? 0) > 0 || (it.phones?.length ?? 0) > 0);
+    const ranked = withContact.slice(0, limit);
+
     return json({
       results: ranked,
       query,
-      total: mergedBuckets.length,
-      trusted_total: trustedRanked.length,
+      total: withContact.length,
+      trusted_total: withContact.filter((it) => it.trusted).length,
       trusted_only: trustedOnly,
     });
   } catch (err: any) {
