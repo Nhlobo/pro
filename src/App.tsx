@@ -76,6 +76,7 @@ const AssessmentReportsStatistics = lazy(() => import("./pages/AssessmentReports
 const DocumentUpload = lazy(() => import("./pages/DocumentUpload"));
 const DocumentUploading = lazy(() => import("./pages/DocumentUploading"));
 const DocumentProofreading = lazy(() => import("./pages/DocumentProofreading"));
+const Advisory = lazy(() => import("./pages/Advisory"));
 const DocumentChecklist = lazy(() => import("./pages/DocumentChecklist"));
 const SampleReports = lazy(() => import("./pages/SampleReports"));
 const AODManagement = lazy(() => import("./pages/AODManagement"));
@@ -273,6 +274,7 @@ const App = () => (
                 
                 <Route path="/admin/reports" element={<AdminPortalRoute><AdminReportManagement /></AdminPortalRoute>} />
                 <Route path="/admin/reporting" element={<AdminPortalRoute><AdminReportingDashboard /></AdminPortalRoute>} />
+                <Route path="/admin/assessment-reports-statistics" element={<AdminPortalRoute><AssessmentReportsStatistics embedded /></AdminPortalRoute>} />
                 <Route path="/admin/documents" element={<AdminPortalRoute><AdminDocumentVault /></AdminPortalRoute>} />
                 <Route path="/admin/finance" element={<AdminPortalRoute><AdminFinance /></AdminPortalRoute>} />
                 <Route path="/admin/expert-payment-planner" element={<AdminPortalRoute><AdminExpertPaymentPlanner /></AdminPortalRoute>} />
@@ -336,6 +338,7 @@ const App = () => (
                 <Route path="/document-uploading" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentUploading /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/document-proofreading" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentProofreading /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/document-checklist" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentChecklist /></PermissionProtectedRoute></ProtectedRoute>} />
+                <Route path="/advisory" element={<ProtectedRoute><PermissionProtectedRoute permission="manage_documents"><Advisory /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/aod-management" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><AODManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/aod-payment-tracking/:documentId" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><AODPaymentTracking /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/aod-balance-summary" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><AODBalanceSummary /></PermissionProtectedRoute></ProtectedRoute>} />
