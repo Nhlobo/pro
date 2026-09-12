@@ -103,6 +103,7 @@ const ExpertCaseAccess = lazy(() => import("./pages/ExpertCaseAccess"));
 const AttorneyPortalDashboard = lazy(() => import("./pages/attorney-portal/AttorneyPortalDashboard"));
 const AttorneyMyCases = lazy(() => import("./pages/attorney-portal/AttorneyMyCases"));
 const AttorneyAppointments = lazy(() => import("./pages/attorney-portal/AttorneyAppointments"));
+const AttorneyRequestAppointment = lazy(() => import("./pages/attorney-portal/AttorneyRequestAppointment"));
 const AttorneyReports = lazy(() => import("./pages/attorney-portal/AttorneyReports"));
 const AttorneyPayments = lazy(() => import("./pages/attorney-portal/AttorneyPayments"));
 const AttorneyNotifications = lazy(() => import("./pages/attorney-portal/AttorneyNotifications"));
@@ -130,6 +131,7 @@ const AdminFindExperts = lazy(() => import("./pages/admin/AdminFindExperts"));
 
 const AdminHeatmap = lazy(() => import("./pages/admin/AdminHeatmap"));
 const AdminReportManagement = lazy(() => import("./pages/admin/AdminReportManagement"));
+const AdminLitigationRequests = lazy(() => import("./pages/admin/AdminLitigationRequests"));
 const AdminReportingDashboard = lazy(() => import("./pages/admin/AdminReportingDashboard"));
 const AdminDocumentVault = lazy(() => import("./pages/admin/AdminDocumentVault"));
 const AdminFinance = lazy(() => import("./pages/admin/AdminFinance"));
@@ -273,6 +275,7 @@ const App = () => (
                 <Route path="/admin/heatmap" element={<AdminPortalRoute><AdminHeatmap /></AdminPortalRoute>} />
                 
                 <Route path="/admin/reports" element={<AdminPortalRoute><AdminReportManagement /></AdminPortalRoute>} />
+                <Route path="/admin/litigation-requests" element={<AdminPortalRoute><AdminLitigationRequests /></AdminPortalRoute>} />
                 <Route path="/admin/reporting" element={<AdminPortalRoute><AdminReportingDashboard /></AdminPortalRoute>} />
                 <Route path="/admin/assessment-reports-statistics" element={<AdminPortalRoute><AssessmentReportsStatistics embedded /></AdminPortalRoute>} />
                 <Route path="/admin/documents" element={<AdminPortalRoute><AdminDocumentVault /></AdminPortalRoute>} />
@@ -373,6 +376,7 @@ const App = () => (
                 <Route path="/attorney-portal/cases" element={<ProtectedRoute><AttorneyMyCases /></ProtectedRoute>} />
                 <Route path="/attorney-portal/case-status" element={<ProtectedRoute><AttorneyCaseStatus /></ProtectedRoute>} />
                 <Route path="/attorney-portal/appointments" element={<ProtectedRoute><AttorneyAppointments /></ProtectedRoute>} />
+                <Route path="/attorney-portal/request-appointment" element={<ProtectedRoute><AttorneyRequestAppointment /></ProtectedRoute>} />
                 <Route path="/attorney-portal/reports" element={<ProtectedRoute><AttorneyReports /></ProtectedRoute>} />
                 <Route path="/attorney-portal/payments" element={<ProtectedRoute><AttorneyPayments /></ProtectedRoute>} />
                 <Route path="/attorney-portal/notifications" element={<ProtectedRoute><AttorneyNotifications /></ProtectedRoute>} />
