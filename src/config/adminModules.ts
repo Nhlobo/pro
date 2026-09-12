@@ -121,7 +121,11 @@ export const ADMIN_MODULES: AdminModule[] = [
     group: 'Intelligence',
     icon: Search,
     description: 'Search medico-legal experts by province, district & profession',
-    roles: ['admin', 'employee', 'sales_consultant'],
+    // sales_consultant removed 2026-09-12: role_module_defaults has this
+    // module is_eligible=false for that role (confirmed against live DB),
+    // so under NEW_ACCESS_CONTROL_ENABLED this file was documenting access
+    // that doesn't actually exist — this brings the two back in sync.
+    roles: ['admin', 'employee'],
     permissions: [{ category: 'Medical Expert Management' }],
   },
   // Intelligence
