@@ -94,6 +94,42 @@ const ExternalPortalSignIn: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Warm both destination chunks the instant this page mounts, so the
+  // post-verify navigate() below never has to suspend on a not-yet-fetched
+  // lazy import mid-transition.
+  //
+  // Root-cause note (2026-09-12 "insertBefore" crash on Expert Portal
+  // login): App.tsx wraps its ENTIRE <Routes> tree in a single shared
+  // <Suspense fallback={<RouteFallback />}>, rather than one per route.
+  // AttorneyPortalDashboard/ExpertDashboard are lazy() chunks distinct
+  // from this page's own chunk, so navigate(result.portal_path) below
+  // was very often the first time either chunk was ever requested —
+  // forcing that single shared Suspense boundary to re-suspend the
+  // whole routed tree mid-transition, right as this page's own Radix
+  // <Select> portal (the Referring Attorney / Medical Expert dropdown)
+  // could still be attached to document.body (open, or mid
+  // close-animation). That combination — a portaled node from the
+  // outgoing tree still live in the DOM while Suspense swaps the whole
+  // subtree back to its fallback and then into the freshly-loaded
+  // route — is a well-known trigger for React's
+  // "Failed to execute 'insertBefore' ... not a child of this node"
+  // commit-phase error. (Browser extensions that inject/move DOM nodes,
+  // e.g. Grammarly or a translator, are another common cause of this
+  // exact message and are worth ruling out separately — try an
+  // incognito window with extensions disabled.)
+  //
+  // Fetching both chunks up front means that by the time verifyOtp
+  // resolves and navigate() fires, React already has the target route's
+  // module — no new suspend/fallback cycle happens during the
+  // transition, which removes the race above regardless of which part
+  // of it was actually throwing. This doesn't touch the Suspense
+  // boundary structure itself (a larger, riskier change to make without
+  // a browser to verify against) — it just avoids hitting it here.
+  useEffect(() => {
+    void import('../attorney-portal/AttorneyPortalDashboard');
+    void import('../expert-portal/ExpertDashboard');
+  }, []);
+
   // Registration flow: validate the link on mount and trigger the first OTP.
   useEffect(() => {
     if (!linkToken) return;
