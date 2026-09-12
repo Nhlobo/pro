@@ -3,9 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { NEW_ACCESS_CONTROL_ENABLED } from "@/config/newAccessControl";
-import { useModuleAccess } from "@/hooks/useModuleAccess";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { PermissionsProvider } from "@/hooks/usePermissions";
 import { SecurityProvider } from "@/components/SecurityProvider";
@@ -18,15 +16,11 @@ import IdleLogoutGuard from "@/components/IdleLogoutGuard";
 import { ExitConfirmationGuard } from "@/hooks/useExitConfirmation";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PermissionProtectedRoute from "./components/PermissionProtectedRoute";
-import PortalRoleRoute from "./components/PortalRoleRoute";
 import { GlobalErrorBoundary, installGlobalErrorHandlers } from "@/components/GlobalErrorBoundary";
 import BrandedPageLoader from "@/components/BrandedPageLoader";
 import MFARequiredGuard from "@/components/MFARequiredGuard";
-import { ShieldAlert } from "lucide-react";
-import { AdminPage, AdminEmptyState } from "@/components/admin/ui/AdminUI";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
 import { BiometricLockGate } from "@/components/BiometricLockGate";
+import { BiometricEnrollPrompt } from "@/components/BiometricEnrollPrompt";
 
 // Eager: top-level entry points + portal layouts (small, always needed when in portal)
 import Auth from "./pages/Auth";
@@ -82,7 +76,6 @@ const AssessmentReportsStatistics = lazy(() => import("./pages/AssessmentReports
 const DocumentUpload = lazy(() => import("./pages/DocumentUpload"));
 const DocumentUploading = lazy(() => import("./pages/DocumentUploading"));
 const DocumentProofreading = lazy(() => import("./pages/DocumentProofreading"));
-const Advisory = lazy(() => import("./pages/Advisory"));
 const DocumentChecklist = lazy(() => import("./pages/DocumentChecklist"));
 const SampleReports = lazy(() => import("./pages/SampleReports"));
 const AODManagement = lazy(() => import("./pages/AODManagement"));
@@ -101,16 +94,17 @@ const EmailQueue = lazy(() => import("./pages/EmailQueue"));
 const WorkflowAutomation = lazy(() => import("./pages/WorkflowAutomation"));
 const AttorneyPitchlog = lazy(() => import("./pages/AttorneyPitchlog"));
 const AttorneyReferralIntelligence = lazy(() => import("./pages/AttorneyReferralIntelligence"));
+const SalesDashboard = lazy(() => import("./pages/SalesDashboard"));
 const CaseAccess = lazy(() => import("./pages/CaseAccess"));
 const ExpertCaseAccess = lazy(() => import("./pages/ExpertCaseAccess"));
 
 // Attorney Portal Pages
 const AttorneyPortalDashboard = lazy(() => import("./pages/attorney-portal/AttorneyPortalDashboard"));
 const AttorneyMyCases = lazy(() => import("./pages/attorney-portal/AttorneyMyCases"));
-const AttorneyRequestAppointment = lazy(() => import("./pages/attorney-portal/AttorneyRequestAppointment"));
 const AttorneyAppointments = lazy(() => import("./pages/attorney-portal/AttorneyAppointments"));
 const AttorneyReports = lazy(() => import("./pages/attorney-portal/AttorneyReports"));
 const AttorneyPayments = lazy(() => import("./pages/attorney-portal/AttorneyPayments"));
+const AttorneyAgreements = lazy(() => import("./pages/attorney-portal/AttorneyAgreements"));
 const AttorneyNotifications = lazy(() => import("./pages/attorney-portal/AttorneyNotifications"));
 const AttorneyCaseStatus = lazy(() => import("./pages/attorney-portal/AttorneyCaseStatus"));
 const AttorneySupport = lazy(() => import("./pages/attorney-portal/AttorneySupport"));
@@ -131,7 +125,6 @@ const ExpertNotifications = lazy(() => import("./pages/expert-portal/ExpertNotif
 // Admin Portal Pages
 const AdminOperationsDashboard = lazy(() => import("./pages/admin/AdminOperationsDashboard"));
 const AdminAttorneyCRM = lazy(() => import("./pages/admin/AdminAttorneyCRM"));
-const AdminLitigationRequests = lazy(() => import("./pages/admin/AdminLitigationRequests"));
 const AdminExpertNetwork = lazy(() => import("./pages/admin/AdminExpertNetwork"));
 const AdminFindExperts = lazy(() => import("./pages/admin/AdminFindExperts"));
 
@@ -142,7 +135,6 @@ const AdminDocumentVault = lazy(() => import("./pages/admin/AdminDocumentVault")
 const AdminFinance = lazy(() => import("./pages/admin/AdminFinance"));
 const AdminExpertPaymentPlanner = lazy(() => import("./pages/admin/AdminExpertPaymentPlanner"));
 const AdminAppointmentEngine = lazy(() => import("./pages/admin/AdminAppointmentEngine"));
-const AdminAssessmentReportsStatistics = lazy(() => import("./pages/admin/AdminAssessmentReportsStatistics"));
 const MyProfile = lazy(() => import("./pages/admin/MyProfile"));
 const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics"));
 const AdminIAM = lazy(() => import("./pages/admin/AdminIAM"));
@@ -183,74 +175,9 @@ const queryClient = new QueryClient({
   },
 });
 
-// Shown instead of redirecting when NO module is reachable — see the
-// comment in AdminModuleGate below for why a redirect isn't safe here.
-// Deliberately not a full page/route: it renders inside AdminPortalLayout
-// exactly like any other gated page, so the shell (and, if applicable,
-// an empty sidebar) still frames it.
-const AdminAccessRestricted = () => {
-  const { signOut } = useAuth();
-  return (
-    <AdminPage>
-      <AdminEmptyState
-        icon={ShieldAlert}
-        title="Access Restricted"
-        description="You do not have permission to access this module. Your current role and permissions do not allow access to this area. If you believe this is a mistake, contact an administrator."
-        action={
-          <Button variant="outline" size="sm" onClick={() => void signOut()}>
-            Sign out
-          </Button>
-        }
-      />
-    </AdminPage>
-  );
-};
-
-// Real per-route enforcement, gated behind NEW_ACCESS_CONTROL_ENABLED.
-// While the flag is off, this component is unchanged from before it
-// existed — auth-only, no module check, identical to today. When the
-// flag is on, a direct URL visit to a module this user isn't eligible
-// for now redirects instead of rendering — closing the gap where
-// typing /admin/finance directly bypassed the sidebar entirely.
-const AdminModuleGate = ({ children }: { children: React.ReactNode }) => {
-  const location = useLocation();
-  const { canAccessPath, homeHref, loading } = useModuleAccess();
-
-  if (!NEW_ACCESS_CONTROL_ENABLED) {
-    return <>{children}</>;
-  }
-
-  if (loading) {
-    return <BrandedPageLoader message="Loading access…" />;
-  }
-
-  if (!canAccessPath(location.pathname)) {
-    // Normal case: this specific module is denied but the user has
-    // somewhere else to go — send them to their real landing page,
-    // same as before.
-    if (canAccessPath(homeHref)) {
-      return <Navigate to={homeHref} replace />;
-    }
-    // Edge case: NOTHING is accessible — e.g. an authenticated user
-    // with no access_role_assignments row at all ("Level 2" per
-    // src/lib/newAccessControlQuery.ts). homeHref falls back to
-    // /admin/my-profile in that case, which would be denied too,
-    // so redirecting there would loop forever (Navigate -> denied ->
-    // Navigate -> denied...) with a blank screen and no explanation.
-    // Render an explicit, non-redirecting Unauthorized state instead —
-    // this is what "fail closed" is supposed to look like from the
-    // user's side, not an infinite redirect.
-    return <AdminAccessRestricted />;
-  }
-
-  return <>{children}</>;
-};
-
 const AdminPortalRoute = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
-    <AdminPortalLayout>
-      <AdminModuleGate>{children}</AdminModuleGate>
-    </AdminPortalLayout>
+    <AdminPortalLayout>{children}</AdminPortalLayout>
   </ProtectedRoute>
 );
 
@@ -266,18 +193,11 @@ const AdminPortalRoute = ({ children }: { children: React.ReactNode }) => (
 // back on, just remove the comment markers so the guard wraps
 // ExpertPortalLayout again, exactly as it did before.
 const ExpertPortalRoute = ({ children }: { children: React.ReactNode }) => (
-  <PortalRoleRoute portal="expert">
+  <ProtectedRoute>
     {/* <MFARequiredGuard roleLabel="Medical Expert"> */}
       <ExpertPortalLayout>{children}</ExpertPortalLayout>
     {/* </MFARequiredGuard> */}
-  </PortalRoleRoute>
-);
-
-// Attorney Portal pages already wrap themselves in <AttorneyPortalLayout>
-// individually (unlike Expert, which centralizes the layout here) — this
-// only adds the role gate on top of that existing per-page layout.
-const AttorneyPortalRoute = ({ children }: { children: React.ReactNode }) => (
-  <PortalRoleRoute portal="attorney">{children}</PortalRoleRoute>
+  </ProtectedRoute>
 );
 
 // Shown by <Suspense> while a lazy-loaded route's JS chunk is downloading.
@@ -312,6 +232,7 @@ const App = () => (
               <ExitConfirmationGuard />
               <Suspense fallback={<RouteFallback />}>
               <BiometricLockGate>
+              <BiometricEnrollPrompt />
               <Routes>
                 <Route path="/" element={<Navigate to="/auth" replace />} />
                 <Route path="/auth" element={<Auth />} />
@@ -345,12 +266,7 @@ const App = () => (
                 {/* ============ ADMIN PORTAL ============ */}
                 <Route path="/admin" element={<AdminPortalRoute><AdminOperationsDashboard /></AdminPortalRoute>} />
                 <Route path="/admin/attorney-crm" element={<AdminPortalRoute><AdminAttorneyCRM /></AdminPortalRoute>} />
-                <Route path="/admin/litigation-requests" element={<AdminPortalRoute><AdminLitigationRequests /></AdminPortalRoute>} />
-                {/* Old standalone Sales Dashboard page — was a full duplicate of the
-                    "Sales Dashboard" tab that already lives inside Attorney CRM
-                    (see AdminAttorneyCRM.tsx). Redirect any old bookmarks/links
-                    there instead of rendering a second copy of the same page. */}
-                <Route path="/admin/sales-dashboard" element={<Navigate to="/admin/attorney-crm" replace />} />
+                <Route path="/admin/sales-dashboard" element={<AdminPortalRoute><SalesDashboard embedded /></AdminPortalRoute>} />
                 <Route path="/admin/experts" element={<AdminPortalRoute><AdminExpertNetwork /></AdminPortalRoute>} />
                 <Route path="/admin/find-experts" element={<AdminPortalRoute><AdminFindExperts /></AdminPortalRoute>} />
                 
@@ -362,7 +278,6 @@ const App = () => (
                 <Route path="/admin/finance" element={<AdminPortalRoute><AdminFinance /></AdminPortalRoute>} />
                 <Route path="/admin/expert-payment-planner" element={<AdminPortalRoute><AdminExpertPaymentPlanner /></AdminPortalRoute>} />
                 <Route path="/admin/appointments" element={<AdminPortalRoute><AdminAppointmentEngine /></AdminPortalRoute>} />
-                <Route path="/admin/assessment-reports-statistics" element={<AdminPortalRoute><AdminAssessmentReportsStatistics /></AdminPortalRoute>} />
                 <Route path="/admin/analytics" element={<AdminPortalRoute><AdminAnalytics /></AdminPortalRoute>} />
                 <Route path="/admin/iam" element={<AdminPortalRoute><AdminIAM /></AdminPortalRoute>} />
                 <Route path="/admin/system-control" element={<AdminPortalRoute><AdminSystemControl /></AdminPortalRoute>} />
@@ -421,11 +336,6 @@ const App = () => (
                 <Route path="/document-upload" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentUpload /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/document-uploading" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentUploading /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/document-proofreading" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentProofreading /></PermissionProtectedRoute></ProtectedRoute>} />
-                {/* Advisory is internal-staff-only tooling (admin/employee) — unlike the
-                    other document routes below, referring attorneys are intentionally
-                    excluded (see src/config/adminModules.ts). Do not add "referring_attorney"
-                    back here without updating that intent. */}
-                <Route path="/advisory" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents"]}><Advisory /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/document-checklist" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><DocumentChecklist /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/aod-management" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><AODManagement /></PermissionProtectedRoute></ProtectedRoute>} />
                 <Route path="/aod-payment-tracking/:documentId" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_documents", "referring_attorney"]}><AODPaymentTracking /></PermissionProtectedRoute></ProtectedRoute>} />
@@ -447,30 +357,26 @@ const App = () => (
                 <Route path="/attorney-referral-intelligence" element={<ProtectedRoute><PermissionProtectedRoute permission={["admin_only", "view_analytics"]}><AttorneyReferralIntelligence /></PermissionProtectedRoute></ProtectedRoute>} />
                 
                 {/* Sales Incentive Routes — now lives inside the Admin Portal shell at
-                    /admin/attorney-crm's "Sales Dashboard" tab (same sidebar/header as every other admin
+                    /admin/sales-dashboard (same sidebar/header as every other admin
                     module). This path is kept as a redirect so old bookmarks/links
                     keep working. */}
-                <Route path="/sales-dashboard" element={<Navigate to="/admin/attorney-crm" replace />} />
+                <Route path="/sales-dashboard" element={<Navigate to="/admin/sales-dashboard" replace />} />
 
                 {/* National Availability Heatmap — accessible to all authenticated users (incl. sales consultants & non-consultants) */}
                 <Route path="/availability-heatmap" element={<ProtectedRoute><div className="min-h-screen bg-background"><div className="container mx-auto p-4 md:p-6"><AdminHeatmap /></div></div></ProtectedRoute>} />
 
                 {/* Attorney Portal Routes */}
-                <Route path="/attorney-portal" element={<AttorneyPortalRoute><AttorneyPortalDashboard /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/help" element={<AttorneyPortalRoute><AttorneyHelpPortal /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/cases" element={<AttorneyPortalRoute><AttorneyMyCases /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/request-appointment" element={<AttorneyPortalRoute><AttorneyRequestAppointment /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/case-status" element={<AttorneyPortalRoute><AttorneyCaseStatus /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/appointments" element={<AttorneyPortalRoute><AttorneyAppointments /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/reports" element={<AttorneyPortalRoute><AttorneyReports /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/payments" element={<AttorneyPortalRoute><AttorneyPayments /></AttorneyPortalRoute>} />
-                {/* Agreements page removed per client request (2026-09) — it duplicated
-                    AOD & Payments (both read external_portal_agreements). Old links/
-                    bookmarks redirect there instead of 404ing. */}
-                <Route path="/attorney-portal/agreements" element={<Navigate to="/attorney-portal/payments" replace />} />
-                <Route path="/attorney-portal/notifications" element={<AttorneyPortalRoute><AttorneyNotifications /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/support" element={<AttorneyPortalRoute><AttorneySupport /></AttorneyPortalRoute>} />
-                <Route path="/attorney-portal/profile" element={<AttorneyPortalRoute><AttorneyProfile /></AttorneyPortalRoute>} />
+                <Route path="/attorney-portal" element={<ProtectedRoute><AttorneyPortalDashboard /></ProtectedRoute>} />
+                <Route path="/attorney-portal/help" element={<ProtectedRoute><AttorneyHelpPortal /></ProtectedRoute>} />
+                <Route path="/attorney-portal/cases" element={<ProtectedRoute><AttorneyMyCases /></ProtectedRoute>} />
+                <Route path="/attorney-portal/case-status" element={<ProtectedRoute><AttorneyCaseStatus /></ProtectedRoute>} />
+                <Route path="/attorney-portal/appointments" element={<ProtectedRoute><AttorneyAppointments /></ProtectedRoute>} />
+                <Route path="/attorney-portal/reports" element={<ProtectedRoute><AttorneyReports /></ProtectedRoute>} />
+                <Route path="/attorney-portal/payments" element={<ProtectedRoute><AttorneyPayments /></ProtectedRoute>} />
+                <Route path="/attorney-portal/agreements" element={<ProtectedRoute><AttorneyAgreements /></ProtectedRoute>} />
+                <Route path="/attorney-portal/notifications" element={<ProtectedRoute><AttorneyNotifications /></ProtectedRoute>} />
+                <Route path="/attorney-portal/support" element={<ProtectedRoute><AttorneySupport /></ProtectedRoute>} />
+                <Route path="/attorney-portal/profile" element={<ProtectedRoute><AttorneyProfile /></ProtectedRoute>} />
                 
                 {/* ============ EXPERT PORTAL ============ */}
                 <Route path="/expert-portal" element={<ExpertPortalRoute><ExpertDashboard /></ExpertPortalRoute>} />
