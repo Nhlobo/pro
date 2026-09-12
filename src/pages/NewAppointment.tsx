@@ -492,12 +492,17 @@ const NewAppointment = ({ embedded = false, onCancel, appointmentId: appointment
         contact_number_masked: c.contact_number || ''
       }));
       
-      // Fetch sales consultants
-      const { data: consultantsData } = await supabase
-        .from('sales_consultants')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name');
+      // Fetch assignable staff via get_assignable_staff() -- the single place
+      // that filters sales_consultants down to real, current company staff
+      // (admin/employee/sales_consultant on a @kutlwanoassociate.com email),
+      // excluding referring attorneys, test accounts, and director/finance
+      // roles regardless of email domain. Active-only stays a client-side
+      // filter here since this form's "no consultants available" placeholder
+      // depends on it.
+      const { data: assignableStaff } = await supabase.rpc('get_assignable_staff');
+      const consultantsData = (assignableStaff || [])
+        .filter((sc) => sc.is_active)
+        .map((sc) => ({ id: sc.id, name: sc.name }));
       
       setAttorneys(finalAttorneysList);
       setClaimants(mappedClaimants);
