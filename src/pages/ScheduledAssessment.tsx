@@ -250,23 +250,17 @@ const ScheduledAssessment = ({ embedded = false, onEditAppointment }: { embedded
     deposit: "",
   });
 
-  // Fetch sales consultants for the dropdown
+  // Fetch assignable staff for the dropdown. Goes through get_assignable_staff()
+  // rather than querying sales_consultants directly -- that table also holds
+  // rows that were never real assignable staff (a referring attorney's law
+  // firm, test accounts on personal email addresses, director/finance roles),
+  // and the RPC is the single place that filters those out consistently
+  // across every "assign" dropdown in the app.
   useEffect(() => {
     const fetchConsultants = async () => {
-      const { data } = await supabase
-        .from('sales_consultants')
-        .select('id, name, user_id')
-        .order('name');
+      const { data } = await supabase.rpc('get_assignable_staff');
       if (data) {
-        // Enrich with profile full names where possible
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name');
-        const profileMap = new Map((profiles || []).map(p => [p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim()]));
-        setSalesConsultants(data.map(sc => ({
-          id: sc.id,
-          name: (sc.user_id && profileMap.get(sc.user_id)) || sc.name
-        })));
+        setSalesConsultants(data.map(sc => ({ id: sc.id, name: sc.name })));
       }
     };
     fetchConsultants();
