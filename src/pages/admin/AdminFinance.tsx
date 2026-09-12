@@ -147,9 +147,16 @@ const AdminFinance: React.FC = () => {
 
     // Read the tables and paint the page immediately — don't make the person
     // wait on a recalculation pass before they see anything.
+    // FIX: this previously had .limit(100) on short_term_agreements. That
+    // silently capped every summary card (Total contract value, Total
+    // payments received, Discount applied, Outstanding balance) to whatever
+    // happened to be in the 100 most-recently-created rows — wrong even at
+    // moderate scale, and completely unstable while a since-fixed bug
+    // elsewhere was flooding this table with duplicates. No cap here now,
+    // matching the aod_documents query beside it.
     const [aodResult, stResult] = await Promise.all([
       supabase.from('aod_documents').select(aodSelect).order('created_at', { ascending: false }),
-      supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }).limit(100),
+      supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }),
     ]);
 
     // A newer fetchAll() call (from a realtime event, the Sync button, etc.)
@@ -197,7 +204,7 @@ const AdminFinance: React.FC = () => {
         if (seq !== fetchSeqRef.current) return;
         const [aodResult2, stResult2] = await Promise.all([
           supabase.from('aod_documents').select(aodSelect).order('created_at', { ascending: false }),
-          supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }).limit(100),
+          supabase.from('short_term_agreements').select(stSelect).order('created_at', { ascending: false }),
         ]);
         if (seq !== fetchSeqRef.current) return;
         setAodDocs(((aodResult2.data || []) as AodFinanceDoc[]).filter((d) => !d.referring_attorneys?.is_system_company));
@@ -331,7 +338,17 @@ const AdminFinance: React.FC = () => {
   const totalAODPaid = filteredConsolidatedAttorneys.reduce((s, a) => s + a.totalPaid, 0);
   const totalAODDiscount = filteredConsolidatedAttorneys.reduce((s, a) => s + a.totalDiscount, 0);
   const totalSTValue = filteredShortTermDocs.reduce((s, d) => s + (d.total_contract_value || 0), 0);
-  const totalSTPaid = filteredShortTermDocs.reduce((s, d) => s + (d.payments_made || d.deposit_amount || 0), 0);
+  // FIX: after recalculateShortTermFromAppointments runs, deposit_amount
+  // already holds the full cumulative amount paid to date (it's written
+  // as `deposit_amount: totalPaid`) — payments_made only holds the delta
+  // *since the last recalc pass* (`totalPaid - previousDepositAmount`).
+  // Falling back to payments_made whenever it's non-zero silently
+  // understated this total by exactly the deposit amount for any
+  // agreement that had a payment captured since the last recalc. The AOD
+  // side of this same page already carries a comment/fix for this same
+  // failure mode (see line ~303) — deposit_amount is the correct field to
+  // sum here, on its own.
+  const totalSTPaid = filteredShortTermDocs.reduce((s, d) => s + (d.deposit_amount || 0), 0);
   const totalSTDiscount = filteredShortTermDocs.reduce((s, d) => s + (d.discount_amount || 0), 0);
   const totalValue = totalAODValue + totalSTValue;
   const totalPaid = totalAODPaid + totalSTPaid;
@@ -617,7 +634,10 @@ const AdminFinance: React.FC = () => {
                     </TableHeader>
                     <TableBody>
                       {filteredShortTermDocs.map((doc) => {
-                        const paid = doc.payments_made || doc.deposit_amount || 0;
+                        // See the totalSTPaid fix above — deposit_amount already
+                        // holds the full cumulative amount paid after a recalc;
+                        // payments_made is only the delta since the last pass.
+                        const paid = doc.deposit_amount || 0;
                         const balance = Math.max(0, (doc.total_contract_value || 0) - paid);
                         const reportsTaken = doc.reports_completed || 0;
                         const totalReports = doc.total_reports_agreed || 0;
