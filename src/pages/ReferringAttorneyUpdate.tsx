@@ -150,7 +150,7 @@ const ReferringAttorneyUpdate = ({ embedded = false }: { embedded?: boolean } = 
           last_name,
           role,
           position,
-          law_firms!inner (
+          referring_attorneys!inner (
             name
           )
         `)
@@ -161,7 +161,10 @@ const ReferringAttorneyUpdate = ({ embedded = false }: { embedded?: boolean } = 
         attorneyQuery = attorneyQuery.eq('referring_attorney_id', profile.referring_attorney_id);
       }
 
-      const { data: attorneyProfiles } = await attorneyQuery;
+      const { data: attorneyProfiles, error: attorneyProfilesError } = await attorneyQuery;
+      if (attorneyProfilesError) {
+        console.error('Error fetching attorney profiles for display enrichment:', attorneyProfilesError);
+      }
 
       // Create enhanced attorney display list
       const enhancedAttorneys = uniqueAttorneyNames.map(attorneyName => {
@@ -172,7 +175,7 @@ const ReferringAttorneyUpdate = ({ embedded = false }: { embedded?: boolean } = 
         });
 
         if (matchedProfile) {
-          const lawFirm = (matchedProfile.law_firms as any)?.name || '';
+          const lawFirm = (matchedProfile.referring_attorneys as any)?.name || '';
           const position = matchedProfile.position || 'Attorney';
           return {
             name: attorneyName,
