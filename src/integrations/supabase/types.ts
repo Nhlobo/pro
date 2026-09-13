@@ -570,6 +570,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "aod_payments_allocated_appointment_id_fkey"
+            columns: ["allocated_appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aod_payments_allocated_appointment_id_fkey"
+            columns: ["allocated_appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "aod_payments_aod_document_id_fkey"
             columns: ["aod_document_id"]
             isOneToOne: false
@@ -581,13 +595,6 @@ export type Database = {
             columns: ["pop_attachment_id"]
             isOneToOne: false
             referencedRelation: "payment_pop_attachments"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "aod_payments_allocated_appointment_id_fkey"
-            columns: ["allocated_appointment_id"]
-            isOneToOne: false
-            referencedRelation: "appointments"
             referencedColumns: ["id"]
           },
         ]
@@ -754,6 +761,53 @@ export type Database = {
             columns: ["appointment_id"]
             isOneToOne: false
             referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appointment_request_documents: {
+        Row: {
+          appointment_request_id: string
+          document_type: string
+          file_name: string
+          file_path: string
+          file_size_bytes: number | null
+          id: string
+          mime_type: string | null
+          notes: string | null
+          uploaded_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          appointment_request_id: string
+          document_type: string
+          file_name: string
+          file_path: string
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          uploaded_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          appointment_request_id?: string
+          document_type?: string
+          file_name?: string
+          file_path?: string
+          file_size_bytes?: number | null
+          id?: string
+          mime_type?: string | null
+          notes?: string | null
+          uploaded_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_request_documents_appointment_request_id_fkey"
+            columns: ["appointment_request_id"]
+            isOneToOne: false
+            referencedRelation: "appointment_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -943,6 +997,8 @@ export type Database = {
           payment_date: string | null
           payment_status: string | null
           payment_terms: string | null
+          pop_pending_reason: string | null
+          pop_status: string
           reclassification_note: string | null
           referring_attorney: string
           referring_attorney_id: string
@@ -973,6 +1029,8 @@ export type Database = {
           payment_date?: string | null
           payment_status?: string | null
           payment_terms?: string | null
+          pop_pending_reason?: string | null
+          pop_status?: string
           reclassification_note?: string | null
           referring_attorney: string
           referring_attorney_id: string
@@ -1003,6 +1061,8 @@ export type Database = {
           payment_date?: string | null
           payment_status?: string | null
           payment_terms?: string | null
+          pop_pending_reason?: string | null
+          pop_status?: string
           reclassification_note?: string | null
           referring_attorney?: string
           referring_attorney_id?: string
@@ -2639,6 +2699,7 @@ export type Database = {
           is_available: boolean | null
           notes: string | null
           start_time: string | null
+          status: string
           updated_at: string | null
         }
         Insert: {
@@ -2650,6 +2711,7 @@ export type Database = {
           is_available?: boolean | null
           notes?: string | null
           start_time?: string | null
+          status?: string
           updated_at?: string | null
         }
         Update: {
@@ -2661,6 +2723,7 @@ export type Database = {
           is_available?: boolean | null
           notes?: string | null
           start_time?: string | null
+          status?: string
           updated_at?: string | null
         }
         Relationships: [
@@ -2810,6 +2873,78 @@ export type Database = {
             columns: ["expert_id"]
             isOneToOne: false
             referencedRelation: "medical_experts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expert_payment_plan_entries: {
+        Row: {
+          appointment_id: string
+          comment: string
+          comments: Json
+          decided_at: string | null
+          decided_by: string | null
+          decision: string
+          expert_payment_override: string | null
+          partial: number
+          planned: boolean
+          request_status: string
+          requested_at: string | null
+          requested_by: string | null
+          requested_by_id: string | null
+          updated_at: string
+          updated_by: string | null
+          urgent: boolean
+        }
+        Insert: {
+          appointment_id: string
+          comment?: string
+          comments?: Json
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string
+          expert_payment_override?: string | null
+          partial?: number
+          planned?: boolean
+          request_status?: string
+          requested_at?: string | null
+          requested_by?: string | null
+          requested_by_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          urgent?: boolean
+        }
+        Update: {
+          appointment_id?: string
+          comment?: string
+          comments?: Json
+          decided_at?: string | null
+          decided_by?: string | null
+          decision?: string
+          expert_payment_override?: string | null
+          partial?: number
+          planned?: boolean
+          request_status?: string
+          requested_at?: string | null
+          requested_by?: string | null
+          requested_by_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          urgent?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expert_payment_plan_entries_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expert_payment_plan_entries_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "deleted_appointments_view"
             referencedColumns: ["id"]
           },
         ]
@@ -3642,6 +3777,8 @@ export type Database = {
           matter_type: string | null
           payment_date: string | null
           payment_status: string | null
+          pop_pending_reason: string | null
+          pop_status: string | null
           referring_attorney_contact_person: string | null
           referring_attorney_email: string | null
           referring_attorney_id: string | null
@@ -3673,6 +3810,8 @@ export type Database = {
           matter_type?: string | null
           payment_date?: string | null
           payment_status?: string | null
+          pop_pending_reason?: string | null
+          pop_status?: string | null
           referring_attorney_contact_person?: string | null
           referring_attorney_email?: string | null
           referring_attorney_id?: string | null
@@ -3704,6 +3843,8 @@ export type Database = {
           matter_type?: string | null
           payment_date?: string | null
           payment_status?: string | null
+          pop_pending_reason?: string | null
+          pop_status?: string | null
           referring_attorney_contact_person?: string | null
           referring_attorney_email?: string | null
           referring_attorney_id?: string | null
@@ -3745,6 +3886,8 @@ export type Database = {
       }
       external_portal_litigation_requests: {
         Row: {
+          cancellation_reason: string | null
+          cancelled_by_requester: boolean
           case_reference: string | null
           claimant_name: string | null
           completed_at: string | null
@@ -3761,6 +3904,8 @@ export type Database = {
           urgency: string | null
         }
         Insert: {
+          cancellation_reason?: string | null
+          cancelled_by_requester?: boolean
           case_reference?: string | null
           claimant_name?: string | null
           completed_at?: string | null
@@ -3777,6 +3922,8 @@ export type Database = {
           urgency?: string | null
         }
         Update: {
+          cancellation_reason?: string | null
+          cancelled_by_requester?: boolean
           case_reference?: string | null
           claimant_name?: string | null
           completed_at?: string | null
@@ -4763,6 +4910,7 @@ export type Database = {
           assigned_at: string | null
           assigned_to: string | null
           cancellation_reason: string | null
+          cancelled_by_requester: boolean
           case_reference: string | null
           claimant_name: string
           completed_at: string | null
@@ -4786,6 +4934,7 @@ export type Database = {
           assigned_at?: string | null
           assigned_to?: string | null
           cancellation_reason?: string | null
+          cancelled_by_requester?: boolean
           case_reference?: string | null
           claimant_name: string
           completed_at?: string | null
@@ -4809,6 +4958,7 @@ export type Database = {
           assigned_at?: string | null
           assigned_to?: string | null
           cancellation_reason?: string | null
+          cancelled_by_requester?: boolean
           case_reference?: string | null
           claimant_name?: string
           completed_at?: string | null
@@ -5165,6 +5315,36 @@ export type Database = {
           title?: string
           type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      password_reset_requests: {
+        Row: {
+          created_at: string
+          email_lower: string
+          error_message: string | null
+          id: string
+          ip_address: string | null
+          outcome: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          email_lower: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          outcome: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          email_lower?: string
+          error_message?: string | null
+          id?: string
+          ip_address?: string | null
+          outcome?: string
+          user_agent?: string | null
         }
         Relationships: []
       }
@@ -6447,6 +6627,13 @@ export type Database = {
             referencedRelation: "appointments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "short_term_agreement_payments_allocated_appointment_id_fkey"
+            columns: ["allocated_appointment_id"]
+            isOneToOne: false
+            referencedRelation: "deleted_appointments_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       short_term_agreements: {
@@ -7612,6 +7799,10 @@ export type Database = {
         }
         Returns: string
       }
+      attorney_cancel_litigation_service_request: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
       audit_rls_policies: {
         Args: never
         Returns: {
@@ -7872,6 +8063,10 @@ export type Database = {
           user_id: string
           version: number
         }[]
+      }
+      get_agreement_referring_attorney: {
+        Args: { p_agreement_id: string; p_agreement_type: string }
+        Returns: string
       }
       get_app_roles: { Args: never; Returns: string[] }
       get_assignable_staff: {
