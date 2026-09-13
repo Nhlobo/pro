@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Paperclip, Eye, Download, Loader2, Upload } from "lucide-react";
 
-export type PopRecordType = "aod_payment" | "short_term_payment" | "appointment_payment";
+export type PopRecordType = "aod_payment" | "short_term_payment" | "appointment_payment" | "appointment_request";
 
 export interface PaymentPopAttachment {
   id: string;
@@ -33,6 +33,12 @@ const BUCKET = "payment-pop-documents";
  * Upload / view Proof of Payment attachments for an AOD or Short-Term
  * Agreement payment. Used by Finance (upload) and the attorney portal
  * (view-only) - both parties benefit from having POPs on record.
+ *
+ * Exception: for recordType "appointment_request", attorneys can also
+ * upload (not just view) — storage policy added 12 Sep 2026 alongside
+ * appointment_request_documents, scoped narrowly to the
+ * appointment_request/* prefix of this bucket. Every other record type
+ * here remains staff-only for uploads.
  */
 export function PaymentPopUploader({
   recordType,
