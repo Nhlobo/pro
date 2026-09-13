@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { CalendarPlus, Loader2, Send } from 'lucide-react';
+import { CalendarPlus, Loader2, Send, FileText, X, Receipt } from 'lucide-react';
 import {
   PortalPage,
   PortalHeader,
@@ -80,6 +80,23 @@ const MATTER_TYPES = [
   'Other',
 ];
 
+// Client request (email, 12 Sep 2026): attorneys need an option to upload
+// supporting documents (medical records, instruction letter, summons — "like"
+// signals examples, not an exhaustive list, hence "Other") and proof of
+// payment when requesting a new appointment date, so staff can book
+// immediately instead of following up first. Files are staged locally and
+// only actually uploaded once the appointment_requests row(s) exist (see
+// handleSubmit) — appointment_request_documents and payment_pop_attachments
+// are both keyed off that row's id.
+type SupportingDocType = 'medical_record' | 'instruction_letter' | 'summons' | 'other';
+
+const DOCUMENT_TYPE_LABELS: Record<SupportingDocType, string> = {
+  medical_record: 'Medical record',
+  instruction_letter: 'Instruction letter',
+  summons: 'Summons',
+  other: 'Other',
+};
+
 interface LinkedClaimant {
   id: string;
   full_name: string;
@@ -107,6 +124,11 @@ const AttorneyRequestAppointment: React.FC = () => {
   const [expertTypesSelected, setExpertTypesSelected] = useState<string[]>([]);
   const [suggestedDate, setSuggestedDate] = useState('');
   const [additionalNotes, setAdditionalNotes] = useState('');
+
+  const [stagedDocType, setStagedDocType] = useState<SupportingDocType>('medical_record');
+  const [stagedDocuments, setStagedDocuments] = useState<{ file: File; documentType: SupportingDocType }[]>([]);
+  const [popFile, setPopFile] = useState<File | null>(null);
+  const [popReference, setPopReference] = useState('');
 
   useEffect(() => {
     if (!user) return;
@@ -141,6 +163,15 @@ const AttorneyRequestAppointment: React.FC = () => {
     );
   };
 
+  const addStagedDocument = (file: File | null) => {
+    if (!file) return;
+    setStagedDocuments(prev => [...prev, { file, documentType: stagedDocType }]);
+  };
+
+  const removeStagedDocument = (index: number) => {
+    setStagedDocuments(prev => prev.filter((_, i) => i !== index));
+  };
+
   const getClaimantName = () => {
     if (claimantSource === 'linked') {
       return linkedClaimants.find(c => c.id === linkedClaimantId)?.full_name?.trim() || '';
@@ -164,6 +195,10 @@ const AttorneyRequestAppointment: React.FC = () => {
     setExpertTypesSelected([]);
     setSuggestedDate('');
     setAdditionalNotes('');
+    setStagedDocType('medical_record');
+    setStagedDocuments([]);
+    setPopFile(null);
+    setPopReference('');
   };
 
   const handleSubmit = async () => {
@@ -236,12 +271,78 @@ const AttorneyRequestAppointment: React.FC = () => {
         )
       );
 
-      toast({
-        title: expertTypesSelected.length > 1 ? 'Referral submitted' : 'Appointment request submitted',
-        description: expertTypesSelected.length > 1
-          ? `Requested ${expertTypesSelected.length} experts for ${claimantFullName}. Our team will be in touch to confirm each.`
-          : `Your request for ${claimantFullName} has been sent to our team.`,
-      });
+      // Attach any staged supporting documents + proof of payment to every
+      // row just created. A multi-expert referral makes several rows for
+      // the same claimant — the attachments aren't specific to any one
+      // expert, so the same files get linked to all of them, meaning
+      // whichever row staff open, they see everything the attorney sent.
+      let attachmentIssue = false;
+      if (stagedDocuments.length > 0 || popFile) {
+        try {
+          for (const row of inserted || []) {
+            for (const doc of stagedDocuments) {
+              const path = `${user.id}/${row.id}/${Date.now()}_${doc.file.name}`;
+              const { error: uploadError } = await supabase.storage
+                .from('appointment-request-documents')
+                .upload(path, doc.file);
+              if (uploadError) throw uploadError;
+
+              const { error: docRowError } = await supabase
+                .from('appointment_request_documents')
+                .insert({
+                  appointment_request_id: row.id,
+                  document_type: doc.documentType,
+                  file_path: path,
+                  file_name: doc.file.name,
+                  file_size_bytes: doc.file.size,
+                  mime_type: doc.file.type || null,
+                  uploaded_by: user.id,
+                });
+              if (docRowError) throw docRowError;
+            }
+
+            if (popFile) {
+              const popPath = `appointment_request/${row.id}/${Date.now()}_${popFile.name}`;
+              const { error: popUploadError } = await supabase.storage
+                .from('payment-pop-documents')
+                .upload(popPath, popFile);
+              if (popUploadError) throw popUploadError;
+
+              const { error: popRowError } = await supabase
+                .from('payment_pop_attachments')
+                .insert({
+                  record_type: 'appointment_request',
+                  record_id: row.id,
+                  file_path: popPath,
+                  file_name: popFile.name,
+                  payment_reference: popReference.trim() || `Submitted with appointment request for ${claimantFullName}`,
+                  uploaded_by: user.id,
+                });
+              if (popRowError) throw popRowError;
+            }
+          }
+        } catch (attachErr) {
+          // The request itself is already safely submitted at this point —
+          // an attachment failure shouldn't read as the whole request failing.
+          console.error('Failed to attach documents/POP to appointment request:', attachErr);
+          attachmentIssue = true;
+        }
+      }
+
+      toast(
+        attachmentIssue
+          ? {
+              title: 'Request submitted, but an attachment failed',
+              description: 'Your request went through — please contact our team to resend whatever didn\'t attach.',
+              variant: 'destructive',
+            }
+          : {
+              title: expertTypesSelected.length > 1 ? 'Referral submitted' : 'Appointment request submitted',
+              description: expertTypesSelected.length > 1
+                ? `Requested ${expertTypesSelected.length} experts for ${claimantFullName}. Our team will be in touch to confirm each.`
+                : `Your request for ${claimantFullName} has been sent to our team.`,
+            }
+      );
       resetForm();
       navigate('/attorney-portal/appointments');
     } catch (err) {
@@ -395,6 +496,85 @@ const AttorneyRequestAppointment: React.FC = () => {
                 placeholder="Anything else our team should know…"
                 rows={3}
               />
+            </div>
+
+          </PortalCardBody>
+        </PortalCard>
+
+        <PortalCard>
+          <PortalCardHeader
+            icon={FileText}
+            title="Supporting documents"
+            description="Optional, but attaching these upfront helps our team book immediately instead of following up first"
+          />
+          <PortalCardBody className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Document type</Label>
+                <Select value={stagedDocType} onValueChange={v => setStagedDocType(v as SupportingDocType)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(DOCUMENT_TYPE_LABELS) as SupportingDocType[]).map(key => (
+                      <SelectItem key={key} value={key}>{DOCUMENT_TYPE_LABELS[key]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Add a file</Label>
+                <Input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                  onChange={e => {
+                    addStagedDocument(e.target.files?.[0] ?? null);
+                    e.target.value = '';
+                  }}
+                />
+              </div>
+            </div>
+
+            {stagedDocuments.length > 0 && (
+              <ul className="space-y-2">
+                {stagedDocuments.map((doc, index) => (
+                  <li key={`${doc.file.name}-${index}`} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                    <span className="truncate pr-2">
+                      <span className="font-medium">{DOCUMENT_TYPE_LABELS[doc.documentType]}:</span> {doc.file.name}
+                    </span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => removeStagedDocument(index)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </PortalCardBody>
+        </PortalCard>
+
+        <PortalCard>
+          <PortalCardHeader
+            icon={Receipt}
+            title="Proof of payment"
+            description="Optional — attach if payment has already been made for this assessment"
+          />
+          <PortalCardBody className="space-y-4">
+            <div className="space-y-2">
+              <Label>Payment reference (optional)</Label>
+              <Input
+                value={popReference}
+                onChange={e => setPopReference(e.target.value)}
+                placeholder="e.g. EFT reference or transaction number"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Proof of payment file</Label>
+              <Input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                onChange={e => setPopFile(e.target.files?.[0] ?? null)}
+              />
+              {popFile && (
+                <p className="text-xs text-muted-foreground">Selected: {popFile.name}</p>
+              )}
             </div>
 
             <Button onClick={handleSubmit} disabled={!isValid() || submitting} className="w-full sm:w-auto">
