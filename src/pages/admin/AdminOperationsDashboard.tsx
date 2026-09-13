@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -13,9 +13,11 @@ import {
   ArrowDown,
   Minus,
   Target,
+  RefreshCw,
 } from 'lucide-react';
 import { useDashboardStats } from '@/hooks/useDashboardStats';
-import { useTeamTargets } from '@/hooks/useTeamTargets';
+import { useTeamTargets, type TeamTarget } from '@/hooks/useTeamTargets';
+import { Button } from '@/components/ui/button';
 import {
   AdminPage,
   AdminHeader,
@@ -132,12 +134,19 @@ const DOT_COLORS = ['#00BAAD', '#2563EB', '#16A34A', '#9333EA', '#D97706', '#DC2
  */
 const AppointmentsPerformanceCard: React.FC<{
   loading: boolean;
+  targetsLoading: boolean;
+  yearlyTarget: TeamTarget | undefined;
   totalAppointmentsAllTime: number;
   totalAppointmentsThisYear: number;
   totalAppointmentsLastYear: number;
-}> = ({ loading, totalAppointmentsAllTime, totalAppointmentsThisYear, totalAppointmentsLastYear }) => {
-  const { getCurrentTarget, loading: targetsLoading } = useTeamTargets(CURRENT_YEAR);
-  const yearlyTarget = getCurrentTarget('yearly');
+}> = ({
+  loading,
+  targetsLoading,
+  yearlyTarget,
+  totalAppointmentsAllTime,
+  totalAppointmentsThisYear,
+  totalAppointmentsLastYear,
+}) => {
   const target = yearlyTarget?.team_target || 0;
 
   const daysInYear = isLeapYear(CURRENT_YEAR) ? 366 : 365;
@@ -227,7 +236,28 @@ const AppointmentsPerformanceCard: React.FC<{
 };
 
 const AdminOperationsDashboard: React.FC = () => {
-  const { stats, loading } = useDashboardStats();
+  const { stats, loading, refetchStats } = useDashboardStats();
+  const { getCurrentTarget, loading: targetsLoading, refetch: refetchTargets } = useTeamTargets(CURRENT_YEAR);
+  const yearlyTarget = getCurrentTarget('yearly');
+
+  // Manual refresh — the realtime sync deliberately queues updates instead
+  // of auto-applying them while a card is mid-focus or the tab is in the
+  // background (see AppointmentSyncContext), and on first paint a single
+  // slow/failed query among the ~16 fired for this page falls back to its
+  // last-known value (0, the first time) until something re-triggers a
+  // fetch. Calling refetchStats/refetchTargets directly bypasses all of
+  // that — it always re-runs every query right now, regardless of lock or
+  // tab state — so this button is a reliable way to force a sync instead
+  // of waiting on a realtime event or reopening the tab.
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchStats(), refetchTargets()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchStats, refetchTargets]);
 
   const totalCaseTypeThisYear = stats.caseTypeData.reduce((sum, t) => sum + t.count, 0);
   const totalCaseTypeLastYear = stats.caseTypeData.reduce((sum, t) => sum + t.countLastYear, 0);
@@ -240,11 +270,25 @@ const AdminOperationsDashboard: React.FC = () => {
         title="Operations Dashboard"
         description={`Operational metrics, ${CURRENT_YEAR} vs ${LAST_YEAR}`}
         icon={LayoutDashboard}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-none"
+            onClick={handleRefresh}
+            disabled={refreshing || loading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${refreshing || loading ? 'animate-spin' : ''}`} />
+            {refreshing || loading ? 'Syncing…' : 'Refresh'}
+          </Button>
+        }
       />
 
       {/* Appointments — real-time 2026 vs 2025 pace and target progress */}
       <AppointmentsPerformanceCard
         loading={loading}
+        targetsLoading={targetsLoading}
+        yearlyTarget={yearlyTarget}
         totalAppointmentsAllTime={stats.totalAppointments}
         totalAppointmentsThisYear={stats.totalAppointmentsThisYear}
         totalAppointmentsLastYear={stats.totalAppointmentsLastYear}
