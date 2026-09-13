@@ -17,6 +17,8 @@ import { NotificationBadge } from "@/components/NotificationBadge";
 import DashboardStickyHeader from "@/components/dashboard/DashboardStickyHeader";
 import { useAppointmentNotifications } from "@/hooks/useAppointmentNotifications";
 import { AppointmentRequestEmailDialog } from "@/components/AppointmentRequestEmailDialog";
+import { AppointmentRequestDocumentsPanel } from "@/components/AppointmentRequestDocumentsPanel";
+import { PaymentPopUploader } from "@/components/finance/PaymentPopUploader";
 
 const AppointmentRequestDashboard = () => {
   const { requests, loading, processRequest, deleteRequest } = useAppointmentRequests();
@@ -307,6 +309,26 @@ const AppointmentRequestDashboard = () => {
                                      <div>
                                        <h4 className="font-semibold">Additional Notes</h4>
                                        <p className="text-sm bg-muted p-3 rounded">{selectedRequest.additional_notes}</p>
+                                     </div>
+                                   )}
+
+                                   {/* Client request (email, 12 Sep 2026): attorneys can now attach
+                                       supporting documents and proof of payment when requesting a new
+                                       appointment date, specifically so staff see them here and can book
+                                       immediately instead of following up first. */}
+                                   {selectedRequest.id && (
+                                     <div className="grid gap-4 sm:grid-cols-2">
+                                       <div className="rounded-lg border p-3">
+                                         <AppointmentRequestDocumentsPanel appointmentRequestId={selectedRequest.id} />
+                                       </div>
+                                       <div className="rounded-lg border p-3">
+                                         <PaymentPopUploader
+                                           recordType="appointment_request"
+                                           recordId={selectedRequest.id}
+                                           paymentReference={selectedRequest.payment_reference || ''}
+                                           canUpload={false}
+                                         />
+                                       </div>
                                      </div>
                                    )}
 
