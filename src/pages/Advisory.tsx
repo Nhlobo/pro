@@ -38,11 +38,17 @@ const ALLOWED_TYPES = [
   "image/bmp",
   "image/webp",
 ];
-// Client requirement: minimum 500MB per file for large hospital record
-// bundles. Files are uploaded straight to Storage (advisory-documents
-// bucket, 600MB bucket limit) rather than embedded in the analysis
-// request, so this can safely sit at the client's stated minimum.
-const MAX_FILE_SIZE = 500 * 1024 * 1024;
+// FIX (2026-09-13): the old 500MB figure here was never actually
+// achievable — Supabase Edge Functions cap every request at 256MB memory
+// and 2 seconds of CPU time, and encoding a file for OCR needs to hold it
+// (plus a base64 copy) in memory at once. That mismatch is why large
+// uploads used to hang forever instead of failing cleanly. 35MB is the
+// real, tested ceiling for a single analysis pass (see the matching
+// MAX_PROCESSING_BYTES check in the analyze-medical-negligence function).
+// Storage itself still accepts up to 600MB — this limit is specifically
+// about what a single *analysis* can safely process without risking
+// another silent hang. Documents over this need to be split into parts.
+const MAX_FILE_SIZE = 35 * 1024 * 1024;
 // Small files skip the Storage round-trip and go straight to the analysis
 // function inline, for lower latency on the common case (single scanned
 // page, a short discharge summary, etc).
@@ -58,7 +64,47 @@ const Advisory = () => {
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<any | null>(null);
   const [downloadingWord, setDownloadingWord] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
+  const [ocrAccount, setOcrAccount] = useState<{
+    planName: string;
+    remainingCredits: number;
+    overageCredits: number;
+    overageEnabled: boolean;
+    inOverage: boolean;
+    billingMethod: string;
+    renewalDate: string | null;
+    creditsPerPage: number;
+  } | null>(null);
+  const [ocrAccountError, setOcrAccountError] = useState<string | null>(null);
   const selectedItemRef = useRef<HTMLDivElement | null>(null);
+
+  // OCR (DocuPipe) runs on a page-based credit system that's entirely
+  // separate from our own file-size limit above — a document can be
+  // small in MB but have many pages, or vice versa. Surface the live
+  // balance here so staff see it before they hit a 402 mid-upload, and
+  // refresh it after every analysis since each page processed spends
+  // one credit.
+  const loadOcrAccount = useCallback(async () => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
+      const response = await fetch(`${SUPABASE_FUNCTIONS_URL}/get-docupipe-account`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Failed to load OCR credit balance");
+      setOcrAccount(data);
+      setOcrAccountError(null);
+    } catch (error) {
+      console.error("Failed to load DocuPipe account status:", error);
+      setOcrAccountError(error instanceof Error ? error.message : "Could not load OCR credit balance");
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOcrAccount();
+  }, [loadOcrAccount]);
 
   // Eye button on a history row opens the result card below the history
   // list — scroll it into view so the click has a visible effect instead
@@ -117,6 +163,7 @@ const Advisory = () => {
           description: `Found ${data.indicator_count} potential negligence indicator(s).`,
         });
         loadHistory();
+        loadOcrAccount();
       } else if (data.status === "failed") {
         setPendingTaskId(null);
         setLoading(false);
@@ -127,10 +174,11 @@ const Advisory = () => {
           variant: "destructive",
         });
         loadHistory();
+        loadOcrAccount();
       }
     }, 3000);
     return () => clearInterval(pollInterval);
-  }, [pendingTaskId, toast, loadHistory]);
+  }, [pendingTaskId, toast, loadHistory, loadOcrAccount]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -142,7 +190,11 @@ const Advisory = () => {
         continue;
       }
       if (file.size > MAX_FILE_SIZE) {
-        toast({ title: "File too large", description: `${file.name} exceeds 500MB.`, variant: "destructive" });
+        toast({
+          title: "File too large",
+          description: `${file.name} exceeds the 35MB single-file analysis limit. Split it into smaller parts (e.g. by date range) and upload each part separately.`,
+          variant: "destructive",
+        });
         continue;
       }
       valid.push(file);
@@ -350,6 +402,42 @@ const Advisory = () => {
       />
 
       <main className="flex-1 container mx-auto px-4 py-8 space-y-6 max-w-5xl">
+        {ocrAccount && (
+          <div
+            className={`rounded-lg border p-4 text-sm flex items-center justify-between gap-4 ${
+              ocrAccount.remainingCredits <= 20
+                ? "border-destructive/50 bg-destructive/10"
+                : ocrAccount.remainingCredits <= 50
+                ? "border-amber-400/50 bg-amber-50"
+                : "border-muted bg-muted/30"
+            }`}
+          >
+            <div>
+              <p className="font-medium">
+                OCR credits: {ocrAccount.remainingCredits} remaining{" "}
+                <span className="text-muted-foreground font-normal">
+                  (plan: {ocrAccount.planName}, 1 credit ≈ 1 page scanned)
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {ocrAccount.remainingCredits <= 20
+                  ? "Running low — a large document may fail to process until credits refresh or the plan is upgraded."
+                  : ocrAccount.renewalDate
+                  ? `Refreshes ${new Date(ocrAccount.renewalDate).toLocaleDateString()}.`
+                  : ""}
+                {" "}Each document's page count is deducted from this balance when it's scanned.
+              </p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={loadOcrAccount} className="gap-1 shrink-0">
+              <RefreshCw className="h-3 w-3" /> Refresh
+            </Button>
+          </div>
+        )}
+        {ocrAccountError && !ocrAccount && (
+          <div className="rounded-lg border border-muted bg-muted/30 p-4 text-sm text-muted-foreground">
+            Couldn't load the OCR credit balance ({ocrAccountError}).
+          </div>
+        )}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -376,7 +464,8 @@ const Advisory = () => {
                 <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                 <p className="text-sm font-medium">Click to upload medical records</p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  PDF, Word, TXT, or scanned/handwritten images (JPG/PNG/TIFF) — up to 500MB each
+                  PDF, Word, TXT, or scanned/handwritten images (JPG/PNG/TIFF) — up to 35MB each. Larger
+                  bundles should be split into parts.
                 </p>
               </label>
             </div>
