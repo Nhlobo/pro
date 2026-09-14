@@ -218,7 +218,7 @@ const ScheduledAssessment = ({ embedded = false, onEditAppointment }: { embedded
   const [selectedMonth, setSelectedMonth] = useState(() => { const { month } = sastNowParts(); return month.toString(); });
   const [selectedQuarter, setSelectedQuarter] = useState(() => { const { month } = sastNowParts(); return Math.floor((month - 1) / 3 + 1).toString(); });
   const { assessments, loading, error, saveStatus, updateAssessmentStatus, updateReportStatus, updatePaymentInfo, updateReportNotes, updateSalesConsultant, refetch } = useSecureAssessments();
-  const [salesConsultants, setSalesConsultants] = useState<{ id: string; name: string }[]>([]);
+  const [salesConsultants, setSalesConsultants] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [appointmentToDelete, setAppointmentToDelete] = useState<string | null>(null);
   const [bulkEmailDialogOpen, setBulkEmailDialogOpen] = useState(false);
@@ -256,15 +256,32 @@ const ScheduledAssessment = ({ embedded = false, onEditAppointment }: { embedded
   // firm, test accounts on personal email addresses, director/finance roles),
   // and the RPC is the single place that filters those out consistently
   // across every "assign" dropdown in the app.
+  //
+  // Active-only for *new* assignments stays a client-side filter here, same
+  // as NewAppointment.tsx -- the RPC still returns deactivated staff
+  // (is_active: false), which this component keeps in state (not filtered
+  // out here) purely so an appointment already assigned to a since-deactivated
+  // consultant still renders their name below instead of silently flipping
+  // to "unassigned" and looking unattributed. The active-only rule is
+  // enforced at render time, on the selectable options only.
   useEffect(() => {
     const fetchConsultants = async () => {
       const { data } = await supabase.rpc('get_assignable_staff');
       if (data) {
-        setSalesConsultants(data.map(sc => ({ id: sc.id, name: sc.name })));
+        setSalesConsultants(data.map(sc => ({ id: sc.id, name: sc.name, is_active: sc.is_active })));
       }
     };
     fetchConsultants();
   }, []);
+
+  // Selectable options for the Sales Consultant dropdown: active staff only.
+  // A row already assigned to a now-inactive consultant is handled separately
+  // at render time (see the dropdown below) so it stays visible rather than
+  // disappearing from this list.
+  const activeSalesConsultants = useMemo(
+    () => salesConsultants.filter(sc => sc.is_active),
+    [salesConsultants]
+  );
 
   // Auto-update status from "Scheduled" to "Assessed" when appointment date has passed.
   //
@@ -2283,23 +2300,47 @@ const ScheduledAssessment = ({ embedded = false, onEditAppointment }: { embedded
                         </TableCell>
                         <TableCell className="whitespace-normal break-words">{appointment.referring_attorney}</TableCell>
                         <TableCell>
-                          <Select
-                            value={salesConsultants.find(sc => sc.name === appointment.sales_consultant_name)?.id || "unassigned"}
-                            onValueChange={(value) => {
-                              const consultantId = value === "unassigned" ? null : value;
-                              updateSalesConsultant(appointment.id, consultantId);
-                            }}
-                          >
-                            <SelectTrigger className="w-28 h-7 text-[11px]">
-                              <SelectValue placeholder="Assign..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="unassigned">— Unassigned —</SelectItem>
-                              {salesConsultants.map(sc => (
-                                <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          {(() => {
+                            // Match against the full (active + inactive) list so a
+                            // row already assigned to a since-deactivated consultant
+                            // still resolves to their id instead of falling back to
+                            // "unassigned" and misreporting the assignment.
+                            const assignedConsultant = salesConsultants.find(
+                              sc => sc.name === appointment.sales_consultant_name
+                            );
+                            const currentValue = assignedConsultant?.id || "unassigned";
+                            return (
+                              <Select
+                                value={currentValue}
+                                onValueChange={(value) => {
+                                  const consultantId = value === "unassigned" ? null : value;
+                                  updateSalesConsultant(appointment.id, consultantId);
+                                }}
+                              >
+                                <SelectTrigger className="w-28 h-7 text-[11px]">
+                                  <SelectValue placeholder="Assign..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {/* Business deals not attributed to an individual
+                                      consultant -- the pre-existing "unassigned" slot,
+                                      relabeled so staff pick it deliberately. */}
+                                  <SelectItem value="unassigned">Inhouse (Business Deal)</SelectItem>
+                                  {activeSalesConsultants.map(sc => (
+                                    <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>
+                                  ))}
+                                  {/* Kept visible (but not re-selectable as a new
+                                      assignment) only when it's this row's current
+                                      assignment, so a deactivated consultant's name
+                                      doesn't silently disappear from history. */}
+                                  {assignedConsultant && !assignedConsultant.is_active && (
+                                    <SelectItem key={assignedConsultant.id} value={assignedConsultant.id} disabled>
+                                      {assignedConsultant.name} (Inactive)
+                                    </SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="whitespace-nowrap">
                           <span className="font-medium">R {appointment.assessment_fee.toFixed(2)}</span>
