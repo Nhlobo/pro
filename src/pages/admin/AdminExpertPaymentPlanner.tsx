@@ -2098,7 +2098,7 @@ const AdminExpertPaymentPlanner: React.FC = () => {
         <div className="mt-4">
           {/* ================= PAYMENT SCHEDULE ================= */}
           <TabsContent value="schedule" className="mt-0 space-y-4 focus-visible:outline-none">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <AdminStatCard label="To pay (selected)" value={ZAR(kpis.plannedAmount)} icon={RandSign as any} loading={loading} />
               <AdminStatCard label="Urgent to pay" value={ZAR(kpis.urgentAmount)} icon={Flame} loading={loading} />
               <AdminStatCard
@@ -2107,8 +2107,6 @@ const AdminExpertPaymentPlanner: React.FC = () => {
                 icon={CheckCircle2}
                 loading={loading}
               />
-              <AdminStatCard label="Expert debt" value={ZAR(kpis.totalExpertDebt)} icon={RandSign as any} loading={loading} />
-              <AdminStatCard label="Attorneys outstanding" value={ZAR(kpis.outstanding)} icon={AlertTriangle} loading={loading} />
               <AdminStatCard label="Files to be paid" value={String(kpis.filesToBePaid)} icon={CalendarClock} loading={loading} />
               <AdminStatCard label="Reports received" value={String(kpis.reportsReceived)} icon={FileText} loading={loading} />
             </div>
