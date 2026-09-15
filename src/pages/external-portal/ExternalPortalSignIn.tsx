@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, ShieldCheck } from 'lucide-react';
+import { Loader2, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -297,6 +297,24 @@ const ExternalPortalSignIn: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Spam-folder notice — verification codes and sign-in link emails
+          are sometimes flagged as spam by the recipient's mail provider,
+          which makes people think nothing was sent. Only relevant while
+          waiting on an email (login-request / otp), not on the token-link
+          steps. */}
+      {(step === 'login-request' || step === 'otp') && (
+        <Card className="w-full border-destructive/30 bg-card/95 shadow-md">
+          <CardContent className="flex items-start gap-3 p-3.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <p className="text-xs leading-relaxed text-destructive">
+              <span className="font-semibold">Can't find the email?</span> Please check your{' '}
+              <span className="font-semibold">Spam / Junk folder</span> — verification codes and
+              sign-in link emails are sometimes flagged as spam.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Small, always-visible footer — deliberately points at the
           attorney/expert-specific legal pages (not the internal staff
