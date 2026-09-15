@@ -157,6 +157,7 @@ const ExternalPortalLoginHistory = lazy(() => import("./pages/admin/external-por
 const ExternalPortalAuditLogs = lazy(() => import("./pages/admin/external-portal/ExternalPortalAuditLogs"));
 const ExternalPortalRecycleBin = lazy(() => import("./pages/admin/external-portal/ExternalPortalRecycleBin"));
 const ExternalPortalSettings = lazy(() => import("./pages/admin/external-portal/ExternalPortalSettings"));
+const ExternalPortalSendSignInLink = lazy(() => import("./pages/admin/external-portal/ExternalPortalSendSignInLink"));
 
 // External Portal Module — public, end-user-facing pages (not under /admin).
 // External Portal login (link + OTP) — bridges into a real Supabase
@@ -304,6 +305,7 @@ const App = () => (
                 <Route path="/admin/external-portal/audit-logs" element={<AdminPortalRoute><ExternalPortalAuditLogs /></AdminPortalRoute>} />
                 <Route path="/admin/external-portal/recycle-bin" element={<AdminPortalRoute><ExternalPortalRecycleBin /></AdminPortalRoute>} />
                 <Route path="/admin/external-portal/settings" element={<AdminPortalRoute><ExternalPortalSettings /></AdminPortalRoute>} />
+                <Route path="/admin/external-portal/send-signin-link" element={<AdminPortalRoute><ExternalPortalSendSignInLink /></AdminPortalRoute>} />
 
                 {/* ============ LEGACY ROUTES (kept for backward compat) ============ */}
                 <Route path="/claimant" element={<ProtectedRoute><PermissionProtectedRoute permission={["manage_claimants", "referring_attorney"]}><ClaimantForm /></PermissionProtectedRoute></ProtectedRoute>} />
