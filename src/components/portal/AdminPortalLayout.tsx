@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -67,6 +67,40 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
+
+  // The portal header is `sticky top-0`, so any in-page sticky bar (e.g. the
+  // Appointment Engine's module switcher) that also uses `top-0` slides
+  // *underneath* it and disappears while the person scrolls. Publish the
+  // header's real, measured height as a CSS variable so those bars can pin
+  // themselves directly below it instead of guessing a hard-coded offset —
+  // the header wraps to different heights depending on the page title length
+  // and viewport width, so a static number would be wrong on most screens.
+  const headerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+
+    const publish = () => {
+      document.documentElement.style.setProperty(
+        '--admin-header-h',
+        `${Math.round(el.getBoundingClientRect().height)}px`
+      );
+    };
+
+    publish();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', publish);
+      return () => window.removeEventListener('resize', publish);
+    }
+
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty('--admin-header-h');
+    };
+  }, []);
   const { isAdmin, isSalesConsultant, userRole, loading } = usePermissions();
   const {
     loading: moduleAccessLoading,
@@ -289,7 +323,7 @@ export const AdminPortalLayout: React.FC<AdminPortalLayoutProps> = ({ children }
             Operations Dashboard included, so the whole portal shares one
             header instead of Operations Dashboard having its own separate,
             search-bar version. */}
-        <header className="sticky top-0 z-30 gradient-nav text-white shadow-md">
+        <header ref={headerRef} className="sticky top-0 z-30 gradient-nav text-white shadow-md">
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 lg:px-6">
             {/* Row 1: eyebrow + right actions (back, notifications) */}
             <div className="flex items-start justify-between gap-3">
