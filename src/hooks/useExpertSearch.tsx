@@ -1,5 +1,5 @@
 // src/hooks/useExpertSearch.tsx
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -376,6 +376,14 @@ export const useExpertSearch = () => {
   const [includeMedpages, setIncludeMedpages] = useState(true);
   const [hasSearchedExternal, setHasSearchedExternal] = useState(false);
 
+  // Firecrawl credit balance — refreshed after every external search so
+  // staff can see the account draining in near-real-time, plus how much
+  // the search just used (computed by diffing against the previous
+  // known balance).
+  const [firecrawlCredits, setFirecrawlCredits] = useState<{ remaining: number; plan: number } | null>(null);
+  const [creditsUsedLastSearch, setCreditsUsedLastSearch] = useState<number | null>(null);
+  const prevCreditsRef = useRef<{ remaining: number; plan: number } | null>(null);
+
   // Free-text "quick search" box — e.g. "neurosurgeon expert witness".
   const [quickQuery, setQuickQuery] = useState('');
   const [lastParsedQuery, setLastParsedQuery] = useState<ParsedExpertQuery | null>(null);
@@ -508,7 +516,20 @@ export const useExpertSearch = () => {
         trustedTotal: typeof data?.trusted_total === 'number' ? data.trusted_total : null,
         total: typeof data?.total === 'number' ? data.total : (data?.results ?? []).length,
         recommendedTotal: typeof data?.recommended_total === 'number' ? data.recommended_total : null,
+        firecrawlCredits: (data?.firecrawl_credits ?? null) as { remaining: number; plan: number } | null,
+        firecrawlWarnings: (data?.firecrawl_warnings ?? []) as string[],
+        searchDegraded: data?.search_degraded === true,
       };
+    },
+    onSuccess: (data) => {
+      const credits = data.firecrawlCredits;
+      if (credits && typeof credits.remaining === 'number') {
+        if (prevCreditsRef.current && typeof prevCreditsRef.current.remaining === 'number') {
+          setCreditsUsedLastSearch(Math.max(0, prevCreditsRef.current.remaining - credits.remaining));
+        }
+        prevCreditsRef.current = credits;
+        setFirecrawlCredits(credits);
+      }
     },
     onError: (err: any) => {
       toast({ title: 'External search failed', description: err.message || 'Unknown error', variant: 'destructive' });
@@ -646,6 +667,13 @@ export const useExpertSearch = () => {
     // treated as verified contacts.
     recommendedExternal: externalSearchMutation.data?.recommended ?? [],
     recommendedExternalTotal: externalSearchMutation.data?.recommendedTotal ?? null,
+    // Firecrawl status — surfaced so staff can see the credit balance
+    // drain in near-real-time, and see a clear reason (rather than a
+    // bare "no results") when a search couldn't fully run.
+    firecrawlCredits,
+    creditsUsedLastSearch,
+    firecrawlWarnings: externalSearchMutation.data?.firecrawlWarnings ?? [],
+    searchDegraded: externalSearchMutation.data?.searchDegraded ?? false,
 
     // external controls
     trustedOnly, setTrustedOnly,
