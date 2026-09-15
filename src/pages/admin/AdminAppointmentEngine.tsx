@@ -75,10 +75,12 @@ const LiveClock: React.FC = () => {
   return (
     <div className="flex shrink-0 items-center gap-2 border border-black/10 bg-black/[0.02] px-3 py-2">
       <span className="relative flex h-2 w-2 shrink-0">
-        <span
-          className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60"
-          style={{ backgroundColor: BRAND_TEAL }}
-        />
+        {/* Previously an `animate-ping` halo. That is an infinite CSS
+            animation, so the compositor had work queued on every single
+            frame for as long as the page was open — on top of a table that
+            is already expensive to scroll. The dot still reads as "live"
+            (it's next to a clock that ticks every second) without holding
+            the compositor busy forever. */}
         <span className="relative inline-flex h-2 w-2 rounded-full" style={{ backgroundColor: BRAND_TEAL }} />
       </span>
       <Clock className="h-3.5 w-3.5 text-slate-400" />
