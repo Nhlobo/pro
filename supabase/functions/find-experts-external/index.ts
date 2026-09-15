@@ -629,18 +629,31 @@ Deno.serve(async (req) => {
       }));
     }
 
-    // This is the point of the whole exercise: a result the case manager
-    // can't actually contact isn't useful — it's just a link they'd have
-    // to go dig through themselves, which is exactly what this search is
-    // meant to replace. Anything still without an email or phone after
-    // enrichment is dropped rather than shown as a dead-end card.
+    // The whole point of this search is to hand back an expert's actual
+    // contact details, not a link the case manager still has to click
+    // through and dig around on — so anything WITH a confirmed email or
+    // phone after enrichment is the primary result set.
+    //
+    // Anything still without one after enrichment used to be dropped
+    // entirely — but it's often still a real, on-topic candidate the
+    // wider web search found (a practice page, a directory listing that
+    // didn't expose a scrapeable number, etc.). Rather than silently
+    // discarding it and leaving the case manager with a bare "no
+    // results", surface it separately as `recommended`: unverified,
+    // no confirmed contact yet, but with the source link so it can be
+    // followed up manually.
     const withContact = pool.filter((it) => (it.emails?.length ?? 0) > 0 || (it.phones?.length ?? 0) > 0);
+    const withoutContact = pool.filter((it) => (it.emails?.length ?? 0) === 0 && (it.phones?.length ?? 0) === 0);
     const ranked = withContact.slice(0, limit);
+    const RECOMMENDED_LIMIT = 20;
+    const recommended = withoutContact.slice(0, RECOMMENDED_LIMIT);
 
     return json({
       results: ranked,
+      recommended,
       query,
       total: withContact.length,
+      recommended_total: withoutContact.length,
       trusted_total: withContact.filter((it) => it.trusted).length,
       trusted_only: trustedOnly,
     });
