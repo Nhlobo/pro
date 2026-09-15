@@ -500,8 +500,14 @@ export const useExpertSearch = () => {
       if (data?.error) throw new Error(data.error);
       return {
         results: (data?.results ?? []) as ExternalResult[],
+        // On-topic hits the search found elsewhere on the web that
+        // couldn't be matched to a confirmed email/phone number —
+        // shown separately, never merged into `results`, so they're
+        // never mistaken for a verified contact.
+        recommended: (data?.recommended ?? []) as ExternalResult[],
         trustedTotal: typeof data?.trusted_total === 'number' ? data.trusted_total : null,
         total: typeof data?.total === 'number' ? data.total : (data?.results ?? []).length,
+        recommendedTotal: typeof data?.recommended_total === 'number' ? data.recommended_total : null,
       };
     },
     onError: (err: any) => {
@@ -635,6 +641,11 @@ export const useExpertSearch = () => {
     trustedTotal: externalSearchMutation.data?.trustedTotal ?? null,
     externalTotal: externalSearchMutation.data?.total ?? null,
     hasSearchedExternal,
+    // External hits found on the wider web with no confirmed email/phone
+    // yet — kept separate from `external` so they're never displayed or
+    // treated as verified contacts.
+    recommendedExternal: externalSearchMutation.data?.recommended ?? [],
+    recommendedExternalTotal: externalSearchMutation.data?.recommendedTotal ?? null,
 
     // external controls
     trustedOnly, setTrustedOnly,
