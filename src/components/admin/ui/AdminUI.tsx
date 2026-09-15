@@ -285,8 +285,19 @@ export const AdminTabList: React.FC<{
         // scroll, never past the page edge.
         ? 'overflow-x-auto'
         : '-mx-3 overflow-x-auto px-3 sm:mx-0 sm:overflow-visible sm:px-0',
-      sticky && 'sticky top-0 z-20 -mt-px bg-white/95 py-2 backdrop-blur supports-[backdrop-filter]:bg-white/80'
+      // Pinned *below* the portal's own sticky header (z-30) rather than at
+      // top-0, where it slid underneath the header and vanished mid-scroll.
+      // --admin-header-h is published by AdminPortalLayout; the 0px fallback
+      // keeps standalone (non-portal) usage behaving as before.
+      //
+      // Deliberately an opaque background instead of the previous
+      // translucent + `backdrop-blur`: a backdrop filter over a long,
+      // many-column table forces the browser to re-blur everything behind
+      // the bar on every scroll frame, which is a large part of why long
+      // admin tables stuttered while scrolling.
+      sticky && 'sticky z-20 -mt-px bg-white py-2'
     )}
+    style={sticky ? { top: 'var(--admin-header-h, 0px)' } : undefined}
   >
     <TabsList
       className={cn(
