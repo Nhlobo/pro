@@ -71,6 +71,7 @@ const AdminFindExperts: React.FC = () => {
     internal, recommended, loadingInternal,
     external, loadingExternal, externalError, trustedTotal, externalTotal, hasSearchedExternal,
     recommendedExternal, recommendedExternalTotal,
+    firecrawlCredits, creditsUsedLastSearch, firecrawlWarnings, searchDegraded,
     trustedOnly, setTrustedOnly, externalLimit, setExternalLimit,
     includeRecomed, setIncludeRecomed, includeMedpages, setIncludeMedpages,
     quickQuery, setQuickQuery, lastParsedQuery, lastFreeText, runQuickSearch,
@@ -213,6 +214,13 @@ const AdminFindExperts: React.FC = () => {
                     {trustedTotal !== null && (
                       <AdminPill tone="teal">{trustedTotal} trusted</AdminPill>
                     )}
+                    {firecrawlCredits !== null && (
+                      <AdminPill tone={firecrawlCredits.remaining < 100 ? 'destructive' : 'neutral'}>
+                        <Globe className="h-3 w-3" />
+                        {firecrawlCredits.remaining.toLocaleString()} Firecrawl credits left
+                        {creditsUsedLastSearch !== null && creditsUsedLastSearch > 0 ? ` (−${creditsUsedLastSearch} this search)` : ''}
+                      </AdminPill>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-4">
                     <div className="flex items-center gap-2 text-sm">
@@ -272,6 +280,23 @@ const AdminFindExperts: React.FC = () => {
                 </div>
               </AdminCard>
 
+              {/* Firecrawl warning — surfaced distinctly from search
+                  results so a rate-limited or credit-exhausted search
+                  isn't mistaken for a clean search that simply found
+                  nothing. */}
+              {!loadingExternal && firecrawlWarnings.length > 0 && (
+                <AdminCard className="border-amber-400/60 bg-amber-50">
+                  <AdminCardBody className="flex items-start gap-2 py-3">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <div className="space-y-1">
+                      {firecrawlWarnings.map((w) => (
+                        <p key={w} className="text-sm text-amber-800">{w}</p>
+                      ))}
+                    </div>
+                  </AdminCardBody>
+                </AdminCard>
+              )}
+
               {loadingExternal ? (
                 <AdminCard>
                   <AdminCardBody className="flex flex-col items-center gap-3 py-10 text-center">
@@ -312,7 +337,13 @@ const AdminFindExperts: React.FC = () => {
                 <>
                   {contactableExternal.length === 0 ? (
                     <AdminCard>
-                      {trustedOnly ? (
+                      {searchDegraded ? (
+                        <AdminEmptyState
+                          icon={Globe}
+                          title="Search couldn't run"
+                          description="Firecrawl (the service behind external search) is currently rate-limited or out of credits, so no directories could actually be searched — this isn't a real 'no results'. See the notice above, and try again once it's resolved."
+                        />
+                      ) : trustedOnly ? (
                         <AdminEmptyState
                           icon={ShieldCheck}
                           title="No trusted-registry matches with contact details"
