@@ -44,6 +44,7 @@ const ExternalPortalSettings: React.FC = () => {
           otp_max_attempts: form.otp_max_attempts,
           session_expiry_hours: form.session_expiry_hours,
           auto_expire_on_all_cases_closed: form.auto_expire_on_all_cases_closed,
+          app_origin: form.app_origin?.trim().replace(/\/+$/, ''),
           updated_by: userData?.user?.id || null,
         })
         .eq('id', 1);
@@ -119,6 +120,22 @@ const ExternalPortalSettings: React.FC = () => {
                 </div>
               </div>
 
+              <div className="space-y-1.5 border-t border-black/10 pt-4">
+                <Label>External Portal domain</Label>
+                <Input
+                  className="rounded-none border-black/15"
+                  value={form.app_origin ?? ''}
+                  onChange={(e) => setForm((f) => ({ ...f, app_origin: e.target.value }))}
+                  placeholder="https://your-domain.com"
+                />
+                <p className="text-xs text-slate-500">
+                  The base URL the sign-in link and access links are built from — e.g. sign-in becomes
+                  <span className="font-mono"> {(form.app_origin || 'https://your-domain.com').replace(/\/+$/, '')}/external-portal/sign-in</span>.
+                  Update this single field when the production domain changes; every email that includes a portal
+                  link (access links, appointment emails, Send Sign-In Link) reads it from here.
+                </p>
+              </div>
+
               <div className="flex items-center justify-between border-t border-black/10 pt-4">
                 <div>
                   <Label>Auto-expire when all linked cases are closed</Label>
@@ -136,7 +153,14 @@ const ExternalPortalSettings: React.FC = () => {
               <Button
                 className="rounded-none bg-black text-white hover:bg-black/85"
                 disabled={save.isPending}
-                onClick={() => save.mutate()}
+                onClick={() => {
+                  const origin = form.app_origin?.trim();
+                  if (!origin || !/^https?:\/\/.+/i.test(origin)) {
+                    toast.error('External Portal domain must be a valid URL starting with http:// or https://');
+                    return;
+                  }
+                  save.mutate();
+                }}
               >
                 {save.isPending ? 'Saving…' : 'Save Settings'}
               </Button>
