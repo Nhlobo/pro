@@ -45,7 +45,12 @@ export const useSecureAssessments = () => {
   const { logAuditTrail } = useAuditTrail();
   const initialFetchDone = useRef(false);
 
-  const fetchAssessments = async () => {
+  // useCallback with no deps: this was previously re-created on every render
+  // and is listed in the dependency array of updateAssessmentStatus,
+  // updateReportStatus, updatePaymentInfo and updateSalesConsultant — so
+  // every one of those handlers also changed identity on every render, which
+  // defeats React.memo on the table rows that receive them.
+  const fetchAssessments = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -73,7 +78,7 @@ export const useSecureAssessments = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const updateAssessmentStatus = useCallback(async (appointmentId: string, newStatus: string, options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
