@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -44,6 +44,27 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
   const activityDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
   const pendingUpdatesRef = useRef<Array<{ table: string; payload: any }>>([]);
+
+  // Mirror the two "should I refresh right now?" flags into refs.
+  //
+  // These flags flip constantly during normal work — isPageLocked goes true
+  // the moment someone types in any input, and false again 10 minutes later;
+  // isActiveTab flips on every tab switch. When the realtime callbacks read
+  // them from state, every one of those flips changed the identity of
+  // handleRealtimeUpdate -> setupChannel -> the subscribe effect, which tore
+  // down the entire Supabase realtime channel and re-subscribed it. In
+  // practice that meant: start typing a comment on Assessments, and the
+  // socket for eight tables is dropped and rebuilt underneath you. Reading
+  // them from refs keeps the behaviour identical while letting the channel
+  // stay up for the life of the session.
+  const isPageLockedRef = useRef(isPageLocked);
+  const isActiveTabRef = useRef(isActiveTab);
+  useEffect(() => {
+    isPageLockedRef.current = isPageLocked;
+  }, [isPageLocked]);
+  useEffect(() => {
+    isActiveTabRef.current = isActiveTab;
+  }, [isActiveTab]);
 
   // Lock the page from auto-refresh - enhanced with debouncing
   const lockPage = useCallback(() => {
@@ -169,6 +190,9 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
   // localOnly = true means don't trigger cross-component refreshes (just update status)
   // force = true bypasses lock/inactive guards (use after a confirmed user-initiated save)
   const triggerSync = useCallback((localOnly: boolean = false, force: boolean = false) => {
+    const isPageLocked = isPageLockedRef.current;
+    const isActiveTab = isActiveTabRef.current;
+
     // If page is locked, ALWAYS queue the sync - never refresh (unless forced)
     if (isPageLocked && !localOnly && !force) {
       console.log('Page locked - sync queued, no refresh will occur');
@@ -198,10 +222,12 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
       setSyncStatus('synced');
       setTimeout(() => setSyncStatus('idle'), 1000);
     }, 500);
-  }, [isActiveTab, isPageLocked]);
+  }, []);
 
   // Handle realtime updates - NEVER trigger refresh when locked or inactive
   const handleRealtimeUpdate = useCallback((table: string, payload: any) => {
+    const isPageLocked = isPageLockedRef.current;
+    const isActiveTab = isActiveTabRef.current;
     console.log(`${table} changed:`, payload.eventType);
     setLastSyncedTable(table);
     
@@ -226,7 +252,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
     pendingUpdatesRef.current = []; // Clear since we're processing now
     setHasPendingSync(false);
     triggerSync();
-  }, [isPageLocked, isActiveTab, triggerSync]);
+  }, [triggerSync]);
 
   const setupChannel = useCallback(() => {
     // Clean up existing channel
@@ -270,7 +296,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         { event: '*', schema: 'public', table: 'aod_documents' },
         (payload) => {
           handleRealtimeUpdate('aod_documents', payload);
-          if (!isPageLocked && isActiveTab) {
+          if (!isPageLockedRef.current && isActiveTabRef.current) {
             window.dispatchEvent(new CustomEvent('agreement-data-updated', { detail: { agreementType: 'aod' } }));
           }
         }
@@ -280,7 +306,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
         { event: '*', schema: 'public', table: 'short_term_agreements' },
         (payload) => {
           handleRealtimeUpdate('short_term_agreements', payload);
-          if (!isPageLocked && isActiveTab) {
+          if (!isPageLockedRef.current && isActiveTabRef.current) {
             window.dispatchEvent(new CustomEvent('agreement-data-updated', { detail: { agreementType: 'short_term' } }));
           }
         }
@@ -341,7 +367,7 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
       });
 
     channelRef.current = channel;
-  }, [handleRealtimeUpdate, isPageLocked, isActiveTab]);
+  }, [handleRealtimeUpdate]);
 
   useEffect(() => {
     // Only establish real-time connection if user is authenticated and not loading
@@ -363,20 +389,42 @@ export const AppointmentSyncProvider = ({ children }: { children: ReactNode }) =
     };
   }, [user, loading, setupChannel]);
 
-  return (
-    <AppointmentSyncContext.Provider value={{ 
-      lastUpdate, 
-      triggerSync, 
-      isConnected, 
-      syncStatus, 
-      lastSyncedTable, 
+  // Memoised: this value was previously a fresh object literal on every
+  // provider render, so every consumer in the app re-rendered whenever any
+  // piece of sync state changed — including the purely cosmetic
+  // syncing -> synced -> idle status cycle, which fires three renders per
+  // sync. On a heavy screen like Assessments that was a visible stutter.
+  const contextValue = useMemo(
+    () => ({
+      lastUpdate,
+      triggerSync,
+      isConnected,
+      syncStatus,
+      lastSyncedTable,
       isActiveTab,
       isPageLocked,
       lockPage,
       unlockPage,
       processPendingSync,
-      hasPendingSync
-    }}>
+      hasPendingSync,
+    }),
+    [
+      lastUpdate,
+      triggerSync,
+      isConnected,
+      syncStatus,
+      lastSyncedTable,
+      isActiveTab,
+      isPageLocked,
+      lockPage,
+      unlockPage,
+      processPendingSync,
+      hasPendingSync,
+    ]
+  );
+
+  return (
+    <AppointmentSyncContext.Provider value={contextValue}>
       {children}
     </AppointmentSyncContext.Provider>
   );
