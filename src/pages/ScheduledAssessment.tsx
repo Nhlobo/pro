@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3, RefreshCw, Check, Paperclip, Send } from "lucide-react";
+import { Download, Search, Calendar, Clock, TrendingUp, Pencil, Trash2, Mail, BarChart3, RefreshCw, Check, Paperclip, Send, ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { sastNowParts } from "@/utils/dateTime";
@@ -16,6 +16,7 @@ import { uploadFileResumable } from "@/lib/resumableUpload";
 import { upsertExpertReport } from "@/utils/expertReports";
 import { useToast } from "@/hooks/use-toast";
 import { useSecureAssessments } from "@/hooks/useSecureAssessments";
+import { useEventCallback } from "@/hooks/useEventCallback";
 import { useAppointmentSync } from "@/contexts/AppointmentSyncContext";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -185,6 +186,239 @@ const AssessmentPeriodStats = ({
     </div>
   );
 };
+
+
+type SalesConsultantOption = { id: string; name: string; is_active: boolean };
+
+type AssessmentRowProps = {
+  appointment: ScheduledAppointment;
+  /** Full list (active + inactive) so a row assigned to a deactivated
+   *  consultant still resolves to their name instead of "unassigned". */
+  salesConsultants: SalesConsultantOption[];
+  /** Only these are offered as *new* assignments. */
+  activeSalesConsultants: SalesConsultantOption[];
+  /** Locally-edited comment text, or undefined when untouched this session. */
+  draftComment: string | undefined;
+  onSalesConsultantChange: (appointmentId: string, consultantId: string | null) => void;
+  onStatusChange: (appointmentId: string, status: string) => void;
+  onReportStatusChange: (appointmentId: string, reportStatus: string) => void;
+  onCommentsChange: (appointmentId: string, comments: string) => void;
+  onAttachReport: (appointment: ScheduledAppointment) => void;
+  onSendToAttorney: (appointment: ScheduledAppointment) => void;
+  onFinanceEdit: (appointment: ScheduledAppointment) => void;
+  onEdit: (appointmentId: string) => void;
+  onDelete: (appointmentId: string) => void;
+};
+
+/**
+ * One row of the Scheduled Assessments table, extracted and memoised.
+ *
+ * Each row mounts three Radix `Select`s and a `Textarea`. Rendering them
+ * inline inside the parent's `.map()` meant that any parent state change --
+ * a keystroke in the search box, a keystroke in *another row's* comment
+ * box, a tick from the realtime sync context -- re-rendered every control in
+ * every row. On a normal month's worth of appointments that is hundreds of
+ * controls rebuilt per keystroke, which is what made the table feel like it
+ * was fighting the cursor and stuttering under scroll.
+ *
+ * With `React.memo` plus identity-stable handlers (see `useEventCallback` in
+ * the parent), only the row whose own data actually changed re-renders.
+ */
+const AssessmentRow = React.memo(({
+  appointment,
+  salesConsultants,
+  activeSalesConsultants,
+  draftComment,
+  onSalesConsultantChange,
+  onStatusChange,
+  onReportStatusChange,
+  onCommentsChange,
+  onAttachReport,
+  onSendToAttorney,
+  onFinanceEdit,
+  onEdit,
+  onDelete,
+}: AssessmentRowProps) => {
+  const assignedConsultant = salesConsultants.find(
+    sc => sc.name === appointment.sales_consultant_name
+  );
+  const currentConsultantValue = assignedConsultant?.id || "unassigned";
+  const commentValue = draftComment !== undefined ? draftComment : appointment.comments;
+  const commentPending = draftComment !== undefined && draftComment !== appointment.comments;
+  const showReportDate =
+    (appointment.report_status.toLowerCase().includes('submitted') ||
+      appointment.report_status.toLowerCase().includes('fully paid')) &&
+    !!appointment.report_date;
+
+  return (
+    <TableRow>
+      <TableCell className="font-medium whitespace-normal break-words">{appointment.auto_id}</TableCell>
+      <TableCell className="whitespace-normal break-words">
+        {appointment.assessment_code ? (
+          <Badge variant="outline" className="font-mono text-[10px] whitespace-nowrap">
+            {appointment.assessment_code}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground text-xs">—</span>
+        )}
+      </TableCell>
+      <TableCell className="font-medium whitespace-normal break-words">{appointment.claimant_name}</TableCell>
+      <TableCell className="whitespace-normal break-words">{appointment.expert_name}</TableCell>
+      <TableCell className="whitespace-normal break-words max-w-[90px]">{appointment.expert_type}</TableCell>
+      <TableCell className="whitespace-normal break-words">{appointment.appointment_date}</TableCell>
+      <TableCell className="whitespace-nowrap">
+        <span className="flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          {appointment.appointment_time}
+        </span>
+      </TableCell>
+      <TableCell className="whitespace-normal break-words">{appointment.referring_attorney}</TableCell>
+      <TableCell>
+        <Select
+          value={currentConsultantValue}
+          onValueChange={(value) =>
+            onSalesConsultantChange(appointment.id, value === "unassigned" ? null : value)
+          }
+        >
+          <SelectTrigger className="w-28 h-7 text-[11px]">
+            <SelectValue placeholder="Assign..." />
+          </SelectTrigger>
+          <SelectContent>
+            {/* Business deals not attributed to an individual consultant --
+                the pre-existing "unassigned" slot, relabeled so staff pick
+                it deliberately. */}
+            <SelectItem value="unassigned">Inhouse (Business Deal)</SelectItem>
+            {activeSalesConsultants.map(sc => (
+              <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>
+            ))}
+            {/* Kept visible (but not re-selectable as a new assignment) only
+                when it's this row's current assignment, so a deactivated
+                consultant's name doesn't silently disappear from history. */}
+            {assignedConsultant && !assignedConsultant.is_active && (
+              <SelectItem key={assignedConsultant.id} value={assignedConsultant.id} disabled>
+                {assignedConsultant.name} (Inactive)
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell className="whitespace-nowrap">
+        <span className="font-medium">R {appointment.assessment_fee.toFixed(2)}</span>
+      </TableCell>
+      <TableCell>
+        <Select value={appointment.status} onValueChange={(value) => onStatusChange(appointment.id, value)}>
+          <SelectTrigger className="w-24 h-7 text-[11px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Scheduled">Scheduled</SelectItem>
+            <SelectItem value="Assessed">Assessed</SelectItem>
+            <SelectItem value="Re-Assessed">Re-Assessed</SelectItem>
+            <SelectItem value="Cancelled">Cancelled</SelectItem>
+            <SelectItem value="Rescheduled">Rescheduled</SelectItem>
+            <SelectItem value="Merit Report">Merit Report</SelectItem>
+            <SelectItem value="Joint Minutes">Joint Minutes</SelectItem>
+            <SelectItem value="Addendum">Addendum</SelectItem>
+            <SelectItem value="Affidavits">Affidavits</SelectItem>
+            <SelectItem value="Court Preparation">Court Prep</SelectItem>
+            <SelectItem value="Court Attendance">Court Attendance</SelectItem>
+          </SelectContent>
+        </Select>
+      </TableCell>
+      <TableCell>
+        <div className="space-y-1">
+          <Select value={appointment.report_status} onValueChange={(value) => onReportStatusChange(appointment.id, value)}>
+            <SelectTrigger className="w-40 h-7 text-[11px] bg-background">
+              <SelectValue placeholder="Select status">
+                {appointment.report_status}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="max-h-72 overflow-y-auto bg-popover border shadow-lg z-[100]">
+              <SelectItem value="Initial Stage">Initial Stage</SelectItem>
+              <SelectItem value="Preparing report">Preparing Report</SelectItem>
+              <SelectItem value="Report on Final Stage">Report on Final Stage</SelectItem>
+              <SelectItem value="Report Submitted without full payment">Report Submitted without Full Payment</SelectItem>
+              <SelectItem value="Report Submitted on AOD">Report Submitted on AOD</SelectItem>
+              <SelectItem value="Report fully paid & submitted">Report Fully Paid & Submitted</SelectItem>
+              <SelectItem value="Court Attendance">Court Attendance</SelectItem>
+              <SelectItem value="Court Preparation">Court Preparation</SelectItem>
+              <SelectItem value="Affidavits">Affidavits</SelectItem>
+              <SelectItem value="Joint Minutes">Joint Minutes</SelectItem>
+              <SelectItem value="Addendum">Addendum</SelectItem>
+              <SelectItem value="Re-Assessment">Re-Assessment</SelectItem>
+            </SelectContent>
+          </Select>
+          {showReportDate && (
+            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium leading-tight">
+              ✓ {appointment.report_date}
+            </div>
+          )}
+        </div>
+      </TableCell>
+      <TableCell>
+        <Textarea
+          placeholder="Add comments..."
+          value={commentValue}
+          onChange={(e) => onCommentsChange(appointment.id, e.target.value)}
+          className="min-h-[32px] w-32 text-[11px]"
+        />
+        {commentPending && (
+          <div className="text-[10px] text-muted-foreground mt-0.5">Auto-saving...</div>
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onAttachReport(appointment)}
+            className="h-6 w-6 p-1"
+            title="Attach Report"
+          >
+            <Paperclip className="h-3.5 w-3.5 text-primary" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onSendToAttorney(appointment)}
+            className="h-6 w-6 p-1"
+            title="Send to Attorney"
+          >
+            <Send className="h-3.5 w-3.5 text-teal-600" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onFinanceEdit(appointment)}
+            className="h-6 w-6 p-1"
+            title="Edit Fee / Discount / Deposit (syncs to AOD & Short-term)"
+          >
+            <span className="text-emerald-600 text-[11px] font-bold leading-none">R</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onEdit(appointment.id)}
+            className="h-6 w-6 p-1"
+            title="Edit (full appointment)"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onDelete(appointment.id)}
+            className="h-6 w-6 p-1 text-destructive hover:text-destructive"
+            title="Delete"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+});
+AssessmentRow.displayName = 'AssessmentRow';
 
 /**
  * `embedded` drops the page's own Helmet tags, System Header Nav, and
@@ -446,10 +680,21 @@ const ScheduledAssessment = ({ embedded = false, onEditAppointment }: { embedded
     return formatted;
   };
 
-  const appointments = formatAssessments(assessments);
+  // Memoised. `formatAssessments` runs two `new Date()` parses and two
+  // date-fns `format()` calls per row, and previously re-ran — rebuilding a
+  // brand-new object for every appointment — on *every* render of this page.
+  // With a realtime sync context above it and a comment box that sets state
+  // on each keystroke, that meant re-formatting the whole dataset dozens of
+  // times a second while someone typed.
+  const appointments = useMemo(() => formatAssessments(assessments), [assessments]);
 
-  // Filter appointments by selected month/year and search term
-  const filteredAppointments = appointments.filter(appointment => {
+  // Filter appointments by selected month/year and search term.
+  // Also memoised, and the search term is lower-cased once here instead of
+  // once per row per field (it was doing four `toLowerCase()` calls on the
+  // search term for every single row).
+  const filteredAppointments = useMemo(() => {
+    const search = searchTerm.trim().toLowerCase();
+    return appointments.filter(appointment => {
     // Parse appointment date for month/year comparison (stored as dd/MM/yyyy)
     const appointmentDate = new Date(appointment.appointment_date.split('/').reverse().join('-'));
     const appointmentMonth = appointmentDate.getMonth() + 1;
@@ -471,13 +716,80 @@ const ScheduledAssessment = ({ embedded = false, onEditAppointment }: { embedded
     }
 
     // Filter by search term
-    const searchMatch = appointment.claimant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.expert_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.auto_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      appointment.referring_attorney.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchMatch = !search ||
+      appointment.claimant_name.toLowerCase().includes(search) ||
+      appointment.expert_name.toLowerCase().includes(search) ||
+      appointment.auto_id.toLowerCase().includes(search) ||
+      appointment.referring_attorney.toLowerCase().includes(search);
 
-    return dateMatch && searchMatch;
-  });
+      return dateMatch && searchMatch;
+    });
+  }, [appointments, searchTerm, dateRange, reportPeriod, selectedMonth, selectedQuarter, selectedYear]);
+
+  // Paging exists purely to bound how much DOM this table can create at
+  // once. Each row mounts three Radix Selects and a Textarea, so an
+  // "All Time" filter on a few thousand appointments was asking the browser
+  // to build tens of thousands of interactive controls in one commit --
+  // seconds of blocked main thread, then permanently sluggish scrolling.
+  //
+  // Note this deliberately bounds the *table* only. The report download and
+  // the bulk-email dialog still receive the full `filteredAppointments`
+  // list, so paging never silently narrows what gets exported or emailed.
+  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.max(1, Math.ceil(filteredAppointments.length / PAGE_SIZE));
+
+  // Any change to the filters should put the person back on page 1 --
+  // otherwise searching while on page 4 shows an empty table.
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, dateRange, reportPeriod, selectedMonth, selectedQuarter, selectedYear]);
+
+  // Clamp when the underlying data shrinks beneath the current page (a
+  // delete, or a realtime refresh that removes rows).
+  useEffect(() => {
+    setPage((current) => Math.min(current, totalPages));
+  }, [totalPages]);
+
+  const pageStartIndex = (page - 1) * PAGE_SIZE;
+  const pagedAppointments = useMemo(
+    () => filteredAppointments.slice(pageStartIndex, pageStartIndex + PAGE_SIZE),
+    [filteredAppointments, pageStartIndex]
+  );
+
+  // Identity-stable wrappers for everything handed to <AssessmentRow>.
+  // The underlying handlers are re-created on every render (they close over
+  // a lot of local state), so passing them straight through would make every
+  // row's props change on every render and defeat React.memo entirely.
+  const handleSalesConsultantChange = useEventCallback(
+    (appointmentId: string, consultantId: string | null) =>
+      updateSalesConsultant(appointmentId, consultantId)
+  );
+  const handleStatusChange = useEventCallback((appointmentId: string, value: string) =>
+    updateStatus(appointmentId, value)
+  );
+  const handleReportStatusChange = useEventCallback((appointmentId: string, value: string) =>
+    updateReportStatusLocal(appointmentId, value)
+  );
+  const handleCommentsChange = useEventCallback((appointmentId: string, value: string) =>
+    updateComments(appointmentId, value)
+  );
+  const handleAttachReportStable = useEventCallback((appointment: ScheduledAppointment) =>
+    handleAttachReport(appointment)
+  );
+  const handleSendToAttorneyStable = useEventCallback((appointment: ScheduledAppointment) =>
+    handleSendToAttorney(appointment)
+  );
+  const handleFinanceEditStable = useEventCallback((appointment: ScheduledAppointment) =>
+    handleFinanceEdit(appointment)
+  );
+  const handleEditClickStable = useEventCallback((appointmentId: string) =>
+    handleEditClick(appointmentId)
+  );
+  const handleDeleteClickStable = useEventCallback((appointmentId: string) =>
+    handleDeleteClick(appointmentId)
+  );
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -2269,195 +2581,38 @@ const ScheduledAssessment = ({ embedded = false, onEditAppointment }: { embedded
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loading ? (
+                  {/* Only show the loading placeholder on a genuinely empty
+                      table. `loading` flips to true on every background
+                      refetch (realtime sync, status save, tab focus), and
+                      swapping the whole body out for a single centred row
+                      collapsed the table to one line and threw the scroll
+                      position to the top mid-read. Keeping the existing rows
+                      on screen while a refresh runs is what makes the table
+                      feel stable. */}
+                  {loading && filteredAppointments.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={14} className="text-center py-8">
                         Loading appointments...
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredAppointments.map((appointment) => (
-                      <TableRow key={appointment.id}>
-                        <TableCell className="font-medium whitespace-normal break-words">{appointment.auto_id}</TableCell>
-                        <TableCell className="whitespace-normal break-words">
-                          {appointment.assessment_code ? (
-                            <Badge variant="outline" className="font-mono text-[10px] whitespace-nowrap">
-                              {appointment.assessment_code}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-medium whitespace-normal break-words">{appointment.claimant_name}</TableCell>
-                        <TableCell className="whitespace-normal break-words">{appointment.expert_name}</TableCell>
-                        <TableCell className="whitespace-normal break-words max-w-[90px]">{appointment.expert_type}</TableCell>
-                        <TableCell className="whitespace-normal break-words">{appointment.appointment_date}</TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {appointment.appointment_time}
-                          </span>
-                        </TableCell>
-                        <TableCell className="whitespace-normal break-words">{appointment.referring_attorney}</TableCell>
-                        <TableCell>
-                          {(() => {
-                            // Match against the full (active + inactive) list so a
-                            // row already assigned to a since-deactivated consultant
-                            // still resolves to their id instead of falling back to
-                            // "unassigned" and misreporting the assignment.
-                            const assignedConsultant = salesConsultants.find(
-                              sc => sc.name === appointment.sales_consultant_name
-                            );
-                            const currentValue = assignedConsultant?.id || "unassigned";
-                            return (
-                              <Select
-                                value={currentValue}
-                                onValueChange={(value) => {
-                                  const consultantId = value === "unassigned" ? null : value;
-                                  updateSalesConsultant(appointment.id, consultantId);
-                                }}
-                              >
-                                <SelectTrigger className="w-28 h-7 text-[11px]">
-                                  <SelectValue placeholder="Assign..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {/* Business deals not attributed to an individual
-                                      consultant -- the pre-existing "unassigned" slot,
-                                      relabeled so staff pick it deliberately. */}
-                                  <SelectItem value="unassigned">Inhouse (Business Deal)</SelectItem>
-                                  {activeSalesConsultants.map(sc => (
-                                    <SelectItem key={sc.id} value={sc.id}>{sc.name}</SelectItem>
-                                  ))}
-                                  {/* Kept visible (but not re-selectable as a new
-                                      assignment) only when it's this row's current
-                                      assignment, so a deactivated consultant's name
-                                      doesn't silently disappear from history. */}
-                                  {assignedConsultant && !assignedConsultant.is_active && (
-                                    <SelectItem key={assignedConsultant.id} value={assignedConsultant.id} disabled>
-                                      {assignedConsultant.name} (Inactive)
-                                    </SelectItem>
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            );
-                          })()}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          <span className="font-medium">R {appointment.assessment_fee.toFixed(2)}</span>
-                        </TableCell>
-                        <TableCell>
-                          <Select value={appointment.status} onValueChange={(value) => updateStatus(appointment.id, value)}>
-                            <SelectTrigger className="w-24 h-7 text-[11px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Scheduled">Scheduled</SelectItem>
-                              <SelectItem value="Assessed">Assessed</SelectItem>
-                              <SelectItem value="Re-Assessed">Re-Assessed</SelectItem>
-                              <SelectItem value="Cancelled">Cancelled</SelectItem>
-                              <SelectItem value="Rescheduled">Rescheduled</SelectItem>
-                              <SelectItem value="Merit Report">Merit Report</SelectItem>
-                              <SelectItem value="Joint Minutes">Joint Minutes</SelectItem>
-                              <SelectItem value="Addendum">Addendum</SelectItem>
-                              <SelectItem value="Affidavits">Affidavits</SelectItem>
-                              <SelectItem value="Court Preparation">Court Prep</SelectItem>
-                              <SelectItem value="Court Attendance">Court Attendance</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <Select value={appointment.report_status} onValueChange={(value) => updateReportStatusLocal(appointment.id, value)}>
-                              <SelectTrigger className="w-40 h-7 text-[11px] bg-background">
-                                <SelectValue placeholder="Select status">
-                                  {appointment.report_status}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent className="max-h-72 overflow-y-auto bg-popover border shadow-lg z-[100]">
-                                <SelectItem value="Initial Stage">Initial Stage</SelectItem>
-                                <SelectItem value="Preparing report">Preparing Report</SelectItem>
-                                <SelectItem value="Report on Final Stage">Report on Final Stage</SelectItem>
-                                <SelectItem value="Report Submitted without full payment">Report Submitted without Full Payment</SelectItem>
-                                <SelectItem value="Report Submitted on AOD">Report Submitted on AOD</SelectItem>
-                                <SelectItem value="Report fully paid & submitted">Report Fully Paid & Submitted</SelectItem>
-                                <SelectItem value="Court Attendance">Court Attendance</SelectItem>
-                                <SelectItem value="Court Preparation">Court Preparation</SelectItem>
-                                <SelectItem value="Affidavits">Affidavits</SelectItem>
-                                <SelectItem value="Joint Minutes">Joint Minutes</SelectItem>
-                                <SelectItem value="Addendum">Addendum</SelectItem>
-                                <SelectItem value="Re-Assessment">Re-Assessment</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            {(appointment.report_status.toLowerCase().includes('submitted') || 
-                              appointment.report_status.toLowerCase().includes('fully paid')) && 
-                              appointment.report_date && (
-                              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium leading-tight">
-                                ✓ {appointment.report_date}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Textarea
-                            placeholder="Add comments..."
-                            value={comments[appointment.id] !== undefined ? comments[appointment.id] : appointment.comments}
-                            onChange={(e) => updateComments(appointment.id, e.target.value)}
-                            className="min-h-[32px] w-32 text-[11px]"
-                          />
-                          {comments[appointment.id] !== undefined && comments[appointment.id] !== appointment.comments && (
-                            <div className="text-[10px] text-muted-foreground mt-0.5">Auto-saving...</div>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleAttachReport(appointment)}
-                              className="h-6 w-6 p-1"
-                              title="Attach Report"
-                            >
-                              <Paperclip className="h-3.5 w-3.5 text-primary" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleSendToAttorney(appointment)}
-                              className="h-6 w-6 p-1"
-                              title="Send to Attorney"
-                            >
-                              <Send className="h-3.5 w-3.5 text-teal-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleFinanceEdit(appointment)}
-                              className="h-6 w-6 p-1"
-                              title="Edit Fee / Discount / Deposit (syncs to AOD & Short-term)"
-                            >
-                              <span className="text-emerald-600 text-[11px] font-bold leading-none">R</span>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditClick(appointment.id)}
-                              className="h-6 w-6 p-1"
-                              title="Edit (full appointment)"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteClick(appointment.id)}
-                              className="h-6 w-6 p-1 text-destructive hover:text-destructive"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                    pagedAppointments.map((appointment) => (
+                      <AssessmentRow
+                        key={appointment.id}
+                        appointment={appointment}
+                        salesConsultants={salesConsultants}
+                        activeSalesConsultants={activeSalesConsultants}
+                        draftComment={comments[appointment.id]}
+                        onSalesConsultantChange={handleSalesConsultantChange}
+                        onStatusChange={handleStatusChange}
+                        onReportStatusChange={handleReportStatusChange}
+                        onCommentsChange={handleCommentsChange}
+                        onAttachReport={handleAttachReportStable}
+                        onSendToAttorney={handleSendToAttorneyStable}
+                        onFinanceEdit={handleFinanceEditStable}
+                        onEdit={handleEditClickStable}
+                        onDelete={handleDeleteClickStable}
+                      />
                     ))
                   )}
                 </TableBody>
@@ -2467,6 +2622,45 @@ const ScheduledAssessment = ({ embedded = false, onEditAppointment }: { embedded
             {filteredAppointments.length === 0 && (
               <div className="text-center py-4 text-muted-foreground">
                 No scheduled assessments found.
+              </div>
+            )}
+
+            {filteredAppointments.length > 0 && (
+              <div className="flex flex-col-reverse items-center justify-between gap-3 border-t pt-3 mt-2 sm:flex-row">
+                <p className="text-xs text-muted-foreground">
+                  Showing <span className="font-medium text-foreground">{pageStartIndex + 1}</span>–
+                  <span className="font-medium text-foreground">
+                    {Math.min(pageStartIndex + PAGE_SIZE, filteredAppointments.length)}
+                  </span>{' '}
+                  of <span className="font-medium text-foreground">{filteredAppointments.length}</span>
+                </p>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5"
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page <= 1}
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Page {page} of {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2.5"
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page >= totalPages}
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
