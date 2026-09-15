@@ -198,6 +198,12 @@ export interface ExternalPortalSettings {
   otp_max_attempts: number;
   session_expiry_hours: number;
   auto_expire_on_all_cases_closed: boolean;
+  /**
+   * Phase 27: base origin (scheme + host, no trailing slash) the
+   * External Portal sign-in link is built against. Single source of
+   * truth for that domain — see Settings and Send Sign-In Link.
+   */
+  app_origin: string;
   updated_by: string | null;
   updated_at: string;
 }
