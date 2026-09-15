@@ -19,6 +19,7 @@ import {
   Trash2,
   Settings as SettingsIcon,
   ShieldCheck,
+  Send,
 } from 'lucide-react';
 
 /**
@@ -34,6 +35,12 @@ const TABS = [
   { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '', adminOnly: true },
   { value: 'accounts', label: 'Portal Accounts', icon: Users, path: '/accounts', adminOnly: false },
   { value: 'links', label: 'Access Links', icon: Link2, path: '/links', adminOnly: false },
+  // Admin-only: unlike Access Links (one-time registration links, open
+  // to admin/employee/sales_consultant — see external-portal-admin-links),
+  // this sends the plain returning-user sign-in link to an account that
+  // already exists, so it's scoped tighter per the feature's own
+  // security requirement.
+  { value: 'send-signin-link', label: 'Send Sign-In Link', icon: Send, path: '/send-signin-link', adminOnly: true },
   { value: 'sessions', label: 'Active Sessions', icon: Radio, path: '/sessions', adminOnly: true },
   { value: 'otp', label: 'OTP Management', icon: KeyRound, path: '/otp', adminOnly: true },
   { value: 'login-history', label: 'Login History', icon: History, path: '/login-history', adminOnly: true },
