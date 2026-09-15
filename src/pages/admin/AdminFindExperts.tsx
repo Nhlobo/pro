@@ -70,6 +70,7 @@ const AdminFindExperts: React.FC = () => {
     professionQuery, setProfessionQuery, professionOptions, districts, loadingDistricts,
     internal, recommended, loadingInternal,
     external, loadingExternal, externalError, trustedTotal, externalTotal, hasSearchedExternal,
+    recommendedExternal, recommendedExternalTotal,
     trustedOnly, setTrustedOnly, externalLimit, setExternalLimit,
     includeRecomed, setIncludeRecomed, includeMedpages, setIncludeMedpages,
     quickQuery, setQuickQuery, lastParsedQuery, lastFreeText, runQuickSearch,
@@ -307,24 +308,58 @@ const AdminFindExperts: React.FC = () => {
                     </Button>
                   </AdminCardBody>
                 </AdminCard>
-              ) : contactableExternal.length === 0 ? (
-                <AdminCard>
-                  {trustedOnly ? (
-                    <AdminEmptyState
-                      icon={ShieldCheck}
-                      title="No trusted-registry matches with contact details"
-                      description='Try turning off "Trusted registries only", or broaden the location.'
-                    />
-                  ) : (
-                    <AdminEmptyState
-                      icon={Globe}
-                      title="No experts with contact details found"
-                      description={`We searched up to ${externalLimit} sources for ${profession || (lastFreeText ? `"${lastFreeText}"` : 'that')}${city ? ` in ${city}` : province ? ` in ${province}` : ''}, but couldn't find a reachable email or phone number for any match. Try a broader location, a related profession, or Use Our Internal Experts above.`}
-                    />
-                  )}
-                </AdminCard>
               ) : (
-                <VirtualizedResults items={contactableExternal} renderItem={(r) => <ExternalExpertCard result={r} onView={setViewExternal} />} />
+                <>
+                  {contactableExternal.length === 0 ? (
+                    <AdminCard>
+                      {trustedOnly ? (
+                        <AdminEmptyState
+                          icon={ShieldCheck}
+                          title="No trusted-registry matches with contact details"
+                          description='Try turning off "Trusted registries only", or broaden the location.'
+                        />
+                      ) : (
+                        <AdminEmptyState
+                          icon={Globe}
+                          title="No experts with contact details found"
+                          description={`We searched up to ${externalLimit} sources for ${profession || (lastFreeText ? `"${lastFreeText}"` : 'that')}${city ? ` in ${city}` : province ? ` in ${province}` : ''}, but couldn't find a reachable email or phone number for any match. Try a broader location, a related profession, or Use Our Internal Experts above.`}
+                        />
+                      )}
+                    </AdminCard>
+                  ) : (
+                    <VirtualizedResults items={contactableExternal} renderItem={(r) => <ExternalExpertCard result={r} onView={setViewExternal} />} />
+                  )}
+
+                  {/* Recommended — on-topic hits the wider web search found
+                      (other directories, private practice pages, etc.) that
+                      couldn't be matched to a confirmed email or phone
+                      number. Previously these were dropped entirely, which
+                      is why a search could report "no results" even though
+                      the search itself had actually found candidates —
+                      surfaced here instead, clearly marked unverified, so
+                      staff can follow up manually via the source link. */}
+                  {recommendedExternal.length > 0 && (
+                    <div className="space-y-2 pt-2">
+                      <div className="flex items-center gap-2 border-t border-black/10 pt-4">
+                        <AdminSectionLabel>
+                          Recommended — no confirmed contact yet
+                        </AdminSectionLabel>
+                        <AdminPill tone="neutral">
+                          {recommendedExternal.length}
+                          {recommendedExternalTotal !== null && recommendedExternalTotal > recommendedExternal.length
+                            ? ` of ${recommendedExternalTotal}` : ''}
+                        </AdminPill>
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        Found on other pages while searching, but we couldn't pull a reachable email or phone number automatically. Open a profile below and follow the source link to make contact.
+                      </p>
+                      <VirtualizedResults
+                        items={recommendedExternal}
+                        renderItem={(r) => <ExternalExpertCard result={r} onView={setViewExternal} unverified />}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -820,7 +855,7 @@ ExpertCard.displayName = 'ExpertCard';
  * extra detail (every email/phone, source registries, full snippet)
  * lives in ExternalProfileDialog rather than an inline expand toggle.
  */
-const ExternalExpertCard: React.FC<{ result: ExternalResult; onView: (result: ExternalResult) => void }> = React.memo(({ result: r, onView }) => {
+const ExternalExpertCard: React.FC<{ result: ExternalResult; onView: (result: ExternalResult) => void; unverified?: boolean }> = React.memo(({ result: r, onView, unverified }) => {
   const emails = r.emails ?? [];
   const phones = r.phones ?? [];
   const primaryEmail = emails[0];
@@ -829,11 +864,13 @@ const ExternalExpertCard: React.FC<{ result: ExternalResult; onView: (result: Ex
   const sourceHosts = (r.sources ?? []).map((s) => s.host);
 
   return (
-    <AdminCard className="flex flex-col">
+    <AdminCard className={`flex flex-col${unverified ? ' opacity-90' : ''}`}>
       <AdminCardHeader
         icon={User}
         title={<span className="truncate">{fullName}</span>}
-        actions={r.trusted ? (
+        actions={unverified ? (
+          <AdminPill tone="neutral">No confirmed contact</AdminPill>
+        ) : r.trusted ? (
           <AdminPill tone="teal"><ShieldCheck className="h-3 w-3" /> Trusted</AdminPill>
         ) : undefined}
       />
@@ -872,6 +909,11 @@ const ExternalExpertCard: React.FC<{ result: ExternalResult; onView: (result: Ex
           {primaryPhone && (
             <Button asChild size="sm" variant="outline" className="rounded-none border-black/15 text-black hover:bg-black/5">
               <a href={`tel:${primaryPhone}`}><Phone className="mr-1 h-3 w-3" />Call</a>
+            </Button>
+          )}
+          {unverified && !primaryEmail && !primaryPhone && r.source_url && (
+            <Button asChild size="sm" variant="outline" className="rounded-none border-black/15 text-black hover:bg-black/5">
+              <a href={r.source_url} target="_blank" rel="noreferrer"><ExternalLink className="mr-1 h-3 w-3" />Visit source</a>
             </Button>
           )}
           <Button
